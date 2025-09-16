@@ -4,36 +4,29 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 10001;
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://kuro-reader.vercel.app',
+    'http://localhost:5173'
+  ]
+}));
 app.use(express.json());
 
 // Proxy per evitare CORS
 app.post('/api/proxy', async (req, res) => {
   try {
     const { url, method = 'GET', headers = {} } = req.body;
-    
     const response = await axios({
       method,
       url,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        ...headers
-      },
+      headers: { 'User-Agent': 'Mozilla/5.0', ...headers },
       timeout: 15000
     });
-    
-    res.json({
-      success: true,
-      data: response.data,
-      headers: response.headers
-    });
+    res.json({ success: true, data: response.data, headers: response.headers });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -43,20 +36,13 @@ app.post('/api/parse', async (req, res) => {
     const { html, selector } = req.body;
     const $ = cheerio.load(html);
     const results = [];
-    
-    $(selector).each((i, elem) => {
-      results.push($(elem).html());
-    });
-    
+    $(selector).each((i, elem) => results.push($(elem).html()));
     res.json({ success: true, results });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Proxy server running on port ${PORT}`);
 });
