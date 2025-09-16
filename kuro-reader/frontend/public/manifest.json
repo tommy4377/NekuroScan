@@ -1,0 +1,58 @@
+{
+  "name": "KuroReader - Manga & Novel Reader",
+  "short_name": "KuroReader",
+  "description": "Leggi manga e light novel gratuitamente",
+  "theme_color": "#805AD5",
+  "background_color": "#1A202C",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "id": "kuroreader-v1",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["books", "entertainment", "lifestyle"],
+  "lang": "it-IT",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Libreria",
+      "url": "/library",
+      "description": "Vai alla tua libreria",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Cerca",
+      "url": "/search",
+      "description": "Cerca manga e novel",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot1.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "label": "Home page"
+    },
+    {
+      "src": "/screenshot2.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "label": "Reader"
+    }
+  ]
+}
