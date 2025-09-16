@@ -5,19 +5,21 @@ import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 
 const app = express();
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasources: { db: { url: 'postgresql://kurouser:yaqStGpnFlsx8p1ygvUWpsL0E3g0eXiZ@dpg-d34ufnp5pdvs73b9u0qg-a/kurodb' } }
+});
 const PORT = process.env.PORT || 10000;
 
 app.use(cors({
   origin: [
-    'https://<TUO_FRONTEND_VERCEL>.vercel.app',
+    'https://kuro-reader.vercel.app',
     'http://localhost:5173'
   ],
   credentials: true
 }));
 app.use(express.json());
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = '2ddbc9ab6834649be0d77707901ebd1e';
 
 // Middleware per verificare il token
 const authenticateToken = (req, res, next) => {
