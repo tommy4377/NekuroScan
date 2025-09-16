@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 10000;
 
 app.use(cors({
   origin: [
-    'https://kuro-reader.vercel.app',
+    'https://kuroreader.onrender.com/',
     'http://localhost:5173'
   ],
   credentials: true
@@ -118,3 +118,4 @@ app.get('/api/user/data', authenticateToken, async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Auth server running on port ${PORT}`);
 });
+
