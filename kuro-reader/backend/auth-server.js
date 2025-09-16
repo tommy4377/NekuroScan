@@ -1,4 +1,3 @@
-// Backend separato da deployare su Render
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
@@ -7,23 +6,25 @@ import { PrismaClient } from '@prisma/client';
 
 const app = express();
 const prisma = new PrismaClient();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 10000;
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://<TUO_FRONTEND_VERCEL>.vercel.app',
+    'http://localhost:5173'
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
-// JWT Secret
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Middleware per verificare il token
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  
-  if (!token) {
-    return res.sendStatus(401);
-  }
-  
+  if (!token) return res.sendStatus(401);
+
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) return res.sendStatus(403);
     req.user = user;
@@ -35,47 +36,19 @@ const authenticateToken = (req, res, next) => {
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    
-    // Check if user exists
     const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { username }]
-      }
+      where: { OR: [{ email }, { username }] }
     });
-    
-    if (existingUser) {
-      return res.status(400).json({
-        message: 'Utente già esistente'
-      });
-    }
-    
-    // Hash password
+    if (existingUser) return res.status(400).json({ message: 'Utente già esistente' });
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    
-    // Create user
     const user = await prisma.user.create({
-      data: {
-        username,
-        email,
-        password: hashedPassword
-      }
+      data: { username, email, password: hashedPassword }
     });
-    
-    // Generate token
-    const token = jwt.sign(
-      { id: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '30d' }
-    );
-    
-    res.json({
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email
-      },
-      token
-    });
+
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+
+    res.json({ user: { id: user.id, username: user.username, email: user.email }, token });
   } catch (error) {
     console.error('Register error:', error);
     res.status(500).json({ message: 'Errore del server' });
@@ -86,42 +59,15 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email }
-    });
-    
-    if (!user) {
-      return res.status(401).json({
-        message: 'Credenziali non valide'
-      });
-    }
-    
-    // Check password
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(401).json({ message: 'Credenziali non valide' });
+
     const validPassword = await bcrypt.compare(password, user.password);
-    
-    if (!validPassword) {
-      return res.status(401).json({
-        message: 'Credenziali non valide'
-      });
-    }
-    
-    // Generate token
-    const token = jwt.sign(
-      { id: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '30d' }
-    );
-    
-    res.json({
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email
-      },
-      token
-    });
+    if (!validPassword) return res.status(401).json({ message: 'Credenziali non valide' });
+
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+
+    res.json({ user: { id: user.id, username: user.username, email: user.email }, token });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Errore del server' });
@@ -131,21 +77,9 @@ app.post('/api/auth/login', async (req, res) => {
 // Get current user
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id }
-    });
-    
-    if (!user) {
-      return res.status(404).json({ message: 'Utente non trovato' });
-    }
-    
-    res.json({
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email
-      }
-    });
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) return res.status(404).json({ message: 'Utente non trovato' });
+    res.json({ user: { id: user.id, username: user.username, email: user.email } });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ message: 'Errore del server' });
@@ -156,16 +90,11 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
 app.post('/api/user/favorites', authenticateToken, async (req, res) => {
   try {
     const { favorites } = req.body;
-    
     await prisma.userFavorites.upsert({
       where: { userId: req.user.id },
       update: { favorites: JSON.stringify(favorites) },
-      create: {
-        userId: req.user.id,
-        favorites: JSON.stringify(favorites)
-      }
+      create: { userId: req.user.id, favorites: JSON.stringify(favorites) }
     });
-    
     res.json({ success: true });
   } catch (error) {
     console.error('Save favorites error:', error);
@@ -176,14 +105,8 @@ app.post('/api/user/favorites', authenticateToken, async (req, res) => {
 // Get user data
 app.get('/api/user/data', authenticateToken, async (req, res) => {
   try {
-    const userData = await prisma.userFavorites.findUnique({
-      where: { userId: req.user.id }
-    });
-    
-    res.json({
-      favorites: userData ? JSON.parse(userData.favorites) : [],
-      // Altri dati utente...
-    });
+    const userData = await prisma.userFavorites.findUnique({ where: { userId: req.user.id } });
+    res.json({ favorites: userData ? JSON.parse(userData.favorites) : [] });
   } catch (error) {
     console.error('Get user data error:', error);
     res.status(500).json({ message: 'Errore del server' });
