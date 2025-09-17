@@ -13,7 +13,9 @@ export class MangaWorldAdultAPI {
         body: JSON.stringify({
           url,
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8'
           }
         })
       });
@@ -50,11 +52,15 @@ export class MangaWorldAdultAPI {
         const title = entry.querySelector('.manga-title, .name, p')?.textContent || 'Unknown';
         
         if (link?.href) {
+          const href = link.getAttribute('href');
+          const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+          
           results.push({
-            url: new URL(link.getAttribute('href'), this.baseUrl).href,
+            url: fullUrl,
             title: title.trim(),
-            cover: img?.src || '',
-            type: 'manga'
+            cover: img?.src || img?.dataset?.src || '',
+            type: 'manga',
+            source: 'mangaWorldAdult'
           });
         }
       });
@@ -66,140 +72,243 @@ export class MangaWorldAdultAPI {
     }
   }
 
-    async getMangaFromUrl(url) {
-  try {
-    const html = await this.makeRequest(url);
-    const doc = this.parseHTML(html);
-      
-      const infoDiv = doc.querySelector('div.info');
-      let title = 'Unknown Title';
-      if (infoDiv) {
-        const titleElem = infoDiv.querySelector('h1, h2');
-        if (titleElem) {
-          title = titleElem.textContent.trim();
-        }
-      }
-      
-      let coverUrl = '';
-      const thumbDiv = doc.querySelector('div.thumb');
-      if (thumbDiv) {
-        const img = thumbDiv.querySelector('img');
-        if (img) {
-          coverUrl = img.src || '';
-        }
-      }
-      
-      const genres = [];
-    const genreContainer = doc.querySelector('.meta-data') || doc.querySelector('.info');
-    if (genreContainer) {
-      // Cerca specificamente i link dei generi
-      const genreLinks = genreContainer.querySelectorAll('a[href*="/genre/"], a[href*="/archive?genre"]');
-      genreLinks.forEach(link => {
-        const genre = link.textContent.trim();
-        if (genre && genre.length < 30) { // Filtra generi troppo lunghi
-          genres.push({ genre });
-        }
-      });
-    }
-    
-    // Se ancora non trova generi, cerca con pattern più generale
-    if (genres.length === 0) {
-      const allLinks = doc.querySelectorAll('.info a');
-      allLinks.forEach(link => {
-        const text = link.textContent.trim();
-        const href = link.getAttribute('href') || '';
-        // Solo link che sembrano generi
-        if (href.includes('genre') || href.includes('tag')) {
-          if (text && text.length < 30) {
-            genres.push({ genre: text });
-          }
-        }
-      });
-    }
-    
-    // Limita i generi a massimo 10
-    manga['genres'] = genres.slice(0, 10);
-    
-    // Parsing capitoli migliorato
-    const chapters = [];
-    const chapterElements = doc.querySelectorAll('.chapter a, .chapters-wrapper a, div.chapter > a');
-    
-    chapterElements.forEach((elem, i) => {
-      const href = elem.getAttribute('href');
-      if (!href) return;
-      
-      const chapterText = elem.textContent.trim();
-      let chapterNumber = i + 1; // Default
-      
-      // Estrai numero capitolo con pattern più precisi
-      const patterns = [
-        /capitolo\s+(\d+(?:\.\d+)?)/i,
-        /chapter\s+(\d+(?:\.\d+)?)/i,
-        /cap\.\s*(\d+(?:\.\d+)?)/i,
-        /ch\.\s*(\d+(?:\.\d+)?)/i,
-        /^(\d+(?:\.\d+)?)[:\s-]/
-      ];
-      
-      for (const pattern of patterns) {
-        const match = chapterText.match(pattern);
-        if (match) {
-          chapterNumber = parseFloat(match[1]);
-          break;
-        }
-      }
-      
-      chapters.push({
-        url: href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`,
-        chapterNumber,
-        title: chapterText,
-        dateAdd: ''
-      });
-    });
-    
-    // Ordina e deduplica
-    const uniqueChapters = [];
-    const seen = new Set();
-    
-    chapters
-      .sort((a, b) => a.chapterNumber - b.chapterNumber)
-      .forEach(ch => {
-        if (!seen.has(ch.chapterNumber)) {
-          seen.add(ch.chapterNumber);
-          uniqueChapters.push(ch);
-        }
-      });
-    
-    manga['chapters'] = uniqueChapters;
-    manga['chaptersNumber'] = uniqueChapters.length;
-    
-    return manga;
-    
-  } catch (error) {
-    console.error('Get manga error:', error);
-    return null;
-  }
-}
-
-  async getChapterDetail(chapterUrl) {
+  async getMangaFromUrl(url) {
     try {
-      const html = await this.makeRequest(chapterUrl);
+      const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
       
-      const pageUrls = [];
-      const pageDiv = doc.querySelector('#page, .chapter-pages, .reader-pages');
+      // Titolo - selettori aggiornati per Adult
+      const titleElem = doc.querySelector('h1.name, h1.bigger, .info h1');
+      const title = titleElem?.textContent?.trim() || 'Unknown Title';
       
-      if (pageDiv) {
-        pageDiv.querySelectorAll('img').forEach(img => {
-          const src = img.src || img.dataset.src || img.dataset.lazy;
-          if (src && src.includes('http')) {
-            pageUrls.push(src);
+      // Cover image - selettori aggiornati
+      const coverImg = doc.querySelector('.thumb img, .manga-image img, .book-cover img');
+      const coverUrl = coverImg?.src || coverImg?.dataset?.src || '';
+      
+      // Informazioni manga
+      const info = {
+        alternativeTitles: [],
+        authors: [],
+        artists: [],
+        genres: [],
+        status: '',
+        type: 'Manga',
+        year: ''
+      };
+      
+      // Parse meta-data
+      const metaDiv = doc.querySelector('.meta-data, .info');
+      if (metaDiv) {
+        // Generi
+        const genreLinks = metaDiv.querySelectorAll('a[href*="/archive?genre"], a.badge');
+        genreLinks.forEach(link => {
+          const genre = link.textContent.trim();
+          if (genre && !genre.includes('http')) {
+            info.genres.push({ genre });
+          }
+        });
+        
+        // Autori
+        const authorSection = Array.from(metaDiv.querySelectorAll('.col-12, .col-md-6'))
+          .find(el => el.textContent.includes('Autori:'));
+        if (authorSection) {
+          const authorLinks = authorSection.querySelectorAll('a');
+          authorLinks.forEach(link => {
+            info.authors.push(link.textContent.trim());
+          });
+        }
+        
+        // Artisti
+        const artistSection = Array.from(metaDiv.querySelectorAll('.col-12, .col-md-6'))
+          .find(el => el.textContent.includes('Artisti:'));
+        if (artistSection) {
+          const artistLinks = artistSection.querySelectorAll('a');
+          artistLinks.forEach(link => {
+            info.artists.push(link.textContent.trim());
+          });
+        }
+        
+        // Status
+        const statusLink = metaDiv.querySelector('a[href*="/archive?status"]');
+        if (statusLink) {
+          info.status = statusLink.textContent.trim();
+        }
+        
+        // Anno
+        const yearLink = metaDiv.querySelector('a[href*="/archive?year"]');
+        if (yearLink) {
+          info.year = yearLink.textContent.trim();
+        }
+        
+        // Tipo
+        const typeLink = metaDiv.querySelector('a[href*="/archive?type"]');
+        if (typeLink) {
+          info.type = typeLink.textContent.trim();
+        }
+      }
+      
+      // Trama
+      const plotDiv = doc.querySelector('#noidungm, .comic-description');
+      const plotText = plotDiv?.textContent?.trim() || '';
+      const plot = plotText.replace(/^TRAMA\s*/i, '').trim();
+      
+      // Capitoli - parsing migliorato
+      const chapters = [];
+      const chapterContainer = doc.querySelector('.chapters-wrapper, #chapterList');
+      
+      if (chapterContainer) {
+        const chapterElements = chapterContainer.querySelectorAll('.chapter > a, .chap');
+        
+        chapterElements.forEach((elem, i) => {
+          const href = elem.getAttribute('href');
+          if (!href) return;
+          
+          const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+          
+          // Estrai testo del capitolo
+          const chapterSpan = elem.querySelector('span');
+          const chapterText = chapterSpan?.textContent?.trim() || elem.textContent?.trim() || `Capitolo ${i + 1}`;
+          
+          // Estrai data
+          const dateElem = elem.querySelector('.chap-date, i');
+          const dateText = dateElem?.textContent?.trim() || '';
+          
+          chapters.push({
+            url: fullUrl,
+            chapterNumber: i + 1,
+            title: chapterText,
+            dateAdd: dateText
+          });
+        });
+      }
+      
+      // Se non trova capitoli nel container, cerca in tutta la pagina
+      if (chapters.length === 0) {
+        const allChapterLinks = doc.querySelectorAll('a[href*="/read/"]');
+        allChapterLinks.forEach((elem, i) => {
+          const href = elem.getAttribute('href');
+          if (href) {
+            const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+            const chapterText = elem.textContent?.trim() || `Capitolo ${i + 1}`;
+            
+            chapters.push({
+              url: fullUrl,
+              chapterNumber: i + 1,
+              title: chapterText,
+              dateAdd: ''
+            });
           }
         });
       }
       
       return {
+        url,
+        title,
+        coverUrl,
+        alternativeTitles: info.alternativeTitles,
+        authors: info.authors,
+        artists: info.artists,
+        genres: info.genres,
+        status: info.status,
+        type: info.type,
+        year: info.year,
+        plot,
+        chapters,
+        chaptersNumber: chapters.length,
+        source: 'mangaWorldAdult'
+      };
+    } catch (error) {
+      console.error('Get manga error:', error);
+      return null;
+    }
+  }
+
+  async getChapterDetail(chapterUrl) {
+    try {
+      // Aggiungi style=list per avere tutte le pagine
+      let url = chapterUrl;
+      if (!url.includes('style=list')) {
+        url = url.includes('?') ? `${chapterUrl}&style=list` : `${chapterUrl}?style=list`;
+      }
+      
+      console.log('Loading adult chapter from:', url);
+      
+      const html = await this.makeRequest(url);
+      const doc = this.parseHTML(html);
+      
+      const pages = [];
+      
+      // Selettori per le pagine del reader
+      const selectors = [
+        '#page img',
+        '.page img',
+        '#reader img',
+        '.chapter-content img',
+        '.reading-content img',
+        'img[data-src]',
+        'img[data-lazy]'
+      ];
+      
+      for (const selector of selectors) {
+        const images = doc.querySelectorAll(selector);
+        if (images.length > 0) {
+          images.forEach(img => {
+            const src = img.src || 
+                       img.dataset.src || 
+                       img.dataset.lazy || 
+                       img.dataset.original ||
+                       img.getAttribute('data-src') ||
+                       img.getAttribute('data-lazy-src');
+            
+            if (src && src.includes('http')) {
+              if (!pages.includes(src)) {
+                pages.push(src);
+                console.log('Found page:', src);
+              }
+            }
+          });
+          
+          if (pages.length > 0) break;
+        }
+      }
+      
+      // Se non trova immagini, cerca negli script
+      if (pages.length === 0) {
+        console.log('No images found, searching scripts...');
+        const scripts = doc.querySelectorAll('script');
+        scripts.forEach(script => {
+          const content = script.textContent || script.innerHTML;
+          if (content) {
+            // Pattern per trovare array di immagini
+            const patterns = [
+              /["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|gif|webp))["']/gi,
+              /pages\s*=\s*```math
+(.*?)```/s,
+              /images\s*=\s*```math
+(.*?)```/s
+            ];
+            
+            for (const pattern of patterns) {
+              const matches = content.match(pattern);
+              if (matches) {
+                matches.forEach(match => {
+                  const cleanUrl = match.replace(/["'```math
+```]/g, '').trim();
+                  if (cleanUrl.startsWith('http') && !pages.includes(cleanUrl)) {
+                    pages.push(cleanUrl);
+                  }
+                });
+              }
+            }
+          }
+        });
+      }
+      
+      console.log(`Total pages found: ${pages.length}`);
+      
+      return {
         url: chapterUrl,
-        pages: pageUrls,
+        pages,
         type: 'images'
       };
     } catch (error) {
@@ -214,24 +323,41 @@ export class MangaWorldAdultAPI {
       const doc = this.parseHTML(html);
       
       const trending = [];
-      const entries = doc.querySelectorAll('#chapters-slide div.entry, .trending-section div.entry');
       
-      entries.forEach((entry, i) => {
-        if (i >= 10) return;
-        
-        const link = entry.querySelector('a');
-        const img = entry.querySelector('img');
-        const title = entry.querySelector('.name, .title')?.textContent || 'Unknown';
-        
-        if (link?.href) {
-          trending.push({
-            url: new URL(link.getAttribute('href'), this.baseUrl).href,
-            title: title.trim(),
-            cover: img?.src || '',
-            type: 'manga'
+      // Selettori per manga popolari/trending
+      const selectors = [
+        '.top-wrapper .entry',
+        '.hot-manga .entry',
+        '.trending .entry',
+        '.popular .entry'
+      ];
+      
+      for (const selector of selectors) {
+        const entries = doc.querySelectorAll(selector);
+        if (entries.length > 0) {
+          entries.forEach((entry, i) => {
+            if (i >= 10) return;
+            
+            const link = entry.querySelector('a');
+            const img = entry.querySelector('img');
+            const title = entry.querySelector('.name, .title, .manga-title')?.textContent || 'Unknown';
+            
+            if (link?.href) {
+              const href = link.getAttribute('href');
+              const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+              
+              trending.push({
+                url: fullUrl,
+                title: title.trim(),
+                cover: img?.src || img?.dataset?.src || '',
+                type: 'manga',
+                source: 'mangaWorldAdult'
+              });
+            }
           });
+          break;
         }
-      });
+      }
       
       return trending;
     } catch (error) {
@@ -240,4 +366,3 @@ export class MangaWorldAdultAPI {
     }
   }
 }
-
