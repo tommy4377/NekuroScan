@@ -1,25 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  Container,
-  Input,
-  InputGroup,
-  InputLeftElement,
-  SimpleGrid,
-  Heading,
-  Text,
-  VStack,
-  HStack,
-  Select,
-  Button,
-  Skeleton,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
-  Badge,
-  useToast
+  Box, Container, Input, InputGroup, InputLeftElement, SimpleGrid,
+  Heading, Text, VStack, HStack, Button, Skeleton, Badge, useToast
 } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
 import { useSearchParams } from 'react-router-dom';
@@ -32,9 +14,9 @@ const MotionBox = motion(Box);
 function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState(searchParams.get('q') || '');
-  const [results, setResults] = useState({ all: [], manga: [], novels: [] });
+  const [results, setResults] = useState({ all: [], manga: [], mangaAdult: [] });
   const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState('all');
+  const [includeAdult, setIncludeAdult] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -50,15 +32,17 @@ function Search() {
     
     setLoading(true);
     try {
-      const searchResults = await apiManager.searchAll(searchQuery);
+      const searchResults = await apiManager.searchAll(searchQuery, { includeAdult });
       setResults(searchResults);
       
-      toast({
-        title: 'Ricerca completata',
-        description: `Trovati ${searchResults.all.length} risultati`,
-        status: 'success',
-        duration: 3000,
-      });
+      if (searchResults.all.length === 0) {
+        toast({
+          title: 'Nessun risultato',
+          description: 'Prova con altre parole chiave',
+          status: 'info',
+          duration: 3000,
+        });
+      }
     } catch (error) {
       toast({
         title: 'Errore nella ricerca',
@@ -66,6 +50,7 @@ function Search() {
         status: 'error',
         duration: 3000,
       });
+      setResults({ all: [], manga: [], mangaAdult: [] });
     } finally {
       setLoading(false);
     }
@@ -79,17 +64,6 @@ function Search() {
     }
   };
 
-  const getFilteredResults = () => {
-    switch (filter) {
-      case 'manga':
-        return results.manga;
-      case 'novels':
-        return results.novels;
-      default:
-        return results.all;
-    }
-  };
-
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={8} align="stretch">
@@ -99,7 +73,7 @@ function Search() {
           animate={{ opacity: 1, y: 0 }}
         >
           <VStack spacing={6}>
-            <Heading size="xl">Cerca Manga e Novel</Heading>
+            <Heading size="xl">Cerca Manga</Heading>
             
             <form onSubmit={handleSearch} style={{ width: '100%' }}>
               <HStack spacing={4} maxW="600px" mx="auto">
@@ -121,6 +95,18 @@ function Search() {
                 </Button>
               </HStack>
             </form>
+
+            {/* Include Adult Toggle */}
+            <HStack>
+              <Button
+                variant={includeAdult ? 'solid' : 'outline'}
+                colorScheme="pink"
+                size="sm"
+                onClick={() => setIncludeAdult(!includeAdult)}
+              >
+                {includeAdult ? 'Adult inclusi' : 'Solo normale'}
+              </Button>
+            </HStack>
 
             {/* Quick Tags */}
             <HStack wrap="wrap" justify="center" spacing={2}>
@@ -146,30 +132,21 @@ function Search() {
         {/* Results */}
         {(results.all.length > 0 || loading) && (
           <VStack spacing={6} align="stretch">
-            {/* Filters */}
-            <HStack justify="space-between" wrap="wrap">
-              <HStack>
-                <Text fontWeight="bold">
-                  {loading ? 'Ricerca...' : `${getFilteredResults().length} risultati`}
-                </Text>
-                {results.all.length > 0 && (
-                  <HStack spacing={2}>
+            {/* Results count */}
+            <HStack justify="space-between">
+              <Text fontWeight="bold">
+                {loading ? 'Ricerca...' : `${results.all.length} risultati`}
+              </Text>
+              {results.all.length > 0 && (
+                <HStack spacing={2}>
+                  {results.manga.length > 0 && (
                     <Badge colorScheme="blue">{results.manga.length} Manga</Badge>
-                    <Badge colorScheme="purple">{results.novels.length} Novel</Badge>
-                  </HStack>
-                )}
-              </HStack>
-              
-              <Select
-                maxW="200px"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                bg="gray.800"
-              >
-                <option value="all">Tutti</option>
-                <option value="manga">Solo Manga</option>
-                <option value="novels">Solo Novel</option>
-              </Select>
+                  )}
+                  {results.mangaAdult.length > 0 && (
+                    <Badge colorScheme="pink">{results.mangaAdult.length} Adult</Badge>
+                  )}
+                </HStack>
+              )}
             </HStack>
 
             {/* Results Grid */}
@@ -181,14 +158,14 @@ function Search() {
               </SimpleGrid>
             ) : (
               <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-                {getFilteredResults().map((item, i) => (
+                {results.all.map((item, i) => (
                   <MotionBox
-                    key={i}
+                    key={`${item.url}-${i}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
                   >
-                    <MangaCard manga={item} />
+                    <MangaCard manga={item} hideSource />
                   </MotionBox>
                 ))}
               </SimpleGrid>
