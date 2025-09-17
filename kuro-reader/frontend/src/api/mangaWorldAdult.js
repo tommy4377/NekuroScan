@@ -294,12 +294,9 @@ export class MangaWorldAdultAPI {
             
             // Cerca anche pattern di array
             const arrayPatterns = [
-              /pages\s*=\s*```math
-([\s\S]*?)```/,
-              /images\s*=\s*```math
-([\s\S]*?)```/,
-              /pageArray\s*=\s*```math
-([\s\S]*?)```/
+              /pages\s*=\s*\[([\s\S]*?)\]/,
+              /images\s*=\s*\[([\s\S]*?)\]/,
+              /pageArray\s*=\s*\[([\s\S]*?)\]/
             ];
             
             for (const pattern of arrayPatterns) {
@@ -382,3 +379,4 @@ export class MangaWorldAdultAPI {
     }
   }
 }
+
