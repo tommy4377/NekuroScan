@@ -9,7 +9,6 @@ import {
   InputGroup,
   InputLeftElement,
   useDisclosure,
-  Stack,
   Container,
   Avatar,
   Menu,
@@ -26,7 +25,8 @@ import {
   DrawerContent,
   DrawerCloseButton,
   VStack,
-  Divider
+  Divider,
+  useBreakpointValue
 } from '@chakra-ui/react';
 import {
   HamburgerIcon,
@@ -34,7 +34,7 @@ import {
   SearchIcon
 } from '@chakra-ui/icons';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaBook, FaHome, FaSearch, FaUser, FaBookmark, FaCog } from 'react-icons/fa';
+import { FaBook, FaHome, FaSearch, FaUser, FaBookmark, FaCog, FaSignInAlt } from 'react-icons/fa';
 import useAuth from '../hooks/useAuth';
 
 function Navigation() {
@@ -42,6 +42,11 @@ function Navigation() {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  
+  // Responsive values
+  const showDesktopNav = useBreakpointValue({ base: false, md: true });
+  const logoSize = useBreakpointValue({ base: '25px', md: '30px' });
+  const titleSize = useBreakpointValue({ base: 'lg', md: '2xl' });
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -68,8 +73,9 @@ function Navigation() {
       >
         <Container maxW="container.xl">
           <Flex h={16} alignItems="center" justifyContent="space-between">
-            {/* Logo and Mobile Menu */}
-            <HStack spacing={8} alignItems="center">
+            {/* Left side - Menu and Logo */}
+            <HStack spacing={{ base: 2, md: 8 }} alignItems="center" flex={{ base: 1, md: 'none' }}>
+              {/* Mobile menu button */}
               <IconButton
                 size="md"
                 icon={isOpen ? <CloseIcon /> : <HamburgerIcon />}
@@ -78,42 +84,57 @@ function Navigation() {
                 onClick={onOpen}
               />
               
-              <Link to="/home">
-                <HStack>
-                  <Image 
-                    src="/web-app-manifest-512x512.png" 
-                    boxSize="30px" 
-                    mr={2} 
-                    fallbackSrc="https://via.placeholder.com/30" 
-                  />
-                  <Text
-                    fontSize="2xl"
-                    fontWeight="bold"
-                    bgGradient="linear(to-r, purple.400, pink.400)"
-                    bgClip="text"
-                  >
-                    KuroReader
-                  </Text>
-                </HStack>
-              </Link>
+              {/* Logo - cliccabile per tornare alla home */}
+              <Box 
+                as={Link} 
+                to="/home"
+                display="flex"
+                alignItems="center"
+                cursor="pointer"
+                _hover={{ opacity: 0.8 }}
+                transition="opacity 0.2s"
+              >
+                <Image 
+                  src="/web-app-manifest-512x512.png" 
+                  boxSize={logoSize}
+                  mr={2} 
+                  fallbackSrc="https://via.placeholder.com/30" 
+                />
+                <Text
+                  fontSize={titleSize}
+                  fontWeight="bold"
+                  bgGradient="linear(to-r, purple.400, pink.400)"
+                  bgClip="text"
+                  display={{ base: 'none', sm: 'block' }}
+                >
+                  KuroReader
+                </Text>
+              </Box>
 
               {/* Desktop Navigation */}
-              <HStack as="nav" spacing={4} display={{ base: 'none', md: 'flex' }}>
-                <Link to="/home">
-                  <Button variant="ghost" leftIcon={<FaHome />}>
-                    Home
-                  </Button>
-                </Link>
-                <Link to="/library">
-                  <Button variant="ghost" leftIcon={<FaBook />}>
-                    Libreria
-                  </Button>
-                </Link>
-              </HStack>
+              {showDesktopNav && (
+                <HStack as="nav" spacing={4}>
+                  <Link to="/home">
+                    <Button variant="ghost" leftIcon={<FaHome />}>
+                      Home
+                    </Button>
+                  </Link>
+                  <Link to="/library">
+                    <Button variant="ghost" leftIcon={<FaBook />}>
+                      Libreria
+                    </Button>
+                  </Link>
+                </HStack>
+              )}
             </HStack>
 
-            {/* Search Bar - Desktop */}
-            <Box display={{ base: 'none', md: 'block' }} flex={1} maxW="400px" mx={8}>
+            {/* Center - Search Bar (Desktop only) */}
+            <Box 
+              display={{ base: 'none', md: 'block' }} 
+              flex={1} 
+              maxW="400px" 
+              mx={8}
+            >
               <form onSubmit={handleSearch}>
                 <InputGroup>
                   <InputLeftElement pointerEvents="none">
@@ -131,8 +152,18 @@ function Navigation() {
               </form>
             </Box>
 
-            {/* Right Menu */}
-            <HStack spacing={3}>
+            {/* Right side - User menu */}
+            <HStack spacing={2}>
+              {/* Mobile search button */}
+              <IconButton
+                icon={<SearchIcon />}
+                variant="ghost"
+                display={{ base: 'flex', md: 'none' }}
+                onClick={() => navigate('/search')}
+                aria-label="Cerca"
+              />
+              
+              {/* User menu / Login button */}
               {user ? (
                 <Menu>
                   <MenuButton
@@ -149,9 +180,15 @@ function Navigation() {
                     />
                   </MenuButton>
                   <MenuList bg="gray.800" borderColor="gray.700">
-                    <MenuItem icon={<FaUser />}>Profilo</MenuItem>
-                    <MenuItem icon={<FaBookmark />}>Preferiti</MenuItem>
-                    <MenuItem icon={<FaCog />}>Impostazioni</MenuItem>
+                    <MenuItem icon={<FaUser />} onClick={() => navigate('/profile')}>
+                      Profilo
+                    </MenuItem>
+                    <MenuItem icon={<FaBookmark />} onClick={() => navigate('/library')}>
+                      Preferiti
+                    </MenuItem>
+                    <MenuItem icon={<FaCog />} onClick={() => navigate('/settings')}>
+                      Impostazioni
+                    </MenuItem>
                     <MenuDivider />
                     <MenuItem onClick={logout} color="red.400">
                       Logout
@@ -162,7 +199,9 @@ function Navigation() {
                 <Button
                   colorScheme="purple"
                   size="sm"
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate('/login')}
+                  leftIcon={<FaSignInAlt />}
+                  display={{ base: 'none', sm: 'flex' }}
                 >
                   Accedi
                 </Button>
@@ -173,7 +212,7 @@ function Navigation() {
       </Box>
 
       {/* Mobile Drawer */}
-      <Drawer isOpen={isOpen} placement="left" onClose={onClose}>
+      <Drawer isOpen={isOpen} placement="left" onClose={onClose} size="xs">
         <DrawerOverlay />
         <DrawerContent bg="gray.900">
           <DrawerCloseButton />
@@ -204,11 +243,12 @@ function Navigation() {
                     <SearchIcon color="gray.400" />
                   </InputLeftElement>
                   <Input
-                    placeholder="Cerca..."
+                    placeholder="Cerca manga..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     bg="gray.800"
                     border="none"
+                    _focus={{ bg: 'gray.700' }}
                   />
                 </InputGroup>
               </form>
@@ -227,49 +267,50 @@ function Navigation() {
                     Libreria
                   </Button>
                 </Link>
+                <Link to="/search" onClick={onClose}>
+                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaSearch />} w="100%">
+                    Cerca
+                  </Button>
+                </Link>
               </VStack>
               
-              {user && (
-                <>
-                  <Divider />
-                  <VStack align="stretch" spacing={2}>
-                    <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaUser />}>
-                      Profilo
-                    </Button>
-                    <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaBookmark />}>
-                      Preferiti
-                    </Button>
-                    <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaCog />}>
-                      Impostazioni
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      justifyContent="flex-start"
-                      color="red.400"
-                      onClick={() => {
-                        logout();
-                        onClose();
-                      }}
-                    >
-                      Logout
-                    </Button>
-                  </VStack>
-                </>
-              )}
+              <Divider />
               
-              {!user && (
-                <>
-                  <Divider />
+              {user ? (
+                <VStack align="stretch" spacing={2}>
+                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaUser />}>
+                    Profilo
+                  </Button>
+                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaBookmark />}>
+                    Preferiti
+                  </Button>
+                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaCog />}>
+                    Impostazioni
+                  </Button>
                   <Button
-                    colorScheme="purple"
+                    variant="ghost"
+                    justifyContent="flex-start"
+                    color="red.400"
                     onClick={() => {
-                      navigate('/');
+                      logout();
                       onClose();
+                      navigate('/');
                     }}
                   >
-                    Accedi
+                    Logout
                   </Button>
-                </>
+                </VStack>
+              ) : (
+                <Button
+                  colorScheme="purple"
+                  leftIcon={<FaSignInAlt />}
+                  onClick={() => {
+                    navigate('/login');
+                    onClose();
+                  }}
+                >
+                  Accedi
+                </Button>
               )}
             </VStack>
           </DrawerBody>
