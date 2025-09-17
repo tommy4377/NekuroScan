@@ -3,12 +3,12 @@ import {
   Box, IconButton, useToast, Image, Spinner, Text, VStack, HStack,
   Drawer, DrawerOverlay, DrawerContent, DrawerBody, DrawerHeader,
   Switch, FormControl, FormLabel, Slider, SliderTrack, SliderFilledTrack,
-  SliderThumb, Button, Container
+  SliderThumb, Button
 } from '@chakra-ui/react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FaChevronLeft, FaChevronRight, FaExpand, FaCompress, 
-  FaTimes, FaBars, FaCog, FaAlignJustify, FaHome
+  FaTimes, FaCog, FaAlignJustify
 } from 'react-icons/fa';
 import { RiPagesFill, RiPagesLine } from 'react-icons/ri';
 import apiManager from '../api';
@@ -31,7 +31,7 @@ function ReaderPage() {
   const [scrollSpeed, setScrollSpeed] = useState(50);
   const [imageScale, setImageScale] = useState(100);
   const [errorPages, setErrorPages] = useState(new Set());
-  const [fitMode, setFitMode] = useState('height'); // height, width, original
+  const [fitMode, setFitMode] = useState('height');
   
   const scrollIntervalRef = useRef(null);
   const containerRef = useRef(null);
@@ -47,7 +47,6 @@ function ReaderPage() {
   }, [chapterId, source]);
 
   useEffect(() => {
-    // Auto-scroll per modalità webtoon
     if (autoScroll && readingMode === 'webtoon') {
       scrollIntervalRef.current = setInterval(() => {
         if (containerRef.current) {
@@ -70,7 +69,6 @@ function ReaderPage() {
     };
   }, [autoScroll, scrollSpeed, readingMode]);
 
-  // Gestione keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (readingMode === 'webtoon') return;
@@ -104,22 +102,15 @@ function ReaderPage() {
       setLoading(true);
       setErrorPages(new Set());
       
-      // Decodifica gli ID
       const mangaUrl = atob(mangaId);
       const chapterUrl = atob(chapterId);
       
-      console.log('Loading manga:', mangaUrl);
-      console.log('Loading chapter:', chapterUrl);
-      console.log('Source:', source);
-      
-      // Carica dettagli manga
       const mangaData = await apiManager.getMangaDetails(mangaUrl, source);
       if (!mangaData) {
         throw new Error('Impossibile caricare i dettagli del manga');
       }
       setManga(mangaData);
       
-      // Carica capitolo
       const chapterData = await apiManager.getChapter(chapterUrl, source);
       
       if (!chapterData) {
@@ -130,11 +121,9 @@ function ReaderPage() {
         throw new Error('Nessuna pagina trovata nel capitolo');
       }
       
-      console.log(`Loaded ${chapterData.pages.length} pages`);
       setChapter(chapterData);
       setCurrentPage(0);
       
-      // Rileva se è un webtoon usando un metodo sicuro
       if (chapterData.pages.length > 0) {
         detectManhwa(chapterData.pages[0]);
       }
@@ -149,7 +138,6 @@ function ReaderPage() {
         isClosable: true
       });
       
-      // Torna alla pagina del manga dopo 2 secondi
       setTimeout(() => {
         navigate(`/manga/${source}/${mangaId}`);
       }, 2000);
@@ -161,11 +149,9 @@ function ReaderPage() {
   const detectManhwa = (firstPageUrl) => {
     if (!firstPageUrl) return;
     
-    // Usa document.createElement invece di new Image()
     const img = document.createElement('img');
     img.onload = function() {
       const aspectRatio = this.width / this.height;
-      // Se l'aspect ratio è molto verticale, è probabilmente un webtoon
       if (aspectRatio < 0.6) {
         setReadingMode('webtoon');
         setFitMode('width');
@@ -199,13 +185,10 @@ function ReaderPage() {
     
     if (newPage >= 0 && newPage < chapter.pages.length) {
       setCurrentPage(newPage);
-      // Preload next images
       preloadImages(newPage);
     } else if (newPage >= chapter.pages.length && chapterIndex < manga.chapters.length - 1) {
-      // Vai al capitolo successivo
       navigateChapter(1);
     } else if (newPage < 0 && chapterIndex > 0) {
-      // Vai al capitolo precedente
       navigateChapter(-1);
     }
   };
@@ -213,7 +196,6 @@ function ReaderPage() {
   const preloadImages = (currentIndex) => {
     if (!chapter?.pages) return;
     
-    // Precarica le prossime 3 immagini
     for (let i = currentIndex + 1; i <= Math.min(currentIndex + 3, chapter.pages.length - 1); i++) {
       const img = document.createElement('img');
       img.src = chapter.pages[i];
@@ -249,12 +231,10 @@ function ReaderPage() {
     const nextMode = modes[(currentIndex + 1) % modes.length];
     setReadingMode(nextMode);
     
-    // Adatta le impostazioni in base alla modalità
     if (nextMode === 'webtoon') {
       setFitMode('width');
     } else if (nextMode === 'double') {
       setFitMode('height');
-      // Assicurati di partire da una pagina pari per la modalità doppia
       if (currentPage % 2 !== 0) {
         setCurrentPage(currentPage - 1);
       }
@@ -272,7 +252,7 @@ function ReaderPage() {
       case 'webtoon':
         return <FaAlignJustify />;
       default:
-        return <FaBars />;
+        return <FaAlignJustify />;
     }
   };
 
@@ -295,7 +275,6 @@ function ReaderPage() {
       );
     }
 
-    // Modalità Webtoon - scroll verticale
     if (readingMode === 'webtoon') {
       return (
         <Box
@@ -342,10 +321,8 @@ function ReaderPage() {
       );
     }
 
-    // Modalità Single/Double page
     let pagesToShow = readingMode === 'double' ? 2 : 1;
     
-    // Non mostrare due pagine se siamo all'ultima pagina
     if (readingMode === 'double' && currentPage === chapter.pages.length - 1) {
       pagesToShow = 1;
     }
@@ -443,30 +420,6 @@ function ReaderPage() {
             );
           })}
         </HStack>
-
-        {/* Click zones indicators */}
-        <Box
-          position="absolute"
-          left={0}
-          top={0}
-          bottom={0}
-          width="30%"
-          opacity={0}
-          _hover={{ opacity: 0.1 }}
-          bg="white"
-          pointerEvents="none"
-        />
-        <Box
-          position="absolute"
-          right={0}
-          top={0}
-          bottom={0}
-          width="30%"
-          opacity={0}
-          _hover={{ opacity: 0.1 }}
-          bg="white"
-          pointerEvents="none"
-        />
       </Box>
     );
   };
@@ -485,7 +438,7 @@ function ReaderPage() {
   return (
     <Box bg="black" minH="100vh" position="relative">
       {/* Top controls */}
-            <HStack 
+      <HStack 
         position="fixed" 
         top={4} 
         left={4} 
@@ -522,7 +475,6 @@ function ReaderPage() {
             />
           </Box>
         </HStack>
-
 
         <HStack>
           <IconButton
@@ -561,7 +513,7 @@ function ReaderPage() {
         </HStack>
       </HStack>
 
-      {/* Navigation arrows - solo per modalità non-webtoon */}
+      {/* Navigation arrows */}
       {readingMode !== 'webtoon' && chapter?.pages && (
         <>
           <IconButton
@@ -607,45 +559,25 @@ function ReaderPage() {
         </>
       )}
 
-      {/* Page indicator e chapter info */}
-      <Box
-        position="fixed"
-        bottom={4}
-        left="50%"
-        transform="translateX(-50%)"
-        zIndex={1001}
-      >
-        {readingMode !== 'webtoon' && chapter?.pages && (
-          <Box
-            bg="blackAlpha.700"
-            color="white"
-            px={4}
-            py={2}
-            borderRadius="full"
-            mb={2}
-            textAlign="center"
-          >
-            <Text fontSize="sm">
-              Pagina {currentPage + 1} / {chapter.pages.length}
-            </Text>
-          </Box>
-        )}
-        
-        {manga && (
-          <Box
-            bg="blackAlpha.700"
-            color="white"
-            px={4}
-            py={2}
-            borderRadius="md"
-            textAlign="center"
-          >
-            <Text fontSize="xs" noOfLines={1}>
-              {manga.chapters?.[chapterIndex]?.title || `Capitolo ${chapterIndex + 1}`}
-            </Text>
-          </Box>
-        )}
-      </Box>
+      {/* Page indicator solo */}
+      {readingMode !== 'webtoon' && chapter?.pages && (
+        <Box
+          position="fixed"
+          bottom={4}
+          left="50%"
+          transform="translateX(-50%)"
+          bg="blackAlpha.700"
+          color="white"
+          px={4}
+          py={2}
+          borderRadius="full"
+          zIndex={1001}
+        >
+          <Text fontSize="sm">
+            {currentPage + 1} / {chapter.pages.length}
+          </Text>
+        </Box>
+      )}
 
       {/* Settings Drawer */}
       <Drawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} placement="right">
@@ -654,7 +586,6 @@ function ReaderPage() {
           <DrawerHeader>Impostazioni Reader</DrawerHeader>
           <DrawerBody>
             <VStack spacing={6} align="stretch">
-              {/* Modalità lettura */}
               <FormControl>
                 <FormLabel>Modalità lettura</FormLabel>
                 <VStack align="stretch">
@@ -688,7 +619,6 @@ function ReaderPage() {
                 </VStack>
               </FormControl>
 
-              {/* Fit mode */}
               <FormControl>
                 <FormLabel>Adattamento immagine</FormLabel>
                 <VStack align="stretch">
@@ -719,7 +649,6 @@ function ReaderPage() {
                 </VStack>
               </FormControl>
 
-              {/* Auto-scroll per webtoon */}
               {readingMode === 'webtoon' && (
                 <FormControl>
                   <FormLabel>Scorrimento automatico</FormLabel>
@@ -751,7 +680,6 @@ function ReaderPage() {
                 </FormControl>
               )}
 
-              {/* Zoom immagine */}
               <FormControl>
                 <FormLabel>Zoom: {imageScale}%</FormLabel>
                 <Slider
@@ -777,7 +705,6 @@ function ReaderPage() {
                 </Button>
               </FormControl>
 
-              {/* Navigazione capitoli */}
               <FormControl>
                 <FormLabel>Navigazione capitoli</FormLabel>
                 <VStack align="stretch">
@@ -803,7 +730,6 @@ function ReaderPage() {
                 </VStack>
               </FormControl>
 
-              {/* Info capitolo */}
               {manga && (
                 <Box bg="gray.800" p={3} borderRadius="md">
                   <Text fontSize="sm" fontWeight="bold" noOfLines={1}>
@@ -815,7 +741,6 @@ function ReaderPage() {
                 </Box>
               )}
 
-              {/* Shortcuts info */}
               <Box bg="gray.800" p={3} borderRadius="md">
                 <Text fontSize="xs" fontWeight="bold" mb={2}>Scorciatoie tastiera:</Text>
                 <VStack align="start" spacing={1}>
@@ -830,11 +755,9 @@ function ReaderPage() {
         </DrawerContent>
       </Drawer>
 
-      {/* Content */}
       {renderPages()}
     </Box>
   );
 }
 
 export default ReaderPage;
-
