@@ -1,12 +1,6 @@
 import React from 'react';
 import {
-  SimpleGrid,
-  Box,
-  Text,
-  VStack,
-  HStack,
-  Badge,
-  Skeleton
+  SimpleGrid, Box, Text, VStack, HStack, Badge, Skeleton
 } from '@chakra-ui/react';
 import MangaCard from './MangaCard';
 import { motion } from 'framer-motion';
@@ -20,8 +14,8 @@ function SearchResults({ results, loading, filter = 'all' }) {
     switch (filter) {
       case 'manga':
         return results.manga || [];
-      case 'novels':
-        return results.novels || [];
+      case 'adult':
+        return results.mangaAdult || [];
       default:
         return results.all || [];
     }
@@ -58,8 +52,8 @@ function SearchResults({ results, loading, filter = 'all' }) {
             {results.manga?.length > 0 && (
               <Badge colorScheme="blue">{results.manga.length} Manga</Badge>
             )}
-            {results.novels?.length > 0 && (
-              <Badge colorScheme="purple">{results.novels.length} Novel</Badge>
+            {results.mangaAdult?.length > 0 && (
+              <Badge colorScheme="pink">{results.mangaAdult.length} Adult</Badge>
             )}
           </HStack>
         )}
