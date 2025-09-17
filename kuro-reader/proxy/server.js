@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 10001;
 
 app.use(cors({
   origin: [
-    'https://kuroreader.onrender.com/',
+    'https://kuroreader.onrender.com',
     'http://localhost:5173'
   ]
 }));
@@ -46,4 +46,5 @@ app.post('/api/parse', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Proxy server running on port ${PORT}`);
 });
+
 
