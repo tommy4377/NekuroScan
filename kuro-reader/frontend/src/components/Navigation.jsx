@@ -80,19 +80,19 @@ function Navigation() {
               
 
               {/* Desktop Navigation */}
-              <HStack as="nav" spacing={4} display={{ base: 'none', md: 'flex' }}>
-                <Link to="/">
-                  <Button variant="ghost" leftIcon={<FaHome />}>
-                    Home
-                  </Button>
-                </Link>
-                <Link to="/library">
-                  <Button variant="ghost" leftIcon={<FaBook />}>
-                    Libreria
-                  </Button>
-                </Link>
-              </HStack>
-            </HStack>
+              <Link to="/home"> {/* Cambia da "/" a "/home" */}
+              <HStack>
+    <Image src="/kuro-reader/frontend/public/web-app-manifest-512x512.png" boxSize="30px" mr={2} fallbackSrc="https://via.placeholder.com/30" />
+    <Text
+      fontSize="2xl"
+      fontWeight="bold"
+      bgGradient="linear(to-r, purple.400, pink.400)"
+      bgClip="text"
+    >
+      KuroReader
+    </Text>
+  </HStack>
+</Link>
 
             {/* Search Bar - Desktop */}
             <Box display={{ base: 'none', md: 'block' }} flex={1} maxW="400px" mx={8}>
@@ -193,11 +193,11 @@ function Navigation() {
               
               {/* Mobile Navigation */}
               <VStack align="stretch" spacing={2}>
-                <Link to="/" onClick={onClose}>
-                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaHome />} w="100%">
-                    Home
-                  </Button>
-                </Link>
+                <Link to="/home" onClick={onClose}> {/* Cambia da "/" a "/home" */}
+  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaHome />} w="100%">
+    Home
+  </Button>
+</Link>
                 <Link to="/library" onClick={onClose}>
                   <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaBook />} w="100%">
                     Libreria
@@ -238,4 +238,5 @@ function Navigation() {
 }
 
 export default Navigation;
+
 
