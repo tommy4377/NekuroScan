@@ -81,7 +81,7 @@ function Navigation() {
               <Link to="/home">
                 <HStack>
                   <Image 
-                    src="/kuro-icon.png" 
+                    src="/web-app-manifest-512x512.png" 
                     boxSize="30px" 
                     mr={2} 
                     fallbackSrc="https://via.placeholder.com/30" 
@@ -178,14 +178,21 @@ function Navigation() {
         <DrawerContent bg="gray.900">
           <DrawerCloseButton />
           <DrawerHeader>
-            <Text
-              fontSize="xl"
-              fontWeight="bold"
-              bgGradient="linear(to-r, purple.400, pink.400)"
-              bgClip="text"
-            >
-              KuroReader
-            </Text>
+            <HStack>
+              <Image 
+                src="/web-app-manifest-512x512.png" 
+                boxSize="25px" 
+                fallbackSrc="https://via.placeholder.com/25" 
+              />
+              <Text
+                fontSize="xl"
+                fontWeight="bold"
+                bgGradient="linear(to-r, purple.400, pink.400)"
+                bgClip="text"
+              >
+                KuroReader
+              </Text>
+            </HStack>
           </DrawerHeader>
 
           <DrawerBody>
