@@ -34,7 +34,11 @@ import {
   SearchIcon
 } from '@chakra-ui/icons';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaBook, FaHome, FaSearch, FaUser, FaBookmark, FaCog, FaSignInAlt } from 'react-icons/fa';
+import { 
+  FaBook, FaHome, FaSearch, FaUser, FaBookmark, 
+  FaCog, FaSignInAlt, FaTags, FaLayerGroup 
+} from 'react-icons/fa';
+import { BiCategoryAlt } from 'react-icons/bi';
 import useAuth from '../hooks/useAuth';
 
 function Navigation() {
@@ -107,14 +111,19 @@ function Navigation() {
               </Box>
 
               {/* Desktop Nav */}
-              <HStack spacing={4} display={{ base: 'none', md: 'flex' }}>
+              <HStack spacing={3} display={{ base: 'none', md: 'flex' }}>
                 <Link to="/library">
                   <Button variant="ghost" leftIcon={<FaBook />} size="sm">
                     Libreria
                   </Button>
                 </Link>
                 <Link to="/categories">
-                  <Button variant="ghost" size="sm">
+                  <Button 
+                    variant="ghost" 
+                    leftIcon={<BiCategoryAlt />} 
+                    size="sm"
+                    colorScheme="purple"
+                  >
                     Categorie
                   </Button>
                 </Link>
@@ -255,7 +264,13 @@ function Navigation() {
                   </Button>
                 </Link>
                 <Link to="/categories" onClick={onClose}>
-                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaSearch />} w="100%">
+                  <Button 
+                    variant="ghost" 
+                    justifyContent="flex-start" 
+                    leftIcon={<BiCategoryAlt />} 
+                    w="100%"
+                    colorScheme="purple"
+                  >
                     Categorie
                   </Button>
                 </Link>
