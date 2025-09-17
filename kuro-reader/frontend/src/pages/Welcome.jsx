@@ -9,11 +9,11 @@ import {
   Image,
   useColorModeValue,
   HStack,
-  Icon
+  Icon,
+  SimpleGrid
 } from '@chakra-ui/react';
-import { useNavigate } from 'react-router-dom';  
-import { SimpleGrid } from '@chakra-ui/react';
-import { FaBook, FaSearch, FaBookmark, FaMobileAlt } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
+import { FaBook, FaSearch, FaBookmark, FaMobileAlt, FaSignInAlt } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 
 const MotionBox = motion(Box);
@@ -50,49 +50,61 @@ function Welcome() {
 
   return (
     <Box minH="100vh" bg="gray.900">
-      <Container maxW="container.xl" py={20}>
+      <Container maxW="container.xl" py={{ base: 10, md: 20 }}>
         <VStack spacing={12} align="center">
           {/* Hero Section */}
           <MotionBox
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
+            width="100%"
           >
             <VStack spacing={6} textAlign="center">
               <Image
                 src="/web-app-manifest-512x512.png"
-                boxSize="120px"
+                boxSize={{ base: "100px", md: "120px" }}
                 fallbackSrc="https://via.placeholder.com/120"
               />
               
               <Heading
-                size="2xl"
+                size={{ base: "xl", md: "2xl" }}
                 bgGradient={bgGradient}
                 bgClip="text"
               >
                 KuroReader
               </Heading>
               
-              <Text fontSize="xl" color="gray.400" maxW="600px">
+              <Text fontSize={{ base: "lg", md: "xl" }} color="gray.400" maxW="600px" px={4}>
                 Il miglior lettore di manga online. 
                 Scopri migliaia di titoli e immergiti nelle tue storie preferite.
               </Text>
               
-              <HStack spacing={4} pt={4}>
+              <HStack spacing={4} pt={4} flexWrap="wrap" justify="center">
                 <Button
-                  size="lg"
+                  size={{ base: "md", md: "lg" }}
                   colorScheme="purple"
                   onClick={() => navigate('/home')}
+                  leftIcon={<FaBook />}
                 >
                   Inizia a leggere
                 </Button>
                 <Button
-                  size="lg"
+                  size={{ base: "md", md: "lg" }}
                   variant="outline"
                   colorScheme="purple"
                   onClick={() => navigate('/search')}
+                  leftIcon={<FaSearch />}
                 >
                   Esplora catalogo
+                </Button>
+                <Button
+                  size={{ base: "md", md: "lg" }}
+                  variant="ghost"
+                  colorScheme="purple"
+                  onClick={() => navigate('/login')}
+                  leftIcon={<FaSignInAlt />}
+                >
+                  Accedi
                 </Button>
               </HStack>
             </VStack>
@@ -105,7 +117,7 @@ function Welcome() {
             transition={{ delay: 0.3, duration: 0.6 }}
             width="100%"
           >
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
+            <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={6}>
               {features.map((feature, index) => (
                 <MotionBox
                   key={index}
@@ -123,6 +135,7 @@ function Welcome() {
                       boxShadow: 'xl'
                     }}
                     transition="all 0.3s"
+                    height="100%"
                   >
                     <Icon as={feature.icon} boxSize={10} color="purple.400" />
                     <Text fontWeight="bold" fontSize="lg">
@@ -142,6 +155,7 @@ function Welcome() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6, duration: 0.6 }}
+            width="100%"
           >
             <VStack
               spacing={4}
@@ -150,19 +164,31 @@ function Welcome() {
               borderRadius="xl"
               width="100%"
               maxW="600px"
+              mx="auto"
             >
               <Heading size="lg">Pronto per iniziare?</Heading>
               <Text color="gray.400" textAlign="center">
                 Nessuna registrazione richiesta. Inizia subito a leggere i tuoi manga preferiti!
               </Text>
-              <Button
-                size="lg"
-                colorScheme="purple"
-                onClick={() => navigate('/home')}
-                rightIcon={<FaBook />}
-              >
-                Vai alla libreria
-              </Button>
+              <HStack spacing={3}>
+                <Button
+                  size="lg"
+                  colorScheme="purple"
+                  onClick={() => navigate('/home')}
+                  rightIcon={<FaBook />}
+                >
+                  Vai alla libreria
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  colorScheme="purple"
+                  onClick={() => navigate('/login')}
+                  rightIcon={<FaSignInAlt />}
+                >
+                  Accedi
+                </Button>
+              </HStack>
             </VStack>
           </MotionBox>
         </VStack>
