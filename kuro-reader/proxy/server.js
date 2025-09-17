@@ -43,8 +43,9 @@ app.post('/api/parse', async (req, res) => {
   }
 });
 
+// Health check
+app.get('/health', (req, res) => res.send('OK'));
+
 app.listen(PORT, () => {
   console.log(`Proxy server running on port ${PORT}`);
 });
-
-
