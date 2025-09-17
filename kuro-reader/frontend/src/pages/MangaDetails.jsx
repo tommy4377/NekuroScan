@@ -262,25 +262,50 @@ function MangaDetails() {
                 />
                 
                 <IconButton
-                  icon={<FaShare />}
-                  variant="outline"
-                  aria-label="Condividi"
-                  onClick={() => {
-                    navigator.share({
-                      title: manga.title,
-                      text: `Leggi ${manga.title} su KuroReader`,
-                      url: window.location.href
-                    }).catch(() => {
-                      // Copy to clipboard fallback
-                      navigator.clipboard.writeText(window.location.href);
-                      toast({
-                        title: 'Link copiato!',
-                        status: 'success',
-                        duration: 2000,
-                      });
-                    });
-                  }}
-                />
+  icon={<FaShare />}
+  variant="outline"
+  aria-label="Condividi"
+  onClick={async () => {
+    const shareData = {
+      title: manga.title,
+      text: `Leggi ${manga.title} su KuroReader`,
+      url: window.location.href
+    };
+    
+    try {
+      // Prova con Web Share API se disponibile
+      if (navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        await navigator.share(shareData);
+      } else {
+        // Fallback: copia negli appunti
+        await navigator.clipboard.writeText(window.location.href);
+        toast({
+          title: 'Link copiato!',
+          description: 'Il link è stato copiato negli appunti',
+          status: 'success',
+          duration: 2000,
+        });
+      }
+    } catch (error) {
+      // Fallback finale
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        toast({
+          title: 'Link copiato!',
+          status: 'success',
+          duration: 2000,
+        });
+      } catch (err) {
+        toast({
+          title: 'Errore',
+          description: 'Impossibile condividere',
+          status: 'error',
+          duration: 2000,
+        });
+      }
+    }
+  }}
+/>
               </HStack>
             </VStack>
           </Flex>
@@ -371,4 +396,5 @@ function MangaDetails() {
 
 
 export default MangaDetails;
+
 
