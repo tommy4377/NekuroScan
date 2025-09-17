@@ -485,7 +485,7 @@ function ReaderPage() {
   return (
     <Box bg="black" minH="100vh" position="relative">
       {/* Top controls */}
-      <HStack 
+            <HStack 
         position="fixed" 
         top={4} 
         left={4} 
@@ -505,18 +505,24 @@ function ReaderPage() {
             onClick={() => navigate(`/manga/${source}/${mangaId}`)}
             aria-label="Chiudi reader"
           />
-          <IconButton
-            icon={<FaHome />}
-            variant="solid"
-            colorScheme="blackAlpha"
-            bg="blackAlpha.700"
-            color="white"
-            size="lg"
-            borderRadius="full"
+          {/* Logo cliccabile per tornare alla home */}
+          <Box
+            as="button"
             onClick={() => navigate('/home')}
-            aria-label="Home"
-          />
+            bg="blackAlpha.700"
+            p={2}
+            borderRadius="full"
+            transition="all 0.2s"
+            _hover={{ bg: 'blackAlpha.600', transform: 'scale(1.05)' }}
+          >
+            <Image 
+              src="/web-app-manifest-512x512.png" 
+              boxSize="35px"
+              fallbackSrc="https://via.placeholder.com/35" 
+            />
+          </Box>
         </HStack>
+
 
         <HStack>
           <IconButton
@@ -831,3 +837,4 @@ function ReaderPage() {
 }
 
 export default ReaderPage;
+
