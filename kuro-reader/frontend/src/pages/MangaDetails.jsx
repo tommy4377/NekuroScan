@@ -124,9 +124,10 @@ function MangaDetails() {
   if (!manga?.chapters?.[chapterIndex]) return;
   
   const chapter = manga.chapters[chapterIndex];
+  // FIX: encoda solo l'URL del capitolo, non l'URL del manga
   const chapterId = btoa(chapter.url);
   
-  // Add to reading list  
+  // Salva progresso
   const reading = JSON.parse(localStorage.getItem('reading') || '[]');
   const existingIndex = reading.findIndex(r => r.url === manga.url);
   
@@ -148,13 +149,13 @@ function MangaDetails() {
     reading.unshift({
       ...mangaToSave,
       lastChapter: chapterIndex,
-      lastRead: new Date().toISOString()  
+      lastRead: new Date().toISOString()
     });
   }
   
   localStorage.setItem('reading', JSON.stringify(reading.slice(0, 50)));
   
-  // FIX: usa solo il mangaId già esistente, non ri-encodare
+  // Usa l'ID del manga già esistente (dalla route), non ri-encodare
   navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
 };
 
