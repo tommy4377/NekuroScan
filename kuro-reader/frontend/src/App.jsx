@@ -10,6 +10,7 @@ import ReaderPage from './pages/ReaderPage';
 import Library from './components/Library';
 import Welcome from './pages/Welcome';
 import Login from './pages/Login';
+import Categories from './pages/Categories';
 
 function App() {
   return (
@@ -37,6 +38,15 @@ function App() {
               <Navigation />
               <Box pt="60px">
                 <Search />
+              </Box>
+            </Box>
+          } />
+          
+          <Route path="/categories" element={
+            <Box minH="100vh" bg="gray.900">
+              <Navigation />
+              <Box pt="60px">
+                <Categories />
               </Box>
             </Box>
           } />
