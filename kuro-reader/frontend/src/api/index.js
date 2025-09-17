@@ -101,10 +101,50 @@ class APIManager {
     return this.searchAll(query, { includeAdult: false, limit });
   }
 
-  async searchAdult(query, limit = 20) {
+  async searchAdult(query = '', limit = 20) {
+  try {
+    // Se non c'è query, ottieni tutti i manga adult
+    if (!query) {
+      const url = this.apis.mangaWorldAdult.baseUrl + 'archive';
+      const html = await this.apis.mangaWorldAdult.makeRequest(url);
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      
+      const results = [];
+      const entries = doc.querySelectorAll('div.entry');
+      
+      entries.forEach((entry, i) => {
+        if (i >= limit) return;
+        
+        const link = entry.querySelector('a');
+        const img = entry.querySelector('img');
+        const title = entry.querySelector('.manga-title, .name, p');
+        
+        if (link?.href) {
+          results.push({
+            url: new URL(link.getAttribute('href'), this.apis.mangaWorldAdult.baseUrl).href,
+            title: title?.textContent?.trim() || 'Unknown',
+            cover: img?.src || '',
+            source: 'mangaWorldAdult',
+            isAdult: true,
+            type: 'manga'
+          });
+        }
+      });
+      
+      return results;
+    }
+    
+    // Altrimenti cerca normalmente
     const results = await this.searchAll(query, { includeAdult: true, limit });
     return results.mangaAdult;
+    
+  } catch (error) {
+    console.error('Search adult error:', error);
+    return [];
   }
+}
+
+  
 
   // ============= DETTAGLI MANGA =============
   
@@ -442,3 +482,4 @@ const apiManager = new APIManager();
 // Esporta anche la classe per testing
 export { APIManager };
 export default apiManager;
+
