@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChakraProvider, Box } from '@chakra-ui/react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { theme } from './styles/theme';
 import Navigation from './components/Navigation';
 import Home from './pages/Home';
@@ -9,14 +9,18 @@ import MangaDetails from './pages/MangaDetails';
 import ReaderPage from './pages/ReaderPage';
 import Library from './components/Library';
 import Welcome from './pages/Welcome';
+import Login from './pages/Login';
 
 function App() {
   return (
     <ChakraProvider theme={theme}>
       <Router>
         <Routes>
-          {/* Welcome/Login page */}
+          {/* Welcome page */}
           <Route path="/" element={<Welcome />} />
+          
+          {/* Login page */}
+          <Route path="/login" element={<Login />} />
           
           {/* Main app pages with navigation */}
           <Route path="/home" element={
@@ -57,6 +61,9 @@ function App() {
           
           {/* Reader without navigation */}
           <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
+          
+          {/* Redirect invalid routes to home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </ChakraProvider>
