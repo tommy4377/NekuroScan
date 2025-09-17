@@ -269,7 +269,7 @@ function MangaDetails() {
           <Box bg="gray.800" p={6} borderRadius="xl">
             <Heading size="md" mb={4}>Trama</Heading>
             <Text color="gray.300" lineHeight="tall">
-              {manga.plot}
+              {manga.plot.replace(/^trama:?\s*/i, '').trim()}
             </Text>
           </Box>
         )}

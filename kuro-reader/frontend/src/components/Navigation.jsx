@@ -19,7 +19,6 @@ import {
   MenuDivider,
   Text,
   Badge,
-  useColorMode,
   Drawer,
   DrawerBody,
   DrawerHeader,
@@ -32,9 +31,7 @@ import {
 import {
   HamburgerIcon,
   CloseIcon,
-  SearchIcon,
-  MoonIcon,
-  SunIcon
+  SearchIcon
 } from '@chakra-ui/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaBook, FaHome, FaSearch, FaUser, FaBookmark, FaCog } from 'react-icons/fa';
@@ -42,7 +39,6 @@ import useAuth from '../hooks/useAuth';
 
 function Navigation() {
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const { colorMode, toggleColorMode } = useColorMode();
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -132,12 +128,6 @@ function Navigation() {
 
             {/* Right Menu */}
             <HStack spacing={3}>
-              <IconButton
-                icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
-                onClick={toggleColorMode}
-                variant="ghost"
-                aria-label="Toggle color mode"
-              />
               
               {user ? (
                 <Menu>

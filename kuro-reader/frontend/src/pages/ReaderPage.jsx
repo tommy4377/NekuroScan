@@ -1,34 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  Box,
-  Container,
-  HStack,
-  IconButton,
-  Select,
-  Text,
-  VStack,
-  Image,
-  Button,
-  useToast,
-  Flex,
-  Slider,
-  SliderTrack,
-  SliderFilledTrack,
-  SliderThumb,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem
+  Box, Container, HStack, IconButton, Select, Text, VStack,
+  Button, useToast, Flex, Slider, SliderTrack, SliderFilledTrack,
+  SliderThumb, Menu, MenuButton, MenuList, MenuItem, Badge
 } from '@chakra-ui/react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  FaArrowLeft,
-  FaArrowRight,
-  FaExpand,
-  FaCompress,
-  FaCog,
-  FaList,
-  FaTimes
+  FaArrowLeft, FaArrowRight, FaExpand, FaCompress,
+  FaCog, FaTimes, FaPlay, FaPause, FaColumns, FaArrowsAltH, FaArrowsAltV
 } from 'react-icons/fa';
 import apiManager from '../api';
 import Reader from '../components/Reader';
@@ -41,12 +20,18 @@ function ReaderPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(false);
+  const [scrollSpeed, setScrollSpeed] = useState(50);
+  const scrollIntervalRef = useRef(null);
+  
   const [settings, setSettings] = useState({
     readingMode: 'single', // single, double, webtoon
+    orientation: 'horizontal', // horizontal, vertical
     zoom: 100,
     brightness: 100,
-    fitMode: 'width' // width, height, original
+    fitMode: 'width'
   });
+  
   const toast = useToast();
   const navigate = useNavigate();
   const chapterIndex = parseInt(searchParams.get('chapter') || '0');
@@ -54,7 +39,33 @@ function ReaderPage() {
   useEffect(() => {
     loadChapter();
     loadManga();
+    
+    // Cleanup auto-scroll on unmount
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
   }, [chapterId]);
+
+  useEffect(() => {
+    // Auto-scroll logic
+    if (autoScroll && settings.readingMode === 'webtoon') {
+      scrollIntervalRef.current = setInterval(() => {
+        window.scrollBy(0, scrollSpeed / 10);
+      }, 100);
+    } else {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    }
+    
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, [autoScroll, scrollSpeed, settings.readingMode]);
 
   const loadManga = async () => {
     try {
@@ -173,6 +184,7 @@ function ReaderPage() {
             </HStack>
 
             <HStack>
+              {/* Reading Mode Menu */}
               <Menu>
                 <MenuButton
                   as={IconButton}
@@ -182,17 +194,62 @@ function ReaderPage() {
                   aria-label="Impostazioni"
                 />
                 <MenuList bg="gray.800">
-                  <MenuItem onClick={() => setSettings({...settings, readingMode: 'single'})}>
+                  <MenuItem 
+                    icon={<FaColumns />}
+                    onClick={() => setSettings({...settings, readingMode: 'single'})}
+                  >
                     Pagina singola
+                    {settings.readingMode === 'single' && <Badge ml={2} colorScheme="purple">Attivo</Badge>}
                   </MenuItem>
-                  <MenuItem onClick={() => setSettings({...settings, readingMode: 'double'})}>
+                  <MenuItem 
+                    icon={<FaColumns />}
+                    onClick={() => setSettings({...settings, readingMode: 'double'})}
+                  >
                     Pagina doppia
+                    {settings.readingMode === 'double' && <Badge ml={2} colorScheme="purple">Attivo</Badge>}
                   </MenuItem>
                   <MenuItem onClick={() => setSettings({...settings, readingMode: 'webtoon'})}>
                     Webtoon (scroll)
+                    {settings.readingMode === 'webtoon' && <Badge ml={2} colorScheme="purple">Attivo</Badge>}
+                  </MenuItem>
+                  <MenuItem 
+                    icon={settings.orientation === 'horizontal' ? <FaArrowsAltH /> : <FaArrowsAltV />}
+                    onClick={() => setSettings({
+                      ...settings, 
+                      orientation: settings.orientation === 'horizontal' ? 'vertical' : 'horizontal'
+                    })}
+                  >
+                    {settings.orientation === 'horizontal' ? 'Orizzontale' : 'Verticale'}
                   </MenuItem>
                 </MenuList>
               </Menu>
+              
+              {/* Auto-scroll for webtoon mode */}
+              {settings.readingMode === 'webtoon' && (
+                <HStack>
+                  <IconButton
+                    icon={autoScroll ? <FaPause /> : <FaPlay />}
+                    variant="ghost"
+                    colorScheme="whiteAlpha"
+                    onClick={() => setAutoScroll(!autoScroll)}
+                    aria-label="Auto-scroll"
+                  />
+                  {autoScroll && (
+                    <Select
+                      size="sm"
+                      value={scrollSpeed}
+                      onChange={(e) => setScrollSpeed(Number(e.target.value))}
+                      bg="gray.800"
+                      width="80px"
+                    >
+                      <option value={25}>0.5x</option>
+                      <option value={50}>1x</option>
+                      <option value={75}>1.5x</option>
+                      <option value={100}>2x</option>
+                    </Select>
+                  )}
+                </HStack>
+              )}
               
               <IconButton
                 icon={isFullscreen ? <FaCompress /> : <FaExpand />}
@@ -218,7 +275,7 @@ function ReaderPage() {
       </Box>
 
       {/* Footer Controls */}
-      {!isFullscreen && (
+      {!isFullscreen && settings.readingMode !== 'webtoon' && (
         <Box
           position="fixed"
           bottom={0}
@@ -260,6 +317,7 @@ function ReaderPage() {
                 colorScheme="whiteAlpha"
                 onClick={() => navigateChapter(-1)}
                 isDisabled={chapterIndex === 0}
+                size="sm"
               >
                 Precedente
               </Button>
@@ -274,6 +332,7 @@ function ReaderPage() {
                 }}
                 bg="gray.800"
                 maxW="200px"
+                size="sm"
               >
                 {manga?.chapters?.map((ch, i) => (
                   <option key={i} value={i}>
@@ -288,6 +347,7 @@ function ReaderPage() {
                 colorScheme="whiteAlpha"
                 onClick={() => navigateChapter(1)}
                 isDisabled={chapterIndex >= (manga?.chapters?.length || 0) - 1}
+                size="sm"
               >
                 Successivo
               </Button>

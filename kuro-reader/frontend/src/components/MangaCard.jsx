@@ -32,10 +32,10 @@ function MangaCard({ manga }) {
         _hover={{ bg: 'gray.700' }}
       >
         <Box position="relative" width="100%" paddingBottom="140%">
-          <LazyLoadImage
-            src={manga.cover || 'https://via.placeholder.com/200x280'}
+          <img
+            src={manga.cover || manga.coverUrl || 'https://via.placeholder.com/200x280'}
             alt={manga.title}
-            effect="blur"
+            loading="lazy"
             style={{
               position: 'absolute',
               top: 0,
@@ -43,6 +43,9 @@ function MangaCard({ manga }) {
               width: '100%',
               height: '100%',
               objectFit: 'cover'
+            }}
+            onError={(e) => {
+              e.target.src = 'https://via.placeholder.com/200x280';
             }}
           />
           

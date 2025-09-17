@@ -7,7 +7,8 @@ import Home from './pages/Home';
 import Search from './pages/Search';
 import MangaDetails from './pages/MangaDetails';
 import ReaderPage from './pages/ReaderPage';
-import { useStore } from './hooks/useStore';
+import Library from './components/Library';
+import Login from './pages/Login';
 
 function App() {
   return (
@@ -20,6 +21,8 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/search" element={<Search />} />
+              <Route path="/library" element={<Library />} />
+              <Route path="/login" element={<Login />} />
               <Route path="/manga/:source/:id" element={<MangaDetails />} />
               <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
             </Routes>
