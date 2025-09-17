@@ -1,4 +1,3 @@
-// All'inizio di ogni file API aggiungi:
 import { config } from '../config';
 
 export class MangaWorldAPI {
@@ -6,34 +5,30 @@ export class MangaWorldAPI {
     this.baseUrl = 'https://www.mangaworld.so/';
   }
 
-  // All'inizio di ogni file API aggiungi:
-import { config } from '../config';
-
-// E modifica makeRequest in ogni file:
-async makeRequest(url) {
-  try {
-    const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8'
-        }
-      })
-    });
-    
-    const data = await response.json();
-    if (!data.success) throw new Error(data.error || 'Request failed');
-    
-    return data.data;
-  } catch (error) {
-    console.error('Request failed:', error);
-    throw error;
+  async makeRequest(url) {
+    try {
+      const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8'
+          }
+        })
+      });
+      
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Request failed');
+      
+      return data.data;
+    } catch (error) {
+      console.error('Request failed:', error);
+      throw error;
+    }
   }
-}
 
   parseHTML(html) {
     const parser = new DOMParser();
@@ -80,15 +75,12 @@ async makeRequest(url) {
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
       
-      // Extract title
       const titleElem = doc.querySelector('h1.name, .info h1');
       const title = titleElem?.textContent?.trim() || 'Unknown Title';
       
-      // Extract cover
       const coverImg = doc.querySelector('.thumb img, .manga-image img');
       const coverUrl = coverImg?.src || coverImg?.dataset?.src || '';
       
-      // Extract info
       const infoDiv = doc.querySelector('div.info, .manga-info');
       const info = {
         alternativeTitles: [],
@@ -101,7 +93,6 @@ async makeRequest(url) {
       };
       
       if (infoDiv) {
-        // Extract genres
         const genreLinks = infoDiv.querySelectorAll('a[href*="/archive?genre"]');
         genreLinks.forEach(link => {
           info.genres.push({
@@ -109,35 +100,30 @@ async makeRequest(url) {
           });
         });
         
-        // Extract authors
         const authorLinks = infoDiv.querySelectorAll('a[href*="/archive?author"]');
         authorLinks.forEach(link => {
           info.authors.push(link.textContent.trim());
         });
         
-        // Extract status
         const statusLink = infoDiv.querySelector('a[href*="/archive?status"]');
         if (statusLink) {
           info.status = statusLink.textContent.trim();
         }
         
-        // Extract year
         const yearLink = infoDiv.querySelector('a[href*="/archive?year"]');
         if (yearLink) {
           info.year = yearLink.textContent.trim();
         }
       }
       
-      // Extract plot
       const plotDiv = doc.querySelector('#noidungm, .comic-description');
       const plot = plotDiv?.textContent?.trim() || '';
       
-      // Extract chapters
       const chapters = [];
       const chapterElements = doc.querySelectorAll('.chapter a, .chapters-wrapper a');
       
       const chapterArray = Array.from(chapterElements);
-      chapterArray.reverse(); // Reverse for chronological order
+      chapterArray.reverse();
       
       chapterArray.forEach((elem, i) => {
         const chapterUrl = elem.getAttribute('href');
@@ -178,7 +164,6 @@ async makeRequest(url) {
 
   async getChapterDetail(chapterUrl) {
     try {
-      // Add style=list to get all pages at once
       const url = chapterUrl.includes('?') ? 
         `${chapterUrl}&style=list` : 
         `${chapterUrl}?style=list`;
@@ -188,7 +173,6 @@ async makeRequest(url) {
       
       const pages = [];
       
-      // Find all page images
       const pageContainer = doc.querySelector('#page, .page, .reader-pages');
       if (pageContainer) {
         const images = pageContainer.querySelectorAll('img');
@@ -200,7 +184,6 @@ async makeRequest(url) {
         });
       }
       
-      // Alternative: look for images in scripts
       if (pages.length === 0) {
         const scripts = doc.querySelectorAll('script');
         scripts.forEach(script => {
@@ -237,7 +220,6 @@ async makeRequest(url) {
       
       const trending = [];
       
-      // Look for trending/hot manga section
       const selectors = [
         '.hot-manga .entry',
         '.trending .entry',
@@ -276,6 +258,4 @@ async makeRequest(url) {
       return [];
     }
   }
-
 }
-
