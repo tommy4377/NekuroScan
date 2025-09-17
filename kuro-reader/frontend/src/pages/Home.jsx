@@ -1,24 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
-  Button, useToast, Flex, Icon, Skeleton, Badge
+  Button, useToast, Flex, Icon, Skeleton
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { FaBook, FaHeart, FaFire, FaClock, FaCalendarWeek } from 'react-icons/fa';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
-import useAuth from '../hooks/useAuth';
 
 const MotionBox = motion(Box);
 
 function Home() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [selectedSection, setSelectedSection] = useState('manga');
-  const [continueReading, setContinueReading] = useState([]);
   const [recentChapters, setRecentChapters] = useState([]);
   const [weeklyReleases, setWeeklyReleases] = useState([]);
+  const [trending, setTrending] = useState([]);
   const [loading, setLoading] = useState(true);
   const toast = useToast();
 
@@ -29,37 +27,38 @@ function Home() {
   const loadContent = async () => {
     setLoading(true);
     try {
-      // Carica continua a leggere
-      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-      setContinueReading(reading.slice(0, 10));
-
-      // Carica capitoli recenti
-      const recent = await apiManager.getRecentChapters();
-      setRecentChapters(recent);
-
-      // Carica uscite settimanali
-      const weekly = await apiManager.getWeeklyReleases();
-      setWeeklyReleases(weekly);
+      // Carica contenuti in base alla sezione
+      const includeAdult = selectedSection === 'adult';
+      
+      // Carica trending
+      const trendingData = await apiManager.getTrending(includeAdult);
+      setTrending(trendingData);
+      
+      // Carica capitoli recenti (solo per manga normale)
+      if (selectedSection === 'manga') {
+        const recent = await apiManager.getRecentChapters();
+        setRecentChapters(recent);
+        
+        const weekly = await apiManager.getWeeklyReleases();
+        setWeeklyReleases(weekly);
+      } else {
+        // Per adult carica contenuti adult specifici
+        const adultSearch = await apiManager.searchAdult('', 20);
+        setRecentChapters(adultSearch.slice(0, 10));
+        setWeeklyReleases(adultSearch.slice(10, 20));
+      }
       
     } catch (error) {
       console.error('Error loading content:', error);
+      toast({
+        title: 'Errore caricamento',
+        description: 'Impossibile caricare i contenuti',
+        status: 'error',
+        duration: 3000,
+      });
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSectionClick = (section) => {
-    if (section === 'adult' && !user) {
-      toast({
-        title: 'Accesso richiesto',
-        description: 'Devi effettuare l\'accesso per vedere questa sezione',
-        status: 'warning',
-        duration: 3000,
-      });
-      navigate('/');
-      return;
-    }
-    setSelectedSection(section);
   };
 
   return (
@@ -70,7 +69,7 @@ function Home() {
           <MotionBox
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => handleSectionClick('manga')}
+            onClick={() => setSelectedSection('manga')}
           >
             <VStack
               bg={selectedSection === 'manga' ? 'purple.600' : 'gray.700'}
@@ -83,14 +82,14 @@ function Home() {
               boxShadow={selectedSection === 'manga' ? '0 0 30px rgba(147, 51, 234, 0.5)' : 'xl'}
             >
               <Icon as={FaBook} boxSize={12} />
-              <Text fontWeight="bold">Manga</Text>
+              <Text fontWeight="bold" fontSize="lg">Manga</Text>
             </VStack>
           </MotionBox>
 
           <MotionBox
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => handleSectionClick('adult')}
+            onClick={() => setSelectedSection('adult')}
           >
             <VStack
               bg={selectedSection === 'adult' ? 'pink.600' : 'gray.700'}
@@ -101,62 +100,21 @@ function Home() {
               cursor="pointer"
               transition="all 0.3s"
               boxShadow={selectedSection === 'adult' ? '0 0 30px rgba(236, 72, 153, 0.5)' : 'xl'}
-              position="relative"
             >
               <Icon as={FaHeart} boxSize={12} />
-              <Text fontWeight="bold">Adult</Text>
-              {!user && (
-                <Badge position="absolute" top={2} right={2} colorScheme="red">
-                  18+
-                </Badge>
-              )}
+              <Text fontWeight="bold" fontSize="lg">Adult</Text>
+              <Text fontSize="xs" color="gray.300">18+</Text>
             </VStack>
           </MotionBox>
         </Flex>
 
-        {/* Continua a leggere */}
-        {continueReading.length > 0 && (
-          <VStack align="stretch" spacing={4}>
-            <HStack>
-              <Icon as={FaClock} color="purple.400" />
-              <Heading size="lg">Continua a leggere</Heading>
-            </HStack>
-            
-            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-              {continueReading.map((item, i) => (
-                <MangaCard key={i} manga={item} hideSource />
-              ))}
-            </SimpleGrid>
-          </VStack>
-        )}
-
-        {/* Uscite settimanali */}
-        <VStack align="stretch" spacing={4}>
-          <HStack>
-            <Icon as={FaCalendarWeek} color="green.400" />
-            <Heading size="lg">Uscite questa settimana</Heading>
-          </HStack>
-          
-          {loading ? (
-            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-              {[...Array(10)].map((_, i) => (
-                <Skeleton key={i} height="280px" borderRadius="lg" />
-              ))}
-            </SimpleGrid>
-          ) : (
-            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-              {weeklyReleases.map((manga, i) => (
-                <MangaCard key={i} manga={manga} hideSource />
-              ))}
-            </SimpleGrid>
-          )}
-        </VStack>
-
-        {/* Capitoli recenti */}
+        {/* Trending */}
         <VStack align="stretch" spacing={4}>
           <HStack>
             <Icon as={FaFire} color="orange.400" />
-            <Heading size="lg">Capitoli recenti</Heading>
+            <Heading size="lg">
+              Trending {selectedSection === 'adult' ? 'Adult' : 'Manga'}
+            </Heading>
           </HStack>
           
           {loading ? (
@@ -167,12 +125,71 @@ function Home() {
             </SimpleGrid>
           ) : (
             <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-              {recentChapters.map((manga, i) => (
-                <MangaCard key={i} manga={manga} hideSource />
+              {trending.slice(0, 10).map((manga, i) => (
+                <MangaCard key={`trending-${i}`} manga={manga} hideSource />
               ))}
             </SimpleGrid>
           )}
         </VStack>
+
+        {/* Uscite settimanali / Popolari */}
+        <VStack align="stretch" spacing={4}>
+          <HStack>
+            <Icon as={FaCalendarWeek} color="green.400" />
+            <Heading size="lg">
+              {selectedSection === 'adult' ? 'Popolari' : 'Uscite questa settimana'}
+            </Heading>
+          </HStack>
+          
+          {loading ? (
+            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
+              {[...Array(10)].map((_, i) => (
+                <Skeleton key={i} height="280px" borderRadius="lg" />
+              ))}
+            </SimpleGrid>
+          ) : (
+            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
+              {weeklyReleases.slice(0, 10).map((manga, i) => (
+                <MangaCard key={`weekly-${i}`} manga={manga} hideSource />
+              ))}
+            </SimpleGrid>
+          )}
+        </VStack>
+
+        {/* Capitoli recenti / Nuovi arrivi */}
+        <VStack align="stretch" spacing={4}>
+          <HStack>
+            <Icon as={FaClock} color="blue.400" />
+            <Heading size="lg">
+              {selectedSection === 'adult' ? 'Nuovi arrivi' : 'Capitoli recenti'}
+            </Heading>
+          </HStack>
+          
+          {loading ? (
+            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
+              {[...Array(10)].map((_, i) => (
+                <Skeleton key={i} height="280px" borderRadius="lg" />
+              ))}
+            </SimpleGrid>
+          ) : (
+            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
+              {recentChapters.slice(0, 10).map((manga, i) => (
+                <MangaCard key={`recent-${i}`} manga={manga} hideSource />
+              ))}
+            </SimpleGrid>
+          )}
+        </VStack>
+
+        {/* Pulsante per vedere di più */}
+        <HStack justify="center" pt={4}>
+          <Button
+            colorScheme="purple"
+            onClick={() => navigate('/search')}
+            size="lg"
+          >
+            Esplora tutti i {selectedSection === 'adult' ? 'manga adult' : 'manga'}
+          </Button>
+        </HStack>
       </VStack>
     </Container>
   );
