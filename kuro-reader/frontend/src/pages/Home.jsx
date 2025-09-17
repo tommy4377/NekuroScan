@@ -58,6 +58,17 @@ function Home() {
     }
   };
 
+  const categories = [
+  { name: 'Azione', query: 'action manga' },
+  { name: 'Romance', query: 'romance manga' },
+  { name: 'Fantasy', query: 'fantasy manga' },
+  { name: 'Isekai', query: 'isekai manga' },
+  { name: 'Shounen', query: 'shounen manga' },
+  { name: 'Seinen', query: 'seinen manga' },
+  { name: 'Josei', query: 'josei manga' },
+  { name: 'Shoujo', query: 'shoujo manga' }
+];
+  
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={12} align="stretch">
@@ -168,17 +179,6 @@ function Home() {
         </VStack>
 
         {/* Categories */}
-
-        const categories = [
-  { name: 'Azione', query: 'action manga' },
-  { name: 'Romance', query: 'romance manga' },
-  { name: 'Fantasy', query: 'fantasy manga' },
-  { name: 'Isekai', query: 'isekai manga' },
-  { name: 'Shounen', query: 'shounen manga' },
-  { name: 'Seinen', query: 'seinen manga' },
-  { name: 'Josei', query: 'josei manga' },
-  { name: 'Shoujo', query: 'shoujo manga' }
-];
         
         <VStack align="stretch" spacing={4}>
           <Heading size="lg">Categorie</Heading>
@@ -212,3 +212,4 @@ function Home() {
 }
 
 export default Home;
+
