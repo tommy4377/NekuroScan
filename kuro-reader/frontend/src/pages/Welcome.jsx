@@ -1,253 +1,169 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Box, Container, VStack, Input, Button, Text, Heading,
-  FormControl, FormLabel, useToast, InputGroup, InputRightElement,
-  Flex, Icon, Image, Divider
+  Box,
+  Container,
+  VStack,
+  Heading,
+  Text,
+  Button,
+  Image,
+  useColorModeValue,
+  HStack,
+  Icon
 } from '@chakra-ui/react';
-import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
 import { useNavigate } from 'react-router-dom';
-import { FaBook, FaHeart } from 'react-icons/fa';
-import useAuth from '../hooks/useAuth';
+import { FaBook, FaSearch, FaBookmark, FaMobileAlt } from 'react-icons/fa';
+import { motion } from 'framer-motion';
+
+const MotionBox = motion(Box);
 
 function Welcome() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLogin, setIsLogin] = useState(true);
-  const { login, register } = useAuth();
   const navigate = useNavigate();
-  const toast = useToast();
-  
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
-  const [registerData, setRegisterData] = useState({ 
-    username: '', email: '', password: '', confirmPassword: '' 
-  });
+  const bgGradient = useColorModeValue(
+    'linear(to-br, purple.400, pink.400)',
+    'linear(to-br, purple.600, pink.600)'
+  );
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    const result = await login(loginData.email, loginData.password);
-    setIsLoading(false);
-    
-    if (result.success) {
-      navigate('/home');
-    } else {
-      toast({ title: result.error || 'Errore login', status: 'error' });
+  const features = [
+    {
+      icon: FaBook,
+      title: 'Vasta Libreria',
+      description: 'Migliaia di manga disponibili'
+    },
+    {
+      icon: FaSearch,
+      title: 'Ricerca Avanzata',
+      description: 'Trova facilmente i tuoi manga preferiti'
+    },
+    {
+      icon: FaBookmark,
+      title: 'Salva Progressi',
+      description: 'Riprendi da dove hai lasciato'
+    },
+    {
+      icon: FaMobileAlt,
+      title: 'Mobile Friendly',
+      description: 'Leggi ovunque tu sia'
     }
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    if (registerData.password !== registerData.confirmPassword) {
-      toast({ title: 'Le password non coincidono', status: 'error' });
-      return;
-    }
-    
-    setIsLoading(true);
-    const result = await register(
-      registerData.username, 
-      registerData.email, 
-      registerData.password
-    );
-    setIsLoading(false);
-    
-    if (result.success) {
-      navigate('/home');
-    } else {
-      toast({ title: result.error || 'Errore registrazione', status: 'error' });
-    }
-  };
-
-  const handleSkip = () => {
-    navigate('/home');
-  };
+  ];
 
   return (
-    <Box
-      minH="100vh"
-      bgGradient="linear(to-br, purple.900, gray.900)"
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-      position="relative"
-      overflow="hidden"
-    >
-      {/* Background decoration */}
-      <Box
-        position="absolute"
-        top="-20%"
-        left="-10%"
-        width="400px"
-        height="400px"
-        bg="purple.500"
-        borderRadius="full"
-        filter="blur(100px)"
-        opacity={0.3}
-      />
-      <Box
-        position="absolute"
-        bottom="-20%"
-        right="-10%"
-        width="400px"
-        height="400px"
-        bg="pink.500"
-        borderRadius="full"
-        filter="blur(100px)"
-        opacity={0.3}
-      />
+    <Box minH="100vh" bg="gray.900">
+      <Container maxW="container.xl" py={20}>
+        <VStack spacing={12} align="center">
+          {/* Hero Section */}
+          <MotionBox
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <VStack spacing={6} textAlign="center">
+              <Image
+                src="/web-app-manifest-512x512.png"
+                boxSize="120px"
+                fallbackSrc="https://via.placeholder.com/120"
+              />
+              
+              <Heading
+                size="2xl"
+                bgGradient={bgGradient}
+                bgClip="text"
+              >
+                KuroReader
+              </Heading>
+              
+              <Text fontSize="xl" color="gray.400" maxW="600px">
+                Il miglior lettore di manga online. 
+                Scopri migliaia di titoli e immergiti nelle tue storie preferite.
+              </Text>
+              
+              <HStack spacing={4} pt={4}>
+                <Button
+                  size="lg"
+                  colorScheme="purple"
+                  onClick={() => navigate('/home')}
+                >
+                  Inizia a leggere
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  colorScheme="purple"
+                  onClick={() => navigate('/search')}
+                >
+                  Esplora catalogo
+                </Button>
+              </HStack>
+            </VStack>
+          </MotionBox>
 
-      <Container maxW="container.sm" position="relative">
-        <VStack spacing={8}>
-          {/* Logo e titolo */}
-          <VStack spacing={4}>
-            <Image
-              src="/kuro-reader/frontend/public/web-app-manifest-512x512.png" // Metti qui la tua icona di Kuro
-              alt="Kuro"
-              boxSize="100px"
-              borderRadius="full"
-              fallbackSrc="https://via.placeholder.com/100"
-            />
-            <Heading size="2xl" bgGradient="linear(to-r, purple.400, pink.400)" bgClip="text">
-              KuroReader
-            </Heading>
-            <Text color="gray.400">Il tuo manga reader definitivo</Text>
-          </VStack>
-
-          <Box w="100%" bg="gray.800" p={8} borderRadius="2xl" boxShadow="2xl">
-            {isLogin ? (
-              <form onSubmit={handleLogin}>
-                <VStack spacing={6}>
-                  <Heading size="lg">Bentornato!</Heading>
-                  
-                  <FormControl isRequired>
-                    <FormLabel>Email</FormLabel>
-                    <Input
-                      type="email"
-                      value={loginData.email}
-                      onChange={(e) => setLoginData({...loginData, email: e.target.value})}
-                      placeholder="tua@email.com"
-                      size="lg"
-                    />
-                  </FormControl>
-                  
-                  <FormControl isRequired>
-                    <FormLabel>Password</FormLabel>
-                    <InputGroup size="lg">
-                      <Input
-                        type={showPassword ? 'text' : 'password'}
-                        value={loginData.password}
-                        onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-                        placeholder="••••••••"
-                      />
-                      <InputRightElement>
-                        <Button
-                          variant="ghost"
-                          onClick={() => setShowPassword(!showPassword)}
-                          size="sm"
-                        >
-                          {showPassword ? <ViewOffIcon /> : <ViewIcon />}
-                        </Button>
-                      </InputRightElement>
-                    </InputGroup>
-                  </FormControl>
-                  
-                  <Button
-                    type="submit"
-                    colorScheme="purple"
-                    width="100%"
-                    size="lg"
-                    isLoading={isLoading}
+          {/* Features Grid */}
+          <MotionBox
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+            width="100%"
+          >
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
+              {features.map((feature, index) => (
+                <MotionBox
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * index, duration: 0.5 }}
+                >
+                  <VStack
+                    p={6}
+                    bg="gray.800"
+                    borderRadius="lg"
+                    spacing={4}
+                    _hover={{
+                      transform: 'translateY(-5px)',
+                      boxShadow: 'xl'
+                    }}
+                    transition="all 0.3s"
                   >
-                    Accedi
-                  </Button>
+                    <Icon as={feature.icon} boxSize={10} color="purple.400" />
+                    <Text fontWeight="bold" fontSize="lg">
+                      {feature.title}
+                    </Text>
+                    <Text color="gray.400" fontSize="sm" textAlign="center">
+                      {feature.description}
+                    </Text>
+                  </VStack>
+                </MotionBox>
+              ))}
+            </SimpleGrid>
+          </MotionBox>
 
-                  <Text>
-                    Non hai un account?{' '}
-                    <Button variant="link" colorScheme="purple" onClick={() => setIsLogin(false)}>
-                      Registrati
-                    </Button>
-                  </Text>
-                </VStack>
-              </form>
-            ) : (
-              <form onSubmit={handleRegister}>
-                <VStack spacing={6}>
-                  <Heading size="lg">Crea Account</Heading>
-                  
-                  <FormControl isRequired>
-                    <FormLabel>Username</FormLabel>
-                    <Input
-                      value={registerData.username}
-                      onChange={(e) => setRegisterData({...registerData, username: e.target.value})}
-                      placeholder="Il tuo username"
-                      size="lg"
-                    />
-                  </FormControl>
-                  
-                  <FormControl isRequired>
-                    <FormLabel>Email</FormLabel>
-                    <Input
-                      type="email"
-                      value={registerData.email}
-                      onChange={(e) => setRegisterData({...registerData, email: e.target.value})}
-                      placeholder="tua@email.com"
-                      size="lg"
-                    />
-                  </FormControl>
-                  
-                  <FormControl isRequired>
-                    <FormLabel>Password</FormLabel>
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      value={registerData.password}
-                      onChange={(e) => setRegisterData({...registerData, password: e.target.value})}
-                      placeholder="••••••••"
-                      size="lg"
-                    />
-                  </FormControl>
-                  
-                  <FormControl isRequired>
-                    <FormLabel>Conferma Password</FormLabel>
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      value={registerData.confirmPassword}
-                      onChange={(e) => setRegisterData({...registerData, confirmPassword: e.target.value})}
-                      placeholder="••••••••"
-                      size="lg"
-                    />
-                  </FormControl>
-                  
-                  <Button
-                    type="submit"
-                    colorScheme="purple"
-                    width="100%"
-                    size="lg"
-                    isLoading={isLoading}
-                  >
-                    Registrati
-                  </Button>
-
-                  <Text>
-                    Hai già un account?{' '}
-                    <Button variant="link" colorScheme="purple" onClick={() => setIsLogin(true)}>
-                      Accedi
-                    </Button>
-                  </Text>
-                </VStack>
-              </form>
-            )}
-
-            <Divider my={6} />
-
-            <Button
-              variant="outline"
+          {/* CTA Section */}
+          <MotionBox
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6, duration: 0.6 }}
+          >
+            <VStack
+              spacing={4}
+              p={8}
+              bg="gray.800"
+              borderRadius="xl"
               width="100%"
-              size="lg"
-              onClick={handleSkip}
-              colorScheme="gray"
+              maxW="600px"
             >
-              Continua senza account
-            </Button>
-          </Box>
+              <Heading size="lg">Pronto per iniziare?</Heading>
+              <Text color="gray.400" textAlign="center">
+                Nessuna registrazione richiesta. Inizia subito a leggere i tuoi manga preferiti!
+              </Text>
+              <Button
+                size="lg"
+                colorScheme="purple"
+                onClick={() => navigate('/home')}
+                rightIcon={<FaBook />}
+              >
+                Vai alla libreria
+              </Button>
+            </VStack>
+          </MotionBox>
         </VStack>
       </Container>
     </Box>
