@@ -2,19 +2,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Container, HStack, IconButton, Select, Text, VStack,
   Button, useToast, Flex, Slider, SliderTrack, SliderFilledTrack,
-  SliderThumb, Menu, MenuButton, MenuList, MenuItem, Badge
+  SliderThumb, Menu, MenuButton, MenuList, MenuItem, Badge,
+  Drawer, DrawerOverlay, DrawerContent, DrawerBody, DrawerHeader,
+  Switch, FormControl, FormLabel
 } from '@chakra-ui/react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  FaArrowLeft, FaArrowRight, FaExpand, FaCompress,
-  FaCog, FaTimes, FaPlay, FaPause, FaColumns, FaArrowsAltH, FaArrowsAltV
+  FaArrowLeft, FaArrowRight, FaExpand, FaCompress, FaCog, FaTimes,
+  FaPlay, FaPause, FaColumns, FaArrowsAltH, FaArrowsAltV, FaBars,
+  FaAlignJustify, FaGripVertical
 } from 'react-icons/fa';
 import apiManager from '../api';
-import Reader from '../components/Reader';
 
 function ReaderPage() {
   const { source, mangaId, chapterId } = useParams();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const toast = useToast();
+  
   const [chapter, setChapter] = useState(null);
   const [manga, setManga] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,25 +27,33 @@ function ReaderPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [autoScroll, setAutoScroll] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(50);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  
   const scrollIntervalRef = useRef(null);
-  
-  const [settings, setSettings] = useState({
-    readingMode: 'single', // single, double, webtoon
-    orientation: 'horizontal', // horizontal, vertical
-    zoom: 100,
-    brightness: 100,
-    fitMode: 'width'
-  });
-  
-  const toast = useToast();
-  const navigate = useNavigate();
+  const containerRef = useRef(null);
   const chapterIndex = parseInt(searchParams.get('chapter') || '0');
+  
+  const [settings, setSettings] = useState(() => {
+    const saved = localStorage.getItem('readerSettings');
+    return saved ? JSON.parse(saved) : {
+      readingMode: 'single', // single, double, webtoon
+      orientation: 'horizontal', // horizontal, vertical
+      zoom: 100,
+      brightness: 100,
+      fitMode: 'width',
+      autoPlay: false,
+      autoPlaySpeed: 5000
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('readerSettings', JSON.stringify(settings));
+  }, [settings]);
 
   useEffect(() => {
     loadChapter();
     loadManga();
     
-    // Cleanup auto-scroll on unmount
     return () => {
       if (scrollIntervalRef.current) {
         clearInterval(scrollIntervalRef.current);
@@ -49,10 +62,15 @@ function ReaderPage() {
   }, [chapterId]);
 
   useEffect(() => {
-    // Auto-scroll logic
+    // Auto-scroll per modalità webtoon
     if (autoScroll && settings.readingMode === 'webtoon') {
       scrollIntervalRef.current = setInterval(() => {
-        window.scrollBy(0, scrollSpeed / 10);
+        if (containerRef.current) {
+          containerRef.current.scrollBy({
+            top: scrollSpeed / 10,
+            behavior: 'smooth'
+          });
+        }
       }, 100);
     } else {
       if (scrollIntervalRef.current) {
@@ -66,6 +84,17 @@ function ReaderPage() {
       }
     };
   }, [autoScroll, scrollSpeed, settings.readingMode]);
+
+  // Auto-play per cambiare pagina automaticamente
+  useEffect(() => {
+    if (settings.autoPlay && settings.readingMode !== 'webtoon') {
+      const interval = setInterval(() => {
+        handleNextPage();
+      }, settings.autoPlaySpeed);
+      
+      return () => clearInterval(interval);
+    }
+  }, [settings.autoPlay, settings.autoPlaySpeed, currentPage]);
 
   const loadManga = async () => {
     try {
@@ -89,7 +118,7 @@ function ReaderPage() {
       
       setChapter(chapterData);
       
-      // Save reading progress
+      // Salva progresso
       const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
       progress[mangaId] = {
         chapterId,
@@ -98,6 +127,28 @@ function ReaderPage() {
         timestamp: new Date().toISOString()
       };
       localStorage.setItem('readingProgress', JSON.stringify(progress));
+      
+      // Aggiorna continua a leggere
+      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+      const mangaUrl = atob(mangaId);
+      const existingIndex = reading.findIndex(r => r.url === mangaUrl);
+      
+      if (existingIndex !== -1) {
+        reading[existingIndex].lastChapter = chapterIndex;
+        reading[existingIndex].lastRead = new Date().toISOString();
+      } else if (manga) {
+        reading.unshift({
+          url: mangaUrl,
+          title: manga.title,
+          cover: manga.coverUrl,
+          type: manga.type,
+          source: source,
+          lastChapter: chapterIndex,
+          lastRead: new Date().toISOString()
+        });
+      }
+      
+      localStorage.setItem('reading', JSON.stringify(reading.slice(0, 50)));
       
     } catch (error) {
       toast({
@@ -112,6 +163,30 @@ function ReaderPage() {
     }
   };
 
+  const handleNextPage = () => {
+    if (!chapter?.pages) return;
+    
+    const pagesToSkip = settings.readingMode === 'double' ? 2 : 1;
+    
+    if (currentPage + pagesToSkip < chapter.pages.length) {
+      setCurrentPage(prev => prev + pagesToSkip);
+    } else {
+      // Vai al capitolo successivo
+      navigateChapter(1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    const pagesToSkip = settings.readingMode === 'double' ? 2 : 1;
+    
+    if (currentPage - pagesToSkip >= 0) {
+      setCurrentPage(prev => prev - pagesToSkip);
+    } else if (chapterIndex > 0) {
+      // Vai al capitolo precedente
+      navigateChapter(-1);
+    }
+  };
+
   const navigateChapter = (direction) => {
     if (!manga?.chapters) return;
     
@@ -120,6 +195,7 @@ function ReaderPage() {
       const newChapter = manga.chapters[newIndex];
       const newChapterId = btoa(newChapter.url);
       navigate(`/read/${source}/${mangaId}/${newChapterId}?chapter=${newIndex}`);
+      setCurrentPage(0);
     }
   };
 
@@ -133,18 +209,99 @@ function ReaderPage() {
     }
   };
 
+  const renderReader = () => {
+    if (!chapter) return null;
+    
+    // Modalità Webtoon - scroll verticale
+    if (settings.readingMode === 'webtoon') {
+      return (
+        <VStack 
+          ref={containerRef}
+          spacing={0} 
+          bg="black"
+          height="calc(100vh - 128px)"
+          overflowY="auto"
+          style={{
+            filter: `brightness(${settings.brightness}%)`,
+          }}
+        >
+          {chapter.pages?.map((page, i) => (
+            <Box key={i} w="100%" maxW="900px" mx="auto">
+              <img
+                src={page}
+                alt={`Page ${i + 1}`}
+                style={{ width: '100%' }}
+                loading="lazy"
+              />
+            </Box>
+          ))}
+        </VStack>
+      );
+    }
+    
+    // Modalità pagina singola/doppia
+    const pagesToShow = settings.readingMode === 'double' ? 2 : 1;
+    const pages = [];
+    
+    for (let i = 0; i < pagesToShow; i++) {
+      const pageIndex = currentPage + i;
+      if (pageIndex < chapter.pages?.length) {
+        pages.push(chapter.pages[pageIndex]);
+      }
+    }
+    
+    return (
+      <Flex
+        bg="black"
+        minH="calc(100vh - 128px)"
+        align="center"
+        justify="center"
+        direction={settings.orientation === 'vertical' ? 'column' : 'row'}
+        onClick={(e) => {
+          if (settings.orientation === 'horizontal') {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const width = rect.width;
+            
+            if (x < width * 0.3) {
+              handlePrevPage();
+            } else if (x > width * 0.7) {
+              handleNextPage();
+            }
+          }
+        }}
+        style={{
+          filter: `brightness(${settings.brightness}%)`,
+          cursor: 'pointer'
+        }}
+      >
+        {pages.map((page, i) => (
+          <Box
+            key={currentPage + i}
+            maxH="calc(100vh - 128px)"
+            maxW={settings.readingMode === 'double' ? '50%' : '100%'}
+            px={settings.readingMode === 'double' ? 1 : 0}
+          >
+            <img
+              src={page}
+              alt={`Page ${currentPage + i + 1}`}
+              style={{
+                maxHeight: 'calc(100vh - 128px)',
+                maxWidth: '100%',
+                objectFit: settings.fitMode,
+                transform: `scale(${settings.zoom / 100})`
+              }}
+            />
+          </Box>
+        ))}
+      </Flex>
+    );
+  };
+
   if (loading) {
     return (
       <Container maxW="container.xl" py={8}>
         <Text>Caricamento...</Text>
-      </Container>
-    );
-  }
-
-  if (!chapter) {
-    return (
-      <Container maxW="container.xl" py={8}>
-        <Text>Capitolo non trovato</Text>
       </Container>
     );
   }
@@ -184,72 +341,13 @@ function ReaderPage() {
             </HStack>
 
             <HStack>
-              {/* Reading Mode Menu */}
-              <Menu>
-                <MenuButton
-                  as={IconButton}
-                  icon={<FaCog />}
-                  variant="ghost"
-                  colorScheme="whiteAlpha"
-                  aria-label="Impostazioni"
-                />
-                <MenuList bg="gray.800">
-                  <MenuItem 
-                    icon={<FaColumns />}
-                    onClick={() => setSettings({...settings, readingMode: 'single'})}
-                  >
-                    Pagina singola
-                    {settings.readingMode === 'single' && <Badge ml={2} colorScheme="purple">Attivo</Badge>}
-                  </MenuItem>
-                  <MenuItem 
-                    icon={<FaColumns />}
-                    onClick={() => setSettings({...settings, readingMode: 'double'})}
-                  >
-                    Pagina doppia
-                    {settings.readingMode === 'double' && <Badge ml={2} colorScheme="purple">Attivo</Badge>}
-                  </MenuItem>
-                  <MenuItem onClick={() => setSettings({...settings, readingMode: 'webtoon'})}>
-                    Webtoon (scroll)
-                    {settings.readingMode === 'webtoon' && <Badge ml={2} colorScheme="purple">Attivo</Badge>}
-                  </MenuItem>
-                  <MenuItem 
-                    icon={settings.orientation === 'horizontal' ? <FaArrowsAltH /> : <FaArrowsAltV />}
-                    onClick={() => setSettings({
-                      ...settings, 
-                      orientation: settings.orientation === 'horizontal' ? 'vertical' : 'horizontal'
-                    })}
-                  >
-                    {settings.orientation === 'horizontal' ? 'Orizzontale' : 'Verticale'}
-                  </MenuItem>
-                </MenuList>
-              </Menu>
-              
-              {/* Auto-scroll for webtoon mode */}
-              {settings.readingMode === 'webtoon' && (
-                <HStack>
-                  <IconButton
-                    icon={autoScroll ? <FaPause /> : <FaPlay />}
-                    variant="ghost"
-                    colorScheme="whiteAlpha"
-                    onClick={() => setAutoScroll(!autoScroll)}
-                    aria-label="Auto-scroll"
-                  />
-                  {autoScroll && (
-                    <Select
-                      size="sm"
-                      value={scrollSpeed}
-                      onChange={(e) => setScrollSpeed(Number(e.target.value))}
-                      bg="gray.800"
-                      width="80px"
-                    >
-                      <option value={25}>0.5x</option>
-                      <option value={50}>1x</option>
-                      <option value={75}>1.5x</option>
-                      <option value={100}>2x</option>
-                    </Select>
-                  )}
-                </HStack>
-              )}
+              <IconButton
+                icon={<FaCog />}
+                variant="ghost"
+                colorScheme="whiteAlpha"
+                onClick={() => setSettingsOpen(true)}
+                aria-label="Impostazioni"
+              />
               
               <IconButton
                 icon={isFullscreen ? <FaCompress /> : <FaExpand />}
@@ -263,15 +361,9 @@ function ReaderPage() {
         </Box>
       )}
 
-      {/* Reader */}
+      {/* Reader Content */}
       <Box pt={isFullscreen ? 0 : 16} pb={isFullscreen ? 0 : 16}>
-        <Reader
-          chapter={chapter}
-          currentPage={currentPage}
-          onPageChange={setCurrentPage}
-          settings={settings}
-          isNovel={chapter.type === 'text'}
-        />
+        {renderReader()}
       </Box>
 
       {/* Footer Controls */}
@@ -288,7 +380,7 @@ function ReaderPage() {
         >
           <VStack spacing={2}>
             {/* Page selector */}
-            {chapter.pages && (
+            {chapter?.pages && (
               <HStack w="100%" maxW="600px">
                 <Text fontSize="sm" color="gray.400" minW="60px">
                   {currentPage + 1}/{chapter.pages.length}
@@ -355,6 +447,164 @@ function ReaderPage() {
           </VStack>
         </Box>
       )}
+
+      {/* Settings Drawer */}
+      <Drawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} placement="right">
+        <DrawerOverlay />
+        <DrawerContent bg="gray.900">
+          <DrawerHeader>Impostazioni Reader</DrawerHeader>
+          <DrawerBody>
+            <VStack spacing={4} align="stretch">
+              {/* Modalità lettura */}
+              <FormControl>
+                <FormLabel>Modalità lettura</FormLabel>
+                <VStack align="stretch">
+                  <Button
+                    leftIcon={<FaBars />}
+                    variant={settings.readingMode === 'single' ? 'solid' : 'outline'}
+                    onClick={() => setSettings({...settings, readingMode: 'single'})}
+                    size="sm"
+                  >
+                    Pagina singola
+                  </Button>
+                  <Button
+                    leftIcon={<FaColumns />}
+                    variant={settings.readingMode === 'double' ? 'solid' : 'outline'}
+                    onClick={() => setSettings({...settings, readingMode: 'double'})}
+                    size="sm"
+                  >
+                    Pagina doppia
+                  </Button>
+                  <Button
+                    leftIcon={<FaAlignJustify />}
+                    variant={settings.readingMode === 'webtoon' ? 'solid' : 'outline'}
+                    onClick={() => setSettings({...settings, readingMode: 'webtoon'})}
+                    size="sm"
+                  >
+                    Webtoon (Scroll verticale)
+                  </Button>
+                </VStack>
+              </FormControl>
+
+              {/* Orientamento (solo per pagina singola/doppia) */}
+              {settings.readingMode !== 'webtoon' && (
+                <FormControl>
+                  <FormLabel>Orientamento</FormLabel>
+                  <HStack>
+                    <Button
+                      leftIcon={<FaArrowsAltH />}
+                      variant={settings.orientation === 'horizontal' ? 'solid' : 'outline'}
+                      onClick={() => setSettings({...settings, orientation: 'horizontal'})}
+                      size="sm"
+                      flex={1}
+                    >
+                      Orizzontale
+                    </Button>
+                    <Button
+                      leftIcon={<FaArrowsAltV />}
+                      variant={settings.orientation === 'vertical' ? 'solid' : 'outline'}
+                      onClick={() => setSettings({...settings, orientation: 'vertical'})}
+                      size="sm"
+                      flex={1}
+                    >
+                      Verticale
+                    </Button>
+                  </HStack>
+                </FormControl>
+              )}
+
+              {/* Auto-scroll per webtoon */}
+              {settings.readingMode === 'webtoon' && (
+                <FormControl>
+                  <FormLabel>Scorrimento automatico</FormLabel>
+                  <HStack>
+                    <Switch
+                      isChecked={autoScroll}
+                      onChange={(e) => setAutoScroll(e.target.checked)}
+                    />
+                    <Text>Attivo</Text>
+                  </HStack>
+                  {autoScroll && (
+                    <VStack align="stretch" mt={2}>
+                      <Text fontSize="sm">Velocità: {scrollSpeed}%</Text>
+                      <Slider
+                        value={scrollSpeed}
+                        min={10}
+                        max={200}
+                        onChange={setScrollSpeed}
+                      >
+                        <SliderTrack>
+                          <SliderFilledTrack />
+                        </SliderTrack>
+                        <SliderThumb />
+                      </Slider>
+                    </VStack>
+                  )}
+                </FormControl>
+              )}
+
+              {/* Auto-play per cambiare pagina */}
+              {settings.readingMode !== 'webtoon' && (
+                <FormControl>
+                  <FormLabel>Cambio pagina automatico</FormLabel>
+                  <HStack>
+                    <Switch
+                      isChecked={settings.autoPlay}
+                      onChange={(e) => setSettings({...settings, autoPlay: e.target.checked})}
+                    />
+                    <Text>Attivo</Text>
+                  </HStack>
+                  {settings.autoPlay && (
+                    <Select
+                      value={settings.autoPlaySpeed}
+                      onChange={(e) => setSettings({...settings, autoPlaySpeed: parseInt(e.target.value)})}
+                      size="sm"
+                      mt={2}
+                    >
+                      <option value={3000}>3 secondi</option>
+                      <option value={5000}>5 secondi</option>
+                      <option value={7000}>7 secondi</option>
+                      <option value={10000}>10 secondi</option>
+                    </Select>
+                  )}
+                </FormControl>
+              )}
+
+              {/* Luminosità */}
+              <FormControl>
+                <FormLabel>Luminosità: {settings.brightness}%</FormLabel>
+                <Slider
+                  value={settings.brightness}
+                  min={20}
+                  max={100}
+                  onChange={(val) => setSettings({...settings, brightness: val})}
+                >
+                  <SliderTrack>
+                    <SliderFilledTrack />
+                  </SliderTrack>
+                  <SliderThumb />
+                </Slider>
+              </FormControl>
+
+              {/* Zoom */}
+              <FormControl>
+                <FormLabel>Zoom: {settings.zoom}%</FormLabel>
+                <Slider
+                  value={settings.zoom}
+                  min={50}
+                  max={200}
+                  onChange={(val) => setSettings({...settings, zoom: val})}
+                >
+                  <SliderTrack>
+                    <SliderFilledTrack />
+                  </SliderTrack>
+                  <SliderThumb />
+                </Slider>
+              </FormControl>
+            </VStack>
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
     </Box>
   );
 }
