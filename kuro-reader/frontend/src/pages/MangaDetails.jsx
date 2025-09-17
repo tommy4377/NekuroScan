@@ -89,29 +89,36 @@ function MangaDetails() {
   };
 
   const toggleFavorite = () => {
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    const mangaUrl = atob(id);
-    
-    if (isFavorite) {
-      const updated = favorites.filter(f => f.url !== mangaUrl);
-      localStorage.setItem('favorites', JSON.stringify(updated));
-      setIsFavorite(false);
-      toast({
-        title: 'Rimosso dai preferiti',
-        status: 'info',
-        duration: 2000,
-      });
-    } else {
-      favorites.unshift(manga);
-      localStorage.setItem('favorites', JSON.stringify(favorites));
-      setIsFavorite(true);
-      toast({
-        title: 'Aggiunto ai preferiti',
-        status: 'success',
-        duration: 2000,
-      });
-    }
-  };
+  const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+  
+  if (isFavorite) {
+    const updated = favorites.filter(f => f.url !== manga.url);
+    localStorage.setItem('favorites', JSON.stringify(updated));
+    setIsFavorite(false);
+    toast({
+      title: 'Rimosso dai preferiti',
+      status: 'info',
+      duration: 2000,
+    });
+  } else {
+    // Salva il manga completo con tutte le info necessarie
+    const mangaToSave = {
+      url: manga.url,
+      title: manga.title,
+      cover: manga.coverUrl,
+      type: manga.type,
+      source: manga.source || source
+    };
+    favorites.unshift(mangaToSave);
+    localStorage.setItem('favorites', JSON.stringify(favorites));
+    setIsFavorite(true);
+    toast({
+      title: 'Aggiunto ai preferiti',
+      status: 'success',
+      duration: 2000,
+    });
+  }
+};
 
   const startReading = (chapterIndex = 0) => {
     if (!manga?.chapters?.[chapterIndex]) return;
@@ -346,5 +353,6 @@ function MangaDetails() {
     </Container>
   );
 }
+
 
 export default MangaDetails;
