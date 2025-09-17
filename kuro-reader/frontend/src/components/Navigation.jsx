@@ -43,10 +43,8 @@ function Navigation() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   
-  // Responsive values
-  const showDesktopNav = useBreakpointValue({ base: false, md: true });
-  const logoSize = useBreakpointValue({ base: '25px', md: '30px' });
-  const titleSize = useBreakpointValue({ base: 'lg', md: '2xl' });
+  const showFullTitle = useBreakpointValue({ base: false, sm: true });
+  const logoSize = useBreakpointValue({ base: '30px', md: '35px' });
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -61,7 +59,7 @@ function Navigation() {
     <>
       <Box
         bg="rgba(26, 32, 44, 0.95)"
-        px={4}
+        px={2}
         position="fixed"
         top={0}
         left={0}
@@ -73,70 +71,65 @@ function Navigation() {
       >
         <Container maxW="container.xl">
           <Flex h={16} alignItems="center" justifyContent="space-between">
-            {/* Left side - Menu and Logo */}
-            <HStack spacing={{ base: 2, md: 8 }} alignItems="center" flex={{ base: 1, md: 'none' }}>
-              {/* Mobile menu button */}
+            {/* Left - Menu and Logo */}
+            <HStack spacing={{ base: 1, md: 4 }}>
               <IconButton
                 size="md"
                 icon={isOpen ? <CloseIcon /> : <HamburgerIcon />}
-                aria-label="Open Menu"
+                aria-label="Menu"
                 display={{ md: 'none' }}
                 onClick={onOpen}
               />
               
-              {/* Logo - cliccabile per tornare alla home */}
               <Box 
                 as={Link} 
                 to="/home"
                 display="flex"
                 alignItems="center"
-                cursor="pointer"
                 _hover={{ opacity: 0.8 }}
-                transition="opacity 0.2s"
               >
                 <Image 
                   src="/web-app-manifest-512x512.png" 
                   boxSize={logoSize}
-                  mr={2} 
+                  mr={showFullTitle ? 2 : 0} 
                   fallbackSrc="https://via.placeholder.com/30" 
                 />
-                <Text
-                  fontSize={titleSize}
-                  fontWeight="bold"
-                  bgGradient="linear(to-r, purple.400, pink.400)"
-                  bgClip="text"
-                  display={{ base: 'none', sm: 'block' }}
-                >
-                  KuroReader
-                </Text>
+                {showFullTitle && (
+                  <Text
+                    fontSize={{ base: 'lg', md: '2xl' }}
+                    fontWeight="bold"
+                    bgGradient="linear(to-r, purple.400, pink.400)"
+                    bgClip="text"
+                  >
+                    KuroReader
+                  </Text>
+                )}
               </Box>
 
-              {/* Desktop Navigation */}
-              {showDesktopNav && (
-                <HStack as="nav" spacing={4}>
-                  <Link to="/home">
-                    <Button variant="ghost" leftIcon={<FaHome />}>
-                      Home
-                    </Button>
-                  </Link>
-                  <Link to="/library">
-                    <Button variant="ghost" leftIcon={<FaBook />}>
-                      Libreria
-                    </Button>
-                  </Link>
-                </HStack>
-              )}
+              {/* Desktop Nav */}
+              <HStack spacing={4} display={{ base: 'none', md: 'flex' }}>
+                <Link to="/library">
+                  <Button variant="ghost" leftIcon={<FaBook />} size="sm">
+                    Libreria
+                  </Button>
+                </Link>
+                <Link to="/categories">
+                  <Button variant="ghost" size="sm">
+                    Categorie
+                  </Button>
+                </Link>
+              </HStack>
             </HStack>
 
-            {/* Center - Search Bar (Desktop only) */}
+            {/* Center - Search (Desktop) */}
             <Box 
               display={{ base: 'none', md: 'block' }} 
               flex={1} 
               maxW="400px" 
-              mx={8}
+              mx={4}
             >
               <form onSubmit={handleSearch}>
-                <InputGroup>
+                <InputGroup size="sm">
                   <InputLeftElement pointerEvents="none">
                     <SearchIcon color="gray.400" />
                   </InputLeftElement>
@@ -146,24 +139,23 @@ function Navigation() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     bg="gray.800"
                     border="none"
-                    _focus={{ bg: 'gray.700', boxShadow: 'outline' }}
+                    _focus={{ bg: 'gray.700' }}
                   />
                 </InputGroup>
               </form>
             </Box>
 
-            {/* Right side - User menu */}
-            <HStack spacing={2}>
-              {/* Mobile search button */}
+            {/* Right - Actions */}
+            <HStack spacing={1}>
               <IconButton
                 icon={<SearchIcon />}
                 variant="ghost"
                 display={{ base: 'flex', md: 'none' }}
                 onClick={() => navigate('/search')}
                 aria-label="Cerca"
+                size="sm"
               />
               
-              {/* User menu / Login button */}
               {user ? (
                 <Menu>
                   <MenuButton
@@ -200,7 +192,6 @@ function Navigation() {
                   colorScheme="purple"
                   size="sm"
                   onClick={() => navigate('/login')}
-                  leftIcon={<FaSignInAlt />}
                   display={{ base: 'none', sm: 'flex' }}
                 >
                   Accedi
@@ -221,7 +212,6 @@ function Navigation() {
               <Image 
                 src="/web-app-manifest-512x512.png" 
                 boxSize="25px" 
-                fallbackSrc="https://via.placeholder.com/25" 
               />
               <Text
                 fontSize="xl"
@@ -236,7 +226,6 @@ function Navigation() {
 
           <DrawerBody>
             <VStack spacing={4} align="stretch">
-              {/* Mobile Search */}
               <form onSubmit={handleSearch}>
                 <InputGroup>
                   <InputLeftElement pointerEvents="none">
@@ -248,14 +237,12 @@ function Navigation() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     bg="gray.800"
                     border="none"
-                    _focus={{ bg: 'gray.700' }}
                   />
                 </InputGroup>
               </form>
               
               <Divider />
               
-              {/* Mobile Navigation */}
               <VStack align="stretch" spacing={2}>
                 <Link to="/home" onClick={onClose}>
                   <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaHome />} w="100%">
@@ -267,9 +254,9 @@ function Navigation() {
                     Libreria
                   </Button>
                 </Link>
-                <Link to="/search" onClick={onClose}>
+                <Link to="/categories" onClick={onClose}>
                   <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaSearch />} w="100%">
-                    Cerca
+                    Categorie
                   </Button>
                 </Link>
               </VStack>
