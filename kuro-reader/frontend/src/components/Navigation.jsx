@@ -18,7 +18,7 @@ import {
   MenuItem,
   MenuDivider,
   Text,
-  Badge,
+  Image,
   Drawer,
   DrawerBody,
   DrawerHeader,
@@ -68,7 +68,7 @@ function Navigation() {
       >
         <Container maxW="container.xl">
           <Flex h={16} alignItems="center" justifyContent="space-between">
-            {/* Logo */}
+            {/* Logo and Mobile Menu */}
             <HStack spacing={8} alignItems="center">
               <IconButton
                 size="md"
@@ -78,21 +78,39 @@ function Navigation() {
                 onClick={onOpen}
               />
               
+              <Link to="/home">
+                <HStack>
+                  <Image 
+                    src="/kuro-icon.png" 
+                    boxSize="30px" 
+                    mr={2} 
+                    fallbackSrc="https://via.placeholder.com/30" 
+                  />
+                  <Text
+                    fontSize="2xl"
+                    fontWeight="bold"
+                    bgGradient="linear(to-r, purple.400, pink.400)"
+                    bgClip="text"
+                  >
+                    KuroReader
+                  </Text>
+                </HStack>
+              </Link>
 
               {/* Desktop Navigation */}
-              <Link to="/home"> {/* Cambia da "/" a "/home" */}
-              <HStack>
-    <Image src="/kuro-reader/frontend/public/web-app-manifest-512x512.png" boxSize="30px" mr={2} fallbackSrc="https://via.placeholder.com/30" />
-    <Text
-      fontSize="2xl"
-      fontWeight="bold"
-      bgGradient="linear(to-r, purple.400, pink.400)"
-      bgClip="text"
-    >
-      KuroReader
-    </Text>
-  </HStack>
-</Link>
+              <HStack as="nav" spacing={4} display={{ base: 'none', md: 'flex' }}>
+                <Link to="/home">
+                  <Button variant="ghost" leftIcon={<FaHome />}>
+                    Home
+                  </Button>
+                </Link>
+                <Link to="/library">
+                  <Button variant="ghost" leftIcon={<FaBook />}>
+                    Libreria
+                  </Button>
+                </Link>
+              </HStack>
+            </HStack>
 
             {/* Search Bar - Desktop */}
             <Box display={{ base: 'none', md: 'block' }} flex={1} maxW="400px" mx={8}>
@@ -102,7 +120,7 @@ function Navigation() {
                     <SearchIcon color="gray.400" />
                   </InputLeftElement>
                   <Input
-                    placeholder="Cerca manga o novel..."
+                    placeholder="Cerca manga..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     bg="gray.800"
@@ -115,7 +133,6 @@ function Navigation() {
 
             {/* Right Menu */}
             <HStack spacing={3}>
-              
               {user ? (
                 <Menu>
                   <MenuButton
@@ -145,7 +162,7 @@ function Navigation() {
                 <Button
                   colorScheme="purple"
                   size="sm"
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate('/')}
                 >
                   Accedi
                 </Button>
@@ -193,11 +210,11 @@ function Navigation() {
               
               {/* Mobile Navigation */}
               <VStack align="stretch" spacing={2}>
-                <Link to="/home" onClick={onClose}> {/* Cambia da "/" a "/home" */}
-  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaHome />} w="100%">
-    Home
-  </Button>
-</Link>
+                <Link to="/home" onClick={onClose}>
+                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaHome />} w="100%">
+                    Home
+                  </Button>
+                </Link>
                 <Link to="/library" onClick={onClose}>
                   <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaBook />} w="100%">
                     Libreria
@@ -222,11 +239,29 @@ function Navigation() {
                       variant="ghost"
                       justifyContent="flex-start"
                       color="red.400"
-                      onClick={logout}
+                      onClick={() => {
+                        logout();
+                        onClose();
+                      }}
                     >
                       Logout
                     </Button>
                   </VStack>
+                </>
+              )}
+              
+              {!user && (
+                <>
+                  <Divider />
+                  <Button
+                    colorScheme="purple"
+                    onClick={() => {
+                      navigate('/');
+                      onClose();
+                    }}
+                  >
+                    Accedi
+                  </Button>
                 </>
               )}
             </VStack>
@@ -238,5 +273,3 @@ function Navigation() {
 }
 
 export default Navigation;
-
-
