@@ -8,7 +8,7 @@ import {
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FaChevronLeft, FaChevronRight, FaExpand, FaCompress, 
-  FaTimes, FaBars, FaColumns, FaAlignJustify, FaCog
+  FaTimes, FaBars, FaCog, FaAlignJustify, FaHome
 } from 'react-icons/fa';
 import { RiPagesFill, RiPagesLine } from 'react-icons/ri';
 import apiManager from '../api';
@@ -31,6 +31,7 @@ function ReaderPage() {
   const [scrollSpeed, setScrollSpeed] = useState(50);
   const [imageScale, setImageScale] = useState(100);
   const [errorPages, setErrorPages] = useState(new Set());
+  const [fitMode, setFitMode] = useState('height'); // height, width, original
   
   const scrollIntervalRef = useRef(null);
   const containerRef = useRef(null);
@@ -46,6 +47,7 @@ function ReaderPage() {
   }, [chapterId, source]);
 
   useEffect(() => {
+    // Auto-scroll per modalità webtoon
     if (autoScroll && readingMode === 'webtoon') {
       scrollIntervalRef.current = setInterval(() => {
         if (containerRef.current) {
@@ -67,6 +69,35 @@ function ReaderPage() {
       }
     };
   }, [autoScroll, scrollSpeed, readingMode]);
+
+  // Gestione keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (readingMode === 'webtoon') return;
+      
+      switch(e.key) {
+        case 'ArrowLeft':
+          changePage(-1);
+          break;
+        case 'ArrowRight':
+          changePage(1);
+          break;
+        case ' ':
+          e.preventDefault();
+          changePage(1);
+          break;
+        case 'f':
+          toggleFullscreen();
+          break;
+        case 'm':
+          cycleReadingMode();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [currentPage, readingMode, chapter]);
 
   const loadData = async () => {
     try {
@@ -103,9 +134,9 @@ function ReaderPage() {
       setChapter(chapterData);
       setCurrentPage(0);
       
-      // Rileva se è un webtoon
+      // Rileva se è un webtoon usando un metodo sicuro
       if (chapterData.pages.length > 0) {
-        detectManhwa(chapterData.pages);
+        detectManhwa(chapterData.pages[0]);
       }
       
     } catch (error) {
@@ -127,18 +158,20 @@ function ReaderPage() {
     }
   };
 
-  const detectManhwa = (pages) => {
-    if (!pages || pages.length === 0) return;
+  const detectManhwa = (firstPageUrl) => {
+    if (!firstPageUrl) return;
     
-    const img = new Image();
-    img.src = pages[0];
-    img.onload = () => {
-      const aspectRatio = img.width / img.height;
+    // Usa document.createElement invece di new Image()
+    const img = document.createElement('img');
+    img.onload = function() {
+      const aspectRatio = this.width / this.height;
       // Se l'aspect ratio è molto verticale, è probabilmente un webtoon
-      if (aspectRatio < 0.5) {
+      if (aspectRatio < 0.6) {
         setReadingMode('webtoon');
+        setFitMode('width');
       }
     };
+    img.src = firstPageUrl;
   };
 
   const navigateChapter = (direction) => {
@@ -159,11 +192,15 @@ function ReaderPage() {
   };
 
   const changePage = (direction) => {
+    if (!chapter?.pages) return;
+    
     const pagesToSkip = readingMode === 'double' ? 2 : 1;
     const newPage = currentPage + (direction * pagesToSkip);
     
     if (newPage >= 0 && newPage < chapter.pages.length) {
       setCurrentPage(newPage);
+      // Preload next images
+      preloadImages(newPage);
     } else if (newPage >= chapter.pages.length && chapterIndex < manga.chapters.length - 1) {
       // Vai al capitolo successivo
       navigateChapter(1);
@@ -173,18 +210,25 @@ function ReaderPage() {
     }
   };
 
-  const toggleFullscreen = () => {
-    const elem = document.documentElement;
+  const preloadImages = (currentIndex) => {
+    if (!chapter?.pages) return;
     
+    // Precarica le prossime 3 immagini
+    for (let i = currentIndex + 1; i <= Math.min(currentIndex + 3, chapter.pages.length - 1); i++) {
+      const img = document.createElement('img');
+      img.src = chapter.pages[i];
+    }
+  };
+
+  const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
+      const elem = document.documentElement;
       if (elem.requestFullscreen) {
         elem.requestFullscreen();
       } else if (elem.webkitRequestFullscreen) {
         elem.webkitRequestFullscreen();
       } else if (elem.mozRequestFullScreen) {
         elem.mozRequestFullScreen();
-      } else if (elem.msRequestFullscreen) {
-        elem.msRequestFullscreen();
       }
       setIsFullscreen(true);
     } else {
@@ -194,8 +238,6 @@ function ReaderPage() {
         document.webkitExitFullscreen();
       } else if (document.mozCancelFullScreen) {
         document.mozCancelFullScreen();
-      } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
       }
       setIsFullscreen(false);
     }
@@ -207,8 +249,17 @@ function ReaderPage() {
     const nextMode = modes[(currentIndex + 1) % modes.length];
     setReadingMode(nextMode);
     
-    if (nextMode === 'double' && currentPage % 2 !== 0) {
-      setCurrentPage(currentPage - 1);
+    // Adatta le impostazioni in base alla modalità
+    if (nextMode === 'webtoon') {
+      setFitMode('width');
+    } else if (nextMode === 'double') {
+      setFitMode('height');
+      // Assicurati di partire da una pagina pari per la modalità doppia
+      if (currentPage % 2 !== 0) {
+        setCurrentPage(currentPage - 1);
+      }
+    } else {
+      setFitMode('height');
     }
   };
 
@@ -244,44 +295,59 @@ function ReaderPage() {
       );
     }
 
+    // Modalità Webtoon - scroll verticale
     if (readingMode === 'webtoon') {
       return (
-        <VStack 
+        <Box
           ref={containerRef}
-          spacing={0} 
-          bg="black" 
-          pb={20}
+          bg="black"
           height="100vh"
           overflowY="auto"
+          overflowX="hidden"
+          pb={20}
         >
-          {chapter.pages.map((page, i) => (
-            <Box key={i} width="100%" maxW="900px" mx="auto" position="relative">
-              {errorPages.has(i) ? (
-                <Box bg="gray.800" p={8} textAlign="center">
-                  <Text color="gray.400">Errore caricamento pagina {i + 1}</Text>
-                </Box>
-              ) : (
-                <Image
-                  src={page}
-                  alt={`Page ${i + 1}`}
-                  width="100%"
-                  style={{ 
-                    transform: `scale(${imageScale / 100})`,
-                    transformOrigin: 'top center'
-                  }}
-                  onError={() => handleImageError(i)}
-                />
-              )}
-            </Box>
-          ))}
-        </VStack>
+          <VStack spacing={0} width="100%">
+            {chapter.pages.map((page, i) => (
+              <Box 
+                key={i} 
+                width="100%"
+                display="flex"
+                justifyContent="center"
+                bg="black"
+              >
+                {errorPages.has(i) ? (
+                  <Box bg="gray.800" p={8} textAlign="center" width="100%">
+                    <Text color="gray.400">Errore caricamento pagina {i + 1}</Text>
+                  </Box>
+                ) : (
+                  <Image
+                    src={page}
+                    alt={`Page ${i + 1}`}
+                    width="auto"
+                    maxW={fitMode === 'width' ? '100%' : '900px'}
+                    height="auto"
+                    style={{ 
+                      transform: `scale(${imageScale / 100})`,
+                      transformOrigin: 'top center',
+                      display: 'block'
+                    }}
+                    onError={() => handleImageError(i)}
+                    loading="lazy"
+                  />
+                )}
+              </Box>
+            ))}
+          </VStack>
+        </Box>
       );
     }
 
-    // Single/Double page mode
-    let pagesToShow = 1;
-    if (readingMode === 'double') {
-      pagesToShow = Math.min(2, chapter.pages.length - currentPage);
+    // Modalità Single/Double page
+    let pagesToShow = readingMode === 'double' ? 2 : 1;
+    
+    // Non mostrare due pagine se siamo all'ultima pagina
+    if (readingMode === 'double' && currentPage === chapter.pages.length - 1) {
+      pagesToShow = 1;
     }
     
     return (
@@ -293,73 +359,114 @@ function ReaderPage() {
         justifyContent="center"
         position="relative"
         onClick={(e) => {
-          if (readingMode === 'webtoon') return;
-          
           const rect = e.currentTarget.getBoundingClientRect();
           const x = e.clientX - rect.left;
-          if (x < rect.width * 0.3) {
+          const clickZone = rect.width * 0.3;
+          
+          if (x < clickZone) {
             changePage(-1);
-          } else if (x > rect.width * 0.7) {
+          } else if (x > rect.width - clickZone) {
             changePage(1);
           }
         }}
         cursor="pointer"
+        overflow="hidden"
       >
-        {[...Array(pagesToShow)].map((_, i) => {
-          const pageIndex = currentPage + i;
-          if (pageIndex >= chapter.pages.length) return null;
-          
-          return (
-            <Box 
-              key={pageIndex} 
-              flex={pagesToShow > 1 ? 1 : 'none'}
-              display="flex" 
-              justifyContent="center"
-              height="100vh"
-              overflow="hidden"
-              position="relative"
-            >
-              {imageLoading && !errorPages.has(pageIndex) && (
-                <Spinner 
-                  position="absolute" 
-                  size="xl" 
-                  color="purple.500"
-                  top="50%"
-                  left="50%"
-                  transform="translate(-50%, -50%)"
-                />
-              )}
-              
-              {errorPages.has(pageIndex) ? (
-                <Box 
-                  bg="gray.800" 
-                  p={8} 
-                  textAlign="center"
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <Text color="gray.400">Errore caricamento pagina {pageIndex + 1}</Text>
-                </Box>
-              ) : (
-                <Image
-                  src={chapter.pages[pageIndex]}
-                  alt={`Page ${pageIndex + 1}`}
-                  maxH="100vh"
-                  maxW={pagesToShow > 1 ? "50vw" : "100vw"}
-                  objectFit="contain"
-                  style={{ 
-                    transform: `scale(${imageScale / 100})`,
-                    transformOrigin: 'center'
-                  }}
-                  onLoadStart={() => setImageLoading(true)}
-                  onLoad={() => setImageLoading(false)}
-                  onError={() => handleImageError(pageIndex)}
-                />
-              )}
-            </Box>
-          );
-        })}
+        <HStack spacing={0} height="100vh" width="100%" justifyContent="center">
+          {[...Array(Math.min(pagesToShow, chapter.pages.length - currentPage))].map((_, i) => {
+            const pageIndex = currentPage + i;
+            if (pageIndex >= chapter.pages.length) return null;
+            
+            return (
+              <Box 
+                key={pageIndex}
+                height="100vh"
+                flex={readingMode === 'double' ? 1 : 'none'}
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                position="relative"
+                maxW={readingMode === 'double' ? '50%' : '100%'}
+              >
+                {imageLoading && !errorPages.has(pageIndex) && (
+                  <Spinner 
+                    position="absolute" 
+                    size="xl" 
+                    color="purple.500"
+                    zIndex={1}
+                  />
+                )}
+                
+                {errorPages.has(pageIndex) ? (
+                  <Box 
+                    bg="gray.800" 
+                    p={8} 
+                    textAlign="center"
+                    borderRadius="md"
+                  >
+                    <Text color="gray.400">Errore caricamento pagina {pageIndex + 1}</Text>
+                    <Button 
+                      mt={2} 
+                      size="sm" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setErrorPages(prev => {
+                          const newSet = new Set(prev);
+                          newSet.delete(pageIndex);
+                          return newSet;
+                        });
+                      }}
+                    >
+                      Riprova
+                    </Button>
+                  </Box>
+                ) : (
+                  <Image
+                    src={chapter.pages[pageIndex]}
+                    alt={`Page ${pageIndex + 1}`}
+                    height={fitMode === 'height' ? '100vh' : 'auto'}
+                    width={fitMode === 'width' ? '100%' : 'auto'}
+                    maxH="100vh"
+                    maxW={readingMode === 'double' ? '100%' : '100vw'}
+                    objectFit="contain"
+                    style={{ 
+                      transform: `scale(${imageScale / 100})`,
+                      transformOrigin: 'center',
+                      display: 'block'
+                    }}
+                    onLoadStart={() => setImageLoading(true)}
+                    onLoad={() => setImageLoading(false)}
+                    onError={() => handleImageError(pageIndex)}
+                  />
+                )}
+              </Box>
+            );
+          })}
+        </HStack>
+
+        {/* Click zones indicators */}
+        <Box
+          position="absolute"
+          left={0}
+          top={0}
+          bottom={0}
+          width="30%"
+          opacity={0}
+          _hover={{ opacity: 0.1 }}
+          bg="white"
+          pointerEvents="none"
+        />
+        <Box
+          position="absolute"
+          right={0}
+          top={0}
+          bottom={0}
+          width="30%"
+          opacity={0}
+          _hover={{ opacity: 0.1 }}
+          bg="white"
+          pointerEvents="none"
+        />
       </Box>
     );
   };
@@ -377,22 +484,40 @@ function ReaderPage() {
 
   return (
     <Box bg="black" minH="100vh" position="relative">
-      {/* Minimal floating controls */}
-      <Box position="fixed" top={4} left={4} zIndex={1001}>
-        <IconButton
-          icon={<FaTimes />}
-          variant="solid"
-          colorScheme="blackAlpha"
-          bg="blackAlpha.700"
-          color="white"
-          size="lg"
-          borderRadius="full"
-          onClick={() => navigate(`/manga/${source}/${mangaId}`)}
-          aria-label="Chiudi reader"
-        />
-      </Box>
+      {/* Top controls */}
+      <HStack 
+        position="fixed" 
+        top={4} 
+        left={4} 
+        right={4} 
+        zIndex={1001}
+        justify="space-between"
+      >
+        <HStack>
+          <IconButton
+            icon={<FaTimes />}
+            variant="solid"
+            colorScheme="blackAlpha"
+            bg="blackAlpha.700"
+            color="white"
+            size="lg"
+            borderRadius="full"
+            onClick={() => navigate(`/manga/${source}/${mangaId}`)}
+            aria-label="Chiudi reader"
+          />
+          <IconButton
+            icon={<FaHome />}
+            variant="solid"
+            colorScheme="blackAlpha"
+            bg="blackAlpha.700"
+            color="white"
+            size="lg"
+            borderRadius="full"
+            onClick={() => navigate('/home')}
+            aria-label="Home"
+          />
+        </HStack>
 
-      <Box position="fixed" top={4} right={4} zIndex={1001}>
         <HStack>
           <IconButton
             icon={<FaCog />}
@@ -428,9 +553,9 @@ function ReaderPage() {
             aria-label="Schermo intero"
           />
         </HStack>
-      </Box>
+      </HStack>
 
-      {/* Navigation arrows */}
+      {/* Navigation arrows - solo per modalità non-webtoon */}
       {readingMode !== 'webtoon' && chapter?.pages && (
         <>
           <IconButton
@@ -449,6 +574,8 @@ function ReaderPage() {
             isDisabled={currentPage === 0 && chapterIndex === 0}
             zIndex={1001}
             aria-label="Pagina precedente"
+            opacity={0.7}
+            _hover={{ opacity: 1 }}
           />
           
           <IconButton
@@ -468,49 +595,51 @@ function ReaderPage() {
                       chapterIndex >= manga?.chapters?.length - 1}
             zIndex={1001}
             aria-label="Pagina successiva"
+            opacity={0.7}
+            _hover={{ opacity: 1 }}
           />
         </>
       )}
 
-      {/* Page indicator */}
-      {readingMode !== 'webtoon' && chapter?.pages && (
-        <Box
-          position="fixed"
-          bottom={4}
-          left="50%"
-          transform="translateX(-50%)"
-          bg="blackAlpha.700"
-          color="white"
-          px={4}
-          py={2}
-          borderRadius="full"
-          zIndex={1001}
-        >
-          <Text fontSize="sm">
-            Pagina {currentPage + 1} / {chapter.pages.length}
-          </Text>
-        </Box>
-      )}
-
-      {/* Chapter info */}
-      {manga && (
-        <Box
-          position="fixed"
-          top={20}
-          left="50%"
-          transform="translateX(-50%)"
-          bg="blackAlpha.700"
-          color="white"
-          px={4}
-          py={2}
-          borderRadius="md"
-          zIndex={1000}
-        >
-          <Text fontSize="sm" noOfLines={1}>
-            {manga.chapters?.[chapterIndex]?.title || `Capitolo ${chapterIndex + 1}`}
-          </Text>
-        </Box>
-      )}
+      {/* Page indicator e chapter info */}
+      <Box
+        position="fixed"
+        bottom={4}
+        left="50%"
+        transform="translateX(-50%)"
+        zIndex={1001}
+      >
+        {readingMode !== 'webtoon' && chapter?.pages && (
+          <Box
+            bg="blackAlpha.700"
+            color="white"
+            px={4}
+            py={2}
+            borderRadius="full"
+            mb={2}
+            textAlign="center"
+          >
+            <Text fontSize="sm">
+              Pagina {currentPage + 1} / {chapter.pages.length}
+            </Text>
+          </Box>
+        )}
+        
+        {manga && (
+          <Box
+            bg="blackAlpha.700"
+            color="white"
+            px={4}
+            py={2}
+            borderRadius="md"
+            textAlign="center"
+          >
+            <Text fontSize="xs" noOfLines={1}>
+              {manga.chapters?.[chapterIndex]?.title || `Capitolo ${chapterIndex + 1}`}
+            </Text>
+          </Box>
+        )}
+      </Box>
 
       {/* Settings Drawer */}
       <Drawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} placement="right">
@@ -549,6 +678,37 @@ function ReaderPage() {
                     size="sm"
                   >
                     Webtoon (Scroll verticale)
+                  </Button>
+                </VStack>
+              </FormControl>
+
+              {/* Fit mode */}
+              <FormControl>
+                <FormLabel>Adattamento immagine</FormLabel>
+                <VStack align="stretch">
+                  <Button
+                    variant={fitMode === 'height' ? 'solid' : 'outline'}
+                    colorScheme="purple"
+                    onClick={() => setFitMode('height')}
+                    size="sm"
+                  >
+                    Adatta altezza
+                  </Button>
+                  <Button
+                    variant={fitMode === 'width' ? 'solid' : 'outline'}
+                    colorScheme="purple"
+                    onClick={() => setFitMode('width')}
+                    size="sm"
+                  >
+                    Adatta larghezza
+                  </Button>
+                  <Button
+                    variant={fitMode === 'original' ? 'solid' : 'outline'}
+                    colorScheme="purple"
+                    onClick={() => setFitMode('original')}
+                    size="sm"
+                  >
+                    Dimensione originale
                   </Button>
                 </VStack>
               </FormControl>
@@ -592,6 +752,7 @@ function ReaderPage() {
                   value={imageScale}
                   min={50}
                   max={200}
+                  step={10}
                   onChange={setImageScale}
                   colorScheme="purple"
                 >
@@ -639,14 +800,25 @@ function ReaderPage() {
               {/* Info capitolo */}
               {manga && (
                 <Box bg="gray.800" p={3} borderRadius="md">
-                  <Text fontSize="sm" fontWeight="bold">
+                  <Text fontSize="sm" fontWeight="bold" noOfLines={1}>
                     {manga.title}
                   </Text>
-                  <Text fontSize="xs" color="gray.400">
+                  <Text fontSize="xs" color="gray.400" noOfLines={2}>
                     {manga.chapters?.[chapterIndex]?.title}
                   </Text>
                 </Box>
               )}
+
+              {/* Shortcuts info */}
+              <Box bg="gray.800" p={3} borderRadius="md">
+                <Text fontSize="xs" fontWeight="bold" mb={2}>Scorciatoie tastiera:</Text>
+                <VStack align="start" spacing={1}>
+                  <Text fontSize="xs">← → : Pagina precedente/successiva</Text>
+                  <Text fontSize="xs">Spazio: Pagina successiva</Text>
+                  <Text fontSize="xs">F: Schermo intero</Text>
+                  <Text fontSize="xs">M: Cambia modalità</Text>
+                </VStack>
+              </Box>
             </VStack>
           </DrawerBody>
         </DrawerContent>
