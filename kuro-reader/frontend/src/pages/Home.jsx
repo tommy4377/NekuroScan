@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Skeleton, Text, VStack, HStack,
-  Badge, Button, useToast, IconButton, Flex
+  Badge, Button, useToast, IconButton, Flex, Spinner
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -11,18 +11,18 @@ import apiManager from '../api';
 
 const MotionBox = motion(Box);
 
-// Top manga predefiniti
+// Top manga accurati
 const TOP_MANGA = [
-  { title: 'One Piece', query: 'one piece' },
-  { title: 'Fullmetal Alchemist', query: 'fullmetal alchemist' },
-  { title: 'Attack on Titan', query: 'attack on titan' },
-  { title: 'Demon Slayer', query: 'demon slayer' },
-  { title: 'My Hero Academia', query: 'my hero academia' },
-  { title: 'Death Note', query: 'death note' },
-  { title: 'Naruto', query: 'naruto' },
-  { title: 'Hunter x Hunter', query: 'hunter x hunter' },
-  { title: 'Tokyo Revengers', query: 'tokyo revengers' },
-  { title: 'Jujutsu Kaisen', query: 'jujutsu kaisen' }
+  'One Piece',
+  'Fullmetal Alchemist', 
+  'Attack on Titan',
+  'Death Note',
+  'Demon Slayer',
+  'My Hero Academia',
+  'Naruto',
+  'Dragon Ball',
+  'Berserk',
+  'Hunter x Hunter'
 ];
 
 function Home() {
@@ -34,14 +34,15 @@ function Home() {
   const [loading, setLoading] = useState(true);
   const [loadingCategories, setLoadingCategories] = useState({});
   const toast = useToast();
+  const [currentPage, setCurrentPage] = useState({});
 
   const categories = [
-    { name: 'Azione', query: 'action' },
-    { name: 'Romance', query: 'romance' },
-    { name: 'Fantasy', query: 'fantasy' },
-    { name: 'Isekai', query: 'isekai' },
-    { name: 'Shounen', query: 'shounen' },
-    { name: 'Seinen', query: 'seinen' }
+    { name: 'Azione', query: 'action shounen battle' },
+    { name: 'Romance', query: 'romance love story' },
+    { name: 'Fantasy', query: 'fantasy magic dragon' },
+    { name: 'Isekai', query: 'isekai reincarnation another world' },
+    { name: 'Horror', query: 'horror scary thriller' },
+    { name: 'Comedy', query: 'comedy funny humor' }
   ];
 
   useEffect(() => {
@@ -50,21 +51,45 @@ function Home() {
 
   const loadAllContent = async () => {
     setLoading(true);
-    await Promise.all([
+    
+    // Carica in parallelo
+    const promises = [
       loadTrending(),
       loadTopManga(),
       loadContinueReading()
-    ]);
+    ];
+    
+    await Promise.allSettled(promises);
     setLoading(false);
     
-    // Carica categorie in background
-    categories.forEach(cat => loadCategoryManga(cat));
+    // Carica categorie una alla volta per non sovraccaricare
+    for (const cat of categories) {
+      await loadCategoryManga(cat, 0);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Delay tra richieste
+    }
   };
 
   const loadTrending = async () => {
     try {
+      // Carica i trending reali da MangaWorld
       const trendingData = await apiManager.getTrending();
-      setTrending(trendingData.slice(0, 15));
+      
+      // Se non ci sono abbastanza trending, cerca manga popolari
+      if (trendingData.length < 10) {
+        const popularSearches = ['Solo Leveling', 'Chainsaw Man', 'Jujutsu Kaisen'];
+        for (const search of popularSearches) {
+          try {
+            const results = await apiManager.searchAll(search);
+            if (results.all.length > 0) {
+              trendingData.push(results.all[0]);
+            }
+          } catch (err) {
+            console.error(`Error searching ${search}:`, err);
+          }
+        }
+      }
+      
+      setTrending(trendingData.slice(0, 20));
     } catch (error) {
       console.error('Error loading trending:', error);
     }
@@ -72,43 +97,96 @@ function Home() {
 
   const loadTopManga = async () => {
     try {
-      const topResults = await Promise.all(
-        TOP_MANGA.slice(0, 5).map(async (manga) => {
-          try {
-            const results = await apiManager.searchAll(manga.query);
-            return results.all[0] || null;
-          } catch {
-            return null;
+      const topResults = [];
+      
+      // Cerca ogni top manga
+      for (const title of TOP_MANGA) {
+        try {
+          const results = await apiManager.searchAll(title);
+          if (results.all.length > 0) {
+            // Prendi il primo risultato che matcha meglio
+            const bestMatch = results.all.find(m => 
+              m.title.toLowerCase().includes(title.toLowerCase())
+            ) || results.all[0];
+            
+            if (bestMatch) {
+              topResults.push(bestMatch);
+            }
           }
-        })
-      );
-      setTopManga(topResults.filter(Boolean));
+        } catch (err) {
+          console.error(`Error searching ${title}:`, err);
+        }
+      }
+      
+      setTopManga(topResults);
     } catch (error) {
       console.error('Error loading top manga:', error);
     }
   };
 
-  const loadCategoryManga = async (category) => {
-    setLoadingCategories(prev => ({ ...prev, [category.name]: true }));
+  const loadCategoryManga = async (category, page = 0) => {
+    const categoryKey = `${category.name}_${page}`;
+    setLoadingCategories(prev => ({ ...prev, [categoryKey]: true }));
+    
     try {
-      const results = await apiManager.searchAll(category.query);
+      // Cerca con query più specifiche per ottenere più risultati
+      const queries = category.query.split(' ');
+      const allResults = [];
+      
+      for (const q of queries.slice(0, 2)) { // Usa solo le prime 2 parole chiave
+        try {
+          const results = await apiManager.searchAll(q);
+          allResults.push(...results.all);
+        } catch (err) {
+          console.error(`Error searching ${q}:`, err);
+        }
+      }
+      
+      // Rimuovi duplicati
+      const uniqueResults = [];
+      const seen = new Set();
+      
+      for (const manga of allResults) {
+        const key = manga.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueResults.push(manga);
+        }
+      }
+      
       setCategoryManga(prev => ({
         ...prev,
-        [category.name]: results.all.slice(0, 10)
+        [category.name]: [
+          ...(prev[category.name] || []),
+          ...uniqueResults
+        ].slice(0, 50) // Limita a 50 per categoria
       }));
+      
+      setCurrentPage(prev => ({
+        ...prev,
+        [category.name]: page
+      }));
+      
     } catch (error) {
       console.error(`Error loading category ${category.name}:`, error);
     } finally {
-      setLoadingCategories(prev => ({ ...prev, [category.name]: false }));
+      setLoadingCategories(prev => ({ ...prev, [categoryKey]: false }));
     }
   };
 
+  const loadMoreCategory = async (category) => {
+    const nextPage = (currentPage[category.name] || 0) + 1;
+    await loadCategoryManga(
+      categories.find(c => c.name === category.name),
+      nextPage
+    );
+  };
+
   const loadContinueReading = () => {
-    // Carica da localStorage tutti i manga in lettura
     const reading = JSON.parse(localStorage.getItem('reading') || '[]');
     const history = JSON.parse(localStorage.getItem('history') || '[]');
     
-    // Combina reading e history, rimuovi duplicati
+    // Combina e ordina per data
     const combined = [...reading];
     history.forEach(item => {
       if (!combined.find(r => r.url === item.url)) {
@@ -116,17 +194,14 @@ function Home() {
       }
     });
     
-    // Ordina per data di lettura più recente
-    combined.sort((a, b) => {
-      const dateA = new Date(a.lastRead || 0);
-      const dateB = new Date(b.lastRead || 0);
-      return dateB - dateA;
-    });
+    combined.sort((a, b) => 
+      new Date(b.lastRead || 0) - new Date(a.lastRead || 0)
+    );
     
-    setContinueReading(combined.slice(0, 10));
+    setContinueReading(combined.slice(0, 15));
   };
 
-  const ScrollableSection = ({ items, title, icon, loading: sectionLoading }) => {
+  const ScrollableSection = ({ items, title, icon, loading: sectionLoading, onLoadMore }) => {
     const [scrollIndex, setScrollIndex] = useState(0);
     const itemsPerView = 5;
     const maxIndex = Math.max(0, items.length - itemsPerView);
@@ -137,26 +212,34 @@ function Home() {
           <HStack>
             {icon}
             <Heading size="lg">{title}</Heading>
+            <Badge colorScheme="gray">{items.length}</Badge>
           </HStack>
-          {items.length > itemsPerView && (
-            <HStack>
-              <IconButton
-                icon={<FaChevronLeft />}
-                size="sm"
-                onClick={() => setScrollIndex(Math.max(0, scrollIndex - 1))}
-                isDisabled={scrollIndex === 0}
-              />
-              <IconButton
-                icon={<FaChevronRight />}
-                size="sm"
-                onClick={() => setScrollIndex(Math.min(maxIndex, scrollIndex + 1))}
-                isDisabled={scrollIndex >= maxIndex}
-              />
-            </HStack>
-          )}
+          <HStack>
+            {onLoadMore && (
+              <Button size="sm" onClick={onLoadMore} isLoading={sectionLoading}>
+                Carica altri
+              </Button>
+            )}
+            {items.length > itemsPerView && (
+              <>
+                <IconButton
+                  icon={<FaChevronLeft />}
+                  size="sm"
+                  onClick={() => setScrollIndex(Math.max(0, scrollIndex - itemsPerView))}
+                  isDisabled={scrollIndex === 0}
+                />
+                <IconButton
+                  icon={<FaChevronRight />}
+                  size="sm"
+                  onClick={() => setScrollIndex(Math.min(maxIndex, scrollIndex + itemsPerView))}
+                  isDisabled={scrollIndex >= maxIndex}
+                />
+              </>
+            )}
+          </HStack>
         </HStack>
         
-        {sectionLoading ? (
+        {sectionLoading && items.length === 0 ? (
           <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
             {[...Array(5)].map((_, i) => (
               <Skeleton key={i} height="280px" borderRadius="lg" />
@@ -164,16 +247,11 @@ function Home() {
           </SimpleGrid>
         ) : (
           <Box overflow="hidden">
-            <Flex
-              transform={`translateX(-${scrollIndex * (100 / itemsPerView)}%)`}
-              transition="transform 0.3s"
-            >
-              {items.map((item, i) => (
-                <Box key={i} flex={`0 0 ${100 / itemsPerView}%`} px={2}>
-                  <MangaCard manga={item} />
-                </Box>
+            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
+              {items.slice(scrollIndex, scrollIndex + itemsPerView * 2).map((item, i) => (
+                <MangaCard key={`${item.url}-${i}`} manga={item} />
               ))}
-            </Flex>
+            </SimpleGrid>
           </Box>
         )}
       </VStack>
@@ -257,42 +335,26 @@ function Home() {
         {/* Trending */}
         <ScrollableSection
           items={trending}
-          title="Trending"
+          title="Trending Ora"
           icon={<FaFire color="#FC8181" />}
           loading={loading}
         />
 
-        {/* Categories with manga */}
-        {categories.map(category => (
-          <Box key={category.name}>
-            <VStack align="stretch" spacing={4}>
-              <HStack justify="space-between">
-                <Heading size="md">{category.name}</Heading>
-                <Button
-                  variant="link"
-                  colorScheme="purple"
-                  onClick={() => navigate(`/search?q=${encodeURIComponent(category.query)}`)}
-                >
-                  Vedi tutti →
-                </Button>
-              </HStack>
-              
-              {loadingCategories[category.name] ? (
-                <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-                  {[...Array(5)].map((_, i) => (
-                    <Skeleton key={i} height="280px" borderRadius="lg" />
-                  ))}
-                </SimpleGrid>
-              ) : (
-                <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-                  {(categoryManga[category.name] || []).slice(0, 5).map((manga, i) => (
-                    <MangaCard key={i} manga={manga} />
-                  ))}
-                </SimpleGrid>
-              )}
-            </VStack>
-          </Box>
-        ))}
+        {/* Categories */}
+        {categories.map(category => {
+          const items = categoryManga[category.name] || [];
+          const categoryKey = `${category.name}_${currentPage[category.name] || 0}`;
+          
+          return (
+            <ScrollableSection
+              key={category.name}
+              items={items}
+              title={category.name}
+              loading={loadingCategories[categoryKey]}
+              onLoadMore={() => loadMoreCategory(category)}
+            />
+          );
+        })}
       </VStack>
     </Container>
   );
