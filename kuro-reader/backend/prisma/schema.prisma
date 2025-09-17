@@ -1,4 +1,3 @@
-// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
+model user {
   id        Int      @id @default(autoincrement())
   username  String   @unique
   email     String   @unique
@@ -16,22 +15,22 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
-  favorites UserFavorites?
-  reading   ReadingProgress[]
+  favorites user_favorites?
+  reading   reading_progress[]
 }
 
-model UserFavorites {
+model user_favorites {
   id        Int      @id @default(autoincrement())
   userId    Int      @unique
-  user      User     @relation(fields: [userId], references: [id])
+  user      user     @relation(fields: [userId], references: [id])
   favorites String   // JSON string
   updatedAt DateTime @updatedAt
 }
 
-model ReadingProgress {
+model reading_progress {
   id          Int      @id @default(autoincrement())
   userId      Int
-  user        User     @relation(fields: [userId], references: [id])
+  user        user     @relation(fields: [userId], references: [id])
   mangaUrl    String
   mangaTitle  String
   chapterIndex Int
