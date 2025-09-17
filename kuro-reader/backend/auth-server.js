@@ -115,8 +115,9 @@ app.get('/api/user/data', authenticateToken, async (req, res) => {
   }
 });
 
+// Health check
+app.get('/health', (req, res) => res.send('OK'));
+
 app.listen(PORT, () => {
   console.log(`Auth server running on port ${PORT}`);
 });
-
-
