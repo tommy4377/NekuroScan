@@ -1,32 +1,39 @@
+// All'inizio di ogni file API aggiungi:
+import { config } from '../config';
+
 export class MangaWorldAPI {
   constructor() {
     this.baseUrl = 'https://www.mangaworld.so/';
   }
 
-  async makeRequest(url) {
-    try {
-      const response = await fetch('https://kuro-proxy-server.onrender.com/api/proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8'
-          }
-        })
-      });
-      
-      const data = await response.json();
-      if (!data.success) throw new Error(data.error);
-      
-      return data.data;
-    } catch (error) {
-      console.error('Request failed:', error);
-      throw error;
-    }
+  // All'inizio di ogni file API aggiungi:
+import { config } from '../config';
+
+// E modifica makeRequest in ogni file:
+async makeRequest(url) {
+  try {
+    const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8'
+        }
+      })
+    });
+    
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Request failed');
+    
+    return data.data;
+  } catch (error) {
+    console.error('Request failed:', error);
+    throw error;
   }
+}
 
   parseHTML(html) {
     const parser = new DOMParser();
@@ -271,3 +278,4 @@ export class MangaWorldAPI {
   }
 
 }
+
