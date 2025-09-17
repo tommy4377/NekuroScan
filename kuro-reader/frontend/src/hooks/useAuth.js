@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import axios from 'axios';
 
 // Configurazione API backend su Render
-const API_URL = import.meta.env.VITE_API_URL || 'https://your-backend.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://kuro-auth-backend.onrender.com/api';
 
 const useAuth = create((set, get) => ({
   user: null,
@@ -136,5 +136,6 @@ const useAuth = create((set, get) => ({
     }
   }
 }));
+
 
 export default useAuth;
