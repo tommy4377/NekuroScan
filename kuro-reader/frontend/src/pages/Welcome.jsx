@@ -11,7 +11,8 @@ import {
   HStack,
   Icon
 } from '@chakra-ui/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';  
+import { SimpleGrid } from '@chakra-ui/react';
 import { FaBook, FaSearch, FaBookmark, FaMobileAlt } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 
