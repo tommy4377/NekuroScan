@@ -1,6 +1,6 @@
 import { config } from '../config';
 
-// MAPPA DEI GENERI - Mantenuta per compatibilità con MyAnimeList
+// MAPPA DEI GENERI - Mantenuta per compatibilità
 const GENRE_MAP = {
   // GENRES PRINCIPALI
   1: 'Action',
@@ -122,6 +122,20 @@ const ITALIAN_GENRE_MAP = {
   'isekai': 'isekai'
 };
 
+// CATEGORIZZAZIONE PER PIATTAFORME
+const PLATFORM_CATEGORIES = {
+  mangaworld: {
+    genres: [1, 2, 4, 5, 6, 7, 8, 10, 14, 22, 24, 30, 36, 37, 45, 46, 47],
+    themes: [3, 11, 13, 17, 18, 19, 20, 21, 23, 26, 28, 29, 31, 32, 38, 39, 40, 44, 48, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 66, 67, 68, 69, 70, 71, 72, 73, 76, 77, 78, 79, 80, 81, 82, 83],
+    demographics: [15, 25, 27, 41, 42]
+  },
+  mangaworldadult: {
+    genres: [9, 12, 49],
+    themes: [35, 64, 65, 74, 75],
+    demographics: []
+  }
+};
+
 export class StatsAPI {
   constructor() {
     this.cache = new Map();
@@ -172,7 +186,24 @@ export class StatsAPI {
     return parser.parseFromString(html, 'text/html');
   }
 
-  // Ottieni gli ultimi aggiornamenti - CORRETTO con selettori dal DOM
+  // Determina la piattaforma basandosi sull'ID del genere
+  categorizeByPlatform(genreId) {
+    const id = parseInt(genreId);
+    
+    if (PLATFORM_CATEGORIES.mangaworldadult.genres.includes(id) || 
+        PLATFORM_CATEGORIES.mangaworldadult.themes.includes(id)) {
+      return 'mangaworldadult';
+    }
+    
+    return 'mangaworld';
+  }
+
+  // Ottieni il nome del genere dall'ID - METODO MANCANTE
+  getGenreName(genreId) {
+    return GENRE_MAP[genreId] || `Unknown Genre (${genreId})`;
+  }
+
+  // Ottieni gli ultimi aggiornamenti
   async getLatestUpdates(includeAdult = false) {
     const cacheKey = `latest_${includeAdult}`;
     const cached = this.getCached(cacheKey);
@@ -181,11 +212,10 @@ export class StatsAPI {
     const updates = [];
 
     try {
-      // MangaWorld latest - Selettori corretti dal DOM
+      // MangaWorld latest
       const mwHtml = await this.makeRequest('https://www.mangaworld.cx');
       const mwDoc = this.parseHTML(mwHtml);
       
-      // Usa .comics-grid .entry per gli ultimi capitoli
       const entries = mwDoc.querySelectorAll('.comics-grid .entry');
       
       entries.forEach((entry, i) => {
@@ -212,7 +242,7 @@ export class StatsAPI {
         }
       });
 
-      // MangaWorld Adult latest se richiesto - Selettori corretti
+      // MangaWorld Adult latest se richiesto
       if (includeAdult) {
         try {
           const adultHtml = await this.makeRequest('https://www.mangaworldadult.net');
@@ -257,7 +287,7 @@ export class StatsAPI {
     }
   }
 
-  // Ottieni i più popolari/trending - CORRETTO
+  // Ottieni i più popolari/favoriti
   async getMostFavorites(includeAdult = false) {
     const cacheKey = `favorites_${includeAdult}`;
     const cached = this.getCached(cacheKey);
@@ -266,11 +296,9 @@ export class StatsAPI {
     const favorites = [];
 
     try {
-      // Prima prova a prendere i trending dalla homepage
       const html = await this.makeRequest('https://www.mangaworld.cx');
       const doc = this.parseHTML(html);
       
-      // Cerca i capitoli di tendenza con selettore corretto
       const trendingEntries = doc.querySelectorAll('.comics-flex .entry.vertical, #chapters-slide .entry');
       
       if (trendingEntries.length > 0) {
@@ -295,7 +323,6 @@ export class StatsAPI {
         });
       }
       
-      // Se non troviamo trending, prendi i più letti
       if (favorites.length === 0) {
         const archiveUrl = 'https://www.mangaworld.cx/archive?sort=most_read';
         const archiveHtml = await this.makeRequest(archiveUrl);
@@ -322,7 +349,6 @@ export class StatsAPI {
         });
       }
 
-      // Adult trending se richiesto
       if (includeAdult) {
         try {
           const adultHtml = await this.makeRequest('https://www.mangaworldadult.net');
@@ -363,201 +389,41 @@ export class StatsAPI {
     }
   }
 
-  // Ottieni tutte le categorie disponibili - CORRETTO
-  async getAllCategories() {
-    const cacheKey = 'all_categories';
+  // Ottieni top manga per tipo - METODO MANCANTE
+  async getTopByType(type = 'manga') {
+    const cacheKey = `top_${type}`;
     const cached = this.getCached(cacheKey);
     if (cached) return cached;
 
-    const categories = {
-      genres: [],
-      explicit_genres: [],
-      themes: [],
-      demographics: [],
-      types: [],
-      status: [],
-      years: []
-    };
-
     try {
-      // Ottieni i generi da MangaWorld
-      const html = await this.makeRequest('https://www.mangaworld.cx');
-      const doc = this.parseHTML(html);
+      let url;
       
-      // Estrai generi dal dropdown menu
-      const genreLinks = doc.querySelectorAll('.dropdown-menu a[href*="/archive?genre"]');
-      
-      genreLinks.forEach(link => {
-        const href = link.getAttribute('href');
-        const genreName = link.textContent.trim();
-        const genreSlug = href.match(/genre=([^&]+)/)?.[1];
-        
-        if (genreSlug && genreName) {
-          const genreObj = {
-            id: genreSlug,
-            name: genreName,
-            slug: genreSlug,
-            url: `/archive?genre=${genreSlug}`
-          };
-          
-          // Categorizza in base al nome
-          if (['Ecchi', 'Hentai', 'Smut', 'Maturo', 'Adulti'].includes(genreName)) {
-            categories.explicit_genres.push(genreObj);
-          } else if (['Shounen', 'Shoujo', 'Seinen', 'Josei', 'Kids'].includes(genreName)) {
-            categories.demographics.push(genreObj);
-          } else {
-            categories.genres.push(genreObj);
-          }
-        }
-      });
-
-      // Tipi di manga
-      categories.types = [
-        { id: 'manga', name: 'Manga', slug: 'manga' },
-        { id: 'manhwa', name: 'Manhwa', slug: 'manhwa' },
-        { id: 'manhua', name: 'Manhua', slug: 'manhua' },
-        { id: 'oneshot', name: 'Oneshot', slug: 'oneshot' },
-        { id: 'thai', name: 'Thai', slug: 'thai' },
-        { id: 'vietnamese', name: 'Vietnamese', slug: 'vietnamese' },
-        { id: 'novel', name: 'Light Novel', slug: 'novel' },
-        { id: 'doujin', name: 'Doujinshi', slug: 'doujin' }
-      ];
-
-      // Stati
-      categories.status = [
-        { id: 'ongoing', name: 'In corso', slug: 'ongoing' },
-        { id: 'completed', name: 'Completato', slug: 'completed' },
-        { id: 'dropped', name: 'Droppato', slug: 'dropped' },
-        { id: 'paused', name: 'In pausa', slug: 'paused' }
-      ];
-
-      // Anni
-      const currentYear = new Date().getFullYear();
-      for (let year = currentYear; year >= 1990; year--) {
-        categories.years.push({
-          id: year.toString(),
-          name: year.toString(),
-          slug: year.toString()
-        });
+      switch(type) {
+        case 'manga':
+          url = 'https://www.mangaworld.cx/archive?type=manga&sort=most_read';
+          break;
+        case 'manhwa':
+          url = 'https://www.mangaworld.cx/archive?type=manhwa&sort=most_read';
+          break;
+        case 'manhua':
+          url = 'https://www.mangaworld.cx/archive?type=manhua&sort=most_read';
+          break;
+        case 'oneshot':
+          url = 'https://www.mangaworld.cx/archive?type=oneshot&sort=most_read';
+          break;
+        default:
+          url = 'https://www.mangaworld.cx/archive?sort=most_read';
       }
 
-      this.setCache(cacheKey, categories);
-      return categories;
-      
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      return categories;
-    }
-  }
-
-  // Ottieni manga per genere - CORRETTO per usare slug invece di ID
-  async getMangaByGenre(genreSlug, page = 1, includeAdult = false) {
-    const cacheKey = `genre_${genreSlug}_${page}_${includeAdult}`;
-    const cached = this.getCached(cacheKey);
-    if (cached) return cached;
-
-    const results = [];
-    
-    try {
-      // MangaWorld normale
-      const url = `https://www.mangaworld.cx/archive?genre=${genreSlug}&page=${page}`;
-      const html = await this.makeRequest(url);
-      const doc = this.parseHTML(html);
-      
-      const entries = doc.querySelectorAll('.entry');
-      
-      entries.forEach(entry => {
-        const link = entry.querySelector('a');
-        const img = entry.querySelector('img');
-        const title = entry.querySelector('.name, .title, .manga-title')?.textContent?.trim();
-        
-        if (link?.href && title) {
-          const href = link.getAttribute('href');
-          results.push({
-            url: href.startsWith('http') ? href : `https://www.mangaworld.cx${href}`,
-            title,
-            cover: img?.src || img?.dataset?.src || '',
-            source: 'mangaWorld',
-            isAdult: false,
-            genre: genreSlug
-          });
-        }
-      });
-
-      // MangaWorld Adult se richiesto e il genere è appropriato
-      if (includeAdult && ['ecchi', 'hentai', 'smut', 'adulti', 'maturo', 'yaoi', 'yuri'].includes(genreSlug)) {
-        try {
-          const adultUrl = `https://www.mangaworldadult.net/archive?genre=${genreSlug}&page=${page}`;
-          const adultHtml = await this.makeRequest(adultUrl);
-          const adultDoc = this.parseHTML(adultHtml);
-          
-          const adultEntries = adultDoc.querySelectorAll('.entry');
-          
-          adultEntries.forEach(entry => {
-            const link = entry.querySelector('a');
-            const img = entry.querySelector('img');
-            const title = entry.querySelector('.name, .title, .manga-title')?.textContent?.trim();
-            
-            if (link?.href && title) {
-              const href = link.getAttribute('href');
-              results.push({
-                url: href.startsWith('http') ? href : `https://www.mangaworldadult.net${href}`,
-                title,
-                cover: img?.src || img?.dataset?.src || '',
-                source: 'mangaWorldAdult',
-                isAdult: true,
-                genre: genreSlug
-              });
-            }
-          });
-        } catch (err) {
-          console.error('Error fetching adult genre:', err);
-        }
-      }
-
-      // Controlla se ci sono altre pagine
-      const pagination = doc.querySelector('.pagination');
-      const nextButton = pagination?.querySelector('.next:not(.disabled)');
-      const hasMore = nextButton !== null;
-
-      const response = {
-        results,
-        page,
-        hasMore,
-        totalResults: results.length,
-        genre: genreSlug
-      };
-
-      this.setCache(cacheKey, response);
-      return response;
-      
-    } catch (error) {
-      console.error(`Error fetching genre ${genreSlug}:`, error);
-      return {
-        results: [],
-        page,
-        hasMore: false,
-        totalResults: 0,
-        genre: genreSlug
-      };
-    }
-  }
-
-  // Ottieni manga per tipo
-  async getMangaByType(type, page = 1) {
-    const cacheKey = `type_${type}_${page}`;
-    const cached = this.getCached(cacheKey);
-    if (cached) return cached;
-
-    try {
-      const url = `https://www.mangaworld.cx/archive?type=${type}&page=${page}`;
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
       
       const results = [];
       const entries = doc.querySelectorAll('.entry');
       
-      entries.forEach(entry => {
+      entries.forEach((entry, i) => {
+        if (i >= 50) return;
+        
         const link = entry.querySelector('a');
         const img = entry.querySelector('img');
         const title = entry.querySelector('.name, .title, .manga-title')?.textContent?.trim();
@@ -574,47 +440,215 @@ export class StatsAPI {
         }
       });
 
-      // Controlla paginazione
+      this.setCache(cacheKey, results);
+      return results;
+      
+    } catch (error) {
+      console.error(`Error fetching top ${type}:`, error);
+      return [];
+    }
+  }
+
+  // Ottieni tutte le categorie disponibili
+  async getAllCategories() {
+    const cacheKey = 'all_categories';
+    const cached = this.getCached(cacheKey);
+    if (cached) return cached;
+
+    const categories = {
+      genres: [],
+      explicit_genres: [],
+      themes: [],
+      demographics: [],
+      types: [],
+      status: [],
+      years: [],
+      platform_mapping: {}
+    };
+
+    try {
+      const html = await this.makeRequest('https://www.mangaworld.cx');
+      const doc = this.parseHTML(html);
+      
+      const genreLinks = doc.querySelectorAll('.dropdown-menu a[href*="/archive?genre"]');
+      
+      genreLinks.forEach(link => {
+        const href = link.getAttribute('href');
+        const genreName = link.textContent.trim();
+        const genreSlug = href.match(/genre=([^&]+)/)?.[1];
+        
+        if (genreSlug && genreName) {
+          const genreObj = {
+            id: genreSlug,
+            name: genreName,
+            slug: genreSlug,
+            url: `/archive?genre=${genreSlug}`
+          };
+          
+          if (['Ecchi', 'Hentai', 'Smut', 'Maturo', 'Adulti'].includes(genreName)) {
+            categories.explicit_genres.push(genreObj);
+          } else if (['Shounen', 'Shoujo', 'Seinen', 'Josei', 'Kids'].includes(genreName)) {
+            categories.demographics.push(genreObj);
+          } else {
+            categories.genres.push(genreObj);
+          }
+        }
+      });
+
+      categories.types = [
+        { id: 'manga', name: 'Manga', slug: 'manga' },
+        { id: 'manhwa', name: 'Manhwa', slug: 'manhwa' },
+        { id: 'manhua', name: 'Manhua', slug: 'manhua' },
+        { id: 'oneshot', name: 'Oneshot', slug: 'oneshot' },
+        { id: 'thai', name: 'Thai', slug: 'thai' },
+        { id: 'vietnamese', name: 'Vietnamese', slug: 'vietnamese' },
+        { id: 'novel', name: 'Light Novel', slug: 'novel' },
+        { id: 'doujin', name: 'Doujinshi', slug: 'doujin' }
+      ];
+
+      categories.status = [
+        { id: 'ongoing', name: 'In corso', slug: 'ongoing' },
+        { id: 'completed', name: 'Completato', slug: 'completed' },
+        { id: 'dropped', name: 'Droppato', slug: 'dropped' },
+        { id: 'paused', name: 'In pausa', slug: 'paused' }
+      ];
+
+      const currentYear = new Date().getFullYear();
+      for (let year = currentYear; year >= 1990; year--) {
+        categories.years.push({
+          id: year.toString(),
+          name: year.toString(),
+          slug: year.toString()
+        });
+      }
+
+      categories.platform_mapping = {
+        mangaworld: PLATFORM_CATEGORIES.mangaworld,
+        mangaworldadult: PLATFORM_CATEGORIES.mangaworldadult
+      };
+
+      this.setCache(cacheKey, categories);
+      return categories;
+      
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      return categories;
+    }
+  }
+
+  // Ottieni manga per genere ID - METODO NECESSARIO PER COMPATIBILITÀ
+  async getMangaByGenreId(genreId, page = 0, limit = 100) {
+    const cacheKey = `genre_${genreId}_${page}_${limit}`;
+    const cached = this.getCached(cacheKey);
+    if (cached) return cached;
+
+    const platform = this.categorizeByPlatform(genreId);
+    const genreName = this.getGenreName(genreId);
+    const results = [];
+    let hasMore = true;
+
+    try {
+      const baseUrl = platform === 'mangaworldadult' 
+        ? 'https://www.mangaworldadult.net' 
+        : 'https://www.mangaworld.cx';
+        
+      // Converti nome genere in slug italiano
+      const genreSlug = genreName.toLowerCase().replace(/\s+/g, '-');
+      const italianSlug = ITALIAN_GENRE_MAP[genreSlug.toLowerCase()] || genreSlug;
+      const url = `${baseUrl}/archive?genre=${italianSlug}&page=${page + 1}`;
+
+      const html = await this.makeRequest(url);
+      const doc = this.parseHTML(html);
+      
+      const entries = doc.querySelectorAll('.entry');
+      
+      entries.forEach(entry => {
+        const link = entry.querySelector('a');
+        const img = entry.querySelector('img');
+        const title = entry.querySelector('.name, .title, .manga-title')?.textContent?.trim();
+        
+        if (link?.href && title) {
+          const href = link.getAttribute('href');
+          results.push({
+            url: href.startsWith('http') ? href : `${baseUrl}${href}`,
+            title,
+            cover: img?.src || img?.dataset?.src || '',
+            source: platform === 'mangaworldadult' ? 'mangaWorldAdult' : 'mangaWorld',
+            isAdult: platform === 'mangaworldadult',
+            genreId,
+            genreName
+          });
+        }
+      });
+
       const pagination = doc.querySelector('.pagination');
-      const hasMore = pagination?.querySelector('.next:not(.disabled)') !== null;
+      const nextButton = pagination?.querySelector('.next:not(.disabled)');
+      hasMore = nextButton !== null;
 
       const response = {
         results,
         page,
         hasMore,
         totalResults: results.length,
-        type
+        genreId,
+        genreName,
+        platform
       };
 
       this.setCache(cacheKey, response);
       return response;
       
     } catch (error) {
-      console.error(`Error fetching type ${type}:`, error);
+      console.error(`Error fetching genre ${genreId}:`, error);
       return {
         results: [],
         page,
         hasMore: false,
         totalResults: 0,
-        type
+        genreId,
+        genreName,
+        platform
       };
     }
   }
 
-  // Nuovo metodo per ottenere manga per stato
-  async getMangaByStatus(status, page = 1) {
-    const cacheKey = `status_${status}_${page}`;
+  // Ottieni manga per categoria con paginazione - METODO MANCANTE
+  async getMangaByCategoryPage(category, type, page = 0, includeAdult = false) {
+    const cacheKey = `category_${category}_${type}_${page}_${includeAdult}`;
     const cached = this.getCached(cacheKey);
     if (cached) return cached;
 
+    const results = [];
+
     try {
-      const url = `https://www.mangaworld.cx/archive?status=${status}&page=${page}`;
+      let url = 'https://www.mangaworld.cx/archive?';
+      const params = new URLSearchParams();
+      
+      switch(type) {
+        case 'genre':
+          params.append('genre', category);
+          break;
+        case 'type':
+          params.append('type', category);
+          break;
+        case 'status':
+          params.append('status', category);
+          break;
+        case 'year':
+          params.append('year', category);
+          break;
+        case 'demographic':
+          params.append('genre', category);
+          break;
+      }
+      
+      params.append('page', page + 1);
+      url += params.toString();
+
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
       
-      const results = [];
       const entries = doc.querySelectorAll('.entry');
-      
       entries.forEach(entry => {
         const link = entry.querySelector('a');
         const img = entry.querySelector('img');
@@ -626,11 +660,54 @@ export class StatsAPI {
             url: href.startsWith('http') ? href : `https://www.mangaworld.cx${href}`,
             title,
             cover: img?.src || img?.dataset?.src || '',
-            status,
-            source: 'mangaWorld'
+            source: 'mangaWorld',
+            isAdult: false
           });
         }
       });
+
+      // Adult se richiesto
+      if (includeAdult && (type === 'genre' || type === 'type')) {
+        try {
+          let adultUrl = 'https://www.mangaworldadult.net/archive?';
+          const adultParams = new URLSearchParams();
+          
+          switch(type) {
+            case 'genre':
+              adultParams.append('genre', category);
+              break;
+            case 'type':
+              adultParams.append('type', category);
+              break;
+          }
+          
+          adultParams.append('page', page + 1);
+          adultUrl += adultParams.toString();
+
+          const adultHtml = await this.makeRequest(adultUrl);
+          const adultDoc = this.parseHTML(adultHtml);
+          
+          const adultEntries = adultDoc.querySelectorAll('.entry');
+          adultEntries.forEach(entry => {
+            const link = entry.querySelector('a');
+            const img = entry.querySelector('img');
+            const title = entry.querySelector('.name, .title, .manga-title')?.textContent?.trim();
+            
+            if (link?.href && title) {
+              const href = link.getAttribute('href');
+              results.push({
+                url: href.startsWith('http') ? href : `https://www.mangaworldadult.net${href}`,
+                title,
+                cover: img?.src || img?.dataset?.src || '',
+                source: 'mangaWorldAdult',
+                isAdult: true
+              });
+            }
+          });
+        } catch (err) {
+          console.error('Error fetching adult category:', err);
+        }
+      }
 
       const pagination = doc.querySelector('.pagination');
       const hasMore = pagination?.querySelector('.next:not(.disabled)') !== null;
@@ -639,23 +716,64 @@ export class StatsAPI {
         results,
         page,
         hasMore,
-        totalResults: results.length,
-        status
+        totalResults: results.length
       };
 
       this.setCache(cacheKey, response);
       return response;
       
     } catch (error) {
-      console.error(`Error fetching status ${status}:`, error);
+      console.error('Error fetching category manga:', error);
       return {
         results: [],
         page,
         hasMore: false,
-        totalResults: 0,
-        status
+        totalResults: 0
       };
     }
+  }
+
+  // Ottieni TUTTI i manga di una categoria (carica pagine infinite)
+  async getAllMangaByCategory(category, type, includeAdult = false) {
+    const allResults = [];
+    let page = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      try {
+        const results = await this.getMangaByCategoryPage(category, type, page, includeAdult);
+        allResults.push(...results.results);
+        hasMore = results.hasMore;
+        page++;
+        
+        // Previeni loop infiniti
+        if (page > 1000) break;
+      } catch (error) {
+        console.error(`Error loading page ${page}:`, error);
+        break;
+      }
+    }
+
+    return {
+      results: allResults,
+      totalPages: page,
+      totalResults: allResults.length,
+      category,
+      type
+    };
+  }
+
+  // Altri metodi helper per compatibilità
+  async getMangaByGenre(genreSlug, page = 1, includeAdult = false) {
+    return this.getMangaByCategoryPage(genreSlug, 'genre', page - 1, includeAdult);
+  }
+
+  async getMangaByType(type, page = 1) {
+    return this.getMangaByCategoryPage(type, 'type', page - 1, false);
+  }
+
+  async getMangaByStatus(status, page = 1) {
+    return this.getMangaByCategoryPage(status, 'status', page - 1, false);
   }
 }
 
