@@ -2,7 +2,7 @@ import { config } from '../config';
 
 export class MangaWorldAPI {
   constructor() {
-    this.baseUrl = 'https://www.mangaworld.so/';
+    this.baseUrl = 'https://www.mangaworld.cx/';
   }
 
   async makeRequest(url) {
@@ -49,7 +49,7 @@ export class MangaWorldAPI {
         
         const link = entry.querySelector('a');
         const img = entry.querySelector('img');
-        const titleElem = entry.querySelector('p.name, .manga-title');
+        const titleElem = entry.querySelector('.manga-title, .name, .title');
         
         if (link?.href) {
           const href = link.getAttribute('href');
@@ -93,6 +93,7 @@ export class MangaWorldAPI {
       };
       
       if (infoDiv) {
+        // Generi - selettore corretto
         const genreLinks = infoDiv.querySelectorAll('a[href*="/archive?genre"]');
         genreLinks.forEach(link => {
           info.genres.push({
@@ -100,25 +101,36 @@ export class MangaWorldAPI {
           });
         });
         
+        // Autori
         const authorLinks = infoDiv.querySelectorAll('a[href*="/archive?author"]');
         authorLinks.forEach(link => {
           info.authors.push(link.textContent.trim());
         });
         
+        // Status
         const statusLink = infoDiv.querySelector('a[href*="/archive?status"]');
         if (statusLink) {
           info.status = statusLink.textContent.trim();
         }
         
+        // Anno
         const yearLink = infoDiv.querySelector('a[href*="/archive?year"]');
         if (yearLink) {
           info.year = yearLink.textContent.trim();
         }
+        
+        // Tipo
+        const typeLink = infoDiv.querySelector('a[href*="/archive?type"]');
+        if (typeLink) {
+          info.type = typeLink.textContent.trim();
+        }
       }
       
+      // Trama
       const plotDiv = doc.querySelector('#noidungm, .comic-description');
       const plot = plotDiv?.textContent?.trim() || '';
       
+      // Capitoli
       const chapters = [];
       const chapterElements = doc.querySelectorAll('.chapter a, .chapters-wrapper a');
       
@@ -135,7 +147,7 @@ export class MangaWorldAPI {
             url: chapterUrl.startsWith('http') ? chapterUrl : `${this.baseUrl}${chapterUrl.replace(/^\//, '')}`,
             chapterNumber: i + 1,
             title: chapterTitle,
-            dateAdd: elem.querySelector('.time')?.textContent?.trim() || ''
+            dateAdd: elem.querySelector('.time, .chap-date')?.textContent?.trim() || ''
           });
         }
       });
@@ -163,107 +175,85 @@ export class MangaWorldAPI {
   }
 
   async getChapterDetail(chapterUrl) {
-  try {
-    // Aggiungi style=list per avere tutte le pagine
-    let url = chapterUrl;
-    if (!url.includes('style=list')) {
-      url = url.includes('?') ? `${chapterUrl}&style=list` : `${chapterUrl}?style=list`;
-    }
-    
-    console.log('Loading chapter from:', url);
-    
-    const html = await this.makeRequest(url);
-    const doc = this.parseHTML(html);
-    
-    const pages = [];
-    
-    // Cerca il contenitore delle pagine - selettori multipli come nel Python
-    const selectors = [
-      '#page',
-      '.page',
-      '.chapter-pages',
-      '.reader-pages',
-      '#reader',
-      '.reading-content img'
-    ];
-    
-    let pageContainer = null;
-    for (const selector of selectors) {
-      pageContainer = doc.querySelector(selector);
-      if (pageContainer) break;
-    }
-    
-    if (pageContainer) {
-      // Cerca tutte le immagini nel contenitore
-      const images = pageContainer.querySelectorAll('img');
-      images.forEach(img => {
-        // Prova diversi attributi per l'URL
-        const src = img.src || 
-                   img.dataset.src || 
-                   img.dataset.lazy || 
-                   img.dataset.original ||
-                   img.getAttribute('data-src') ||
-                   img.getAttribute('data-lazy-src');
-        
-        if (src && src.includes('http')) {
-          pages.push(src);
-          console.log('Found page:', src);
-        }
-      });
-    }
-    
-    // Se non troviamo pagine nel contenitore, cerca in tutta la pagina
-    if (pages.length === 0) {
-      console.log('No pages in container, searching entire document...');
-      const allImages = doc.querySelectorAll('img');
-      allImages.forEach(img => {
-        const src = img.src || img.dataset.src || img.dataset.lazy;
-        // Filtra solo immagini che sembrano essere pagine del manga
-        if (src && src.includes('http') && 
-            (src.includes('/manga/') || src.includes('/uploads/') || 
-             src.includes('/images/') || src.includes('/pages/'))) {
-          if (!pages.includes(src)) {
-            pages.push(src);
-            console.log('Found page (fallback):', src);
-          }
-        }
-      });
-    }
-    
-    // Se ancora non troviamo pagine, cerca negli script
-    if (pages.length === 0) {
-      console.log('No images found, searching scripts...');
-      const scripts = doc.querySelectorAll('script');
-      scripts.forEach(script => {
-        const content = script.textContent || script.innerHTML;
-        if (content && content.includes('pages')) {
-          // Cerca array di URL immagini
-          const matches = content.match(/["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|gif|webp))["']/gi);
-          if (matches) {
-            matches.forEach(match => {
-              const cleanUrl = match.replace(/["']/g, '');
-              if (!pages.includes(cleanUrl)) {
-                pages.push(cleanUrl);
-                console.log('Found page in script:', cleanUrl);
+    try {
+      // Aggiungi style=list per avere tutte le pagine
+      let url = chapterUrl;
+      if (!url.includes('style=list')) {
+        url = url.includes('?') ? `${chapterUrl}&style=list` : `${chapterUrl}?style=list`;
+      }
+      
+      console.log('Loading chapter from:', url);
+      
+      const html = await this.makeRequest(url);
+      const doc = this.parseHTML(html);
+      
+      const pages = [];
+      
+      // Cerca immagini con selettori multipli
+      const selectors = [
+        '#page img',
+        '.page img',
+        '#reader img',
+        '.chapter-content img',
+        '.reading-content img',
+        'img[data-src]',
+        'img[data-lazy]',
+        'img.page-image'
+      ];
+      
+      for (const selector of selectors) {
+        const images = doc.querySelectorAll(selector);
+        if (images.length > 0) {
+          images.forEach(img => {
+            const src = img.src || 
+                       img.dataset.src || 
+                       img.dataset.lazy || 
+                       img.dataset.original ||
+                       img.getAttribute('data-src') ||
+                       img.getAttribute('data-lazy-src');
+            
+            if (src && src.includes('http')) {
+              if (!pages.includes(src)) {
+                pages.push(src);
               }
-            });
-          }
+            }
+          });
+          
+          if (pages.length > 0) break;
         }
-      });
+      }
+      
+      // Se non trova immagini, cerca negli script
+      if (pages.length === 0) {
+        const scripts = doc.querySelectorAll('script');
+        scripts.forEach(script => {
+          const content = script.textContent || script.innerHTML;
+          if (content) {
+            // Cerca URL di immagini nel contenuto
+            const imageUrlPattern = /["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|gif|webp))["']/gi;
+            let match;
+            while ((match = imageUrlPattern.exec(content)) !== null) {
+              const cleanUrl = match[1];
+              if (cleanUrl && !pages.includes(cleanUrl)) {
+                pages.push(cleanUrl);
+              }
+            }
+          }
+        });
+      }
+      
+      console.log(`Total pages found: ${pages.length}`);
+      
+      return {
+        url: chapterUrl,
+        pages,
+        type: 'images'
+      };
+    } catch (error) {
+      console.error('Get chapter error:', error);
+      return null;
     }
-    
-    console.log(`Total pages found: ${pages.length}`);
-    
-    return {
-      url: chapterUrl,
-      pages,
-      type: 'images'
-    };
-  } catch (error) {
-    console.error('Get chapter error:', error);
-    return null;
   }
-}
 
   async getTrending() {
     try {
@@ -272,11 +262,12 @@ export class MangaWorldAPI {
       
       const trending = [];
       
+      // Selettori corretti per trending/capitoli di tendenza
       const selectors = [
+        '.comics-flex .entry.vertical',
+        '#chapters-slide .entry',
         '.hot-manga .entry',
-        '.trending .entry',
-        '#hot-mangas .entry',
-        '.comics-grid .entry'
+        '.trending .entry'
       ];
       
       for (const selector of selectors) {
@@ -285,9 +276,9 @@ export class MangaWorldAPI {
           entries.forEach((entry, i) => {
             if (i >= 10) return;
             
-            const link = entry.querySelector('a');
+            const link = entry.querySelector('a.thumb, a');
             const img = entry.querySelector('img');
-            const titleElem = entry.querySelector('.name, .title');
+            const titleElem = entry.querySelector('.manga-title, .name');
             
             if (link?.href) {
               const href = link.getAttribute('href');
@@ -311,4 +302,3 @@ export class MangaWorldAPI {
     }
   }
 }
-
