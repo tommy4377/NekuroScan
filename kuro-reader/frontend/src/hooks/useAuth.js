@@ -1,8 +1,12 @@
 import { create } from 'zustand';
 import axios from 'axios';
+import { config } from '../config';
 
-// Configurazione API backend su Render
-const API_URL = import.meta.env.VITE_API_URL || 'https://kuro-auth-backend.onrender.com/api';
+const API_URL = `${config.API_URL}/api`;
+
+// Configura axios defaults
+axios.defaults.baseURL = API_URL;
+axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 const useAuth = create((set, get) => ({
   user: null,
@@ -15,7 +19,7 @@ const useAuth = create((set, get) => ({
   login: async (email, password) => {
     set({ loading: true, error: null });
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, {
+      const response = await axios.post('/auth/login', {
         email,
         password
       });
@@ -46,7 +50,7 @@ const useAuth = create((set, get) => ({
   register: async (username, email, password) => {
     set({ loading: true, error: null });
     try {
-      const response = await axios.post(`${API_URL}/auth/register`, {
+      const response = await axios.post('/auth/register', {
         username,
         email,
         password
@@ -91,7 +95,7 @@ const useAuth = create((set, get) => ({
     if (!token) return;
     
     try {
-      const response = await axios.get(`${API_URL}/auth/me`, {
+      const response = await axios.get('/auth/me', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -111,7 +115,7 @@ const useAuth = create((set, get) => ({
     
     try {
       await axios.post(
-        `${API_URL}/user/favorites`,
+        '/user/favorites',
         { favorites },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -126,7 +130,7 @@ const useAuth = create((set, get) => ({
     if (!token) return null;
     
     try {
-      const response = await axios.get(`${API_URL}/user/data`, {
+      const response = await axios.get('/user/data', {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -136,6 +140,5 @@ const useAuth = create((set, get) => ({
     }
   }
 }));
-
 
 export default useAuth;
