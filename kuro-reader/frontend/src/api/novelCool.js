@@ -6,7 +6,7 @@ export class NovelCoolAPI {
 
   async makeRequest(url) {
     try {
-      const response = await fetch('/api/proxy', {
+      const response = await fetch('https://kuro-proxy-server.onrender.com/api/proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -279,4 +279,5 @@ export class NovelCoolAPI {
       return [];
     }
   }
+
 }
