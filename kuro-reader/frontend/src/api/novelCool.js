@@ -7,29 +7,29 @@ export class NovelCoolAPI {
   }
 
   async makeRequest(url) {
-  try {
-    const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8'
-        }
-      })
-    });
-    
-    const data = await response.json();
-    if (!data.success) throw new Error(data.error || 'Request failed');
-    
-    return data.data;
-  } catch (error) {
-    console.error('Request failed:', error);
-    throw error;
+    try {
+      const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9'
+          }
+        })
+      });
+      
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Request failed');
+      
+      return data.data;
+    } catch (error) {
+      console.error('Request failed:', error);
+      throw error;
+    }
   }
-}
 
   parseHTML(html) {
     const parser = new DOMParser();
@@ -67,7 +67,6 @@ export class NovelCoolAPI {
               if (href && (href.includes('novel') || href.includes('book'))) {
                 const fullUrl = new URL(href, this.baseUrl).href;
                 
-                // Extract basic info
                 const parent = link.closest('.book-item, .novel-item, .list-item, .entry') || link;
                 const img = parent.querySelector('img');
                 const title = parent.querySelector('h3, h4, .title, .name')?.textContent || 
@@ -105,7 +104,6 @@ export class NovelCoolAPI {
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
       
-      // Extract title
       const titleSelectors = [
         'h1.bookname',
         'h1.title',
@@ -123,7 +121,6 @@ export class NovelCoolAPI {
         }
       }
       
-      // Extract cover
       const coverSelectors = [
         '.book-img img',
         '.bookimg img',
@@ -140,7 +137,6 @@ export class NovelCoolAPI {
         }
       }
       
-      // Extract plot
       const plotSelectors = [
         '.book-intro',
         '.novel-summary',
@@ -157,7 +153,6 @@ export class NovelCoolAPI {
         }
       }
       
-      // Extract chapters
       const chapters = [];
       const chapterSelectors = [
         'ul.chapter-list li a',
@@ -218,7 +213,6 @@ export class NovelCoolAPI {
       for (const selector of contentSelectors) {
         const elem = doc.querySelector(selector);
         if (elem) {
-          // Remove unwanted elements
           elem.querySelectorAll('script, style, nav, footer, header').forEach(el => el.remove());
           
           content = elem.textContent.trim();
@@ -281,6 +275,4 @@ export class NovelCoolAPI {
       return [];
     }
   }
-
 }
-
