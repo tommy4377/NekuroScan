@@ -279,25 +279,41 @@ export class MangaWorldAdultAPI {
         scripts.forEach(script => {
           const content = script.textContent || script.innerHTML;
           if (content) {
-            // Pattern per trovare array di immagini
-            const patterns = [
-              /["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|gif|webp))["']/gi,
+            // Pattern per trovare array di immagini - FIXED REGEX
+            const imageUrlPattern = /["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|gif|webp))["']/gi;
+            const matches = content.match(imageUrlPattern);
+            
+            if (matches) {
+              matches.forEach(match => {
+                const cleanUrl = match.replace(/["']/g, '').trim();
+                if (cleanUrl.startsWith('http') && !pages.includes(cleanUrl)) {
+                  pages.push(cleanUrl);
+                }
+              });
+            }
+            
+            // Cerca anche pattern di array
+            const arrayPatterns = [
               /pages\s*=\s*```math
-(.*?)```/s,
+([\s\S]*?)```/,
               /images\s*=\s*```math
-(.*?)```/s
+([\s\S]*?)```/,
+              /pageArray\s*=\s*```math
+([\s\S]*?)```/
             ];
             
-            for (const pattern of patterns) {
-              const matches = content.match(pattern);
-              if (matches) {
-                matches.forEach(match => {
-                  const cleanUrl = match.replace(/["'```math
-```]/g, '').trim();
-                  if (cleanUrl.startsWith('http') && !pages.includes(cleanUrl)) {
-                    pages.push(cleanUrl);
-                  }
-                });
+            for (const pattern of arrayPatterns) {
+              const arrayMatch = content.match(pattern);
+              if (arrayMatch && arrayMatch[1]) {
+                const urlMatches = arrayMatch[1].match(/["']([^"']+)["']/g);
+                if (urlMatches) {
+                  urlMatches.forEach(url => {
+                    const cleanUrl = url.replace(/["']/g, '').trim();
+                    if (cleanUrl.startsWith('http') && !pages.includes(cleanUrl)) {
+                      pages.push(cleanUrl);
+                    }
+                  });
+                }
               }
             }
           }
