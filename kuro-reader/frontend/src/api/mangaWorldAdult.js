@@ -66,10 +66,10 @@ export class MangaWorldAdultAPI {
     }
   }
 
-  async getMangaFromUrl(url) {
-    try {
-      const html = await this.makeRequest(url);
-      const doc = this.parseHTML(html);
+    async getMangaFromUrl(url) {
+  try {
+    const html = await this.makeRequest(url);
+    const doc = this.parseHTML(html);
       
       const infoDiv = doc.querySelector('div.info');
       let title = 'Unknown Title';
@@ -90,58 +90,95 @@ export class MangaWorldAdultAPI {
       }
       
       const genres = [];
-      const genreContainer = Array.from(doc.querySelectorAll('div')).find(div => 
-        div.textContent.includes('Generi:') || div.textContent.includes('Genres:')
-      );
-      
-      if (genreContainer) {
-        genreContainer.querySelectorAll('a').forEach(link => {
-          const genre = link.textContent.trim();
-          if (genre) genres.push({ genre });
-        });
-      }
-      
-      let plot = '';
-      const plotDiv = doc.querySelector('div.comic-description');
-      if (plotDiv) {
-        const plotContent = plotDiv.querySelector('div.mb-3');
-        if (plotContent) {
-          plot = plotContent.textContent.trim();
-        }
-      }
-      
-      const chapters = [];
-      const chapterDivs = doc.querySelectorAll('div.chapter');
-      
-      Array.from(chapterDivs).reverse().forEach((div, i) => {
-        const link = div.querySelector('a');
-        if (link) {
-          const chapterUrl = new URL(link.getAttribute('href'), this.baseUrl).href;
-          const chapterText = link.textContent.trim();
-          
-          chapters.push({
-            url: chapterUrl,
-            chapterNumber: i + 1,
-            title: chapterText
-          });
+    const genreContainer = doc.querySelector('.meta-data') || doc.querySelector('.info');
+    if (genreContainer) {
+      // Cerca specificamente i link dei generi
+      const genreLinks = genreContainer.querySelectorAll('a[href*="/genre/"], a[href*="/archive?genre"]');
+      genreLinks.forEach(link => {
+        const genre = link.textContent.trim();
+        if (genre && genre.length < 30) { // Filtra generi troppo lunghi
+          genres.push({ genre });
         }
       });
-      
-      return {
-        url,
-        title,
-        coverUrl,
-        genres,
-        plot,
-        chapters,
-        type: 'manga',
-        source: 'mangaWorldAdult'
-      };
-    } catch (error) {
-      console.error('Get manga error:', error);
-      return null;
     }
+    
+    // Se ancora non trova generi, cerca con pattern più generale
+    if (genres.length === 0) {
+      const allLinks = doc.querySelectorAll('.info a');
+      allLinks.forEach(link => {
+        const text = link.textContent.trim();
+        const href = link.getAttribute('href') || '';
+        // Solo link che sembrano generi
+        if (href.includes('genre') || href.includes('tag')) {
+          if (text && text.length < 30) {
+            genres.push({ genre: text });
+          }
+        }
+      });
+    }
+    
+    // Limita i generi a massimo 10
+    manga['genres'] = genres.slice(0, 10);
+    
+    // Parsing capitoli migliorato
+    const chapters = [];
+    const chapterElements = doc.querySelectorAll('.chapter a, .chapters-wrapper a, div.chapter > a');
+    
+    chapterElements.forEach((elem, i) => {
+      const href = elem.getAttribute('href');
+      if (!href) return;
+      
+      const chapterText = elem.textContent.trim();
+      let chapterNumber = i + 1; // Default
+      
+      // Estrai numero capitolo con pattern più precisi
+      const patterns = [
+        /capitolo\s+(\d+(?:\.\d+)?)/i,
+        /chapter\s+(\d+(?:\.\d+)?)/i,
+        /cap\.\s*(\d+(?:\.\d+)?)/i,
+        /ch\.\s*(\d+(?:\.\d+)?)/i,
+        /^(\d+(?:\.\d+)?)[:\s-]/
+      ];
+      
+      for (const pattern of patterns) {
+        const match = chapterText.match(pattern);
+        if (match) {
+          chapterNumber = parseFloat(match[1]);
+          break;
+        }
+      }
+      
+      chapters.push({
+        url: href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`,
+        chapterNumber,
+        title: chapterText,
+        dateAdd: ''
+      });
+    });
+    
+    // Ordina e deduplica
+    const uniqueChapters = [];
+    const seen = new Set();
+    
+    chapters
+      .sort((a, b) => a.chapterNumber - b.chapterNumber)
+      .forEach(ch => {
+        if (!seen.has(ch.chapterNumber)) {
+          seen.add(ch.chapterNumber);
+          uniqueChapters.push(ch);
+        }
+      });
+    
+    manga['chapters'] = uniqueChapters;
+    manga['chaptersNumber'] = uniqueChapters.length;
+    
+    return manga;
+    
+  } catch (error) {
+    console.error('Get manga error:', error);
+    return null;
   }
+}
 
   async getChapterDetail(chapterUrl) {
     try {
@@ -203,3 +240,4 @@ export class MangaWorldAdultAPI {
     }
   }
 }
+
