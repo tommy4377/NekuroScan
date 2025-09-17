@@ -100,7 +100,7 @@ function Welcome() {
           {/* Logo e titolo */}
           <VStack spacing={4}>
             <Image
-              src="/kuro-icon.png" // Metti qui la tua icona di Kuro
+              src="/kuro-reader/frontend/public/web-app-manifest-512x512.png" // Metti qui la tua icona di Kuro
               alt="Kuro"
               boxSize="100px"
               borderRadius="full"
