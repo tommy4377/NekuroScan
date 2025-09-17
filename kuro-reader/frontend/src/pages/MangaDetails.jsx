@@ -121,28 +121,42 @@ function MangaDetails() {
 };
 
   const startReading = (chapterIndex = 0) => {
-    if (!manga?.chapters?.[chapterIndex]) return;
-    
-    const chapter = manga.chapters[chapterIndex];
-    const chapterId = btoa(chapter.url);
-    
-    // Add to reading list
-    const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-    const exists = reading.findIndex(r => r.url === manga.url);
-    if (exists !== -1) {
-      reading[exists].lastChapter = chapterIndex;
-      reading[exists].lastRead = new Date().toISOString();
-    } else {
-      reading.unshift({
-        ...manga,
-        lastChapter: chapterIndex,
-        lastRead: new Date().toISOString()
-      });
-    }
-    localStorage.setItem('reading', JSON.stringify(reading));
-    
-    navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
+  if (!manga?.chapters?.[chapterIndex]) return;
+  
+  const chapter = manga.chapters[chapterIndex];
+  const chapterId = btoa(chapter.url);
+  
+  // Add to reading list  
+  const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+  const existingIndex = reading.findIndex(r => r.url === manga.url);
+  
+  const mangaToSave = {
+    url: manga.url,
+    title: manga.title,
+    cover: manga.coverUrl,
+    type: manga.type,
+    source: manga.source || source
   };
+  
+  if (existingIndex !== -1) {
+    reading[existingIndex] = {
+      ...reading[existingIndex],
+      lastChapter: chapterIndex,
+      lastRead: new Date().toISOString()
+    };
+  } else {
+    reading.unshift({
+      ...mangaToSave,
+      lastChapter: chapterIndex,
+      lastRead: new Date().toISOString()  
+    });
+  }
+  
+  localStorage.setItem('reading', JSON.stringify(reading.slice(0, 50)));
+  
+  // FIX: usa solo il mangaId già esistente, non ri-encodare
+  navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
+};
 
   if (loading) {
     return (
@@ -356,3 +370,4 @@ function MangaDetails() {
 
 
 export default MangaDetails;
+
