@@ -20,12 +20,12 @@ function Search() {
   const toast = useToast();
 
   useEffect(() => {
-    const q = searchParams.get('q');
-    if (q && q !== query) {
-      setQuery(q);
-      performSearch(q);
-    }
-  }, [searchParams]);
+  const q = searchParams.get('q');
+  if (q && q !== query) {
+    setQuery(q);
+    performSearch(q);
+  }
+}, [searchParams.get('q')]);
 
   const performSearch = async (searchQuery) => {
     if (!searchQuery.trim()) return;
@@ -57,12 +57,13 @@ function Search() {
   };
 
   const handleSearch = (e) => {
-    e.preventDefault();
-    if (query.trim()) {
-      setSearchParams({ q: query });
-      performSearch(query);
-    }
-  };
+  if (e) e.preventDefault();
+  
+  if (query.trim()) {
+    // Non cambiare route, solo esegui la ricerca
+    performSearch(query);
+  }
+};
 
   return (
     <Container maxW="container.xl" py={8}>
@@ -190,3 +191,4 @@ function Search() {
 }
 
 export default Search;
+
