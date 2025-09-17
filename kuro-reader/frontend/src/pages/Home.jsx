@@ -1,59 +1,65 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
-  Button, useToast, Flex, Icon, Skeleton
+  Button, useToast, Skeleton, IconButton, Tabs, TabList, Tab,
+  TabPanels, TabPanel, Badge, Divider
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { FaBook, FaHeart, FaFire, FaClock, FaCalendarWeek } from 'react-icons/fa';
+import { 
+  FaFire, FaClock, FaStar, FaBookOpen, FaHeart,
+  FaChevronRight, FaSync
+} from 'react-icons/fa';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
+import statsAPI from '../api/stats';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 
 const MotionBox = motion(Box);
 
 function Home() {
   const navigate = useNavigate();
-  const [selectedSection, setSelectedSection] = useState('manga');
-  const [recentChapters, setRecentChapters] = useState([]);
-  const [weeklyReleases, setWeeklyReleases] = useState([]);
-  const [trending, setTrending] = useState([]);
-  const [loading, setLoading] = useState(true);
   const toast = useToast();
-
+  
+  // Stati per i vari contenuti
+  const [latestUpdates, setLatestUpdates] = useState([]);
+  const [mostFavorites, setMostFavorites] = useState([]);
+  const [topManga, setTopManga] = useState([]);
+  const [topManhwa, setTopManhwa] = useState([]);
+  const [continueReading, setContinueReading] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
+  
   useEffect(() => {
-    loadContent();
-  }, [selectedSection]);
+    loadAllContent();
+  }, [includeAdult]);
 
-  const loadContent = async () => {
+  const loadAllContent = async () => {
     setLoading(true);
     try {
-      // Carica contenuti in base alla sezione
-      const includeAdult = selectedSection === 'adult';
+      // Carica tutti i contenuti in parallelo
+      const [updates, favorites, manga, manhwa] = await Promise.all([
+        statsAPI.getLatestUpdates(includeAdult),
+        statsAPI.getMostFavorites(includeAdult),
+        statsAPI.getTopByType('manga'),
+        statsAPI.getTopByType('manhwa')
+      ]);
+
+      setLatestUpdates(updates.slice(0, 10));
+      setMostFavorites(favorites.slice(0, 10));
+      setTopManga(manga.slice(0, 10));
+      setTopManhwa(manhwa.slice(0, 10));
       
-      // Carica trending
-      const trendingData = await apiManager.getTrending(includeAdult);
-      setTrending(trendingData);
-      
-      // Carica capitoli recenti (solo per manga normale)
-      if (selectedSection === 'manga') {
-        const recent = await apiManager.getRecentChapters();
-        setRecentChapters(recent);
-        
-        const weekly = await apiManager.getWeeklyReleases();
-        setWeeklyReleases(weekly);
-      } else {
-        // Per adult carica contenuti adult specifici
-        const adultSearch = await apiManager.searchAdult('', 20);
-        setRecentChapters(adultSearch.slice(0, 10));
-        setWeeklyReleases(adultSearch.slice(10, 20));
-      }
+      // Carica i continua a leggere dal localStorage
+      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+      setContinueReading(reading.slice(0, 10));
       
     } catch (error) {
-      console.error('Error loading content:', error);
+      console.error('Error loading home content:', error);
       toast({
         title: 'Errore caricamento',
-        description: 'Impossibile caricare i contenuti',
-        status: 'error',
+        description: 'Alcuni contenuti potrebbero non essere disponibili',
+        status: 'warning',
         duration: 3000,
       });
     } finally {
@@ -61,138 +67,200 @@ function Home() {
     }
   };
 
+  const ContentSection = ({ title, icon, items, color = 'purple', viewAllPath }) => (
+    <VStack align="stretch" spacing={4}>
+      <HStack justify="space-between">
+        <HStack>
+          <Icon as={icon} color={`${color}.400`} boxSize={6} />
+          <Heading size="md">{title}</Heading>
+        </HStack>
+        {viewAllPath && (
+          <Button
+            variant="ghost"
+            size="sm"
+            rightIcon={<FaChevronRight />}
+            onClick={() => navigate(viewAllPath)}
+          >
+            Vedi tutti
+          </Button>
+        )}
+      </HStack>
+      
+      {loading ? (
+        <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={4}>
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} height="280px" borderRadius="lg" />
+          ))}
+        </SimpleGrid>
+      ) : items.length > 0 ? (
+        <Box overflowX="auto" pb={2}>
+          <HStack spacing={4} minW="max-content">
+            {items.map((item, i) => (
+              <Box key={`${item.url}-${i}`} minW="150px" maxW="150px">
+                <MangaCard manga={item} hideSource />
+                {item.isAdult && (
+                  <Badge
+                    position="absolute"
+                    top={2}
+                    right={2}
+                    colorScheme="pink"
+                    fontSize="xs"
+                  >
+                    18+
+                  </Badge>
+                )}
+              </Box>
+            ))}
+          </HStack>
+        </Box>
+      ) : (
+        <Box textAlign="center" py={8}>
+          <Text color="gray.500">Nessun contenuto disponibile</Text>
+        </Box>
+      )}
+    </VStack>
+  );
+
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={8} align="stretch">
-        {/* Sezioni circolari per Manga/Adult */}
-        <Flex justify="center" gap={8} py={8}>
-          <MotionBox
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectedSection('manga')}
-          >
-            <VStack
-              bg={selectedSection === 'manga' ? 'purple.600' : 'gray.700'}
-              borderRadius="full"
-              w="150px"
-              h="150px"
-              justify="center"
-              cursor="pointer"
-              transition="all 0.3s"
-              boxShadow={selectedSection === 'manga' ? '0 0 30px rgba(147, 51, 234, 0.5)' : 'xl'}
+        {/* Header con toggle Adult */}
+        <HStack justify="space-between" flexWrap="wrap">
+          <Heading size="xl">Benvenuto su KuroReader</Heading>
+          <HStack>
+            <Button
+              variant={includeAdult ? 'solid' : 'outline'}
+              colorScheme="pink"
+              size="sm"
+              onClick={() => setIncludeAdult(!includeAdult)}
             >
-              <Icon as={FaBook} boxSize={12} />
-              <Text fontWeight="bold" fontSize="lg">Manga</Text>
-            </VStack>
-          </MotionBox>
-
-          <MotionBox
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectedSection('adult')}
-          >
-            <VStack
-              bg={selectedSection === 'adult' ? 'pink.600' : 'gray.700'}
-              borderRadius="full"
-              w="150px"
-              h="150px"
-              justify="center"
-              cursor="pointer"
-              transition="all 0.3s"
-              boxShadow={selectedSection === 'adult' ? '0 0 30px rgba(236, 72, 153, 0.5)' : 'xl'}
-            >
-              <Icon as={FaHeart} boxSize={12} />
-              <Text fontWeight="bold" fontSize="lg">Adult</Text>
-              <Text fontSize="xs" color="gray.300">18+</Text>
-            </VStack>
-          </MotionBox>
-        </Flex>
-
-        {/* Trending */}
-        <VStack align="stretch" spacing={4}>
-          <HStack>
-            <Icon as={FaFire} color="orange.400" />
-            <Heading size="lg">
-              Trending {selectedSection === 'adult' ? 'Adult' : 'Manga'}
-            </Heading>
+              {includeAdult ? '🔞 Adult attivi' : 'Solo contenuti normali'}
+            </Button>
+            <IconButton
+              icon={<FaSync />}
+              onClick={loadAllContent}
+              aria-label="Ricarica"
+              isLoading={loading}
+              variant="ghost"
+            />
           </HStack>
-          
-          {loading ? (
-            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-              {[...Array(10)].map((_, i) => (
-                <Skeleton key={i} height="280px" borderRadius="lg" />
-              ))}
-            </SimpleGrid>
-          ) : (
-            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-              {trending.slice(0, 10).map((manga, i) => (
-                <MangaCard key={`trending-${i}`} manga={manga} hideSource />
-              ))}
-            </SimpleGrid>
-          )}
-        </VStack>
-
-        {/* Uscite settimanali / Popolari */}
-        <VStack align="stretch" spacing={4}>
-          <HStack>
-            <Icon as={FaCalendarWeek} color="green.400" />
-            <Heading size="lg">
-              {selectedSection === 'adult' ? 'Popolari' : 'Uscite questa settimana'}
-            </Heading>
-          </HStack>
-          
-          {loading ? (
-            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-              {[...Array(10)].map((_, i) => (
-                <Skeleton key={i} height="280px" borderRadius="lg" />
-              ))}
-            </SimpleGrid>
-          ) : (
-            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-              {weeklyReleases.slice(0, 10).map((manga, i) => (
-                <MangaCard key={`weekly-${i}`} manga={manga} hideSource />
-              ))}
-            </SimpleGrid>
-          )}
-        </VStack>
-
-        {/* Capitoli recenti / Nuovi arrivi */}
-        <VStack align="stretch" spacing={4}>
-          <HStack>
-            <Icon as={FaClock} color="blue.400" />
-            <Heading size="lg">
-              {selectedSection === 'adult' ? 'Nuovi arrivi' : 'Capitoli recenti'}
-            </Heading>
-          </HStack>
-          
-          {loading ? (
-            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-              {[...Array(10)].map((_, i) => (
-                <Skeleton key={i} height="280px" borderRadius="lg" />
-              ))}
-            </SimpleGrid>
-          ) : (
-            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-              {recentChapters.slice(0, 10).map((manga, i) => (
-                <MangaCard key={`recent-${i}`} manga={manga} hideSource />
-              ))}
-            </SimpleGrid>
-          )}
-        </VStack>
-
-        {/* Pulsante per vedere di più */}
-        <HStack justify="center" pt={4}>
-          <Button
-            colorScheme="purple"
-            onClick={() => navigate('/search')}
-            size="lg"
-          >
-            Esplora tutti i {selectedSection === 'adult' ? 'manga adult' : 'manga'}
-          </Button>
         </HStack>
+
+        {/* Continua a leggere */}
+        {continueReading.length > 0 && (
+          <>
+            <ContentSection
+              title="Continua a leggere"
+              icon={FaBookOpen}
+              items={continueReading}
+              color="green"
+              viewAllPath="/library"
+            />
+            <Divider />
+          </>
+        )}
+
+        {/* Tabs per organizzare i contenuti */}
+        <Tabs colorScheme="purple" variant="enclosed">
+          <TabList>
+            <Tab>
+              <HStack>
+                <FaClock />
+                <Text>Ultimi aggiornamenti</Text>
+              </HStack>
+            </Tab>
+            <Tab>
+              <HStack>
+                <FaStar />
+                <Text>Più popolari</Text>
+              </HStack>
+            </Tab>
+            <Tab>
+              <HStack>
+                <FaFire />
+                <Text>Top Series</Text>
+              </HStack>
+            </Tab>
+          </TabList>
+
+          <TabPanels>
+            {/* Ultimi aggiornamenti */}
+            <TabPanel px={0}>
+              <ContentSection
+                title="Capitoli recenti"
+                icon={FaClock}
+                items={latestUpdates}
+                color="blue"
+                viewAllPath="/search?sort=latest"
+              />
+            </TabPanel>
+
+            {/* Più popolari */}
+            <TabPanel px={0}>
+              <ContentSection
+                title="I più amati"
+                icon={FaHeart}
+                items={mostFavorites}
+                color="pink"
+                viewAllPath="/search?sort=popular"
+              />
+            </TabPanel>
+
+            {/* Top Series */}
+            <TabPanel px={0}>
+              <VStack spacing={8} align="stretch">
+                <ContentSection
+                  title="Top Manga"
+                  icon={FaFire}
+                  items={topManga}
+                  color="orange"
+                  viewAllPath="/categories?type=manga"
+                />
+                
+                <ContentSection
+                  title="Top Manhwa"
+                  icon={FaFire}
+                  items={topManhwa}
+                  color="purple"
+                  viewAllPath="/categories?type=manhwa"
+                />
+              </VStack>
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
+
+        {/* Quick Actions */}
+        <Box bg="gray.800" p={6} borderRadius="xl">
+          <Heading size="md" mb={4}>Esplora per categoria</Heading>
+          <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
+            {[
+              { name: 'Azione', color: 'red', path: '/categories?genre=action' },
+              { name: 'Romance', color: 'pink', path: '/categories?genre=romance' },
+              { name: 'Fantasy', color: 'purple', path: '/categories?genre=fantasy' },
+              { name: 'Isekai', color: 'blue', path: '/categories?genre=isekai' },
+              { name: 'Shounen', color: 'orange', path: '/categories?demographic=shounen' },
+              { name: 'Seinen', color: 'gray', path: '/categories?demographic=seinen' },
+              { name: 'Manhwa', color: 'green', path: '/categories?type=manhwa' },
+              { name: 'Tutte', color: 'purple', path: '/categories' }
+            ].map(cat => (
+              <Button
+                key={cat.name}
+                colorScheme={cat.color}
+                variant="outline"
+                onClick={() => navigate(cat.path)}
+                size="sm"
+              >
+                {cat.name}
+              </Button>
+            ))}
+          </SimpleGrid>
+        </Box>
       </VStack>
     </Container>
   );
 }
+
+// Fix per l'import di Icon
+const Icon = ({ as: Component, ...props }) => <Box as={Component} {...props} />;
 
 export default Home;
