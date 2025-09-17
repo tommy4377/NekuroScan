@@ -6,29 +6,27 @@ export class MangaWorldAdultAPI {
   }
 
   async makeRequest(url) {
-  try {
-    const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8'
-        }
-      })
-    });
-    
-    const data = await response.json();
-    if (!data.success) throw new Error(data.error || 'Request failed');
-    
-    return data.data;
-  } catch (error) {
-    console.error('Request failed:', error);
-    throw error;
+    try {
+      const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        })
+      });
+      
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Request failed');
+      
+      return data.data;
+    } catch (error) {
+      console.error('Request failed:', error);
+      throw error;
+    }
   }
-}
 
   parseHTML(html) {
     const parser = new DOMParser();
@@ -73,7 +71,6 @@ export class MangaWorldAdultAPI {
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
       
-      // Extract title
       const infoDiv = doc.querySelector('div.info');
       let title = 'Unknown Title';
       if (infoDiv) {
@@ -83,7 +80,6 @@ export class MangaWorldAdultAPI {
         }
       }
       
-      // Extract cover
       let coverUrl = '';
       const thumbDiv = doc.querySelector('div.thumb');
       if (thumbDiv) {
@@ -93,7 +89,6 @@ export class MangaWorldAdultAPI {
         }
       }
       
-      // Extract genres
       const genres = [];
       const genreContainer = Array.from(doc.querySelectorAll('div')).find(div => 
         div.textContent.includes('Generi:') || div.textContent.includes('Genres:')
@@ -106,7 +101,6 @@ export class MangaWorldAdultAPI {
         });
       }
       
-      // Extract plot
       let plot = '';
       const plotDiv = doc.querySelector('div.comic-description');
       if (plotDiv) {
@@ -116,7 +110,6 @@ export class MangaWorldAdultAPI {
         }
       }
       
-      // Extract chapters
       const chapters = [];
       const chapterDivs = doc.querySelectorAll('div.chapter');
       
@@ -209,6 +202,4 @@ export class MangaWorldAdultAPI {
       return [];
     }
   }
-
 }
-
