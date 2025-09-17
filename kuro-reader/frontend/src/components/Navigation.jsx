@@ -78,19 +78,6 @@ function Navigation() {
                 onClick={onOpen}
               />
               
-              <Link to="/">
-                <HStack>
-                  <Text
-                    fontSize="2xl"
-                    fontWeight="bold"
-                    bgGradient="linear(to-r, purple.400, pink.400)"
-                    bgClip="text"
-                  >
-                    KuroReader
-                  </Text>
-                  <Badge colorScheme="purple" variant="subtle">BETA</Badge>
-                </HStack>
-              </Link>
 
               {/* Desktop Navigation */}
               <HStack as="nav" spacing={4} display={{ base: 'none', md: 'flex' }}>
@@ -251,3 +238,4 @@ function Navigation() {
 }
 
 export default Navigation;
+
