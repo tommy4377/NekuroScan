@@ -4,7 +4,7 @@ import {
   Heading, Text, VStack, HStack, Button, Skeleton, Badge, useToast
 } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import { motion } from 'framer-motion';
@@ -12,27 +12,34 @@ import { motion } from 'framer-motion';
 const MotionBox = motion(Box);
 
 function Search() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [query, setQuery] = useState(searchParams.get('q') || '');
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [query, setQuery] = useState('');
   const [results, setResults] = useState({ all: [], manga: [], mangaAdult: [] });
   const [loading, setLoading] = useState(false);
   const [includeAdult, setIncludeAdult] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
-  const q = searchParams.get('q');
-  if (q && q !== query) {
-    setQuery(q);
-    performSearch(q);
-  }
-}, [searchParams.get('q')]);
+    const q = searchParams.get('q');
+    if (q) {
+      setQuery(q);
+      performSearch(q);
+    }
+  }, [searchParams]);
 
   const performSearch = async (searchQuery) => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery || !searchQuery.trim()) {
+      setResults({ all: [], manga: [], mangaAdult: [] });
+      return;
+    }
     
     setLoading(true);
     try {
+      console.log('Searching for:', searchQuery);
       const searchResults = await apiManager.searchAll(searchQuery, { includeAdult });
+      console.log('Results:', searchResults);
+      
       setResults(searchResults);
       
       if (searchResults.all.length === 0) {
@@ -44,9 +51,10 @@ function Search() {
         });
       }
     } catch (error) {
+      console.error('Search error:', error);
       toast({
         title: 'Errore nella ricerca',
-        description: error.message,
+        description: error.message || 'Si è verificato un errore',
         status: 'error',
         duration: 3000,
       });
@@ -57,13 +65,18 @@ function Search() {
   };
 
   const handleSearch = (e) => {
-  if (e) e.preventDefault();
-  
-  if (query.trim()) {
-    // Non cambiare route, solo esegui la ricerca
-    performSearch(query);
-  }
-};
+    e.preventDefault();
+    
+    if (query.trim()) {
+      // Aggiorna l'URL e esegui la ricerca
+      navigate(`/search?q=${encodeURIComponent(query)}`);
+    }
+  };
+
+  const quickSearch = (tag) => {
+    setQuery(tag);
+    navigate(`/search?q=${encodeURIComponent(tag)}`);
+  };
 
   return (
     <Container maxW="container.xl" py={8}>
@@ -88,10 +101,16 @@ function Search() {
                     onChange={(e) => setQuery(e.target.value)}
                     bg="gray.800"
                     border="none"
-                    _focus={{ bg: 'gray.700' }}
+                    _focus={{ bg: 'gray.700', boxShadow: 'outline' }}
                   />
                 </InputGroup>
-                <Button type="submit" size="lg" colorScheme="purple" isLoading={loading}>
+                <Button 
+                  type="submit" 
+                  size="lg" 
+                  colorScheme="purple" 
+                  isLoading={loading}
+                  isDisabled={!query.trim()}
+                >
                   Cerca
                 </Button>
               </HStack>
@@ -103,9 +122,15 @@ function Search() {
                 variant={includeAdult ? 'solid' : 'outline'}
                 colorScheme="pink"
                 size="sm"
-                onClick={() => setIncludeAdult(!includeAdult)}
+                onClick={() => {
+                  setIncludeAdult(!includeAdult);
+                  // Se c'è già una ricerca attiva, rieseguila
+                  if (query.trim()) {
+                    performSearch(query);
+                  }
+                }}
               >
-                {includeAdult ? 'Adult inclusi' : 'Solo normale'}
+                {includeAdult ? '🔞 Adult inclusi' : 'Solo contenuti normali'}
               </Button>
             </HStack>
 
@@ -117,11 +142,7 @@ function Search() {
                   size="sm"
                   variant="outline"
                   colorScheme="purple"
-                  onClick={() => {
-                    setQuery(tag);
-                    setSearchParams({ q: tag });
-                    performSearch(tag);
-                  }}
+                  onClick={() => quickSearch(tag)}
                 >
                   {tag}
                 </Button>
@@ -136,7 +157,7 @@ function Search() {
             {/* Results count */}
             <HStack justify="space-between">
               <Text fontWeight="bold">
-                {loading ? 'Ricerca...' : `${results.all.length} risultati`}
+                {loading ? 'Ricerca in corso...' : `${results.all.length} risultati trovati`}
               </Text>
               {results.all.length > 0 && (
                 <HStack spacing={2}>
@@ -144,7 +165,7 @@ function Search() {
                     <Badge colorScheme="blue">{results.manga.length} Manga</Badge>
                   )}
                   {results.mangaAdult.length > 0 && (
-                    <Badge colorScheme="pink">{results.mangaAdult.length} Adult</Badge>
+                    <Badge colorScheme="pink">🔞 {results.mangaAdult.length} Adult</Badge>
                   )}
                 </HStack>
               )}
@@ -164,9 +185,22 @@ function Search() {
                     key={`${item.url}-${i}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
+                    transition={{ delay: Math.min(i * 0.05, 1) }}
                   >
-                    <MangaCard manga={item} hideSource />
+                    <Box position="relative">
+                      <MangaCard manga={item} hideSource />
+                      {item.isAdult && (
+                        <Badge
+                          position="absolute"
+                          top={2}
+                          right={2}
+                          colorScheme="pink"
+                          fontSize="xs"
+                        >
+                          18+
+                        </Badge>
+                      )}
+                    </Box>
                   </MotionBox>
                 ))}
               </SimpleGrid>
@@ -181,7 +215,19 @@ function Search() {
               Nessun risultato trovato per "{query}"
             </Text>
             <Text fontSize="sm" color="gray.600" mt={2}>
-              Prova con parole chiave diverse
+              Prova con parole chiave diverse o attiva i contenuti adult
+            </Text>
+          </Box>
+        )}
+
+        {/* Initial state */}
+        {!loading && !query && (
+          <Box textAlign="center" py={12}>
+            <Text fontSize="lg" color="gray.500">
+              Inserisci un termine di ricerca per iniziare
+            </Text>
+            <Text fontSize="sm" color="gray.600" mt={2}>
+              Oppure usa uno dei tag rapidi sopra
             </Text>
           </Box>
         )}
@@ -191,4 +237,3 @@ function Search() {
 }
 
 export default Search;
-
