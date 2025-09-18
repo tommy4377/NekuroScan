@@ -10,14 +10,14 @@ const app = express();
 const prisma = new PrismaClient({
   datasources: { 
     db: { 
-      url: process.env.DATABASE_URL || 'postgresql://kurouser:e3daz1Qhk2CQFAHYvTtnZIFLqtHk9OCg@dpg-d35kiindiees738csc8g-a.frankfurt-postgres.render.com:5432/kurodb_h4bn' 
+      url: process.env.DATABASE_URL 
     } 
   },
   log: ['error', 'warn']
 });
 
 const PORT = process.env.PORT || 10000;
-const JWT_SECRET = process.env.JWT_SECRET || '2ddbc9ab6834649be0d77707901ebd1e';
+const JWT_SECRET = process.env.JWT_SECRET
 
 // Inizializzazione database
 async function initDatabase() {
@@ -466,3 +466,4 @@ process.on('SIGINT', async () => {
   await prisma.$disconnect();
   process.exit(0);
 });
+
