@@ -17,4 +17,11 @@
   "devDependencies": {
     "prisma": "^5.7.1"
   }
+  
+  "scripts": {
+  "start": "node auth-server.js",
+  "build": "npx prisma generate",
+  "migrate": "node migrate.js"
+}
+
 }
