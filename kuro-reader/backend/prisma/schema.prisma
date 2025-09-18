@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://kurouser:e3daz1Qhk2CQFAHYvTtnZIFLqtHk9OCg@dpg-d35kiindiees738csc8g-a.frankfurt-postgres.render.com/kurodb_h4bn"
+  url      = "postgresql://kurouser:e3daz1Qhk2CQFAHYvTtnZIFLqtHk9OCg@dpg-d35kiindiees738csc8g-a.frankfurt-postgres.render.com:5432/kurodb_h4bn"
 }
 
 model user {
@@ -14,7 +14,7 @@ model user {
   password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   favorites user_favorites?
   reading   reading_progress[]
 }
@@ -28,16 +28,14 @@ model user_favorites {
 }
 
 model reading_progress {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  user        user     @relation(fields: [userId], references: [id])
-  mangaUrl    String
-  mangaTitle  String
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         user     @relation(fields: [userId], references: [id])
+  mangaUrl     String
+  mangaTitle   String
   chapterIndex Int
-  pageIndex   Int      @default(0)
-  updatedAt   DateTime @updatedAt
-  
+  pageIndex    Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
   @@unique([userId, mangaUrl])
 }
-
-
