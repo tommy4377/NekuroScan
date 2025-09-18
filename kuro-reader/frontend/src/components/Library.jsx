@@ -29,6 +29,11 @@ function Library() {
     loadLibrary();
   }, []);
 
+  const getProgressForManga = (mangaUrl) => {
+  const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+  return progress[mangaUrl];
+};  
+
   const loadLibrary = () => {
     // Load from localStorage
     const savedReading = JSON.parse(localStorage.getItem('reading') || '[]');
@@ -181,5 +186,6 @@ function Library() {
     </Container>
   );
 }
+
 
 export default Library;
