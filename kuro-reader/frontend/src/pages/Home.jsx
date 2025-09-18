@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
   Button, useToast, Skeleton, IconButton, Tabs, TabList, Tab,
-  TabPanels, TabPanel, Badge, Divider, Icon as ChakraIcon
+  TabPanels, TabPanel, Badge, Icon as ChakraIcon, useBreakpointValue
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -22,6 +22,7 @@ const MotionBox = motion(Box);
 function Home() {
   const navigate = useNavigate();
   const toast = useToast();
+  const isMobile = useBreakpointValue({ base: true, md: false });
   
   const [latestUpdates, setLatestUpdates] = useState([]);
   const [mostFavorites, setMostFavorites] = useState([]);
@@ -32,6 +33,7 @@ function Home() {
   const [continueReading, setContinueReading] = useState([]);
   const [loading, setLoading] = useState(true);
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
+  const [refreshing, setRefreshing] = useState(false);
   
   useEffect(() => {
     loadAllContent();
@@ -40,22 +42,25 @@ function Home() {
   const loadAllContent = async () => {
     setLoading(true);
     try {
-      const [updates, favorites, manga, manhwa, manhua, oneshot] = await Promise.all([
-        statsAPI.getLatestUpdates(includeAdult),
-        statsAPI.getMostFavorites(includeAdult),
-        statsAPI.getTopByType('manga'),
-        statsAPI.getTopByType('manhwa'),
-        statsAPI.getTopByType('manhua'),
-        statsAPI.getTopByType('oneshot')
-      ]);
+      const promises = [
+        statsAPI.getLatestUpdates(includeAdult, 10),
+        statsAPI.getMostFavorites(includeAdult, 10),
+        statsAPI.getTopByType('manga', 10),
+        statsAPI.getTopByType('manhwa', 10),
+        statsAPI.getTopByType('manhua', 10),
+        statsAPI.getTopByType('oneshot', 10)
+      ];
 
-      setLatestUpdates(updates.slice(0, 10));
-      setMostFavorites(favorites.slice(0, 10));
-      setTopManga(manga.slice(0, 10));
-      setTopManhwa(manhwa.slice(0, 10));
-      setTopManhua(manhua.slice(0, 10));
-      setTopOneshot(oneshot.slice(0, 10));
+      const [updates, favorites, manga, manhwa, manhua, oneshot] = await Promise.all(promises);
+
+      setLatestUpdates(updates);
+      setMostFavorites(favorites);
+      setTopManga(manga);
+      setTopManhwa(manhwa);
+      setTopManhua(manhua);
+      setTopOneshot(oneshot);
       
+      // Load continue reading from localStorage
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       setContinueReading(reading.slice(0, 10));
       
@@ -69,11 +74,16 @@ function Home() {
       });
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
+  const refreshContent = async () => {
+    setRefreshing(true);
+    await loadAllContent();
+  };
+
   const handleViewAll = (section) => {
-    // FIX: Naviga correttamente alle pagine
     switch(section) {
       case 'latest-updates':
         navigate('/categories', { state: { preset: 'latest' } });
@@ -82,16 +92,10 @@ function Home() {
         navigate('/categories', { state: { preset: 'popular' } });
         break;
       case 'manga':
-        navigate('/categories', { state: { type: 'manga' } });
-        break;
       case 'manhwa':
-        navigate('/categories', { state: { type: 'manhwa' } });
-        break;
       case 'manhua':
-        navigate('/categories', { state: { type: 'manhua' } });
-        break;
       case 'oneshot':
-        navigate('/categories', { state: { type: 'oneshot' } });
+        navigate('/categories', { state: { type: section } });
         break;
       case 'library':
         navigate('/library');
@@ -101,108 +105,120 @@ function Home() {
     }
   };
 
-  // Nel componente ContentSection, modifica la visualizzazione per i capitoli recenti:
-
-const ContentSection = ({ title, icon, items, color = 'purple', section, iconSize = 5 }) => (
-  <VStack align="stretch" spacing={4}>
-    <Box bg="gray.800" p={4} borderRadius="lg">
-      <HStack justify="space-between" mb={4}>
-        <HStack spacing={3}>
-          <Box 
-            p={2} 
-            bg={`${color}.500`} 
-            borderRadius="lg"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <ChakraIcon as={icon} color="white" boxSize={iconSize} />
-          </Box>
-          <VStack align="start" spacing={0}>
-            <Heading size="md">{title}</Heading>
-            <Text fontSize="xs" color="gray.400">
-              {items.length} disponibili
-            </Text>
-          </VStack>
-        </HStack>
-        {section && (
-          <Button
-            variant="ghost"
-            size="sm"
-            rightIcon={<FaChevronRight />}
-            onClick={() => handleViewAll(section)}
-            color={`${color}.400`}
-            _hover={{ bg: `${color}.900` }}
-          >
-            Vedi tutti
-          </Button>
-        )}
-      </HStack>
-      
-      {loading ? (
-        <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={4}>
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} height="280px" borderRadius="lg" />
-          ))}
-        </SimpleGrid>
-      ) : items.length > 0 ? (
-        <Box overflowX="auto" pb={2}>
-          <HStack spacing={4} minW="max-content">
-            {items.map((item, i) => (
-              <Box key={`${item.url}-${i}`} minW="150px" maxW="150px" position="relative">
-                <MangaCard manga={item} hideSource />
-                {item.latestChapter && (
-                  <Badge
-                    position="absolute"
-                    bottom={2}
-                    left={2}
-                    right={2}
-                    colorScheme="blue"
-                    fontSize="xs"
-                    textAlign="center"
-                  >
-                    {item.latestChapter.replace(/^cap\.\s*/i, '').replace(/^capitolo\s*/i, '')}
-                  </Badge>
-                )}
-                {item.isAdult && (
-                  <Badge
-                    position="absolute"
-                    top={2}
-                    right={2}
-                    colorScheme="pink"
-                    fontSize="xs"
-                  >
-                    18+
-                  </Badge>
-                )}
-              </Box>
-            ))}
+  const ContentSection = ({ title, icon, items, color = 'purple', section, iconSize = 5, showChapterNumber = false }) => (
+    <VStack align="stretch" spacing={4}>
+      <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
+        {/* Header */}
+        <HStack justify="space-between" mb={4}>
+          <HStack spacing={3}>
+            <Box 
+              p={2} 
+              bg={`${color}.500`} 
+              borderRadius="lg"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <ChakraIcon as={icon} color="white" boxSize={iconSize} />
+            </Box>
+            <VStack align="start" spacing={0}>
+              <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
+              <Text fontSize="xs" color="gray.400">
+                {items.length} disponibili
+              </Text>
+            </VStack>
           </HStack>
-        </Box>
-      ) : (
-        <Box textAlign="center" py={8}>
-          <Text color="gray.500">Nessun contenuto disponibile</Text>
-        </Box>
-      )}
-    </Box>
-  </VStack>
-);
+          {section && (
+            <Button
+              variant="ghost"
+              size="sm"
+              rightIcon={<FaChevronRight />}
+              onClick={() => handleViewAll(section)}
+              color={`${color}.400`}
+              _hover={{ bg: `${color}.900` }}
+              display={{ base: 'none', sm: 'flex' }}
+            >
+              Vedi tutti
+            </Button>
+          )}
+        </HStack>
+        
+        {/* Content */}
+        {loading ? (
+          <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={4}>
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} height="280px" borderRadius="lg" />
+            ))}
+          </SimpleGrid>
+        ) : items.length > 0 ? (
+          <Box overflowX="auto" pb={2}>
+            <HStack spacing={{ base: 3, md: 4 }} minW="max-content">
+              {items.map((item, i) => (
+                <MotionBox
+                  key={`${item.url}-${i}`}
+                  minW={{ base: '140px', md: '150px' }}
+                  maxW={{ base: '140px', md: '150px' }}
+                  position="relative"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                >
+                  <MangaCard manga={item} hideSource />
+                  {showChapterNumber && item.latestChapter && (
+                    <Badge
+                      position="absolute"
+                      bottom={2}
+                      left={2}
+                      right={2}
+                      colorScheme="blue"
+                      fontSize="xs"
+                      textAlign="center"
+                      px={2}
+                    >
+                      Cap. {item.latestChapter}
+                    </Badge>
+                  )}
+                  {item.isAdult && (
+                    <Badge
+                      position="absolute"
+                      top={2}
+                      right={2}
+                      colorScheme="pink"
+                      fontSize="xs"
+                    >
+                      18+
+                    </Badge>
+                  )}
+                </MotionBox>
+              ))}
+            </HStack>
+          </Box>
+        ) : (
+          <Box textAlign="center" py={8}>
+            <Text color="gray.500">Nessun contenuto disponibile</Text>
+          </Box>
+        )}
+      </Box>
+    </VStack>
+  );
 
   return (
-    <Container maxW="container.xl" py={8}>
-      <VStack spacing={8} align="stretch">
+    <Container maxW="container.xl" py={{ base: 4, md: 8 }}>
+      <VStack spacing={{ base: 6, md: 8 }} align="stretch">
         {/* Header */}
-        <Box bg="gray.800" p={6} borderRadius="xl">
-          <HStack justify="space-between" flexWrap="wrap">
+        <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
+          <HStack justify="space-between" flexWrap="wrap" spacing={4}>
             <VStack align="start" spacing={1}>
               <Heading 
-                size="xl"
+                size={{ base: 'lg', md: 'xl' }}
                 bgGradient="linear(to-r, purple.400, pink.400)"
                 bgClip="text"
               >
                 Benvenuto su KuroReader
               </Heading>
-              <Text color="gray.400">Scopri i tuoi manga preferiti</Text>
+              <Text color="gray.400" fontSize={{ base: 'sm', md: 'md' }}>
+                Scopri i tuoi manga preferiti
+              </Text>
             </VStack>
             <HStack>
               <Button
@@ -212,13 +228,13 @@ const ContentSection = ({ title, icon, items, color = 'purple', section, iconSiz
                 onClick={() => setIncludeAdult(!includeAdult)}
                 leftIcon={includeAdult ? <Text>🔞</Text> : null}
               >
-                {includeAdult ? 'Adult attivi' : 'Solo normale'}
+                {includeAdult ? 'Adult ON' : 'Solo normale'}
               </Button>
               <IconButton
                 icon={<FaSync />}
-                onClick={loadAllContent}
+                onClick={refreshContent}
                 aria-label="Ricarica"
-                isLoading={loading}
+                isLoading={refreshing}
                 variant="ghost"
                 colorScheme="purple"
               />
@@ -226,7 +242,7 @@ const ContentSection = ({ title, icon, items, color = 'purple', section, iconSiz
           </HStack>
         </Box>
 
-        {/* Continua a leggere */}
+        {/* Continue Reading - Only if exists */}
         {continueReading.length > 0 && (
           <ContentSection
             title="Continua a leggere"
@@ -239,31 +255,31 @@ const ContentSection = ({ title, icon, items, color = 'purple', section, iconSiz
         )}
 
         {/* Main Content Tabs */}
-        <Box bg="gray.800" borderRadius="xl" p={4}>
-          <Tabs colorScheme="purple" variant="soft-rounded">
-            <TabList bg="gray.900" p={2} borderRadius="lg">
+        <Box bg="gray.800" borderRadius="xl" p={{ base: 3, md: 4 }}>
+          <Tabs colorScheme="purple" variant="soft-rounded" size={{ base: 'sm', md: 'md' }}>
+            <TabList bg="gray.900" p={2} borderRadius="lg" overflowX="auto">
               <Tab>
                 <HStack spacing={2}>
                   <FaClock />
-                  <Text display={{ base: 'none', md: 'block' }}>Aggiornamenti</Text>
+                  <Text display={{ base: 'none', sm: 'block' }}>Aggiornamenti</Text>
                 </HStack>
               </Tab>
               <Tab>
                 <HStack spacing={2}>
                   <FaStar />
-                  <Text display={{ base: 'none', md: 'block' }}>Popolari</Text>
+                  <Text display={{ base: 'none', sm: 'block' }}>Popolari</Text>
                 </HStack>
               </Tab>
               <Tab>
                 <HStack spacing={2}>
                   <FaTrophy />
-                  <Text display={{ base: 'none', md: 'block' }}>Top Series</Text>
+                  <Text display={{ base: 'none', sm: 'block' }}>Top Series</Text>
                 </HStack>
               </Tab>
             </TabList>
 
             <TabPanels>
-              {/* Ultimi aggiornamenti */}
+              {/* Latest Updates */}
               <TabPanel px={0} pt={6}>
                 <ContentSection
                   title="Capitoli recenti"
@@ -271,10 +287,11 @@ const ContentSection = ({ title, icon, items, color = 'purple', section, iconSiz
                   items={latestUpdates}
                   color="blue"
                   section="latest-updates"
+                  showChapterNumber={true}
                 />
               </TabPanel>
 
-              {/* Più popolari */}
+              {/* Most Popular */}
               <TabPanel px={0} pt={6}>
                 <ContentSection
                   title="I più amati della settimana"
@@ -285,7 +302,7 @@ const ContentSection = ({ title, icon, items, color = 'purple', section, iconSiz
                 />
               </TabPanel>
 
-              {/* Top Series */}
+              {/* Top Series by Type */}
               <TabPanel px={0} pt={6}>
                 <VStack spacing={6} align="stretch">
                   <ContentSection
@@ -328,10 +345,22 @@ const ContentSection = ({ title, icon, items, color = 'purple', section, iconSiz
             </TabPanels>
           </Tabs>
         </Box>
+
+        {/* Mobile View All Button */}
+        {isMobile && (
+          <Button
+            colorScheme="purple"
+            onClick={() => navigate('/categories')}
+            rightIcon={<FaChevronRight />}
+            size="lg"
+            w="100%"
+          >
+            Esplora tutte le categorie
+          </Button>
+        )}
       </VStack>
     </Container>
   );
 }
 
 export default Home;
-
