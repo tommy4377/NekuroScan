@@ -15,7 +15,6 @@ import { BiBook } from 'react-icons/bi';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import statsAPI from '../api/stats';
-import { Icon as ChakraIcon } from '@chakra-ui/react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 
 const MotionBox = motion(Box);
@@ -301,4 +300,5 @@ function Home() {
 }
 
 export default Home;
+
 
