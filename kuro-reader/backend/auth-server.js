@@ -104,6 +104,54 @@ app.post('/api/user/favorites', authenticateToken, async (req, res) => {
   }
 });
 
+// Aggiungi questi endpoint nel backend
+app.post('/api/user/progress', authenticateToken, async (req, res) => {
+  try {
+    const { mangaUrl, chapterIndex, pageIndex } = req.body;
+    await prisma.reading_progress.upsert({
+      where: {
+        userId_mangaUrl: {
+          userId: req.user.id,
+          mangaUrl
+        }
+      },
+      update: {
+        chapterIndex,
+        pageIndex,
+        updatedAt: new Date()
+      },
+      create: {
+        userId: req.user.id,
+        mangaUrl,
+        mangaTitle: req.body.mangaTitle || '',
+        chapterIndex,
+        pageIndex
+      }
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Save progress error:', error);
+    res.status(500).json({ message: 'Errore del server' });
+  }
+});
+
+app.get('/api/user/progress/:mangaUrl', authenticateToken, async (req, res) => {
+  try {
+    const progress = await prisma.reading_progress.findUnique({
+      where: {
+        userId_mangaUrl: {
+          userId: req.user.id,
+          mangaUrl: decodeURIComponent(req.params.mangaUrl)
+        }
+      }
+    });
+    res.json({ progress });
+  } catch (error) {
+    console.error('Get progress error:', error);
+    res.status(500).json({ message: 'Errore del server' });
+  }
+});
+
 // Get user data
 app.get('/api/user/data', authenticateToken, async (req, res) => {
   try {
@@ -121,3 +169,4 @@ app.get('/health', (req, res) => res.send('OK'));
 app.listen(PORT, () => {
   console.log(`Auth server running on port ${PORT}`);
 });
+
