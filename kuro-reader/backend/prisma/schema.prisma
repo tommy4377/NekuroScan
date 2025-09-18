@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url = process.env.DATABASE_URL 
+  url      = env("DATABASE_URL")
 }
 
 model user {
@@ -39,4 +39,3 @@ model reading_progress {
 
   @@unique([userId, mangaUrl])
 }
-
