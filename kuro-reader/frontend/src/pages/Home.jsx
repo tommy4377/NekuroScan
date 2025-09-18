@@ -72,7 +72,36 @@ function Home() {
     }
   };
 
-  const ContentSection = ({ title, icon, items, color = 'purple', viewAllPath, iconSize = 5 }) => (
+  const handleViewAll = (section) => {
+    // FIX: Naviga correttamente alle pagine
+    switch(section) {
+      case 'latest-updates':
+        navigate('/categories', { state: { preset: 'latest' } });
+        break;
+      case 'popular':
+        navigate('/categories', { state: { preset: 'popular' } });
+        break;
+      case 'manga':
+        navigate('/categories', { state: { type: 'manga' } });
+        break;
+      case 'manhwa':
+        navigate('/categories', { state: { type: 'manhwa' } });
+        break;
+      case 'manhua':
+        navigate('/categories', { state: { type: 'manhua' } });
+        break;
+      case 'oneshot':
+        navigate('/categories', { state: { type: 'oneshot' } });
+        break;
+      case 'library':
+        navigate('/library');
+        break;
+      default:
+        navigate('/categories');
+    }
+  };
+
+  const ContentSection = ({ title, icon, items, color = 'purple', section, iconSize = 5 }) => (
     <VStack align="stretch" spacing={4}>
       <Box bg="gray.800" p={4} borderRadius="lg">
         <HStack justify="space-between" mb={4}>
@@ -94,22 +123,12 @@ function Home() {
               </Text>
             </VStack>
           </HStack>
-          {viewAllPath && (
+          {section && (
             <Button
               variant="ghost"
               size="sm"
               rightIcon={<FaChevronRight />}
-              onClick={() => {
-                if (viewAllPath.startsWith('/top/')) {
-                  navigate(viewAllPath);
-                } else if (viewAllPath === '/latest-updates') {
-                  navigate('/latest');
-                } else if (viewAllPath === '/popular') {
-                  navigate('/popular');
-                } else {
-                  navigate(viewAllPath);
-                }
-              }}
+              onClick={() => handleViewAll(section)}
               color={`${color}.400`}
               _hover={{ bg: `${color}.900` }}
             >
@@ -199,7 +218,7 @@ function Home() {
             icon={FaBookOpen}
             items={continueReading}
             color="green"
-            viewAllPath="/library"
+            section="library"
             iconSize={4}
           />
         )}
@@ -236,7 +255,7 @@ function Home() {
                   icon={FaClock}
                   items={latestUpdates}
                   color="blue"
-                  viewAllPath="/latest-updates"
+                  section="latest-updates"
                 />
               </TabPanel>
 
@@ -247,7 +266,7 @@ function Home() {
                   icon={FaHeart}
                   items={mostFavorites}
                   color="pink"
-                  viewAllPath="/popular"
+                  section="popular"
                 />
               </TabPanel>
 
@@ -259,7 +278,7 @@ function Home() {
                     icon={GiDragonHead}
                     items={topManga}
                     color="orange"
-                    viewAllPath="/top/manga"
+                    section="manga"
                     iconSize={6}
                   />
                   
@@ -268,7 +287,7 @@ function Home() {
                     icon={BiBook}
                     items={topManhwa}
                     color="purple"
-                    viewAllPath="/top/manhwa"
+                    section="manhwa"
                     iconSize={5}
                   />
 
@@ -277,7 +296,7 @@ function Home() {
                     icon={FaDragon}
                     items={topManhua}
                     color="red"
-                    viewAllPath="/top/manhua"
+                    section="manhua"
                     iconSize={5}
                   />
 
@@ -286,7 +305,7 @@ function Home() {
                     icon={FaBookOpen}
                     items={topOneshot}
                     color="green"
-                    viewAllPath="/top/oneshot"
+                    section="oneshot"
                     iconSize={5}
                   />
                 </VStack>
@@ -300,5 +319,3 @@ function Home() {
 }
 
 export default Home;
-
-
