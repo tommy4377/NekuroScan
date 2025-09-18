@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Flex,
@@ -85,30 +85,29 @@ function Navigation() {
                 onClick={onOpen}
               />
               
-              <Box 
-                as={Link} 
-                to="/home"
-                display="flex"
-                alignItems="center"
-                _hover={{ opacity: 0.8 }}
-              >
-                <Image 
-                  src="/web-app-manifest-512x512.png" 
-                  boxSize={logoSize}
-                  mr={showFullTitle ? 2 : 0} 
-                  fallbackSrc="https://via.placeholder.com/30" 
-                />
-                {showFullTitle && (
-                  <Text
-                    fontSize={{ base: 'lg', md: '2xl' }}
-                    fontWeight="bold"
-                    bgGradient="linear(to-r, purple.400, pink.400)"
-                    bgClip="text"
-                  >
-                    KuroReader
-                  </Text>
-                )}
-              </Box>
+              {/* LOGO LINK FIX - ora punta correttamente a /home */}
+              <Link to="/home">
+                <HStack 
+                  _hover={{ opacity: 0.8 }}
+                  cursor="pointer"
+                >
+                  <Image 
+                    src="/web-app-manifest-512x512.png" 
+                    boxSize={logoSize}
+                    fallbackSrc="https://via.placeholder.com/30" 
+                  />
+                  {showFullTitle && (
+                    <Text
+                      fontSize={{ base: 'lg', md: '2xl' }}
+                      fontWeight="bold"
+                      bgGradient="linear(to-r, purple.400, pink.400)"
+                      bgClip="text"
+                    >
+                      KuroReader
+                    </Text>
+                  )}
+                </HStack>
+              </Link>
 
               {/* Desktop Nav */}
               <HStack spacing={3} display={{ base: 'none', md: 'flex' }}>
