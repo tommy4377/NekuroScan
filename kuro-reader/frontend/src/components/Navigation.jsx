@@ -73,7 +73,7 @@ function Navigation() {
       <Box
         bg="rgba(26, 32, 44, 0.95)"
         px={2}
-        position="fixed"
+        position="sticky"
         top={0}
         left={0}
         right={0}
@@ -325,3 +325,4 @@ function Navigation() {
 }
 
 export default Navigation;
+
