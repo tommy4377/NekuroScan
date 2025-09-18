@@ -644,6 +644,233 @@ export class StatsAPI {
   categorizeByPlatform(genreId) {
     return 'mangaworld';
   }
+
+  // Aggiungi questo metodo in stats.js:
+
+async getLatestUpdates(includeAdult = false, limit = null) {
+  const cacheKey = `latest_${includeAdult}_${limit || 'all'}`;
+  const cached = this.getCached(cacheKey);
+  if (cached) return cached;
+
+  const updates = [];
+
+  try {
+    // Se non c'è limite, carica più pagine
+    const pagesToLoad = limit ? 1 : 5;
+    
+    for (let page = 1; page <= pagesToLoad; page++) {
+      const mwHtml = await this.makeRequest(`https://www.mangaworld.cx/?page=${page}`);
+      const mwDoc = this.parseHTML(mwHtml);
+      
+      const entries = mwDoc.querySelectorAll('.comics-grid .entry');
+      
+      entries.forEach((entry) => {
+        const link = entry.querySelector('a.thumb, a.manga-title');
+        const img = entry.querySelector('img');
+        const title = entry.querySelector('.manga-title')?.textContent?.trim();
+        const latestChaps = entry.querySelectorAll('.xanh');
+        
+        if (link?.href && title) {
+          const href = link.getAttribute('href');
+          const latestChapter = latestChaps[0]?.textContent?.trim() || '';
+          
+          updates.push({
+            url: href.startsWith('http') ? href : `https://www.mangaworld.cx${href}`,
+            title,
+            cover: img?.src || img?.dataset?.src || '',
+            latestChapter: latestChapter.replace(/^cap\.\s*/i, '').replace(/^capitolo\s*/i, ''),
+            source: 'mangaWorld',
+            isAdult: false,
+            updatedAt: new Date().toISOString()
+          });
+        }
+      });
+      
+      if (limit && updates.length >= limit) {
+        break;
+      }
+    }
+
+    if (includeAdult) {
+      try {
+        for (let page = 1; page <= Math.min(pagesToLoad, 3); page++) {
+          const adultHtml = await this.makeRequest(`https://www.mangaworldadult.net/?page=${page}`);
+          const adultDoc = this.parseHTML(adultHtml);
+          
+          const adultEntries = adultDoc.querySelectorAll('.comics-grid .entry');
+          
+          adultEntries.forEach((entry) => {
+            const link = entry.querySelector('a.thumb, a.manga-title');
+            const img = entry.querySelector('img');
+            const title = entry.querySelector('.manga-title')?.textContent?.trim();
+            const latestChaps = entry.querySelectorAll('.xanh');
+            
+            if (link?.href && title) {
+              const href = link.getAttribute('href');
+              const latestChapter = latestChaps[0]?.textContent?.trim() || '';
+              
+              updates.push({
+                url: href.startsWith('http') ? href : `https://www.mangaworldadult.net${href}`,
+                title,
+                cover: img?.src || img?.dataset?.src || '',
+                latestChapter: latestChapter.replace(/^cap\.\s*/i, '').replace(/^capitolo\s*/i, ''),
+                source: 'mangaWorldAdult',
+                isAdult: true,
+                updatedAt: new Date().toISOString()
+              });
+            }
+          });
+          
+          if (limit && updates.length >= limit) {
+            break;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching adult updates:', err);
+      }
+    }
+
+    const finalUpdates = limit ? updates.slice(0, limit) : updates;
+    this.setCache(cacheKey, finalUpdates);
+    return finalUpdates;
+    
+  } catch (error) {
+    console.error('Error fetching latest updates:', error);
+    return [];
+  }
+}
+
+async getMostFavorites(includeAdult = false, limit = null) {
+  const cacheKey = `favorites_${includeAdult}_${limit || 'all'}`;
+  const cached = this.getCached(cacheKey);
+  if (cached) return cached;
+
+  const favorites = [];
+
+  try {
+    // Carica più pagine se non c'è limite
+    const pagesToLoad = limit ? 1 : 5;
+    
+    for (let page = 1; page <= pagesToLoad; page++) {
+      const url = `https://www.mangaworld.cx/archive?sort=most_read&page=${page}`;
+      const html = await this.makeRequest(url);
+      const doc = this.parseHTML(html);
+      
+      const entries = doc.querySelectorAll('.entry');
+      entries.forEach((entry) => {
+        const link = entry.querySelector('a');
+        const img = entry.querySelector('img');
+        const title = entry.querySelector('.name, .title, .manga-title')?.textContent?.trim();
+        
+        if (link?.href && title) {
+          const href = link.getAttribute('href');
+          favorites.push({
+            url: href.startsWith('http') ? href : `https://www.mangaworld.cx${href}`,
+            title,
+            cover: img?.src || img?.dataset?.src || '',
+            source: 'mangaWorld',
+            isAdult: false
+          });
+        }
+      });
+      
+      if (limit && favorites.length >= limit) {
+        break;
+      }
+    }
+
+    if (includeAdult) {
+      try {
+        for (let page = 1; page <= Math.min(pagesToLoad, 3); page++) {
+          const adultUrl = `https://www.mangaworldadult.net/archive?sort=most_read&page=${page}`;
+          const adultHtml = await this.makeRequest(adultUrl);
+          const adultDoc = this.parseHTML(adultHtml);
+          
+          const adultEntries = adultDoc.querySelectorAll('.entry');
+          adultEntries.forEach((entry) => {
+            const link = entry.querySelector('a');
+            const img = entry.querySelector('img');
+            const title = entry.querySelector('.name, .title, .manga-title')?.textContent?.trim();
+            
+            if (link?.href && title) {
+              const href = link.getAttribute('href');
+              favorites.push({
+                url: href.startsWith('http') ? href : `https://www.mangaworldadult.net${href}`,
+                title,
+                cover: img?.src || img?.dataset?.src || '',
+                source: 'mangaWorldAdult',
+                isAdult: true
+              });
+            }
+          });
+          
+          if (limit && favorites.length >= limit) {
+            break;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching adult favorites:', err);
+      }
+    }
+
+    const finalFavorites = limit ? favorites.slice(0, limit) : favorites;
+    this.setCache(cacheKey, finalFavorites);
+    return finalFavorites;
+    
+  } catch (error) {
+    console.error('Error fetching favorites:', error);
+    return [];
+  }
+}
+
+async getTopByType(type = 'manga', limit = null) {
+  const cacheKey = `top_${type}_${limit || 'all'}`;
+  const cached = this.getCached(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const results = [];
+    const pagesToLoad = limit ? 1 : 5;
+    
+    for (let page = 1; page <= pagesToLoad; page++) {
+      const url = `https://www.mangaworld.cx/archive?type=${type}&sort=most_read&page=${page}`;
+      const html = await this.makeRequest(url);
+      const doc = this.parseHTML(html);
+      
+      const entries = doc.querySelectorAll('.entry');
+      
+      entries.forEach((entry) => {
+        const link = entry.querySelector('a');
+        const img = entry.querySelector('img');
+        const title = entry.querySelector('.name, .title, .manga-title')?.textContent?.trim();
+        
+        if (link?.href && title) {
+          const href = link.getAttribute('href');
+          results.push({
+            url: href.startsWith('http') ? href : `https://www.mangaworld.cx${href}`,
+            title,
+            cover: img?.src || img?.dataset?.src || '',
+            type,
+            source: 'mangaWorld'
+          });
+        }
+      });
+      
+      if (limit && results.length >= limit) {
+        break;
+      }
+    }
+
+    const finalResults = limit ? results.slice(0, limit) : results;
+    this.setCache(cacheKey, finalResults);
+    return finalResults;
+    
+  } catch (error) {
+    console.error(`Error fetching top ${type}:`, error);
+    return [];
+  }
+}
+  
 }
 
 export default new StatsAPI();
