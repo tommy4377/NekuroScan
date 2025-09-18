@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
   Button, useToast, Tabs, TabList, Tab, TabPanels, TabPanel,
@@ -7,18 +7,21 @@ import {
   ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
   ModalCloseButton, Divider, Tag, TagLabel, TagCloseButton, Checkbox
 } from '@chakra-ui/react';
-import { SearchIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { SearchIcon } from '@chakra-ui/icons';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
+import apiManager from '../api';
 import { FaTags, FaTheaterMasks, FaUsers, FaCalendar, FaFlag, FaFire } from 'react-icons/fa';
+import { useInView } from 'react-intersection-observer';
 
 const MotionBox = motion(Box);
 
 function Categories() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
   
@@ -29,6 +32,7 @@ function Categories() {
   const [mangaList, setMangaList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingManga, setLoadingManga] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,9 +44,36 @@ function Categories() {
   });
   const [totalLoaded, setTotalLoaded] = useState(0);
 
+  // Infinite scroll ref
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0.1,
+    rootMargin: '100px',
+  });
+
   useEffect(() => {
     loadCategories();
+    
+    // Check location state for presets
+    if (location.state) {
+      if (location.state.preset === 'latest') {
+        setFilters(prev => ({ ...prev, sortBy: 'newest' }));
+        setTimeout(() => searchWithFilters(), 500);
+      } else if (location.state.preset === 'popular') {
+        setFilters(prev => ({ ...prev, sortBy: 'most_read' }));
+        setTimeout(() => searchWithFilters(), 500);
+      } else if (location.state.type) {
+        setSelectedType(location.state.type);
+        setTimeout(() => searchWithFilters(), 500);
+      }
+    }
   }, []);
+
+  // Auto-load more when scrolling
+  useEffect(() => {
+    if (inView && hasMore && !loadingMore && mangaList.length > 0) {
+      loadMore();
+    }
+  }, [inView, hasMore, loadingMore]);
 
   const loadCategories = async () => {
     setLoading(true);
@@ -72,12 +103,19 @@ function Categories() {
   };
 
   const searchWithFilters = async () => {
-    if (selectedGenres.length === 0 && !selectedType && !filters.status && !filters.year) {
-      toast({
-        title: 'Seleziona almeno un filtro',
-        status: 'warning',
-        duration: 2000,
-      });
+    if (selectedGenres.length === 0 && !selectedType && !filters.status && !filters.year && filters.sortBy === 'popular') {
+      // Se non ci sono filtri, carica manga popolari
+      setLoadingManga(true);
+      try {
+        const popular = await statsAPI.getMostFavorites(filters.includeAdult);
+        setMangaList(popular);
+        setHasMore(false);
+        setTotalLoaded(popular.length);
+      } catch (error) {
+        console.error('Error loading popular:', error);
+      } finally {
+        setLoadingManga(false);
+      }
       return;
     }
 
@@ -86,19 +124,74 @@ function Categories() {
     setMangaList([]);
     
     try {
-      const result = await statsAPI.searchAdvanced({
-        genres: selectedGenres,
-        types: selectedType ? [selectedType] : [],
-        status: filters.status,
-        year: filters.year,
-        sort: filters.sortBy,
-        page: 1,
-        includeAdult: filters.includeAdult
-      });
+      // FIX: Per generi multipli, cerca con AND logic
+      let results = [];
       
-      setMangaList(result.results);
-      setHasMore(result.hasMore);
-      setTotalLoaded(result.results.length);
+      if (selectedGenres.length > 1) {
+        // Ricerca custom per generi multipli
+        const baseUrl = filters.includeAdult ? 
+          'https://www.mangaworldadult.net/archive' : 
+          'https://www.mangaworld.cx/archive';
+        
+        // Costruisci URL con tutti i generi
+        const params = new URLSearchParams();
+        selectedGenres.forEach(genre => {
+          params.append('genre', genre);
+        });
+        if (selectedType) params.append('type', selectedType);
+        if (filters.status) params.append('status', filters.status);
+        if (filters.year) params.append('year', filters.year);
+        if (filters.sortBy) params.append('sort', filters.sortBy);
+        
+        const searchUrl = `${baseUrl}?${params.toString()}`;
+        
+        // Usa apiManager per fare la richiesta
+        const response = await fetch(`https://kuro-proxy-server.onrender.com/api/proxy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: searchUrl })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+          const doc = new DOMParser().parseFromString(data.data, 'text/html');
+          const entries = doc.querySelectorAll('.entry');
+          
+          entries.forEach((entry, i) => {
+            if (i >= 50) return;
+            
+            const link = entry.querySelector('a');
+            const img = entry.querySelector('img');
+            const title = entry.querySelector('.name, .title')?.textContent?.trim();
+            
+            if (link && title) {
+              results.push({
+                url: link.href,
+                title,
+                cover: img?.src || '',
+                source: filters.includeAdult ? 'mangaWorldAdult' : 'mangaWorld',
+                isAdult: filters.includeAdult
+              });
+            }
+          });
+        }
+      } else {
+        // Ricerca normale con statsAPI
+        const result = await statsAPI.searchAdvanced({
+          genres: selectedGenres,
+          types: selectedType ? [selectedType] : [],
+          status: filters.status,
+          year: filters.year,
+          sort: filters.sortBy,
+          page: 1,
+          includeAdult: filters.includeAdult
+        });
+        results = result.results;
+        setHasMore(result.hasMore);
+      }
+      
+      setMangaList(results);
+      setTotalLoaded(results.length);
       setPage(1);
       
     } catch (error) {
@@ -114,9 +207,9 @@ function Categories() {
   };
 
   const loadMore = async () => {
-    if (loadingManga || !hasMore) return;
+    if (loadingMore || !hasMore) return;
     
-    setLoadingManga(true);
+    setLoadingMore(true);
     try {
       const result = await statsAPI.searchAdvanced({
         genres: selectedGenres,
@@ -136,7 +229,7 @@ function Categories() {
     } catch (error) {
       console.error('Error loading more:', error);
     } finally {
-      setLoadingManga(false);
+      setLoadingMore(false);
     }
   };
 
@@ -405,7 +498,7 @@ function Categories() {
               {hasMore && (
                 <Button
                   onClick={loadMore}
-                  isLoading={loadingManga}
+                  isLoading={loadingMore}
                   colorScheme="purple"
                   variant="outline"
                 >
@@ -421,38 +514,46 @@ function Categories() {
                   <Skeleton key={i} height="280px" borderRadius="lg" />
                 ))}
               </SimpleGrid>
-            ) : filteredManga.length > 0 ? (
-              <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-                {filteredManga.map((manga, i) => (
-                  <MotionBox
-                    key={`${manga.url}-${i}`}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i * 0.02, 0.5) }}
-                  >
-                    <Box position="relative">
-                      <MangaCard manga={manga} hideSource />
-                      {manga.isAdult && (
-                        <Badge
-                          position="absolute"
-                          top={2}
-                          right={2}
-                          colorScheme="pink"
-                          fontSize="xs"
-                        >
-                          18+
-                        </Badge>
-                      )}
-                    </Box>
-                  </MotionBox>
-                ))}
-              </SimpleGrid>
             ) : (
-              <Box textAlign="center" py={12}>
-                <Text color="gray.500">
-                  {searchQuery ? 'Nessun risultato per la ricerca' : 'Nessun manga trovato'}
-                </Text>
-              </Box>
+              <>
+                <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
+                  {filteredManga.map((manga, i) => (
+                    <MotionBox
+                      key={`${manga.url}-${i}`}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(i * 0.02, 0.5) }}
+                    >
+                      <Box position="relative">
+                        <MangaCard manga={manga} hideSource />
+                        {manga.isAdult && (
+                          <Badge
+                            position="absolute"
+                            top={2}
+                            right={2}
+                            colorScheme="pink"
+                            fontSize="xs"
+                          >
+                            18+
+                          </Badge>
+                        )}
+                      </Box>
+                    </MotionBox>
+                  ))}
+                </SimpleGrid>
+
+                {/* Infinite scroll trigger */}
+                {hasMore && (
+                  <Box ref={loadMoreRef} textAlign="center" py={4}>
+                    {loadingMore && (
+                      <HStack justify="center">
+                        <Spinner color="purple.500" />
+                        <Text>Caricamento...</Text>
+                      </HStack>
+                    )}
+                  </Box>
+                )}
+              </>
             )}
           </VStack>
         )}
