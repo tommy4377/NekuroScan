@@ -19,6 +19,55 @@ const prisma = new PrismaClient({
 const PORT = process.env.PORT || 10000;
 const JWT_SECRET = process.env.JWT_SECRET || '2ddbc9ab6834649be0d77707901ebd1e';
 
+// INIZIALIZZAZIONE DATABASE
+async function initDatabase() {
+  console.log('Checking database tables...');
+  
+  try {
+    // Crea le tabelle se non esistono
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS "user" (
+        "id" SERIAL PRIMARY KEY,
+        "username" VARCHAR(255) UNIQUE NOT NULL,
+        "email" VARCHAR(255) UNIQUE NOT NULL,
+        "password" VARCHAR(255) NOT NULL,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS "user_favorites" (
+        "id" SERIAL PRIMARY KEY,
+        "userId" INTEGER UNIQUE NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
+        "favorites" TEXT NOT NULL,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS "reading_progress" (
+        "id" SERIAL PRIMARY KEY,
+        "userId" INTEGER NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
+        "mangaUrl" VARCHAR(500) NOT NULL,
+        "mangaTitle" VARCHAR(500) NOT NULL,
+        "chapterIndex" INTEGER NOT NULL,
+        "pageIndex" INTEGER DEFAULT 0,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE("userId", "mangaUrl")
+      )
+    `;
+    
+    console.log('Database tables ready!');
+  } catch (error) {
+    console.error('Database initialization error:', error);
+    // Non fermare il server, continua comunque
+  }
+}
+
+// Inizializza il database all'avvio
+initDatabase();
+
 // CORS configuration
 app.use(cors({
   origin: [
@@ -33,6 +82,7 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -549,3 +599,4 @@ process.on('SIGINT', async () => {
   await prisma.$disconnect();
   process.exit(0);
 });
+
