@@ -101,77 +101,92 @@ function Home() {
     }
   };
 
-  const ContentSection = ({ title, icon, items, color = 'purple', section, iconSize = 5 }) => (
-    <VStack align="stretch" spacing={4}>
-      <Box bg="gray.800" p={4} borderRadius="lg">
-        <HStack justify="space-between" mb={4}>
-          <HStack spacing={3}>
-            <Box 
-              p={2} 
-              bg={`${color}.500`} 
-              borderRadius="lg"
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <ChakraIcon as={icon} color="white" boxSize={iconSize} />
-            </Box>
-            <VStack align="start" spacing={0}>
-              <Heading size="md">{title}</Heading>
-              <Text fontSize="xs" color="gray.400">
-                {items.length} disponibili
-              </Text>
-            </VStack>
-          </HStack>
-          {section && (
-            <Button
-              variant="ghost"
-              size="sm"
-              rightIcon={<FaChevronRight />}
-              onClick={() => handleViewAll(section)}
-              color={`${color}.400`}
-              _hover={{ bg: `${color}.900` }}
-            >
-              Vedi tutti
-            </Button>
-          )}
+  // Nel componente ContentSection, modifica la visualizzazione per i capitoli recenti:
+
+const ContentSection = ({ title, icon, items, color = 'purple', section, iconSize = 5 }) => (
+  <VStack align="stretch" spacing={4}>
+    <Box bg="gray.800" p={4} borderRadius="lg">
+      <HStack justify="space-between" mb={4}>
+        <HStack spacing={3}>
+          <Box 
+            p={2} 
+            bg={`${color}.500`} 
+            borderRadius="lg"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <ChakraIcon as={icon} color="white" boxSize={iconSize} />
+          </Box>
+          <VStack align="start" spacing={0}>
+            <Heading size="md">{title}</Heading>
+            <Text fontSize="xs" color="gray.400">
+              {items.length} disponibili
+            </Text>
+          </VStack>
         </HStack>
-        
-        {loading ? (
-          <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={4}>
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} height="280px" borderRadius="lg" />
-            ))}
-          </SimpleGrid>
-        ) : items.length > 0 ? (
-          <Box overflowX="auto" pb={2}>
-            <HStack spacing={4} minW="max-content">
-              {items.map((item, i) => (
-                <Box key={`${item.url}-${i}`} minW="150px" maxW="150px" position="relative">
-                  <MangaCard manga={item} hideSource />
-                  {item.isAdult && (
-                    <Badge
-                      position="absolute"
-                      top={2}
-                      right={2}
-                      colorScheme="pink"
-                      fontSize="xs"
-                    >
-                      18+
-                    </Badge>
-                  )}
-                </Box>
-              ))}
-            </HStack>
-          </Box>
-        ) : (
-          <Box textAlign="center" py={8}>
-            <Text color="gray.500">Nessun contenuto disponibile</Text>
-          </Box>
+        {section && (
+          <Button
+            variant="ghost"
+            size="sm"
+            rightIcon={<FaChevronRight />}
+            onClick={() => handleViewAll(section)}
+            color={`${color}.400`}
+            _hover={{ bg: `${color}.900` }}
+          >
+            Vedi tutti
+          </Button>
         )}
-      </Box>
-    </VStack>
-  );
+      </HStack>
+      
+      {loading ? (
+        <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={4}>
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} height="280px" borderRadius="lg" />
+          ))}
+        </SimpleGrid>
+      ) : items.length > 0 ? (
+        <Box overflowX="auto" pb={2}>
+          <HStack spacing={4} minW="max-content">
+            {items.map((item, i) => (
+              <Box key={`${item.url}-${i}`} minW="150px" maxW="150px" position="relative">
+                <MangaCard manga={item} hideSource />
+                {item.latestChapter && (
+                  <Badge
+                    position="absolute"
+                    bottom={2}
+                    left={2}
+                    right={2}
+                    colorScheme="blue"
+                    fontSize="xs"
+                    textAlign="center"
+                  >
+                    {item.latestChapter.replace(/^cap\.\s*/i, '').replace(/^capitolo\s*/i, '')}
+                  </Badge>
+                )}
+                {item.isAdult && (
+                  <Badge
+                    position="absolute"
+                    top={2}
+                    right={2}
+                    colorScheme="pink"
+                    fontSize="xs"
+                  >
+                    18+
+                  </Badge>
+                )}
+              </Box>
+            ))}
+          </HStack>
+        </Box>
+      ) : (
+        <Box textAlign="center" py={8}>
+          <Text color="gray.500">Nessun contenuto disponibile</Text>
+        </Box>
+      )}
+    </Box>
+  </VStack>
+);
 
   return (
     <Container maxW="container.xl" py={8}>
@@ -319,3 +334,4 @@ function Home() {
 }
 
 export default Home;
+
