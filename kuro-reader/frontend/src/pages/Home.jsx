@@ -13,7 +13,6 @@ import {
 import { GiDragonHead } from 'react-icons/gi';
 import { BiBook } from 'react-icons/bi';
 import MangaCard from '../components/MangaCard';
-import apiManager from '../api';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 
@@ -53,14 +52,14 @@ function Home() {
 
       const [updates, favorites, manga, manhwa, manhua, oneshot] = await Promise.all(promises);
 
-      setLatestUpdates(updates);
-      setMostFavorites(favorites);
+      // FIX: Usa results invece di accedere direttamente
+      setLatestUpdates(updates.results || updates);
+      setMostFavorites(favorites.results || favorites);
       setTopManga(manga);
       setTopManhwa(manhwa);
       setTopManhua(manhua);
       setTopOneshot(oneshot);
       
-      // Load continue reading from localStorage
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       setContinueReading(reading.slice(0, 10));
       
@@ -78,37 +77,24 @@ function Home() {
     }
   };
 
-  const refreshContent = async () => {
-    setRefreshing(true);
-    await loadAllContent();
-  };
-
   const handleViewAll = (section) => {
+    // Naviga a pagine dedicate per scroll infinito
     switch(section) {
       case 'latest-updates':
-        navigate('/categories', { state: { preset: 'latest' } });
+        navigate('/latest');
         break;
       case 'popular':
-        navigate('/categories', { state: { preset: 'popular' } });
-        break;
-      case 'manga':
-      case 'manhwa':
-      case 'manhua':
-      case 'oneshot':
-        navigate('/categories', { state: { type: section } });
-        break;
-      case 'library':
-        navigate('/library');
+        navigate('/popular');
         break;
       default:
-        navigate('/categories');
+        navigate('/categories', { state: { type: section } });
     }
   };
 
-  const ContentSection = ({ title, icon, items, color = 'purple', section, iconSize = 5, showChapterNumber = false }) => (
+  // FIX: ContentSection senza badge duplicato per i capitoli
+  const ContentSection = ({ title, icon, items, color = 'purple', section, iconSize = 5 }) => (
     <VStack align="stretch" spacing={4}>
       <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
-        {/* Header */}
         <HStack justify="space-between" mb={4}>
           <HStack spacing={3}>
             <Box 
@@ -136,14 +122,12 @@ function Home() {
               onClick={() => handleViewAll(section)}
               color={`${color}.400`}
               _hover={{ bg: `${color}.900` }}
-              display={{ base: 'none', sm: 'flex' }}
             >
               Vedi tutti
             </Button>
           )}
         </HStack>
         
-        {/* Content */}
         {loading ? (
           <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={4}>
             {[...Array(5)].map((_, i) => (
@@ -163,21 +147,7 @@ function Home() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
                 >
-                  <MangaCard manga={item} hideSource />
-                  {showChapterNumber && item.latestChapter && (
-                    <Badge
-                      position="absolute"
-                      bottom={2}
-                      left={2}
-                      right={2}
-                      colorScheme="blue"
-                      fontSize="xs"
-                      textAlign="center"
-                      px={2}
-                    >
-                      Cap. {item.latestChapter}
-                    </Badge>
-                  )}
+                  <MangaCard manga={item} hideSource showLatestChapter={false} />
                   {item.isAdult && (
                     <Badge
                       position="absolute"
@@ -232,7 +202,10 @@ function Home() {
               </Button>
               <IconButton
                 icon={<FaSync />}
-                onClick={refreshContent}
+                onClick={() => {
+                  setRefreshing(true);
+                  loadAllContent();
+                }}
                 aria-label="Ricarica"
                 isLoading={refreshing}
                 variant="ghost"
@@ -242,7 +215,6 @@ function Home() {
           </HStack>
         </Box>
 
-        {/* Continue Reading - Only if exists */}
         {continueReading.length > 0 && (
           <ContentSection
             title="Continua a leggere"
@@ -256,30 +228,14 @@ function Home() {
 
         {/* Main Content Tabs */}
         <Box bg="gray.800" borderRadius="xl" p={{ base: 3, md: 4 }}>
-          <Tabs colorScheme="purple" variant="soft-rounded" size={{ base: 'sm', md: 'md' }}>
+          <Tabs colorScheme="purple" variant="soft-rounded">
             <TabList bg="gray.900" p={2} borderRadius="lg" overflowX="auto">
-              <Tab>
-                <HStack spacing={2}>
-                  <FaClock />
-                  <Text display={{ base: 'none', sm: 'block' }}>Aggiornamenti</Text>
-                </HStack>
-              </Tab>
-              <Tab>
-                <HStack spacing={2}>
-                  <FaStar />
-                  <Text display={{ base: 'none', sm: 'block' }}>Popolari</Text>
-                </HStack>
-              </Tab>
-              <Tab>
-                <HStack spacing={2}>
-                  <FaTrophy />
-                  <Text display={{ base: 'none', sm: 'block' }}>Top Series</Text>
-                </HStack>
-              </Tab>
+              <Tab><HStack spacing={2}><FaClock /><Text>Aggiornamenti</Text></HStack></Tab>
+              <Tab><HStack spacing={2}><FaStar /><Text>Popolari</Text></HStack></Tab>
+              <Tab><HStack spacing={2}><FaTrophy /><Text>Top Series</Text></HStack></Tab>
             </TabList>
 
             <TabPanels>
-              {/* Latest Updates */}
               <TabPanel px={0} pt={6}>
                 <ContentSection
                   title="Capitoli recenti"
@@ -287,14 +243,12 @@ function Home() {
                   items={latestUpdates}
                   color="blue"
                   section="latest-updates"
-                  showChapterNumber={true}
                 />
               </TabPanel>
 
-              {/* Most Popular */}
               <TabPanel px={0} pt={6}>
                 <ContentSection
-                  title="I più amati della settimana"
+                  title="I più letti"
                   icon={FaHeart}
                   items={mostFavorites}
                   color="pink"
@@ -302,11 +256,10 @@ function Home() {
                 />
               </TabPanel>
 
-              {/* Top Series by Type */}
               <TabPanel px={0} pt={6}>
                 <VStack spacing={6} align="stretch">
                   <ContentSection
-                    title="Top Manga Giapponesi"
+                    title="Top Manga"
                     icon={GiDragonHead}
                     items={topManga}
                     color="orange"
@@ -315,21 +268,19 @@ function Home() {
                   />
                   
                   <ContentSection
-                    title="Top Manhwa Coreani"
+                    title="Top Manhwa"
                     icon={BiBook}
                     items={topManhwa}
                     color="purple"
                     section="manhwa"
-                    iconSize={5}
                   />
 
                   <ContentSection
-                    title="Top Manhua Cinesi"
+                    title="Top Manhua"
                     icon={FaDragon}
                     items={topManhua}
                     color="red"
                     section="manhua"
-                    iconSize={5}
                   />
 
                   <ContentSection
@@ -338,26 +289,12 @@ function Home() {
                     items={topOneshot}
                     color="green"
                     section="oneshot"
-                    iconSize={5}
                   />
                 </VStack>
               </TabPanel>
             </TabPanels>
           </Tabs>
         </Box>
-
-        {/* Mobile View All Button */}
-        {isMobile && (
-          <Button
-            colorScheme="purple"
-            onClick={() => navigate('/categories')}
-            rightIcon={<FaChevronRight />}
-            size="lg"
-            w="100%"
-          >
-            Esplora tutte le categorie
-          </Button>
-        )}
       </VStack>
     </Container>
   );
