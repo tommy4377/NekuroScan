@@ -13,7 +13,7 @@ import {
   SimpleGrid
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
-import { FaBook, FaSearch, FaBookmark, FaMobileAlt, FaSignInAlt } from 'react-icons/fa';
+import { FaBook, FaSearch, FaBookmark, FaMobileAlt } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 
 const MotionBox = motion(Box);
@@ -97,15 +97,6 @@ function Welcome() {
                 >
                   Esplora catalogo
                 </Button>
-                <Button
-                  size={{ base: "md", md: "lg" }}
-                  variant="ghost"
-                  colorScheme="purple"
-                  onClick={() => navigate('/login')}
-                  leftIcon={<FaSignInAlt />}
-                >
-                  Accedi
-                </Button>
               </HStack>
             </VStack>
           </MotionBox>
@@ -150,7 +141,7 @@ function Welcome() {
             </SimpleGrid>
           </MotionBox>
 
-          {/* CTA Section */}
+          {/* CTA Section - FIX: un solo pulsante accedi */}
           <MotionBox
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -168,7 +159,7 @@ function Welcome() {
             >
               <Heading size="lg">Pronto per iniziare?</Heading>
               <Text color="gray.400" textAlign="center">
-                Nessuna registrazione richiesta. Inizia subito a leggere i tuoi manga preferiti!
+                Accedi per salvare i tuoi progressi o continua come ospite
               </Text>
               <HStack spacing={3}>
                 <Button
@@ -177,14 +168,13 @@ function Welcome() {
                   onClick={() => navigate('/home')}
                   rightIcon={<FaBook />}
                 >
-                  Vai alla libreria
+                  Continua come ospite
                 </Button>
                 <Button
                   size="lg"
                   variant="outline"
                   colorScheme="purple"
                   onClick={() => navigate('/login')}
-                  rightIcon={<FaSignInAlt />}
                 >
                   Accedi
                 </Button>
