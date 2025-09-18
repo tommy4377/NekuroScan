@@ -6,7 +6,7 @@ import { PrismaClient } from '@prisma/client';
 
 const app = express();
 
-// Configurazione Prisma con nuovo database URL
+// Configurazione Prisma
 const prisma = new PrismaClient({
   datasources: { 
     db: { 
@@ -19,12 +19,11 @@ const prisma = new PrismaClient({
 const PORT = process.env.PORT || 10000;
 const JWT_SECRET = process.env.JWT_SECRET || '2ddbc9ab6834649be0d77707901ebd1e';
 
-// INIZIALIZZAZIONE DATABASE
+// Inizializzazione database
 async function initDatabase() {
   console.log('Checking database tables...');
   
   try {
-    // Crea le tabelle se non esistono
     await prisma.$executeRaw`
       CREATE TABLE IF NOT EXISTS "user" (
         "id" SERIAL PRIMARY KEY,
@@ -57,18 +56,28 @@ async function initDatabase() {
         UNIQUE("userId", "mangaUrl")
       )
     `;
+
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS "user_library" (
+        "id" SERIAL PRIMARY KEY,
+        "userId" INTEGER NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
+        "reading" TEXT,
+        "completed" TEXT,
+        "history" TEXT,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE("userId")
+      )
+    `;
     
     console.log('Database tables ready!');
   } catch (error) {
     console.error('Database initialization error:', error);
-    // Non fermare il server, continua comunque
   }
 }
 
-// Inizializza il database all'avvio
 initDatabase();
 
-// CORS configuration
+// CORS
 app.use(cors({
   origin: [
     'https://kuroreader.onrender.com',
@@ -82,16 +91,6 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  res.status(500).json({ 
-    message: 'Errore interno del server',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
-});
 
 // Middleware per verificare il token
 const authenticateToken = (req, res, next) => {
@@ -118,7 +117,6 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
     
-    // Validazione input
     if (!username || !email || !password) {
       return res.status(400).json({ message: 'Tutti i campi sono richiesti' });
     }
@@ -127,17 +125,14 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ message: 'La password deve essere di almeno 6 caratteri' });
     }
     
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ message: 'Email non valida' });
     }
     
-    // Normalizza email e username
     const normalizedEmail = email.toLowerCase().trim();
     const normalizedUsername = username.toLowerCase().trim();
     
-    // Controlla se l'utente esiste già
     const existingUser = await prisma.user.findFirst({
       where: { 
         OR: [
@@ -154,10 +149,8 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ message: 'Username già in uso' });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Crea nuovo utente
     const user = await prisma.user.create({
       data: { 
         username: normalizedUsername, 
@@ -166,7 +159,6 @@ app.post('/api/auth/register', async (req, res) => {
       }
     });
 
-    // Genera token
     const token = jwt.sign(
       { id: user.id, email: user.email }, 
       JWT_SECRET, 
@@ -184,46 +176,42 @@ app.post('/api/auth/register', async (req, res) => {
     
   } catch (error) {
     console.error('Register error:', error);
-    
-    // Gestione errori Prisma
-    if (error.code === 'P2002') {
-      return res.status(400).json({ message: 'Utente già esistente' });
-    }
-    
     res.status(500).json({ 
-      message: 'Errore durante la registrazione',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Errore durante la registrazione'
     });
   }
 });
 
-// Login
+// Login - FIX: supporta username o email
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { emailOrUsername, password } = req.body;
     
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email e password richiesti' });
+    if (!emailOrUsername || !password) {
+      return res.status(400).json({ message: 'Email/Username e password richiesti' });
     }
     
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalized = emailOrUsername.toLowerCase().trim();
     
-    // Trova utente
-    const user = await prisma.user.findUnique({ 
-      where: { email: normalizedEmail } 
+    // Cerca per email o username
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: normalized },
+          { username: normalized }
+        ]
+      }
     });
     
     if (!user) {
       return res.status(401).json({ message: 'Credenziali non valide' });
     }
 
-    // Verifica password
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       return res.status(401).json({ message: 'Credenziali non valide' });
     }
 
-    // Genera token
     const token = jwt.sign(
       { id: user.id, email: user.email }, 
       JWT_SECRET, 
@@ -270,7 +258,63 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
   }
 });
 
-// =================== USER DATA ENDPOINTS ===================
+// =================== LIBRARY SYNC ===================
+
+// Save library data (reading, completed, history)
+app.post('/api/user/library', authenticateToken, async (req, res) => {
+  try {
+    const { reading, completed, history } = req.body;
+    
+    await prisma.user_library.upsert({
+      where: { userId: req.user.id },
+      update: {
+        reading: JSON.stringify(reading || []),
+        completed: JSON.stringify(completed || []),
+        history: JSON.stringify(history || []),
+        updatedAt: new Date()
+      },
+      create: {
+        userId: req.user.id,
+        reading: JSON.stringify(reading || []),
+        completed: JSON.stringify(completed || []),
+        history: JSON.stringify(history || [])
+      }
+    });
+    
+    res.json({ success: true, message: 'Libreria salvata' });
+    
+  } catch (error) {
+    console.error('Save library error:', error);
+    res.status(500).json({ message: 'Errore nel salvataggio libreria' });
+  }
+});
+
+// Get library data
+app.get('/api/user/library', authenticateToken, async (req, res) => {
+  try {
+    const library = await prisma.user_library.findUnique({
+      where: { userId: req.user.id }
+    });
+    
+    if (!library) {
+      return res.json({
+        reading: [],
+        completed: [],
+        history: []
+      });
+    }
+    
+    res.json({
+      reading: JSON.parse(library.reading || '[]'),
+      completed: JSON.parse(library.completed || '[]'),
+      history: JSON.parse(library.history || '[]')
+    });
+    
+  } catch (error) {
+    console.error('Get library error:', error);
+    res.status(500).json({ message: 'Errore nel recupero libreria' });
+  }
+});
 
 // Save/Update user favorites
 app.post('/api/user/favorites', authenticateToken, async (req, res) => {
@@ -321,19 +365,25 @@ app.get('/api/user/favorites', authenticateToken, async (req, res) => {
 // Get all user data
 app.get('/api/user/data', authenticateToken, async (req, res) => {
   try {
-    const [userFavorites, readingProgress] = await Promise.all([
+    const [userFavorites, readingProgress, library] = await Promise.all([
       prisma.user_favorites.findUnique({ 
         where: { userId: req.user.id } 
       }),
       prisma.reading_progress.findMany({ 
         where: { userId: req.user.id },
         orderBy: { updatedAt: 'desc' }
+      }),
+      prisma.user_library.findUnique({
+        where: { userId: req.user.id }
       })
     ]);
     
     res.json({ 
       favorites: userFavorites ? JSON.parse(userFavorites.favorites) : [],
-      readingProgress: readingProgress || []
+      readingProgress: readingProgress || [],
+      reading: library ? JSON.parse(library.reading || '[]') : [],
+      completed: library ? JSON.parse(library.completed || '[]') : [],
+      history: library ? JSON.parse(library.history || '[]') : []
     });
     
   } catch (error) {
@@ -342,9 +392,7 @@ app.get('/api/user/data', authenticateToken, async (req, res) => {
   }
 });
 
-// =================== READING PROGRESS ENDPOINTS ===================
-
-// Save/Update reading progress
+// Save reading progress
 app.post('/api/user/progress', authenticateToken, async (req, res) => {
   try {
     const { mangaUrl, mangaTitle, chapterIndex, pageIndex = 0 } = req.body;
@@ -382,183 +430,7 @@ app.post('/api/user/progress', authenticateToken, async (req, res) => {
   }
 });
 
-// Get reading progress for a specific manga
-app.get('/api/user/progress/:mangaUrl', authenticateToken, async (req, res) => {
-  try {
-    const mangaUrl = decodeURIComponent(req.params.mangaUrl);
-    
-    const progress = await prisma.reading_progress.findUnique({
-      where: {
-        userId_mangaUrl: {
-          userId: req.user.id,
-          mangaUrl
-        }
-      }
-    });
-    
-    res.json({ progress });
-    
-  } catch (error) {
-    console.error('Get progress error:', error);
-    res.status(500).json({ message: 'Errore nel recupero progresso' });
-  }
-});
-
-// Get all reading progress
-app.get('/api/user/progress', authenticateToken, async (req, res) => {
-  try {
-    const progress = await prisma.reading_progress.findMany({
-      where: { userId: req.user.id },
-      orderBy: { updatedAt: 'desc' }
-    });
-    
-    res.json({ progress });
-    
-  } catch (error) {
-    console.error('Get all progress error:', error);
-    res.status(500).json({ message: 'Errore nel recupero progressi' });
-  }
-});
-
-// Delete reading progress
-app.delete('/api/user/progress/:mangaUrl', authenticateToken, async (req, res) => {
-  try {
-    const mangaUrl = decodeURIComponent(req.params.mangaUrl);
-    
-    await prisma.reading_progress.delete({
-      where: {
-        userId_mangaUrl: {
-          userId: req.user.id,
-          mangaUrl
-        }
-      }
-    });
-    
-    res.json({ success: true, message: 'Progresso eliminato' });
-    
-  } catch (error) {
-    console.error('Delete progress error:', error);
-    
-    if (error.code === 'P2025') {
-      return res.status(404).json({ message: 'Progresso non trovato' });
-    }
-    
-    res.status(500).json({ message: 'Errore nell\'eliminazione progresso' });
-  }
-});
-
-// =================== USER MANAGEMENT ===================
-
-// Update user profile
-app.put('/api/user/profile', authenticateToken, async (req, res) => {
-  try {
-    const { username } = req.body;
-    
-    if (username) {
-      const normalizedUsername = username.toLowerCase().trim();
-      
-      // Check if username is already taken
-      const existing = await prisma.user.findUnique({
-        where: { username: normalizedUsername }
-      });
-      
-      if (existing && existing.id !== req.user.id) {
-        return res.status(400).json({ message: 'Username già in uso' });
-      }
-      
-      const updatedUser = await prisma.user.update({
-        where: { id: req.user.id },
-        data: { username: normalizedUsername },
-        select: {
-          id: true,
-          username: true,
-          email: true
-        }
-      });
-      
-      res.json({ user: updatedUser });
-    } else {
-      res.status(400).json({ message: 'Nessun dato da aggiornare' });
-    }
-    
-  } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(500).json({ message: 'Errore nell\'aggiornamento profilo' });
-  }
-});
-
-// Change password
-app.post('/api/user/change-password', authenticateToken, async (req, res) => {
-  try {
-    const { oldPassword, newPassword } = req.body;
-    
-    if (!oldPassword || !newPassword) {
-      return res.status(400).json({ message: 'Password vecchia e nuova richieste' });
-    }
-    
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'La nuova password deve essere di almeno 6 caratteri' });
-    }
-    
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id }
-    });
-    
-    const validPassword = await bcrypt.compare(oldPassword, user.password);
-    if (!validPassword) {
-      return res.status(401).json({ message: 'Password attuale non corretta' });
-    }
-    
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    
-    await prisma.user.update({
-      where: { id: req.user.id },
-      data: { password: hashedPassword }
-    });
-    
-    res.json({ success: true, message: 'Password cambiata con successo' });
-    
-  } catch (error) {
-    console.error('Change password error:', error);
-    res.status(500).json({ message: 'Errore nel cambio password' });
-  }
-});
-
-// Delete account
-app.delete('/api/user/account', authenticateToken, async (req, res) => {
-  try {
-    const { password } = req.body;
-    
-    if (!password) {
-      return res.status(400).json({ message: 'Password richiesta per eliminare l\'account' });
-    }
-    
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id }
-    });
-    
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      return res.status(401).json({ message: 'Password non corretta' });
-    }
-    
-    // Delete all user data
-    await prisma.$transaction([
-      prisma.reading_progress.deleteMany({ where: { userId: req.user.id } }),
-      prisma.user_favorites.deleteMany({ where: { userId: req.user.id } }),
-      prisma.user.delete({ where: { id: req.user.id } })
-    ]);
-    
-    res.json({ success: true, message: 'Account eliminato con successo' });
-    
-  } catch (error) {
-    console.error('Delete account error:', error);
-    res.status(500).json({ message: 'Errore nell\'eliminazione account' });
-  }
-});
-
-// =================== HEALTH CHECK ===================
-
+// Health check
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
@@ -574,8 +446,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// =================== ERROR HANDLING ===================
-
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ message: 'Endpoint non trovato' });
@@ -584,19 +454,15 @@ app.use((req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`Auth server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, closing server...');
   await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  console.log('SIGINT received, closing server...');
   await prisma.$disconnect();
   process.exit(0);
 });
-
