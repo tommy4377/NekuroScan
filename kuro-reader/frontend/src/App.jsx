@@ -2,16 +2,33 @@ import React, { useEffect } from 'react';
 import { ChakraProvider, Box } from '@chakra-ui/react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { theme } from './styles/theme';
+
+// Components
 import Navigation from './components/Navigation';
+import Library from './components/Library';
+
+// Pages
 import Home from './pages/Home';
 import Search from './pages/Search';
 import MangaDetails from './pages/MangaDetails';
 import ReaderPage from './pages/ReaderPage';
-import Library from './components/Library';
 import Welcome from './pages/Welcome';
 import Login from './pages/Login';
 import Categories from './pages/Categories';
+import Profile from './pages/Profile';
+
+// Hooks
 import useAuth from './hooks/useAuth';
+
+// Layout wrapper per pagine con navigation
+function AppLayout({ children }) {
+  return (
+    <Box minH="100vh" bg="gray.900">
+      <Navigation />
+      <Box>{children}</Box>
+    </Box>
+  );
+}
 
 function App() {
   const { initAuth, startAutoSync } = useAuth();
@@ -23,6 +40,7 @@ function App() {
     // Start auto-sync
     const cleanup = startAutoSync();
     
+    // Cleanup on unmount
     return cleanup;
   }, []);
 
@@ -30,66 +48,63 @@ function App() {
     <ChakraProvider theme={theme}>
       <Router>
         <Routes>
-          {/* Welcome page */}
+          {/* Welcome page - no navigation */}
           <Route path="/" element={<Welcome />} />
           
-          {/* Login page */}
+          {/* Login page - no navigation */}
           <Route path="/login" element={<Login />} />
           
           {/* Main app pages with navigation */}
           <Route path="/home" element={
-            <Box minH="100vh" bg="gray.900">
-              <Navigation />
-              <Box>
-                <Home />
-              </Box>
-            </Box>
+            <AppLayout>
+              <Home />
+            </AppLayout>
           } />
           
           <Route path="/search" element={
-            <Box minH="100vh" bg="gray.900">
-              <Navigation />
-              <Box>
-                <Search />
-              </Box>
-            </Box>
+            <AppLayout>
+              <Search />
+            </AppLayout>
           } />
           
           <Route path="/categories" element={
-            <Box minH="100vh" bg="gray.900">
-              <Navigation />
-              <Box>
-                <Categories />
-              </Box>
-            </Box>
+            <AppLayout>
+              <Categories />
+            </AppLayout>
           } />
           
           <Route path="/library" element={
-            <Box minH="100vh" bg="gray.900">
-              <Navigation />
-              <Box>
-                <Library />
-              </Box>
-            </Box>
+            <AppLayout>
+              <Library />
+            </AppLayout>
           } />
           
           <Route path="/manga/:source/:id" element={
-            <Box minH="100vh" bg="gray.900">
-              <Navigation />
-              <Box>
-                <MangaDetails />
-              </Box>
-            </Box>
+            <AppLayout>
+              <MangaDetails />
+            </AppLayout>
+          } />
+          
+          <Route path="/profile" element={
+            <AppLayout>
+              <Profile />
+            </AppLayout>
           } />
           
           {/* Reader without navigation */}
           <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
           
-          {/* Remove settings route - redirect to home */}
-          <Route path="/settings" element={<Navigate to="/home" replace />} />
-          <Route path="/profile" element={<Navigate to="/home" replace />} />
+          {/* Public profile */}
+          <Route path="/user/:username" element={
+            <AppLayout>
+              <Profile isPublic={true} />
+            </AppLayout>
+          } />
           
-          {/* Redirect invalid routes to home */}
+          {/* Redirect old routes */}
+          <Route path="/settings" element={<Navigate to="/profile" replace />} />
+          
+          {/* Catch all - redirect to welcome */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
@@ -98,4 +113,3 @@ function App() {
 }
 
 export default App;
-
