@@ -40,7 +40,7 @@ function App() {
           <Route path="/home" element={
             <Box minH="100vh" bg="gray.900">
               <Navigation />
-              <Box pt="60px">
+              <Box>
                 <Home />
               </Box>
             </Box>
@@ -49,7 +49,7 @@ function App() {
           <Route path="/search" element={
             <Box minH="100vh" bg="gray.900">
               <Navigation />
-              <Box pt="60px">
+              <Box>
                 <Search />
               </Box>
             </Box>
@@ -58,7 +58,7 @@ function App() {
           <Route path="/categories" element={
             <Box minH="100vh" bg="gray.900">
               <Navigation />
-              <Box pt="60px">
+              <Box>
                 <Categories />
               </Box>
             </Box>
@@ -67,7 +67,7 @@ function App() {
           <Route path="/library" element={
             <Box minH="100vh" bg="gray.900">
               <Navigation />
-              <Box pt="60px">
+              <Box>
                 <Library />
               </Box>
             </Box>
@@ -76,7 +76,7 @@ function App() {
           <Route path="/manga/:source/:id" element={
             <Box minH="100vh" bg="gray.900">
               <Navigation />
-              <Box pt="60px">
+              <Box>
                 <MangaDetails />
               </Box>
             </Box>
@@ -98,3 +98,4 @@ function App() {
 }
 
 export default App;
+
