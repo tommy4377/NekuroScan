@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ChakraProvider, Box } from '@chakra-ui/react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { theme } from './styles/theme';
@@ -11,8 +11,21 @@ import Library from './components/Library';
 import Welcome from './pages/Welcome';
 import Login from './pages/Login';
 import Categories from './pages/Categories';
+import useAuth from './hooks/useAuth';
 
 function App() {
+  const { initAuth, startAutoSync } = useAuth();
+  
+  useEffect(() => {
+    // Initialize auth on app start
+    initAuth();
+    
+    // Start auto-sync
+    const cleanup = startAutoSync();
+    
+    return cleanup;
+  }, []);
+
   return (
     <ChakraProvider theme={theme}>
       <Router>
@@ -71,6 +84,10 @@ function App() {
           
           {/* Reader without navigation */}
           <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
+          
+          {/* Remove settings route - redirect to home */}
+          <Route path="/settings" element={<Navigate to="/home" replace />} />
+          <Route path="/profile" element={<Navigate to="/home" replace />} />
           
           {/* Redirect invalid routes to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
