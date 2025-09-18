@@ -15,7 +15,7 @@ function Login() {
   const navigate = useNavigate();
   const toast = useToast();
   
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [loginData, setLoginData] = useState({ emailOrUsername: '', password: '' });
   const [registerData, setRegisterData] = useState({ 
     username: '', email: '', password: '', confirmPassword: '' 
   });
@@ -23,12 +23,12 @@ function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    const result = await login(loginData.email, loginData.password);
+    const result = await login(loginData.emailOrUsername, loginData.password);
     setIsLoading(false);
     
     if (result.success) {
       toast({ title: 'Accesso effettuato!', status: 'success' });
-      navigate('/');
+      navigate('/home');
     } else {
       toast({ title: result.error || 'Errore login', status: 'error' });
     }
@@ -51,7 +51,7 @@ function Login() {
     
     if (result.success) {
       toast({ title: 'Registrazione completata!', status: 'success' });
-      navigate('/');
+      navigate('/home');
     } else {
       toast({ title: result.error || 'Errore registrazione', status: 'error' });
     }
@@ -74,11 +74,11 @@ function Login() {
                 <form onSubmit={handleLogin}>
                   <VStack spacing={4}>
                     <FormControl isRequired>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Email o Username</FormLabel>
                       <Input
-                        type="email"
-                        value={loginData.email}
-                        onChange={(e) => setLoginData({...loginData, email: e.target.value})}
+                        placeholder="Inserisci email o username"
+                        value={loginData.emailOrUsername}
+                        onChange={(e) => setLoginData({...loginData, emailOrUsername: e.target.value})}
                       />
                     </FormControl>
                     
