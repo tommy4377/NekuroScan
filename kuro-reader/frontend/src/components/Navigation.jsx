@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Flex,
@@ -36,7 +36,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   FaBook, FaHome, FaSearch, FaUser, FaBookmark, 
-  FaCog, FaSignInAlt, FaTags, FaLayerGroup 
+  FaSignInAlt, FaSignOutAlt
 } from 'react-icons/fa';
 import { BiCategoryAlt } from 'react-icons/bi';
 import useAuth from '../hooks/useAuth';
@@ -45,7 +45,7 @@ function Navigation() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, syncToServer } = useAuth();
   
   const showFullTitle = useBreakpointValue({ base: false, sm: true });
   const logoSize = useBreakpointValue({ base: '30px', md: '35px' });
@@ -57,6 +57,15 @@ function Navigation() {
       setSearchQuery('');
       onClose();
     }
+  };
+
+  const handleLogout = async () => {
+    // Sync before logout
+    if (user) {
+      await syncToServer();
+    }
+    logout();
+    navigate('/');
   };
 
   return (
@@ -85,7 +94,6 @@ function Navigation() {
                 onClick={onOpen}
               />
               
-              {/* LOGO LINK FIX - ora punta correttamente a /home */}
               <Link to="/home">
                 <HStack 
                   _hover={{ opacity: 0.8 }}
@@ -180,17 +188,18 @@ function Navigation() {
                     />
                   </MenuButton>
                   <MenuList bg="gray.800" borderColor="gray.700">
-                    <MenuItem icon={<FaUser />} onClick={() => navigate('/profile')}>
-                      Profilo
-                    </MenuItem>
-                    <MenuItem icon={<FaBookmark />} onClick={() => navigate('/library')}>
-                      Preferiti
-                    </MenuItem>
-                    <MenuItem icon={<FaCog />} onClick={() => navigate('/settings')}>
-                      Impostazioni
+                    <MenuItem isDisabled>
+                      <VStack align="start" spacing={0}>
+                        <Text fontSize="sm">{user.username}</Text>
+                        <Text fontSize="xs" color="gray.400">{user.email}</Text>
+                      </VStack>
                     </MenuItem>
                     <MenuDivider />
-                    <MenuItem onClick={logout} color="red.400">
+                    <MenuItem icon={<FaBookmark />} onClick={() => navigate('/library')}>
+                      I miei manga
+                    </MenuItem>
+                    <MenuDivider />
+                    <MenuItem onClick={handleLogout} color="red.400" icon={<FaSignOutAlt />}>
                       Logout
                     </MenuItem>
                   </MenuList>
@@ -279,23 +288,17 @@ function Navigation() {
               
               {user ? (
                 <VStack align="stretch" spacing={2}>
-                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaUser />}>
-                    Profilo
-                  </Button>
-                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaBookmark />}>
-                    Preferiti
-                  </Button>
-                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaCog />}>
-                    Impostazioni
-                  </Button>
+                  <Text px={3} fontSize="sm" color="gray.400">
+                    Connesso come: {user.username}
+                  </Text>
                   <Button
                     variant="ghost"
                     justifyContent="flex-start"
                     color="red.400"
+                    leftIcon={<FaSignOutAlt />}
                     onClick={() => {
-                      logout();
+                      handleLogout();
                       onClose();
-                      navigate('/');
                     }}
                   >
                     Logout
