@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Container, Input, InputGroup, InputLeftElement, SimpleGrid,
-  Heading, Text, VStack, HStack, Button, Skeleton, Badge, useToast
+  Heading, Text, VStack, HStack, Button, Skeleton, Badge, useToast,
+  IconButton, Wrap, WrapItem, Divider
 } from '@chakra-ui/react';
-import { SearchIcon } from '@chakra-ui/icons';
+import { SearchIcon, CloseIcon } from '@chakra-ui/icons';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import { motion } from 'framer-motion';
+import { FaClock, FaTimes } from 'react-icons/fa';
 
 const MotionBox = motion(Box);
 
@@ -18,6 +20,9 @@ function Search() {
   const [results, setResults] = useState({ all: [], manga: [], mangaAdult: [] });
   const [loading, setLoading] = useState(false);
   const [includeAdult, setIncludeAdult] = useState(false);
+  const [searchHistory, setSearchHistory] = useState(() => {
+    return JSON.parse(localStorage.getItem('searchHistory') || '[]');
+  });
   const toast = useToast();
 
   useEffect(() => {
@@ -27,6 +32,39 @@ function Search() {
       performSearch(q);
     }
   }, [searchParams]);
+
+  const saveToHistory = (searchQuery) => {
+    if (!searchQuery.trim()) return;
+    
+    const history = [...searchHistory];
+    const index = history.findIndex(h => h.toLowerCase() === searchQuery.toLowerCase());
+    
+    if (index > -1) {
+      history.splice(index, 1);
+    }
+    
+    history.unshift(searchQuery);
+    const newHistory = history.slice(0, 10);
+    
+    setSearchHistory(newHistory);
+    localStorage.setItem('searchHistory', JSON.stringify(newHistory));
+  };
+
+  const removeFromHistory = (item) => {
+    const newHistory = searchHistory.filter(h => h !== item);
+    setSearchHistory(newHistory);
+    localStorage.setItem('searchHistory', JSON.stringify(newHistory));
+  };
+
+  const clearHistory = () => {
+    setSearchHistory([]);
+    localStorage.removeItem('searchHistory');
+    toast({
+      title: 'Cronologia cancellata',
+      status: 'info',
+      duration: 2000,
+    });
+  };
 
   const performSearch = async (searchQuery) => {
     if (!searchQuery || !searchQuery.trim()) {
@@ -41,6 +79,7 @@ function Search() {
       console.log('Results:', searchResults);
       
       setResults(searchResults);
+      saveToHistory(searchQuery);
       
       if (searchResults.all.length === 0) {
         toast({
@@ -68,7 +107,6 @@ function Search() {
     e.preventDefault();
     
     if (query.trim()) {
-      // Aggiorna l'URL e esegui la ricerca
       navigate(`/search?q=${encodeURIComponent(query)}`);
     }
   };
@@ -77,6 +115,12 @@ function Search() {
     setQuery(tag);
     navigate(`/search?q=${encodeURIComponent(tag)}`);
   };
+
+  const popularTags = [
+    'One Piece', 'Naruto', 'Solo Leveling', 
+    'Attack on Titan', 'Demon Slayer', 'My Hero Academia',
+    'Jujutsu Kaisen', 'Chainsaw Man', 'Blue Lock'
+  ];
 
   return (
     <Container maxW="container.xl" py={8}>
@@ -89,6 +133,7 @@ function Search() {
           <VStack spacing={6}>
             <Heading size="xl">Cerca Manga</Heading>
             
+            {/* Search Form */}
             <form onSubmit={handleSearch} style={{ width: '100%' }}>
               <HStack spacing={4} maxW="600px" mx="auto">
                 <InputGroup size="lg">
@@ -101,6 +146,7 @@ function Search() {
                     onChange={(e) => setQuery(e.target.value)}
                     bg="gray.800"
                     border="none"
+                    _hover={{ bg: 'gray.700' }}
                     _focus={{ bg: 'gray.700', boxShadow: 'outline' }}
                   />
                 </InputGroup>
@@ -124,7 +170,6 @@ function Search() {
                 size="sm"
                 onClick={() => {
                   setIncludeAdult(!includeAdult);
-                  // Se c'è già una ricerca attiva, rieseguila
                   if (query.trim()) {
                     performSearch(query);
                   }
@@ -134,20 +179,72 @@ function Search() {
               </Button>
             </HStack>
 
-            {/* Quick Tags */}
-            <HStack wrap="wrap" justify="center" spacing={2}>
-              {['One Piece', 'Naruto', 'Solo Leveling', 'Attack on Titan', 'Demon Slayer'].map(tag => (
-                <Button
-                  key={tag}
-                  size="sm"
-                  variant="outline"
-                  colorScheme="purple"
-                  onClick={() => quickSearch(tag)}
-                >
-                  {tag}
-                </Button>
-              ))}
-            </HStack>
+            {/* Search History */}
+            {searchHistory.length > 0 && !query && (
+              <VStack align="stretch" spacing={3} w="100%" maxW="600px" mx="auto">
+                <HStack justify="space-between">
+                  <HStack>
+                    <FaClock color="gray" />
+                    <Text fontSize="sm" color="gray.500">Ricerche recenti</Text>
+                  </HStack>
+                  <Button 
+                    size="xs" 
+                    variant="ghost"
+                    onClick={clearHistory}
+                    color="gray.500"
+                  >
+                    Cancella tutto
+                  </Button>
+                </HStack>
+                <Wrap>
+                  {searchHistory.map((item, i) => (
+                    <WrapItem key={i}>
+                      <HStack
+                        bg="gray.800"
+                        px={3}
+                        py={1}
+                        borderRadius="full"
+                        cursor="pointer"
+                        _hover={{ bg: 'gray.700' }}
+                        onClick={() => quickSearch(item)}
+                      >
+                        <Text fontSize="sm">{item}</Text>
+                        <IconButton
+                          icon={<CloseIcon />}
+                          size="xs"
+                          variant="ghost"
+                          aria-label="Rimuovi"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFromHistory(item);
+                          }}
+                        />
+                      </HStack>
+                    </WrapItem>
+                  ))}
+                </Wrap>
+                <Divider borderColor="gray.700" />
+              </VStack>
+            )}
+
+            {/* Popular Tags */}
+            <VStack spacing={2}>
+              <Text fontSize="sm" color="gray.500">Tag popolari</Text>
+              <Wrap justify="center" spacing={2}>
+                {popularTags.map(tag => (
+                  <WrapItem key={tag}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      colorScheme="purple"
+                      onClick={() => quickSearch(tag)}
+                    >
+                      {tag}
+                    </Button>
+                  </WrapItem>
+                ))}
+              </Wrap>
+            </VStack>
           </VStack>
         </MotionBox>
 
@@ -221,13 +318,13 @@ function Search() {
         )}
 
         {/* Initial state */}
-        {!loading && !query && (
+        {!loading && !query && searchHistory.length === 0 && (
           <Box textAlign="center" py={12}>
             <Text fontSize="lg" color="gray.500">
               Inserisci un termine di ricerca per iniziare
             </Text>
             <Text fontSize="sm" color="gray.600" mt={2}>
-              Oppure usa uno dei tag rapidi sopra
+              Oppure usa uno dei tag popolari sopra
             </Text>
           </Box>
         )}
