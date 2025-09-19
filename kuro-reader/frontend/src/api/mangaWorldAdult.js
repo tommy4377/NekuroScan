@@ -128,7 +128,8 @@ export class MangaWorldAdultAPI {
         chapters.push({
           url: full,
           chapterNumber: isNaN(parseFloat(label)) ? i + 1 : parseFloat(label),
-          title: `Capitolo ${label}`,
+          title: `Capitolo ${label.slice(0, 2)}`,
+          
           dateAdd: '' // non mostrare date sull’adult
         });
       });
@@ -252,3 +253,4 @@ export class MangaWorldAdultAPI {
     }
   }
 }
+
