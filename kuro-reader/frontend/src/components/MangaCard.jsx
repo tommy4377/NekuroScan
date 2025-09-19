@@ -1,4 +1,3 @@
-// frontend/src/components/MangaCard.jsx
 import React from 'react';
 import { Box, Image, Text, VStack } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
@@ -6,12 +5,13 @@ import { useNavigate } from 'react-router-dom';
 
 const MotionBox = motion(Box);
 
-function MangaCard({ manga, hideSource = true, showLatest = true }) {
+function MangaCard({ manga, hideSource = false, showLatest = true }) {
   const navigate = useNavigate();
   
   const handleClick = () => {
     const mangaId = btoa(manga.url);
-    navigate(`/manga/${manga.source || (manga.isAdult ? 'mangaWorldAdult' : 'mangaWorld')}/${mangaId}`);
+    const source = manga.source || (manga.isAdult ? 'mangaWorldAdult' : 'mangaWorld');
+    navigate(`/manga/${source}/${mangaId}`);
   };
 
   return (
@@ -41,7 +41,7 @@ function MangaCard({ manga, hideSource = true, showLatest = true }) {
             height="100%"
             objectFit="cover"
             loading="lazy"
-            fallbackSrc="https://via.placeholder.com/200x280?text=Kuro"
+            fallbackSrc="https://via.placeholder.com/200x280"
           />
         </Box>
         
