@@ -2,8 +2,10 @@ import { create } from 'zustand';
 import axios from 'axios';
 import { config } from '../config';
 
-// Configure axios defaults
-axios.defaults.baseURL = `${config.API_URL}/api`;
+const API_URL = `${config.API_URL}/api`;
+
+// Axios setup
+axios.defaults.baseURL = API_URL;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 // Set token if exists
@@ -37,7 +39,11 @@ const useAuth = create((set, get) => ({
           const updatedUser = response.data.user;
           set({ user: updatedUser });
           localStorage.setItem('user', JSON.stringify(updatedUser));
+          
+          // Restore user data
           get().restoreUserData(updatedUser.id);
+          
+          // Start sync
           await get().syncFromServer();
         }
       } catch (error) {
@@ -134,6 +140,8 @@ const useAuth = create((set, get) => ({
     localStorage.removeItem('user');
     delete axios.defaults.headers.common['Authorization'];
     
+    localStorage.removeItem('userAvatar');
+    
     set({
       user: null,
       token: null,
@@ -149,12 +157,19 @@ const useAuth = create((set, get) => ({
     if (!userId) return;
     
     const userData = {
+      avatar: localStorage.getItem('userAvatar'),
       favorites: localStorage.getItem('favorites'),
       reading: localStorage.getItem('reading'),
       completed: localStorage.getItem('completed'),
       history: localStorage.getItem('history'),
       readingProgress: localStorage.getItem('readingProgress'),
-      settings: localStorage.getItem('settings')
+      bookmarks: localStorage.getItem('bookmarks'),
+      settings: localStorage.getItem('settings'),
+      profilePublic: localStorage.getItem('profilePublic'),
+      includeAdult: localStorage.getItem('includeAdult'),
+      searchMode: localStorage.getItem('searchMode'),
+      preferredReadingMode: localStorage.getItem('preferredReadingMode'),
+      preferredFitMode: localStorage.getItem('preferredFitMode')
     };
     
     localStorage.setItem(`userData_${userId}`, JSON.stringify(userData));
@@ -218,20 +233,17 @@ const useAuth = create((set, get) => ({
     set({ syncStatus: 'syncing' });
     
     try {
-      // Sync favorites
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
       if (favorites.length > 0) {
         await axios.post('/user/favorites', { favorites });
       }
       
-      // Sync library
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       const completed = JSON.parse(localStorage.getItem('completed') || '[]');
       const history = JSON.parse(localStorage.getItem('history') || '[]');
       
       await axios.post('/user/library', { reading, completed, history });
       
-      // Sync reading progress
       const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
       const progressArray = Object.entries(readingProgress).map(([mangaUrl, progress]) => ({
         mangaUrl,
@@ -271,27 +283,22 @@ const useAuth = create((set, get) => ({
       const response = await axios.get('/user/data');
       const { favorites, reading, completed, history, readingProgress } = response.data;
       
-      // Merge favorites
       const localFavorites = JSON.parse(localStorage.getItem('favorites') || '[]');
       const mergedFavorites = get().mergeArrays(favorites, localFavorites, 'url');
       localStorage.setItem('favorites', JSON.stringify(mergedFavorites));
       
-      // Merge reading
       const localReading = JSON.parse(localStorage.getItem('reading') || '[]');
       const mergedReading = get().mergeArrays(reading, localReading, 'url');
       localStorage.setItem('reading', JSON.stringify(mergedReading));
       
-      // Merge completed
       const localCompleted = JSON.parse(localStorage.getItem('completed') || '[]');
       const mergedCompleted = get().mergeArrays(completed, localCompleted, 'url');
       localStorage.setItem('completed', JSON.stringify(mergedCompleted));
       
-      // Merge history
       const localHistory = JSON.parse(localStorage.getItem('history') || '[]');
       const mergedHistory = get().mergeArrays(history, localHistory, 'url');
       localStorage.setItem('history', JSON.stringify(mergedHistory.slice(0, 200)));
       
-      // Merge progress
       const localProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
       readingProgress?.forEach(progress => {
         const local = localProgress[progress.mangaUrl];
@@ -318,7 +325,7 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Helper: merge arrays
+  // Helper: merge arrays keeping most recent
   mergeArrays: (serverArray, localArray, key) => {
     const merged = new Map();
     
@@ -344,24 +351,23 @@ const useAuth = create((set, get) => ({
       if (get().isAuthenticated && get().syncStatus !== 'syncing') {
         get().syncToServer();
       }
-    }, 60000); // Every minute
+    }, 60000);
     
     return () => clearInterval(interval);
   },
 
-  // Update profile
+  // Update user profile
   updateProfile: async (updates) => {
     set({ loading: true });
     
     try {
       const response = await axios.put('/user/profile', updates);
-      const profile = response.data.profile;
+      const updatedUser = response.data.user;
       
-      const updatedUser = { ...get().user, profile };
       set({ user: updatedUser, loading: false });
       localStorage.setItem('user', JSON.stringify(updatedUser));
       
-      return { success: true, profile };
+      return { success: true, user: updatedUser };
       
     } catch (error) {
       set({ loading: false });
@@ -385,14 +391,16 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Delete account - FIXED URL
+  // Delete account - NOTA LA VIRGOLA PRIMA!
   deleteAccount: async (password) => {
     try {
-      const response = await axios.delete('/user/account', {
-        data: { password }
+      const response = await axios.delete(`${config.API_URL}/api/user/account`, {
+        data: { password },
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       
       if (response.data.success) {
+        // Pulisci tutto
         localStorage.clear();
         delete axios.defaults.headers.common['Authorization'];
         
@@ -405,58 +413,10 @@ const useAuth = create((set, get) => ({
         
         return { success: true };
       }
-      
-      return { success: false, error: 'Errore eliminazione' };
-      
     } catch (error) {
       return { 
         success: false, 
         error: error.response?.data?.message || 'Errore eliminazione' 
-      };
-    }
-  },
-
-  // Get user stats
-  getUserStats: async () => {
-    try {
-      const response = await axios.get('/user/stats');
-      return { success: true, stats: response.data };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || 'Errore recupero statistiche' 
-      };
-    }
-  },
-
-  // Follow/Unfollow user
-  toggleFollow: async (username) => {
-    try {
-      const response = await axios.post(`/user/follow/${username}`);
-      return { 
-        success: true, 
-        following: response.data.following 
-      };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || 'Errore operazione follow' 
-      };
-    }
-  },
-
-  // Check if following
-  checkFollowing: async (username) => {
-    try {
-      const response = await axios.get(`/user/following/${username}`);
-      return { 
-        success: true, 
-        following: response.data.following 
-      };
-    } catch (error) {
-      return { 
-        success: false, 
-        following: false 
       };
     }
   }
