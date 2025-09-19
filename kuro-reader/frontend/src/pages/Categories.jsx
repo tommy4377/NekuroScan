@@ -3,14 +3,14 @@ import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
   Button, useToast, Tabs, TabList, TabPanels, Tab, TabPanel,
   Badge, Input, InputGroup, InputLeftElement, Select, Skeleton,
-  Wrap, WrapItem, IconButton, Spinner, Divider, Tag, TagLabel, TagCloseButton, Checkbox, Center
+  Wrap, WrapItem, Spinner, Divider, Tag, TagLabel, TagCloseButton, Checkbox, Center
 } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { FaPlus } from 'react-icons/fa';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
-import { useInView } from 'react-intersection-observer';
 
 const MotionBox = motion(Box);
 
@@ -39,14 +39,7 @@ function Categories() {
   const [pageTitle, setPageTitle] = useState('Esplora Categorie');
   const [currentPreset, setCurrentPreset] = useState(null);
   
-  // Ref per prevenire chiamate duplicate
   const loadingRef = useRef(false);
-
-  const { ref: loadMoreRef, inView } = useInView({ 
-    threshold: 0.1, 
-    rootMargin: '100px',
-    triggerOnce: false
-  });
 
   useEffect(() => {
     loadCategories();
@@ -58,7 +51,6 @@ function Categories() {
       return;
     }
     
-    // Reset state quando cambia preset
     setSelectedGenres([]);
     setSelectedType(null);
     setMangaList([]);
@@ -81,13 +73,6 @@ function Categories() {
       loadPresetData(location.state.type, 1, true);
     }
   }, [location.state, filters.includeAdult]);
-
-  // FIX: Migliorato scroll infinito
-  useEffect(() => {
-    if (inView && hasMore && !loadingRef.current && mangaList.length > 0) {
-      loadMoreData();
-    }
-  }, [inView, hasMore, mangaList.length]);
 
   const loadCategories = async () => {
     setLoadingCats(true);
@@ -123,7 +108,6 @@ function Categories() {
       } else if (preset === 'popular') {
         result = await statsAPI.getMostFavorites(filters.includeAdult, pageNum);
       } else {
-        // È un tipo (manga, manhwa, manhua, oneshot)
         result = await statsAPI.getTopByType(preset, filters.includeAdult, pageNum);
       }
       
@@ -139,7 +123,7 @@ function Categories() {
           });
           setTotalLoaded(prev => prev + result.results.length);
         }
-        setHasMore(result.hasMore && result.results.length > 0);
+        setHasMore(result.hasMore);
         setPage(pageNum);
       }
     } catch (error) {
@@ -177,7 +161,7 @@ function Categories() {
         const newItems = results.filter(m => !existingUrls.has(m.url));
         return [...prev, ...newItems];
       });
-      setHasMore(more && results.length > 0);
+      setHasMore(more);
       setTotalLoaded(prev => prev + results.length);
       setPage(pageNum);
     } catch (error) {
@@ -195,7 +179,7 @@ function Categories() {
         ? prev.filter(g => g !== genreId) 
         : [...prev, genreId]
     );
-    setCurrentPreset(null); // Reset preset quando si seleziona un genere
+    setCurrentPreset(null);
   };
 
   const runSearch = async ({ page = 1 }) => {
@@ -211,7 +195,6 @@ function Categories() {
       });
     }
 
-    // AND tra più generi
     const perGenre = await Promise.all(
       selectedGenres.map(g => statsAPI.searchAdvanced({
         genres: [g],
@@ -463,7 +446,7 @@ function Categories() {
           <VStack align="stretch" spacing={4}>
             <HStack justify="space-between">
               <Text fontWeight="bold">
-                {totalLoaded} manga trovati {hasMore && ' (scorri per più risultati)'}
+                {totalLoaded} manga trovati
               </Text>
             </HStack>
 
@@ -488,25 +471,22 @@ function Categories() {
                   ))}
                 </SimpleGrid>
 
-                {/* Load More Trigger */}
-                {hasMore && (
-                  <Center ref={loadMoreRef} py={4}>
-                    {loadingMore ? (
-                      <HStack>
-                        <Spinner color="purple.500" />
-                        <Text>Caricamento...</Text>
-                      </HStack>
-                    ) : (
-                      <Button
-                        colorScheme="purple"
-                        variant="outline"
-                        onClick={loadMoreData}
-                      >
-                        Carica altri
-                      </Button>
-                    )}
-                  </Center>
-                )}
+                {/* SEMPRE MOSTRA IL PULSANTE SE CI SONO RISULTATI */}
+                <Center py={6}>
+                  <Button
+                    onClick={loadMoreData}
+                    isLoading={loadingMore}
+                    loadingText="Caricamento..."
+                    colorScheme="purple"
+                    size="lg"
+                    leftIcon={!loadingMore ? <FaPlus /> : undefined}
+                    variant="solid"
+                    disabled={loadingMore || (!hasMore && page > 1)}
+                  >
+                    {loadingMore ? 'Caricamento...' : 
+                     !hasMore && page > 1 ? 'Fine risultati' : 'Carica altri'}
+                  </Button>
+                </Center>
               </>
             ) : (
               <Box textAlign="center" py={12}>
