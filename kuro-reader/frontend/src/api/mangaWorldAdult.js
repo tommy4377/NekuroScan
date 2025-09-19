@@ -7,6 +7,8 @@ export class MangaWorldAdultAPI {
 
   // Aggiungi questa funzione nella classe MangaWorldAdultAPI, dopo il costruttore
 
+// Aggiungi questa funzione nella classe MangaWorldAdultAPI, dopo il costruttore
+
 normalizeChapterNumber(text, url) {
   if (!text) return null;
   
@@ -32,10 +34,20 @@ normalizeChapterNumber(text, url) {
     const match = cleanText.match(pattern);
     if (match) {
       let num = match[1];
-      // Fix per numeri a 4 cifre tipo 0176 -> diventa 01
-      if (num.length >= 4 && num.startsWith('0')) {
+      
+      // LOGICA AGGIORNATA: tronca solo se il numero ha 3 o più cifre E è >= 10
+      if (num.length >= 3) {
+        const numValue = parseInt(num);
+        if (numValue >= 10) {
+          // Tronca alle prime 2 cifre: 1021 -> 10, 1128 -> 11, etc.
+          num = num.substring(0, 2);
+        }
+      }
+      // Se inizia con 0 e ha 4+ cifre, tronca alle prime 2: 0176 -> 01
+      else if (num.length >= 4 && num.startsWith('0')) {
         num = num.substring(0, 2);
       }
+      
       // Rimuovi zeri iniziali ma mantieni almeno una cifra
       num = num.replace(/^0+(\d)/, '$1');
       return parseFloat(num);
@@ -55,10 +67,20 @@ normalizeChapterNumber(text, url) {
       const match = url.match(pattern);
       if (match) {
         let num = match[1];
-        // Stesso fix per numeri a 4 cifre
-        if (num.length >= 4 && num.startsWith('0')) {
+        
+        // STESSA LOGICA per i numeri dall'URL
+        if (num.length >= 3) {
+          const numValue = parseInt(num);
+          if (numValue >= 10) {
+            // Tronca alle prime 2 cifre
+            num = num.substring(0, 2);
+          }
+        }
+        // Se inizia con 0 e ha 4+ cifre, tronca alle prime 2
+        else if (num.length >= 4 && num.startsWith('0')) {
           num = num.substring(0, 2);
         }
+        
         num = num.replace(/^0+(\d)/, '$1');
         return parseFloat(num);
       }
@@ -591,5 +613,6 @@ chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
     }
   }
 }
+
 
 
