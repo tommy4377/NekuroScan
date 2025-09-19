@@ -1,13 +1,11 @@
 import { config } from '../config';
 
-// Generi supportati (tutti funzionanti)
+// Generi supportati (RIMOSSI QUELLI NON FUNZIONANTI)
 const GENRES = [
   'adulti','arti-marziali','avventura','azione','commedia','doujinshi','drammatico','ecchi',
   'fantasy','gender-bender','harem','hentai','horror','josei','lolicon','maturo','mecha','mistero',
   'psicologico','romantico','sci-fi','scolastico','seinen','shotacon','shoujo','shoujo-ai','shounen',
-  'shounen-ai','slice-of-life','smut','soprannaturale','sport','storico','tragico','yaoi','yuri',
-  'militare','musica','parodia','poliziesco','spazio','vampiri','isekai','reincarnazione',
-  'survival','viaggi-nel-tempo','videogiochi','workplace'
+  'shounen-ai','slice-of-life','smut','soprannaturale','sport','storico','tragico','yaoi','yuri'
 ];
 
 const BASE = (adult) => adult ? 'https://www.mangaworldadult.net' : 'https://www.mangaworld.cx';
@@ -269,7 +267,7 @@ export class StatsAPI {
     }
   }
 
-  // Tutte le categorie
+  // Tutte le categorie (AGGIORNATE)
   async getAllCategories() {
     const cacheKey = 'all_categories';
     const cached = this.getCached(cacheKey);
@@ -301,7 +299,7 @@ export class StatsAPI {
       ]
     };
 
-    // Generi
+    // Generi (solo quelli funzionanti)
     GENRES.forEach(slug => {
       const name = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       categories.genres.push({
