@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Container, VStack, HStack, Heading, Text, Avatar, SimpleGrid, Box,
   Badge, Tabs, TabList, Tab, TabPanels, TabPanel, Center, Spinner,
-  Button, useToast, Stat, StatLabel, StatNumber, Image // FIX: Added Image import
+  Button, useToast, Stat, StatLabel, StatNumber, Image
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FaLock, FaUserPlus } from 'react-icons/fa';
@@ -27,51 +27,86 @@ export default function PublicProfile() {
     setLoading(true);
     
     try {
-      // Per ora usiamo localStorage per demo
+      // FIX: Prima controlla i profili pubblici salvati
       const savedProfiles = JSON.parse(localStorage.getItem('publicProfiles') || '{}');
-      const profileData = savedProfiles[username];
       
-      if (profileData) {
+      // FIX: Cerca il profilo con case-insensitive
+      const profileKey = Object.keys(savedProfiles).find(
+        key => key.toLowerCase() === username.toLowerCase()
+      );
+      
+      if (profileKey) {
+        // Profilo pubblico trovato
+        const profileData = savedProfiles[profileKey];
         setProfile(profileData);
-        setIsPrivate(profileData.privacy === 'private');
-      } else {
-        // Se è il proprio profilo
-        if (user?.username === username) {
-          const avatar = localStorage.getItem('userAvatar');
-          const bio = localStorage.getItem('userBio');
-          const isPublic = localStorage.getItem('profilePublic') === 'true';
-          const privacy = localStorage.getItem('profilePrivacy') || 'public';
+        setIsPrivate(false);
+        setLoading(false);
+        return;
+      }
+      
+      // Se è il proprio profilo dell'utente loggato
+      if (user && user.username.toLowerCase() === username.toLowerCase()) {
+        const avatar = localStorage.getItem('userAvatar');
+        const bio = localStorage.getItem('userBio');
+        const isPublic = localStorage.getItem('profilePublic') === 'true';
+        
+        const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+        const completed = JSON.parse(localStorage.getItem('completed') || '[]');
+        const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+        
+        setProfile({
+          username: user.username,
+          avatar,
+          bio,
+          stats: {
+            totalRead: reading.length + completed.length,
+            favorites: favorites.length,
+            completed: completed.length
+          },
+          reading: reading.slice(0, 12),
+          completed: completed.slice(0, 12),
+          favorites: favorites.slice(0, 12)
+        });
+        setIsPrivate(!isPublic);
+        setLoading(false);
+        return;
+      }
+      
+      // FIX: Controlla anche nei localStorage con l'ID utente
+      // Prova a cercare qualsiasi dato pubblico di questo username
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes('public_') && key.includes(username.toLowerCase())) {
+          // Trovato qualcosa, prova a ricostruire il profilo
+          const avatar = localStorage.getItem(`avatar_${username}`) || '';
+          const bio = localStorage.getItem(`bio_${username}`) || '';
           
-          if (!isPublic || privacy === 'private') {
-            setIsPrivate(true);
-          } else {
-            const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-            const completed = JSON.parse(localStorage.getItem('completed') || '[]');
-            const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-            
-            setProfile({
-              username,
-              avatar,
-              bio,
-              stats: {
-                totalRead: reading.length + completed.length,
-                favorites: favorites.length,
-                completed: completed.length
-              },
-              reading: reading.slice(0, 12),
-              completed: completed.slice(0, 12),
-              favorites: favorites.slice(0, 12)
-            });
-          }
-        } else {
-          // Profilo non trovato
-          setProfile(null);
+          setProfile({
+            username,
+            avatar,
+            bio,
+            stats: {
+              totalRead: 0,
+              favorites: 0,
+              completed: 0
+            },
+            reading: [],
+            completed: [],
+            favorites: []
+          });
+          setIsPrivate(false);
+          setLoading(false);
+          return;
         }
       }
+      
+      // Profilo non trovato
+      setProfile(null);
+      setLoading(false);
+      
     } catch (error) {
       console.error('Error loading profile:', error);
       setProfile(null);
-    } finally {
       setLoading(false);
     }
   };
@@ -118,7 +153,7 @@ export default function PublicProfile() {
         <VStack spacing={6}>
           <Heading size="lg">Utente non trovato</Heading>
           <Text color="gray.400">
-            Il profilo "@{username}" non esiste
+            Il profilo "@{username}" non esiste o non è pubblico
           </Text>
           <Button colorScheme="purple" onClick={() => navigate('/home')}>
             Torna alla Home
@@ -128,7 +163,7 @@ export default function PublicProfile() {
     );
   }
 
-  const isOwnProfile = user?.username === username;
+  const isOwnProfile = user?.username?.toLowerCase() === username.toLowerCase();
 
   return (
     <Container maxW="container.xl" py={8}>
@@ -176,14 +211,6 @@ export default function PublicProfile() {
                   <StatNumber>{profile.stats?.completed || 0}</StatNumber>
                 </Stat>
               </HStack>
-              
-              {/* QR Code if available */}
-              {profile.qrCode && (
-                <Box mt={3}>
-                  <Text fontSize="xs" mb={1}>QR Code del profilo:</Text>
-                  <Image src={profile.qrCode} w="100px" alt="QR Code" />
-                </Box>
-              )}
             </VStack>
           </HStack>
         </Box>
