@@ -18,6 +18,9 @@ import Categories from './pages/Categories';
 import Profile from './pages/Profile';
 import Latest from './pages/Latest';
 import Popular from './pages/Popular';
+import Latest from './pages/Latest';
+import Popular from './pages/Popular';
+import TopType from './pages/TopType';
 
 // Hooks
 import useAuth from './hooks/useAuth';
@@ -56,6 +59,9 @@ function App() {
           <Route path="/user/:username" element={<AppLayout><Profile isPublic={true} /></AppLayout>} />
           <Route path="/latest" element={<AppLayout><Latest /></AppLayout>} />
           <Route path="/popular" element={<AppLayout><Popular /></AppLayout>} />
+          <Route path="/latest" element={<AppLayout><Latest /></AppLayout>} />
+          <Route path="/popular" element={<AppLayout><Popular /></AppLayout>} />
+          <Route path="/top/:type" element={<AppLayout><TopType /></AppLayout>} />
           
           <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
           
@@ -67,3 +73,4 @@ function App() {
 }
 
 export default App;
+
