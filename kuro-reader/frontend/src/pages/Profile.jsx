@@ -3,81 +3,108 @@ import {
   Container, VStack, HStack, Heading, Text, Avatar, Box, Button, Input,
   FormControl, FormLabel, SimpleGrid, Divider, useToast, InputGroup,
   InputRightElement, IconButton, Switch, Badge, Tabs, TabList, Tab,
-  TabPanels, TabPanel, Progress, Stat, StatLabel, StatNumber, Modal,
-  ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton,
-  useDisclosure, Textarea, Select
+  TabPanels, TabPanel, Select, useClipboard
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon, EditIcon, CheckIcon, CopyIcon } from '@chakra-ui/icons';
-import { FaCamera, FaSave, FaShare, FaLock, FaGlobe, FaTrash } from 'react-icons/fa';
+import { FaCamera, FaSave, FaShare, FaLock, FaGlobe, FaTrash, FaQrcode } from 'react-icons/fa';
 import MangaCard from '../components/MangaCard';
 import useAuth from '../hooks/useAuth';
+import QRCode from 'qrcode';
 
 export default function Profile() {
   const toast = useToast();
-  const { user, updateProfile, changePassword, persistLocalData } = useAuth();
+  const { user, updateProfile, changePassword, persistUserData } = useAuth();
   const fileRef = useRef();
-  const { isOpen, onOpen, onClose } = useDisclosure();
-
-  // State
+  
+  // States
   const [isEditing, setIsEditing] = useState(false);
   const [username, setUsername] = useState(user?.username || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [bio, setBio] = useState(localStorage.getItem('userBio') || '');
-  const [avatar, setAvatar] = useState(localStorage.getItem('userAvatar') || '');
+  const [bio, setBio] = useState('');
+  const [avatar, setAvatar] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [oldPass, setOldPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
-  const [isPublic, setIsPublic] = useState(localStorage.getItem('profilePublic') === 'true');
-  const [privacy, setPrivacy] = useState(localStorage.getItem('profilePrivacy') || 'friends');
+  const [isPublic, setIsPublic] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [qrCode, setQrCode] = useState('');
+  
+  // Profile URL
+  const profileUrl = `${window.location.origin}/user/${username}`;
+  const { hasCopied, onCopy } = useClipboard(profileUrl);
 
   // Library data
   const [reading] = useState(() => JSON.parse(localStorage.getItem('reading') || '[]'));
   const [completed] = useState(() => JSON.parse(localStorage.getItem('completed') || '[]'));
   const [favorites] = useState(() => JSON.parse(localStorage.getItem('favorites') || '[]'));
-  const [history] = useState(() => JSON.parse(localStorage.getItem('history') || '[]'));
 
-  // Stats
-  const stats = {
-    totalRead: completed.length + reading.length,
-    chaptersRead: Object.keys(JSON.parse(localStorage.getItem('readingProgress') || '{}')).length,
-    favoriteGenre: getMostCommonGenre(),
-    readingStreak: getReadingStreak()
-  };
-
+  // Load saved data
   useEffect(() => {
-    setUsername(user?.username || '');
-    setEmail(user?.email || '');
+    if (user) {
+      setUsername(user.username);
+      setEmail(user.email);
+      
+      // Load persistent avatar
+      const savedAvatar = localStorage.getItem(`avatar_${user.id}`) || 
+                        localStorage.getItem('userAvatar') || 
+                        user.avatar;
+      if (savedAvatar) {
+        setAvatar(savedAvatar);
+      }
+      
+      // Load bio
+      const savedBio = localStorage.getItem(`bio_${user.id}`) || 
+                      localStorage.getItem('userBio') || '';
+      setBio(savedBio);
+      
+      // Load privacy
+      const savedPublic = localStorage.getItem(`public_${user.id}`) === 'true' ||
+                         localStorage.getItem('profilePublic') === 'true';
+      setIsPublic(savedPublic);
+      
+      // Generate QR code
+      if (savedPublic) {
+        generateQRCode();
+      }
+    }
   }, [user]);
 
-  function getMostCommonGenre() {
-    // Implementazione semplificata
-    return 'Shounen';
-  }
-
-  function getReadingStreak() {
-    // Calcola giorni consecutivi di lettura
-    const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-    const dates = Object.values(progress).map(p => new Date(p.timestamp).toDateString());
-    const uniqueDates = [...new Set(dates)];
-    return uniqueDates.length;
-  }
+  const generateQRCode = async () => {
+    try {
+      const qr = await QRCode.toDataURL(profileUrl);
+      setQrCode(qr);
+    } catch (err) {
+      console.error('QR generation failed:', err);
+    }
+  };
 
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'File troppo grande (max 5MB)', status: 'error', duration: 3000 });
+      toast({ title: 'File troppo grande (max 5MB)', status: 'error' });
       return;
     }
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      setAvatar(reader.result);
-      localStorage.setItem('userAvatar', reader.result);
-      toast({ title: 'Avatar aggiornato', status: 'success', duration: 2000 });
+      const result = reader.result;
+      setAvatar(result);
+      
+      // Save persistently
+      if (user) {
+        localStorage.setItem(`avatar_${user.id}`, result);
+      }
+      localStorage.setItem('userAvatar', result);
+      
+      // Persist user data
+      if (user) {
+        persistUserData(user.id);
+      }
+      
+      toast({ title: 'Avatar aggiornato', status: 'success' });
     };
     reader.readAsDataURL(file);
   };
@@ -85,33 +112,58 @@ export default function Profile() {
   const saveProfile = async () => {
     setLoading(true);
     
-    // Salva localmente
-    localStorage.setItem('userBio', bio);
-    const updatedUser = { ...user, username, email };
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    
-    // Prova a salvare sul server
+    // Save locally with user ID
     if (user) {
-      const result = await updateProfile({ username, email, bio });
-      if (!result.success) {
-        toast({ 
-          title: 'Salvato solo localmente', 
-          description: result.error,
-          status: 'warning',
-          duration: 3000 
-        });
+      localStorage.setItem(`bio_${user.id}`, bio);
+      localStorage.setItem(`avatar_${user.id}`, avatar);
+      localStorage.setItem(`public_${user.id}`, isPublic.toString());
+      
+      // Also save globally for quick access
+      localStorage.setItem('userBio', bio);
+      localStorage.setItem('userAvatar', avatar);
+      localStorage.setItem('profilePublic', isPublic.toString());
+      
+      // Save public profile data if public
+      if (isPublic) {
+        const publicProfiles = JSON.parse(localStorage.getItem('publicProfiles') || '{}');
+        publicProfiles[username] = {
+          username,
+          avatar,
+          bio,
+          stats: {
+            totalRead: reading.length + completed.length,
+            favorites: favorites.length,
+            completed: completed.length
+          },
+          reading: reading.slice(0, 12),
+          completed: completed.slice(0, 12),
+          favorites: favorites.slice(0, 12),
+          privacy: 'public'
+        };
+        localStorage.setItem('publicProfiles', JSON.stringify(publicProfiles));
       }
+      
+      // Persist all user data
+      persistUserData(user.id);
     }
     
     setIsEditing(false);
     setLoading(false);
-    persistLocalData();
-    toast({ title: 'Profilo aggiornato', status: 'success', duration: 2000 });
+    
+    toast({ 
+      title: 'Profilo salvato', 
+      description: isPublic ? 'Il tuo profilo è ora pubblico' : 'Il tuo profilo è privato',
+      status: 'success' 
+    });
+    
+    if (isPublic) {
+      generateQRCode();
+    }
   };
 
   const handlePasswordChange = async () => {
     if (!newPass || newPass.length < 6) {
-      toast({ title: 'Password troppo corta (min 6 caratteri)', status: 'error' });
+      toast({ title: 'Password troppo corta (min 6)', status: 'error' });
       return;
     }
     
@@ -126,43 +178,36 @@ export default function Profile() {
       setOldPass('');
       setNewPass('');
       setConfirmPass('');
-      toast({ title: 'Password cambiata con successo', status: 'success' });
+      toast({ title: 'Password cambiata', status: 'success' });
     } else {
-      toast({ title: result.error || 'Errore cambio password', status: 'error' });
+      toast({ title: result.error || 'Errore', status: 'error' });
     }
   };
 
-  const togglePublicProfile = (value) => {
-    setIsPublic(value);
-    localStorage.setItem('profilePublic', value.toString());
-    toast({ 
-      title: `Profilo ${value ? 'pubblico' : 'privato'}`,
-      description: value ? 'Il tuo profilo è ora visibile a tutti' : 'Solo tu puoi vedere il tuo profilo',
-      status: 'info',
-      duration: 3000
-    });
-  };
-
   const shareProfile = () => {
-    const url = `${window.location.origin}/user/${username}`;
-    navigator.clipboard.writeText(url);
-    toast({ title: 'Link copiato!', status: 'success', duration: 2000 });
-  };
-
-  const clearData = (type) => {
-    if (window.confirm(`Vuoi davvero cancellare ${type}?`)) {
-      switch(type) {
-        case 'history':
-          localStorage.removeItem('history');
-          break;
-        case 'all':
-          ['favorites', 'reading', 'completed', 'history', 'readingProgress'].forEach(key => {
-            localStorage.removeItem(key);
-          });
-          break;
-      }
-      toast({ title: `${type} cancellato`, status: 'info' });
-      window.location.reload();
+    if (!isPublic) {
+      toast({ 
+        title: 'Profilo privato', 
+        description: 'Rendi pubblico il profilo per condividerlo',
+        status: 'warning' 
+      });
+      return;
+    }
+    
+    if (navigator.share) {
+      navigator.share({
+        title: `Profilo di ${username}`,
+        text: `Guarda il mio profilo su KuroReader!`,
+        url: profileUrl
+      }).catch(err => {
+        if (err.name !== 'AbortError') {
+          onCopy();
+          toast({ title: 'Link copiato!', status: 'success' });
+        }
+      });
+    } else {
+      onCopy();
+      toast({ title: 'Link copiato!', status: 'success' });
     }
   };
 
@@ -212,7 +257,7 @@ export default function Profile() {
                       maxW="300px"
                     />
                   ) : (
-                    <Heading size="lg">{username}</Heading>
+                    <Heading size="lg">@{username}</Heading>
                   )}
                   <HStack spacing={2}>
                     <Text color="gray.400">{email}</Text>
@@ -242,46 +287,71 @@ export default function Profile() {
                       <Button leftIcon={<EditIcon />} onClick={() => setIsEditing(true)}>
                         Modifica
                       </Button>
-                      {isPublic && (
-                        <Button leftIcon={<FaShare />} variant="outline" onClick={shareProfile}>
-                          Condividi
-                        </Button>
-                      )}
+                      <Button 
+                        leftIcon={<FaShare />} 
+                        variant="outline" 
+                        onClick={shareProfile}
+                        isDisabled={!isPublic}
+                      >
+                        Condividi
+                      </Button>
                     </>
                   )}
                 </HStack>
               </HStack>
 
               {isEditing ? (
-                <Textarea
+                <Input
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  placeholder="Scrivi qualcosa su di te..."
+                  placeholder="Scrivi una bio..."
                   maxLength={200}
                 />
               ) : (
                 bio && <Text color="gray.300">{bio}</Text>
               )}
 
-              {/* Stats */}
-              <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
-                <Stat>
-                  <StatLabel>Manga letti</StatLabel>
-                  <StatNumber>{stats.totalRead}</StatNumber>
-                </Stat>
-                <Stat>
-                  <StatLabel>Capitoli</StatLabel>
-                  <StatNumber>{stats.chaptersRead}</StatNumber>
-                </Stat>
-                <Stat>
-                  <StatLabel>Preferiti</StatLabel>
-                  <StatNumber>{favorites.length}</StatNumber>
-                </Stat>
-                <Stat>
-                  <StatLabel>Streak</StatLabel>
-                  <StatNumber>{stats.readingStreak} giorni</StatNumber>
-                </Stat>
-              </SimpleGrid>
+              {/* Privacy Toggle */}
+              <FormControl display="flex" alignItems="center">
+                <FormLabel mb="0">Profilo pubblico</FormLabel>
+                <Switch 
+                  colorScheme="green"
+                  isChecked={isPublic}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                  isDisabled={!isEditing}
+                />
+              </FormControl>
+
+              {/* Share Section */}
+              {isPublic && !isEditing && (
+                <Box p={4} bg="gray.700" borderRadius="lg">
+                  <Text fontSize="sm" mb={2}>Link pubblico:</Text>
+                  <HStack>
+                    <Input 
+                      value={profileUrl}
+                      isReadOnly
+                      size="sm"
+                    />
+                    <IconButton 
+                      icon={<CopyIcon />}
+                      size="sm"
+                      onClick={onCopy}
+                      aria-label="Copia"
+                    />
+                  </HStack>
+                  {hasCopied && (
+                    <Text fontSize="xs" color="green.400" mt={1}>
+                      Copiato!
+                    </Text>
+                  )}
+                  {qrCode && (
+                    <Box mt={3}>
+                      <Text fontSize="xs" mb={1}>QR Code:</Text>
+                      <Image src={qrCode} w="100px" />
+                    </Box>
+                  )}
+                </Box>
+              )}
             </VStack>
           </HStack>
         </Box>
@@ -291,12 +361,9 @@ export default function Profile() {
           <TabList>
             <Tab>Libreria</Tab>
             <Tab>Impostazioni</Tab>
-            <Tab>Privacy</Tab>
-            <Tab>Statistiche</Tab>
           </TabList>
 
           <TabPanels>
-            {/* Tab Libreria */}
             <TabPanel>
               <VStack spacing={6} align="stretch">
                 <Box>
@@ -304,20 +371,7 @@ export default function Profile() {
                   {reading.length ? (
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                       {reading.slice(0, 10).map((manga, i) => (
-                        <Box key={i} position="relative">
-                          <MangaCard manga={manga} />
-                          {manga.progress && (
-                            <Progress 
-                              value={manga.progress} 
-                              size="xs" 
-                              colorScheme="green"
-                              position="absolute"
-                              bottom={0}
-                              left={0}
-                              right={0}
-                            />
-                          )}
-                        </Box>
+                        <MangaCard key={i} manga={manga} />
                       ))}
                     </SimpleGrid>
                   ) : (
@@ -337,309 +391,57 @@ export default function Profile() {
                     <Text color="gray.500">Nessun preferito</Text>
                   )}
                 </Box>
-
-                <Box>
-                  <Heading size="md" mb={3}>Completati ({completed.length})</Heading>
-                  {completed.length ? (
-                    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-                      {completed.slice(0, 10).map((manga, i) => (
-                        <MangaCard key={i} manga={manga} />
-                      ))}
-                    </SimpleGrid>
-                  ) : (
-                    <Text color="gray.500">Nessun manga completato</Text>
-                  )}
-                </Box>
               </VStack>
             </TabPanel>
 
-            {/* Tab Impostazioni */}
             <TabPanel>
-              <VStack spacing={6} align="stretch">
-                <Box bg="gray.800" p={6} borderRadius="lg">
-                  <Heading size="md" mb={4}>Cambia password</Heading>
-                  <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-                    <FormControl>
-                      <FormLabel>Password attuale</FormLabel>
-                      <Input 
-                        type={showPass ? 'text' : 'password'} 
-                        value={oldPass} 
-                        onChange={(e) => setOldPass(e.target.value)} 
-                      />
-                    </FormControl>
-                    <FormControl>
-                      <FormLabel>Nuova password</FormLabel>
-                      <InputGroup>
-                        <Input 
-                          type={showPass ? 'text' : 'password'} 
-                          value={newPass} 
-                          onChange={(e) => setNewPass(e.target.value)} 
-                        />
-                        <InputRightElement>
-                          <IconButton 
-                            size="sm" 
-                            variant="ghost" 
-                            icon={showPass ? <ViewOffIcon /> : <ViewIcon />} 
-                            onClick={() => setShowPass(!showPass)} 
-                            aria-label="Toggle password"
-                          />
-                        </InputRightElement>
-                      </InputGroup>
-                    </FormControl>
-                    <FormControl>
-                      <FormLabel>Conferma password</FormLabel>
-                      <Input 
-                        type={showPass ? 'text' : 'password'} 
-                        value={confirmPass} 
-                        onChange={(e) => setConfirmPass(e.target.value)} 
-                      />
-                    </FormControl>
-                  </SimpleGrid>
-                  <Button colorScheme="purple" mt={4} onClick={handlePasswordChange}>
-                    Cambia password
-                  </Button>
-                </Box>
-
-                <Box bg="gray.800" p={6} borderRadius="lg">
-                  <Heading size="md" mb={4}>Preferenze lettura</Heading>
-                  <VStack align="stretch" spacing={3}>
-                    <FormControl display="flex" alignItems="center">
-                      <FormLabel mb="0">Modalità lettura predefinita</FormLabel>
-                      <Select 
-                        maxW="200px"
-                        defaultValue={localStorage.getItem('preferredReadingMode') || 'single'}
-                        onChange={(e) => localStorage.setItem('preferredReadingMode', e.target.value)}
-                      >
-                        <option value="single">Pagina singola</option>
-                        <option value="double">Pagina doppia</option>
-                        <option value="webtoon">Webtoon</option>
-                      </Select>
-                    </FormControl>
-                    <FormControl display="flex" alignItems="center">
-                      <FormLabel mb="0">Precarica immagini</FormLabel>
-                      <Switch 
-                        colorScheme="purple"
-                        defaultChecked={localStorage.getItem('preloadImages') !== 'false'}
-                        onChange={(e) => localStorage.setItem('preloadImages', e.target.checked)}
-                      />
-                    </FormControl>
-                    <FormControl display="flex" alignItems="center">
-                      <FormLabel mb="0">Salvataggio automatico progressi</FormLabel>
-                      <Switch 
-                        colorScheme="purple"
-                        defaultChecked={localStorage.getItem('autoSave') !== 'false'}
-                        onChange={(e) => localStorage.setItem('autoSave', e.target.checked)}
-                      />
-                    </FormControl>
-                  </VStack>
-                </Box>
-
-                <Box bg="gray.800" p={6} borderRadius="lg">
-                  <Heading size="md" mb={4}>Gestione dati</Heading>
-                  <VStack align="stretch" spacing={3}>
-                    <Button 
-                      leftIcon={<FaTrash />} 
-                      variant="outline" 
-                      colorScheme="red"
-                      onClick={() => clearData('history')}
-                    >
-                      Cancella cronologia
-                    </Button>
-                    <Button 
-                      leftIcon={<FaTrash />} 
-                      variant="outline" 
-                      colorScheme="red"
-                      onClick={() => clearData('all')}
-                    >
-                      Cancella tutti i dati locali
-                    </Button>
-                  </VStack>
-                </Box>
-              </VStack>
-            </TabPanel>
-
-            {/* Tab Privacy */}
-            <TabPanel>
-              <VStack spacing={6} align="stretch">
-                <Box bg="gray.800" p={6} borderRadius="lg">
-                  <Heading size="md" mb={4}>Impostazioni Privacy</Heading>
-                  
-                  <VStack align="stretch" spacing={4}>
-                    <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                      <HStack>
-                        <FaGlobe />
-                        <Box>
-                          <FormLabel mb="0">Profilo pubblico</FormLabel>
-                          <Text fontSize="sm" color="gray.400">
-                            Permetti a chiunque di vedere il tuo profilo
-                          </Text>
-                        </Box>
-                      </HStack>
-                      <Switch 
-                        colorScheme="green"
-                        isChecked={isPublic}
-                        onChange={(e) => togglePublicProfile(e.target.checked)}
-                      />
-                    </FormControl>
-
-                    <Divider />
-
-                    <FormControl>
-                      <FormLabel>Chi può vedere la tua libreria</FormLabel>
-                      <Select 
-                        value={privacy}
-                        onChange={(e) => {
-                          setPrivacy(e.target.value);
-                          localStorage.setItem('profilePrivacy', e.target.value);
-                        }}
-                        bg="gray.700"
-                      >
-                        <option value="public">Tutti</option>
-                        <option value="friends">Solo amici</option>
-                        <option value="private">Solo io</option>
-                      </Select>
-                    </FormControl>
-
-                    {isPublic && (
-                      <Box p={4} bg="gray.700" borderRadius="lg">
-                        <Text fontSize="sm" mb={2}>Link pubblico del tuo profilo:</Text>
-                        <HStack>
-                          <Input 
-                            value={`${window.location.origin}/user/${username}`}
-                            isReadOnly
-                            size="sm"
-                          />
-                          <IconButton 
-                            icon={<CopyIcon />}
-                            size="sm"
-                            onClick={shareProfile}
-                            aria-label="Copia link"
-                          />
-                        </HStack>
-                      </Box>
-                    )}
-
-                    <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                      <HStack>
-                        <FaLock />
-                        <Box>
-                          <FormLabel mb="0">Modalità privata</FormLabel>
-                          <Text fontSize="sm" color="gray.400">
-                            Non salvare cronologia di lettura
-                          </Text>
-                        </Box>
-                      </HStack>
-                      <Switch 
-                        colorScheme="red"
-                        onChange={(e) => {
-                          localStorage.setItem('privateMode', e.target.checked);
-                          toast({ 
-                            title: `Modalità privata ${e.target.checked ? 'attiva' : 'disattiva'}`,
-                            status: 'info'
-                          });
-                        }}
-                      />
-                    </FormControl>
-                  </VStack>
-                </Box>
-
-                <Box bg="gray.800" p={6} borderRadius="lg">
-                  <Heading size="md" mb={4}>Contenuti</Heading>
-                  <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                    <Box>
-                      <FormLabel mb="0">Mostra contenuti adult</FormLabel>
-                      <Text fontSize="sm" color="gray.400">
-                        Richiede conferma dell'età
-                      </Text>
-                    </Box>
-                    <Switch 
-                      colorScheme="pink"
-                      defaultChecked={localStorage.getItem('includeAdult') === 'true'}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          onOpen();
-                        } else {
-                          localStorage.setItem('includeAdult', 'false');
-                        }
-                      }}
+              <Box bg="gray.800" p={6} borderRadius="lg">
+                <Heading size="md" mb={4}>Cambia password</Heading>
+                <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+                  <FormControl>
+                    <FormLabel>Password attuale</FormLabel>
+                    <Input 
+                      type={showPass ? 'text' : 'password'} 
+                      value={oldPass} 
+                      onChange={(e) => setOldPass(e.target.value)} 
                     />
                   </FormControl>
-                </Box>
-              </VStack>
-            </TabPanel>
-
-            {/* Tab Statistiche */}
-            <TabPanel>
-              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-                <Box bg="gray.800" p={6} borderRadius="lg">
-                  <Heading size="md" mb={4}>Statistiche di lettura</Heading>
-                  <VStack align="stretch" spacing={3}>
-                    <HStack justify="space-between">
-                      <Text>Manga totali</Text>
-                      <Text fontWeight="bold">{stats.totalRead}</Text>
-                    </HStack>
-                    <HStack justify="space-between">
-                      <Text>Capitoli letti</Text>
-                      <Text fontWeight="bold">{stats.chaptersRead}</Text>
-                    </HStack>
-                    <HStack justify="space-between">
-                      <Text>Genere preferito</Text>
-                      <Badge colorScheme="purple">{stats.favoriteGenre}</Badge>
-                    </HStack>
-                    <HStack justify="space-between">
-                      <Text>Giorni consecutivi</Text>
-                      <Text fontWeight="bold">{stats.readingStreak}</Text>
-                    </HStack>
-                  </VStack>
-                </Box>
-
-                <Box bg="gray.800" p={6} borderRadius="lg">
-                  <Heading size="md" mb={4}>Attività recente</Heading>
-                  <VStack align="stretch" spacing={2}>
-                    {history.slice(0, 5).map((item, i) => (
-                      <HStack key={i} justify="space-between">
-                        <Text fontSize="sm" noOfLines={1}>{item.title}</Text>
-                        <Text fontSize="xs" color="gray.400">
-                          {new Date(item.lastVisited).toLocaleDateString()}
-                        </Text>
-                      </HStack>
-                    ))}
-                  </VStack>
-                </Box>
-              </SimpleGrid>
+                  <FormControl>
+                    <FormLabel>Nuova password</FormLabel>
+                    <InputGroup>
+                      <Input 
+                        type={showPass ? 'text' : 'password'} 
+                        value={newPass} 
+                        onChange={(e) => setNewPass(e.target.value)} 
+                      />
+                      <InputRightElement>
+                        <IconButton 
+                          size="sm" 
+                          variant="ghost" 
+                          icon={showPass ? <ViewOffIcon /> : <ViewIcon />} 
+                          onClick={() => setShowPass(!showPass)} 
+                          aria-label="Toggle"
+                        />
+                      </InputRightElement>
+                    </InputGroup>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Conferma password</FormLabel>
+                    <Input 
+                      type={showPass ? 'text' : 'password'} 
+                      value={confirmPass} 
+                      onChange={(e) => setConfirmPass(e.target.value)} 
+                    />
+                  </FormControl>
+                </SimpleGrid>
+                <Button colorScheme="purple" mt={4} onClick={handlePasswordChange}>
+                  Cambia password
+                </Button>
+              </Box>
             </TabPanel>
           </TabPanels>
         </Tabs>
       </VStack>
-
-      {/* Modal conferma età */}
-      <Modal isOpen={isOpen} onClose={onClose}>
-        <ModalOverlay />
-        <ModalContent bg="gray.800">
-          <ModalHeader>Conferma età</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody pb={6}>
-            <Text>
-              Confermi di avere almeno 18 anni per visualizzare contenuti adult?
-            </Text>
-            <HStack mt={4} justify="flex-end">
-              <Button variant="ghost" onClick={onClose}>
-                Annulla
-              </Button>
-              <Button 
-                colorScheme="purple" 
-                onClick={() => {
-                  localStorage.setItem('includeAdult', 'true');
-                  onClose();
-                  toast({ title: 'Contenuti adult abilitati', status: 'success' });
-                }}
-              >
-                Confermo
-              </Button>
-            </HStack>
-          </ModalBody>
-        </ModalContent>
-      </Modal>
     </Container>
   );
 }
