@@ -29,7 +29,6 @@ const cleanChapterNumber = (chapter) => {
     .replace(/^vol\.\s*\d+\s*-\s*/i, '')
     .trim();
   
-  // Estrai solo il numero
   const match = clean.match(/^(\d+(?:\.\d+)?)/);
   if (match) {
     return match[1];
@@ -67,7 +66,6 @@ function Home() {
     setError(null);
     
     try {
-      // Carica in parallelo per velocizzare
       const [latestRes, popularRes, mangaRes, manhwaRes, manhuaRes, oneshotRes] = await Promise.allSettled([
         statsAPI.getLatestUpdates(includeAdult, 1),
         statsAPI.getMostFavorites(includeAdult, 1),
@@ -77,7 +75,6 @@ function Home() {
         statsAPI.getTopByType('oneshot', includeAdult, 1)
       ]);
       
-      // Processa i risultati con fallback
       const processResult = (result, fallback = []) => {
         if (result.status === 'fulfilled' && result.value?.results) {
           return result.value.results.slice(0, 15).map(item => ({
@@ -88,18 +85,15 @@ function Home() {
         return fallback;
       };
       
-      // Carica manga in lettura dal localStorage
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       const readingWithProgress = reading.slice(0, 10).map(item => ({
         ...item,
         continueFrom: item.lastChapterIndex ? `Cap. ${item.lastChapterIndex + 1}` : null
       }));
       
-      // Genera raccomandazioni basate sui preferiti
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
       let recommendations = [];
       if (favorites.length > 0) {
-        // Cerca manga simili ai preferiti
         try {
           const genre = favorites[0].genres?.[0]?.genre || 'shounen';
           const recRes = await statsAPI.searchAdvanced({
@@ -154,114 +148,127 @@ function Home() {
     navigate(path, { state: { includeAdult } });
   };
 
-  // Nella Home.jsx, aggiorna solo la ContentSection per non duplicare il capitolo:
-
-const ContentSection = ({ 
-  title, 
-  icon, 
-  items, 
-  color = 'purple', 
-  viewAllPath,
-  showLatestChapter = false, // <-- Usa questo flag
-  showProgress = false,
-  emptyMessage = 'Nessun contenuto disponibile'
-}) => {
-  if (!items || items.length === 0 && !loading) {
-    return (
-      <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
-        <HStack justify="space-between" mb={4}>
-          <HStack spacing={3}>
-            <Box p={2} bg={`${color}.500`} borderRadius="lg">
-              <ChakraIcon as={icon} color="white" boxSize={5} />
-            </Box>
-            <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
-          </HStack>
-        </HStack>
-        <Center py={8}>
-          <Text color="gray.500">{emptyMessage}</Text>
-        </Center>
-      </Box>
-    );
-  }
-
-  return (
-    <VStack align="stretch" spacing={4}>
-      <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
-        <HStack justify="space-between" mb={4}>
-          <HStack spacing={3}>
-            <Box p={2} bg={`${color}.500`} borderRadius="lg">
-              <ChakraIcon as={icon} color="white" boxSize={5} />
-            </Box>
-            <VStack align="start" spacing={0}>
-              <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
-              <Text fontSize="xs" color="gray.400">
-                {items.length} disponibili
-              </Text>
-            </VStack>
-          </HStack>
-          {viewAllPath && (
-            <Button
-              variant="ghost"
-              size="sm"
-              rightIcon={<FaChevronRight />}
-              onClick={() => navigateToSection(viewAllPath)}
-              color={`${color}.400`}
-              _hover={{ bg: `${color}.900` }}
-            >
-              Vedi tutti
-            </Button>
-          )}
-        </HStack>
-
-        <Box overflowX="auto" pb={2}>
-          <HStack spacing={{ base: 3, md: 4 }} align="start">
-            {items.map((item, i) => (
-              <MotionBox
-                key={`${item.url}-${i}`}
-                minW={{ base: '140px', md: '160px' }}
-                maxW={{ base: '140px', md: '160px' }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(i * 0.05, 0.5) }}
-                position="relative"
+  const ContentSection = ({ 
+    title, 
+    icon, 
+    items, 
+    color = 'purple', 
+    viewAllPath,
+    showLatestChapter = false,
+    showProgress = false,
+    emptyMessage = 'Nessun contenuto disponibile'
+  }) => {
+    if (!items || items.length === 0 && !loading) {
+      return (
+        <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
+          <HStack justify="space-between" mb={4}>
+            <HStack spacing={3}>
+              <Box 
+                p={2} 
+                bg={`${color}.500`} 
+                borderRadius="lg"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                minW="36px"
+                minH="36px"
               >
-                <MangaCard 
-                  manga={item} 
-                  hideSource 
-                  showLatestChapter={showLatestChapter} // <-- Passa il flag al MangaCard
-                />
-                
-                {/* Progress per continua a leggere - SOLO per questa sezione */}
-                {showProgress && item.continueFrom && (
-                  <Box
-                    position="absolute"
-                    bottom="60px"
-                    left={2}
-                    right={2}
-                    bg="green.600"
-                    color="white"
-                    px={2}
-                    py={1}
-                    borderRadius="md"
-                    fontSize="xs"
-                    textAlign="center"
-                    fontWeight="bold"
-                    opacity={0.95}
-                    zIndex={10}
-                  >
-                    {item.continueFrom}
-                  </Box>
-                )}
-                
-                {/* NON aggiungere badge duplicati qui */}
-              </MotionBox>
-            ))}
+                <ChakraIcon as={icon} color="white" boxSize={5} />
+              </Box>
+              <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
+            </HStack>
           </HStack>
+          <Center py={8}>
+            <Text color="gray.500">{emptyMessage}</Text>
+          </Center>
         </Box>
-      </Box>
-    </VStack>
-  );
-};
+      );
+    }
+
+    return (
+      <VStack align="stretch" spacing={4}>
+        <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
+          <HStack justify="space-between" mb={4}>
+            <HStack spacing={3}>
+              <Box 
+                p={2} 
+                bg={`${color}.500`} 
+                borderRadius="lg"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                minW="36px"
+                minH="36px"
+              >
+                <ChakraIcon as={icon} color="white" boxSize={5} />
+              </Box>
+              <VStack align="start" spacing={0}>
+                <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
+                <Text fontSize="xs" color="gray.400">
+                  {items.length} disponibili
+                </Text>
+              </VStack>
+            </HStack>
+            {viewAllPath && (
+              <Button
+                variant="ghost"
+                size="sm"
+                rightIcon={<FaChevronRight />}
+                onClick={() => navigateToSection(viewAllPath)}
+                color={`${color}.400`}
+                _hover={{ bg: `${color}.900` }}
+              >
+                Vedi tutti
+              </Button>
+            )}
+          </HStack>
+
+          <Box overflowX="auto" pb={2}>
+            <HStack spacing={{ base: 3, md: 4 }} align="start">
+              {items.map((item, i) => (
+                <MotionBox
+                  key={`${item.url}-${i}`}
+                  minW={{ base: '140px', md: '160px' }}
+                  maxW={{ base: '140px', md: '160px' }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i * 0.05, 0.5) }}
+                  position="relative"
+                >
+                  <MangaCard 
+                    manga={item} 
+                    hideSource 
+                    showLatestChapter={showLatestChapter}
+                  />
+                  
+                  {showProgress && item.continueFrom && (
+                    <Box
+                      position="absolute"
+                      bottom="60px"
+                      left={2}
+                      right={2}
+                      bg="green.600"
+                      color="white"
+                      px={2}
+                      py={1}
+                      borderRadius="md"
+                      fontSize="xs"
+                      textAlign="center"
+                      fontWeight="bold"
+                      opacity={0.95}
+                      zIndex={10}
+                    >
+                      {item.continueFrom}
+                    </Box>
+                  )}
+                </MotionBox>
+              ))}
+            </HStack>
+          </Box>
+        </Box>
+      </VStack>
+    );
+  };
 
   if (loading) {
     return (
@@ -371,7 +378,6 @@ const ContentSection = ({
             </TabList>
             
             <TabPanels>
-              {/* Ultimi aggiornamenti */}
               <TabPanel px={0} pt={6}>
                 <ContentSection 
                   title="Ultimi capitoli" 
@@ -383,7 +389,6 @@ const ContentSection = ({
                 />
               </TabPanel>
               
-              {/* Più popolari */}
               <TabPanel px={0} pt={6}>
                 <ContentSection 
                   title="I più letti" 
@@ -394,7 +399,6 @@ const ContentSection = ({
                 />
               </TabPanel>
               
-              {/* Top Series */}
               <TabPanel px={0} pt={6}>
                 <VStack spacing={6} align="stretch">
                   <ContentSection 
@@ -402,33 +406,32 @@ const ContentSection = ({
                     icon={GiDragonHead} 
                     items={content.topManga} 
                     color="orange" 
-                    viewAllPath="/top/manga"
+                    viewAllPath="/categories"
                   />
                   <ContentSection 
                     title="Top Manhwa" 
                     icon={BiBook} 
                     items={content.topManhwa} 
                     color="purple" 
-                    viewAllPath="/top/manhwa"
+                    viewAllPath="/categories"
                   />
                   <ContentSection 
                     title="Top Manhua" 
                     icon={FaDragon} 
                     items={content.topManhua} 
                     color="red" 
-                    viewAllPath="/top/manhua"
+                    viewAllPath="/categories"
                   />
                   <ContentSection 
                     title="Top Oneshot" 
                     icon={FaBookOpen} 
                     items={content.topOneshot} 
                     color="green" 
-                    viewAllPath="/top/oneshot"
+                    viewAllPath="/categories"
                   />
                 </VStack>
               </TabPanel>
               
-              {/* Raccomandazioni */}
               {content.recommendations.length > 0 && (
                 <TabPanel px={0} pt={6}>
                   <ContentSection 
@@ -465,4 +468,3 @@ const ContentSection = ({
 }
 
 export default Home;
-
