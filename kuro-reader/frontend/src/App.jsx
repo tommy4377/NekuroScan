@@ -18,8 +18,6 @@ import Categories from './pages/Categories';
 import Profile from './pages/Profile';
 import Latest from './pages/Latest';
 import Popular from './pages/Popular';
-import Latest from './pages/Latest';
-import Popular from './pages/Popular';
 import TopType from './pages/TopType';
 
 // Hooks
@@ -73,4 +71,5 @@ function App() {
 }
 
 export default App;
+
 
