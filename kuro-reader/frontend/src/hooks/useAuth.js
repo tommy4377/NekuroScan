@@ -152,7 +152,7 @@ const useAuth = create((set, get) => ({
     });
   },
 
-  // Persist user data locally - FIXED
+  // Persist user data locally
   persistUserData: (userId) => {
     if (!userId) return;
     
@@ -196,7 +196,7 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Persist local data - FIXED
+  // Persist local data
   persistLocalData: async () => {
     const userId = get().user?.id;
     if (userId) {
@@ -212,7 +212,7 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Sync favorites - NEW METHOD
+  // Sync favorites
   syncFavorites: async (favorites) => {
     const token = get().token;
     if (!token) return;
@@ -389,40 +389,37 @@ const useAuth = create((set, get) => ({
         error: error.response?.data?.message || 'Cambio password fallito' 
       };
     }
-  }
+  },
 
-  // Aggiungi alla fine dello store, prima dell'ultima parentesi:
-deleteAccount: async (password) => {
-  try {
-    const response = await axios.delete(`${config.API_URL}/api/user/account`, {
-      data: { password },
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    });
-    
-    if (response.data.success) {
-      // Pulisci tutto
-      localStorage.clear();
-      delete axios.defaults.headers.common['Authorization'];
-      
-      set({
-        user: null,
-        token: null,
-        isAuthenticated: false,
-        error: null
+  // Delete account - NOTA LA VIRGOLA PRIMA!
+  deleteAccount: async (password) => {
+    try {
+      const response = await axios.delete(`${config.API_URL}/api/user/account`, {
+        data: { password },
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       
-      return { success: true };
+      if (response.data.success) {
+        // Pulisci tutto
+        localStorage.clear();
+        delete axios.defaults.headers.common['Authorization'];
+        
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false,
+          error: null
+        });
+        
+        return { success: true };
+      }
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error.response?.data?.message || 'Errore eliminazione' 
+      };
     }
-  } catch (error) {
-    return { 
-      success: false, 
-      error: error.response?.data?.message || 'Errore eliminazione' 
-    };
   }
-}
-
-  
 }));
 
 export default useAuth;
-
