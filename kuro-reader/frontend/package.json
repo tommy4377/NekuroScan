@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node server.js"
+    "start": "vite preview --port 3000"
   },
   "dependencies": {
     "@chakra-ui/react": "^2.8.2",
@@ -14,19 +14,16 @@
     "@emotion/react": "^11.11.3",
     "@emotion/styled": "^11.11.0",
     "axios": "^1.6.5",
-    "cheerio": "^1.0.0-rc.12",
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
     "framer-motion": "^10.18.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.2",
     "react-icons": "^5.0.1",
     "react-lazy-load-image-component": "^1.6.0",
-    "zustand": "^4.4.7",
-    "swiper": "^11.0.5",
     "react-intersection-observer": "^9.5.3",
-    "qrcode": "^1.5.3"
+    "zustand": "^4.4.7",
+    "qrcode": "^1.5.3",
+    "lodash.debounce": "^4.0.8"
   },
   "devDependencies": {
     "@types/react": "^18.2.47",
@@ -35,4 +32,3 @@
     "vite-plugin-pwa": "^0.17.4"
   }
 }
-
