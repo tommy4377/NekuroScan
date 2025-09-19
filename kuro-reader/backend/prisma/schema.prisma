@@ -15,9 +15,42 @@ model user {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  profile   user_profile?
   favorites user_favorites?
   reading   reading_progress[]
   library   user_library?
+  follows   user_follows[]     @relation("follower")
+  followers user_follows[]     @relation("following")
+}
+
+model user_profile {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @unique
+  user          user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio           String?  @db.Text
+  avatarUrl     String?  @db.Text
+  bannerUrl     String?  @db.Text
+  isPublic      Boolean  @default(false)
+  displayName   String?
+  socialLinks   Json?
+  viewCount     Int      @default(0)
+  badges        String[] @default([])
+  theme         String?  @default("default")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model user_follows {
+  id          Int      @id @default(autoincrement())
+  followerId  Int
+  followingId Int
+  follower    user     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   user     @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
 }
 
 model user_favorites {
@@ -36,6 +69,7 @@ model reading_progress {
   mangaTitle   String
   chapterIndex Int
   pageIndex    Int      @default(0)
+  totalPages   Int      @default(0)
   updatedAt    DateTime @updatedAt
 
   @@unique([userId, mangaUrl])
