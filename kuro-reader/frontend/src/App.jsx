@@ -13,11 +13,10 @@ import ReaderPage from './pages/ReaderPage';
 import Welcome from './pages/Welcome';
 import Login from './pages/Login';
 import Categories from './pages/Categories';
-
 import Latest from './pages/Latest';
 import Popular from './pages/Popular';
 import TopType from './pages/TopType';
-import PublicProfile from './pages/PublicProfile';
+import Profile from './pages/Profile';
 
 import useAuth from './hooks/useAuth';
 
@@ -32,7 +31,6 @@ function Layout({ children }) {
 
 function App() {
   const { initAuth, startAutoSync } = useAuth();
-
   useEffect(() => {
     initAuth();
     const cleanup = startAutoSync();
@@ -45,22 +43,21 @@ function App() {
         <Routes>
           <Route path="/" element={<Welcome />} />
           <Route path="/login" element={<Login />} />
-
           <Route path="/home" element={<Layout><Home /></Layout>} />
           <Route path="/search" element={<Layout><Search /></Layout>} />
           <Route path="/categories" element={<Layout><Categories /></Layout>} />
           <Route path="/library" element={<Layout><Library /></Layout>} />
           <Route path="/manga/:source/:id" element={<Layout><MangaDetails /></Layout>} />
 
-          {/* Vedi tutti con scroll infinito */}
+          {/* Vedi tutti */}
           <Route path="/latest" element={<Layout><Latest /></Layout>} />
           <Route path="/popular" element={<Layout><Popular /></Layout>} />
           <Route path="/top/:type" element={<Layout><TopType /></Layout>} />
 
-          {/* Profilo pubblico */}
-          <Route path="/user/:username" element={<Layout><PublicProfile /></Layout>} />
+          {/* Impostazioni profilo */}
+          <Route path="/profile" element={<Layout><Profile /></Layout>} />
 
-          {/* Reader senza navbar */}
+          {/* Reader */}
           <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
 
           {/* Fallback */}
