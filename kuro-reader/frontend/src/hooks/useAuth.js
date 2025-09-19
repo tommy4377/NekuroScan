@@ -390,6 +390,39 @@ const useAuth = create((set, get) => ({
       };
     }
   }
+
+  // Aggiungi alla fine dello store, prima dell'ultima parentesi:
+deleteAccount: async (password) => {
+  try {
+    const response = await axios.delete(`${config.API_URL}/api/user/account`, {
+      data: { password },
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    });
+    
+    if (response.data.success) {
+      // Pulisci tutto
+      localStorage.clear();
+      delete axios.defaults.headers.common['Authorization'];
+      
+      set({
+        user: null,
+        token: null,
+        isAuthenticated: false,
+        error: null
+      });
+      
+      return { success: true };
+    }
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error.response?.data?.message || 'Errore eliminazione' 
+    };
+  }
+}
+
+  
 }));
 
 export default useAuth;
+
