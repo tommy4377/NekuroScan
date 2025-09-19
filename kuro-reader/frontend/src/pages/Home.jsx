@@ -78,18 +78,26 @@ function Home() {
   };
 
   const handleViewAll = (section) => {
-    // Naviga a pagine dedicate per scroll infinito
-    switch(section) {
-      case 'latest-updates':
-        navigate('/latest');
-        break;
-      case 'popular':
-        navigate('/popular');
-        break;
-      default:
-        navigate('/categories', { state: { type: section } });
-    }
-  };
+  switch(section) {
+    case 'latest-updates':
+      navigate('/latest'); // Pagina dedicata con scroll infinito
+      break;
+    case 'popular':
+      navigate('/popular'); // Pagina dedicata con scroll infinito
+      break;
+    case 'manga':
+    case 'manhwa':
+    case 'manhua':
+    case 'oneshot':
+      navigate(`/top/${section}`); // Pagina dedicata per tipo
+      break;
+    case 'library':
+      navigate('/library');
+      break;
+    default:
+      navigate('/categories');
+  }
+};
 
   // FIX: ContentSection senza badge duplicato per i capitoli
   const ContentSection = ({ title, icon, items, color = 'purple', section, iconSize = 5 }) => (
@@ -301,3 +309,4 @@ function Home() {
 }
 
 export default Home;
+
