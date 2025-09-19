@@ -1,7 +1,6 @@
-// frontend/src/api/stats.js
 import { config } from '../config';
 
-// Generi supportati (inclusi quelli che avevi chiamato "extra" ma che devono funzionare)
+// Generi supportati (tutti funzionanti)
 const GENRES = [
   'adulti','arti-marziali','avventura','azione','commedia','doujinshi','drammatico','ecchi',
   'fantasy','gender-bender','harem','hentai','horror','josei','lolicon','maturo','mecha','mistero',
@@ -13,66 +12,80 @@ const GENRES = [
 
 const BASE = (adult) => adult ? 'https://www.mangaworldadult.net' : 'https://www.mangaworld.cx';
 
-class StatsAPI {
+export class StatsAPI {
   constructor() {
     this.cache = new Map();
-    this.ttl = 5 * 60 * 1000;
+    this.cacheTimeout = 5 * 60 * 1000;
   }
 
-  getCached(k) {
-    const c = this.cache.get(k);
-    if (c && Date.now() - c.t < this.ttl) return c.v;
-    this.cache.delete(k);
+  getCached(key) {
+    const cached = this.cache.get(key);
+    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+      return cached.data;
+    }
+    this.cache.delete(key);
     return null;
   }
-  setCache(k, v) { this.cache.set(k, { v, t: Date.now() }); }
 
-  async req(url) {
-    const r = await fetch(`${config.PROXY_URL}/api/proxy`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url,
-        headers: {
-          'User-Agent': 'Mozilla/5.0',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-        }
-      })
+  setCache(key, data) {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now()
     });
-    const data = await r.json();
-    if (!data.success) throw new Error(data.error || 'Request failed');
-    return new DOMParser().parseFromString(data.data, 'text/html');
   }
 
-  // hasMore robusto per entrambe le piattaforme
+  async makeRequest(url) {
+    try {
+      const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+          }
+        })
+      });
+      
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Request failed');
+      
+      return data.data;
+    } catch (error) {
+      console.error('Request failed:', error);
+      throw error;
+    }
+  }
+
+  parseHTML(html) {
+    const parser = new DOMParser();
+    return parser.parseFromString(html, 'text/html');
+  }
+
+  // Controllo paginazione robusto
   hasMoreFromPagination(doc) {
-    const byClass = doc.querySelector('ul.pagination li.page-item.next:not(.disabled), ul.pagination li.next:not(.disabled)');
-    if (byClass) return true;
-    const links = [...doc.querySelectorAll('ul.pagination a, .pagination a, .pagination-container a.page-link')];
-    const found = links.some(a => /successivo|next|chevron-right/i.test(a.textContent || a.getAttribute('aria-label') || ''));
-    return found;
+    const nextBtn = doc.querySelector('ul.pagination li.page-item.next:not(.disabled), ul.pagination li.next:not(.disabled)');
+    return !!nextBtn;
   }
 
-  // Parser per la griglia "Ultimi capitoli aggiunti" (evita slider di tendenza)
+  // Parser per ultimi capitoli aggiunti
   parseLatestGrid(doc, base) {
     const list = [];
-    // entry container standard
     const entries = doc.querySelectorAll('.comics-grid .entry');
+    
     entries.forEach(entry => {
       const link = entry.querySelector('a.thumb, a');
       const img = entry.querySelector('img');
       const title = entry.querySelector('.manga-title, .name')?.textContent?.trim();
-      // capitolo più recente dalla prima .xanh nella content-area
-      const content = entry.querySelector('.content') || entry;
-      const firstXanh = content.querySelector('.xanh');
-      // prova a ricavare anche una data (il tag <i> più vicino)
-      const firstDate = content.querySelector('i');
-      const latestChapter = firstXanh?.textContent
+      
+      // Prendi il primo capitolo recente (quello più in alto)
+      const firstChapter = entry.querySelector('.content .xanh');
+      const latestChapter = firstChapter?.textContent
         ?.replace(/^cap\.\s*/i, '')
         ?.replace(/^capitolo\s*/i, '')
         ?.trim() || '';
-      const latestDate = firstDate?.textContent?.trim() || '';
-
+      
       if (link?.href && title) {
         const href = link.getAttribute('href');
         list.push({
@@ -80,23 +93,27 @@ class StatsAPI {
           title,
           cover: img?.src || img?.dataset?.src || '',
           latestChapter,
-          latestDate,
           source: base.includes('adult') ? 'mangaWorldAdult' : 'mangaWorld',
           isAdult: base.includes('adult')
         });
       }
     });
+    
     return list;
   }
 
+  // Parser generico per archivio
   parseArchiveEntries(doc, base) {
     const items = [];
-    doc.querySelectorAll('.entry').forEach(entry => {
-      const a = entry.querySelector('a');
+    const entries = doc.querySelectorAll('.entry');
+    
+    entries.forEach(entry => {
+      const link = entry.querySelector('a');
       const img = entry.querySelector('img');
       const title = entry.querySelector('.name, .title, .manga-title')?.textContent?.trim();
-      if (a?.href && title) {
-        const href = a.getAttribute('href');
+      
+      if (link?.href && title) {
+        const href = link.getAttribute('href');
         items.push({
           url: href.startsWith('http') ? href : `${base}${href.startsWith('/') ? '' : '/'}${href.replace(/^\//, '')}`,
           title,
@@ -106,123 +123,217 @@ class StatsAPI {
         });
       }
     });
+    
     return items;
   }
 
-  // Recenti con paginazione
-  async getLatestUpdates(adult = false, page = 1) {
-    const key = `latest_${adult}_${page}`;
-    const c = this.getCached(key); if (c) return c;
-    const base = BASE(adult);
-    const url = `${base}/?page=${page}`;
-    const doc = await this.req(url);
-    const results = this.parseLatestGrid(doc, base);
-    const hasMore = this.hasMoreFromPagination(doc);
-    const out = { results, hasMore, page };
-    this.setCache(key, out);
-    return out;
+  // Ultimi aggiornamenti con paginazione
+  async getLatestUpdates(includeAdult = false, page = 1) {
+    const cacheKey = `latest_${includeAdult}_${page}`;
+    const cached = this.getCached(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const base = BASE(includeAdult);
+      const url = `${base}/?page=${page}`;
+      const html = await this.makeRequest(url);
+      const doc = this.parseHTML(html);
+      
+      const results = this.parseLatestGrid(doc, base);
+      const hasMore = this.hasMoreFromPagination(doc);
+      
+      const finalResults = {
+        results,
+        hasMore,
+        page
+      };
+      
+      this.setCache(cacheKey, finalResults);
+      return finalResults;
+      
+    } catch (error) {
+      console.error('Error fetching latest updates:', error);
+      return { results: [], hasMore: false, page };
+    }
   }
 
   // Più letti con paginazione
-  async getMostFavorites(adult = false, page = 1) {
-    const key = `most_${adult}_${page}`;
-    const c = this.getCached(key); if (c) return c;
-    const base = BASE(adult);
-    const url = `${base}/archive?sort=most_read&page=${page}`;
-    const doc = await this.req(url);
-    const results = this.parseArchiveEntries(doc, base);
-    const hasMore = this.hasMoreFromPagination(doc);
-    const out = { results, hasMore, page };
-    this.setCache(key, out);
-    return out;
+  async getMostFavorites(includeAdult = false, page = 1) {
+    const cacheKey = `favorites_${includeAdult}_${page}`;
+    const cached = this.getCached(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const base = BASE(includeAdult);
+      const url = `${base}/archive?sort=most_read&page=${page}`;
+      const html = await this.makeRequest(url);
+      const doc = this.parseHTML(html);
+      
+      const results = this.parseArchiveEntries(doc, base);
+      const hasMore = this.hasMoreFromPagination(doc);
+      
+      const finalResults = {
+        results,
+        hasMore,
+        page
+      };
+      
+      this.setCache(cacheKey, finalResults);
+      return finalResults;
+      
+    } catch (error) {
+      console.error('Error fetching favorites:', error);
+      return { results: [], hasMore: false, page };
+    }
   }
 
   // Top per tipo con paginazione
-  async getTopByType(type = 'manga', adult = false, page = 1) {
-    const key = `top_${type}_${adult}_${page}`;
-    const c = this.getCached(key); if (c) return c;
-    const base = BASE(adult);
-    const url = `${base}/archive?type=${encodeURIComponent(type)}&sort=most_read&page=${page}`;
-    const doc = await this.req(url);
-    const results = this.parseArchiveEntries(doc, base);
-    const hasMore = this.hasMoreFromPagination(doc);
-    const out = { results, hasMore, page };
-    this.setCache(key, out);
-    return out;
+  async getTopByType(type = 'manga', includeAdult = false, page = 1) {
+    const cacheKey = `top_${type}_${includeAdult}_${page}`;
+    const cached = this.getCached(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const base = BASE(includeAdult);
+      const url = `${base}/archive?type=${type}&sort=most_read&page=${page}`;
+      const html = await this.makeRequest(url);
+      const doc = this.parseHTML(html);
+      
+      const results = this.parseArchiveEntries(doc, base);
+      const hasMore = this.hasMoreFromPagination(doc);
+      
+      const finalResults = {
+        results,
+        hasMore,
+        page
+      };
+      
+      this.setCache(cacheKey, finalResults);
+      return finalResults;
+      
+    } catch (error) {
+      console.error(`Error fetching top ${type}:`, error);
+      return { results: [], hasMore: false, page };
+    }
   }
 
-  // Ricerca avanzata (un genere per query; AND multiplo si fa client-side in Categories.jsx)
-  async searchAdvanced({
-    genres = [],
-    types = [],
-    status = '',
-    year = '',
-    sort = 'most_read',
-    page = 1,
-    adult = false
-  } = {}) {
-    const base = BASE(adult);
-    const params = new URLSearchParams();
-    if (genres.length > 0) params.append('genre', genres[0]); // il resto lo intersecti lato UI
-    if (types[0]) params.append('type', types[0]);
-    if (status) params.append('status', status);
-    if (year) params.append('year', year);
-    params.append('sort', sort || 'most_read');
-    params.append('page', String(page));
+  // Ricerca avanzata
+  async searchAdvanced(options = {}) {
+    const {
+      genres = [],
+      types = [],
+      status = '',
+      year = '',
+      sort = 'most_read',
+      page = 1,
+      includeAdult = false
+    } = options;
 
-    const url = `${base}/archive?${params.toString()}`;
-    const doc = await this.req(url);
-    const results = this.parseArchiveEntries(doc, base);
-    const hasMore = this.hasMoreFromPagination(doc);
-    return { results, hasMore, page };
+    try {
+      const base = BASE(includeAdult);
+      const params = new URLSearchParams();
+      
+      if (genres.length > 0) {
+        params.append('genre', genres[0]); // MangaWorld accetta un genere alla volta
+      }
+      
+      if (types.length > 0) {
+        params.append('type', types[0]);
+      }
+      
+      if (status) params.append('status', status);
+      if (year) params.append('year', year);
+      params.append('sort', sort);
+      params.append('page', page);
+
+      const url = `${base}/archive?${params.toString()}`;
+      const html = await this.makeRequest(url);
+      const doc = this.parseHTML(html);
+      
+      const results = this.parseArchiveEntries(doc, base);
+      const hasMore = this.hasMoreFromPagination(doc);
+      
+      return {
+        results,
+        hasMore,
+        page
+      };
+      
+    } catch (error) {
+      console.error('Search error:', error);
+      return {
+        results: [],
+        hasMore: false,
+        page
+      };
+    }
   }
 
+  // Tutte le categorie
   async getAllCategories() {
-    const key = 'all_cats';
-    const c = this.getCached(key); if (c) return c;
+    const cacheKey = 'all_categories';
+    const cached = this.getCached(cacheKey);
+    if (cached) return cached;
+
     const categories = {
-      genres: GENRES.map(slug => ({
-        id: slug,
-        slug,
-        name: slug.replace(/-/g, ' ').replace(/\b\w/g, m => m.toUpperCase())
-      })),
-      themes: ['ecchi','gender-bender','harem','shoujo-ai','shounen-ai','yaoi','yuri'].map(slug => ({
-        id: slug, slug, name: slug.replace(/-/g, ' ').replace(/\b\w/g, m => m.toUpperCase())
-      })),
-      demographics: ['shounen','shoujo','seinen','josei'].map(slug => ({
-        id: slug, slug, name: slug.replace(/-/g, ' ').replace(/\b\w/g, m => m.toUpperCase())
-      })),
+      genres: [],
+      themes: [],
+      demographics: [],
       types: [
-        { id:'manga', name:'Manga', slug:'manga' },
-        { id:'manhwa', name:'Manhwa', slug:'manhwa' },
-        { id:'manhua', name:'Manhua', slug:'manhua' },
-        { id:'oneshot', name:'Oneshot', slug:'oneshot' },
-        { id:'doujinshi', name:'Doujinshi', slug:'doujinshi' }
+        { id: 'manga', name: 'Manga', slug: 'manga' },
+        { id: 'manhwa', name: 'Manhwa', slug: 'manhwa' },
+        { id: 'manhua', name: 'Manhua', slug: 'manhua' },
+        { id: 'oneshot', name: 'Oneshot', slug: 'oneshot' }
       ],
       status: [
-        { id:'ongoing', name:'In corso', slug:'ongoing' },
-        { id:'completed', name:'Completato', slug:'completed' },
-        { id:'dropped', name:'Droppato', slug:'dropped' },
-        { id:'paused', name:'In pausa', slug:'paused' }
+        { id: 'ongoing', name: 'In corso', slug: 'ongoing' },
+        { id: 'completed', name: 'Completato', slug: 'completed' },
+        { id: 'dropped', name: 'Droppato', slug: 'dropped' },
+        { id: 'paused', name: 'In pausa', slug: 'paused' }
       ],
       years: [],
       sort_options: [
-        { id:'most_read', name:'Più letti', value:'most_read' },
-        { id:'score', name:'Valutazione', value:'score' },
-        { id:'newest', name:'Più recenti', value:'newest' },
-        { id:'a-z', name:'A-Z', value:'a-z' },
-        { id:'z-a', name:'Z-A', value:'z-a' }
+        { id: 'most_read', name: 'Più letti', value: 'most_read' },
+        { id: 'score', name: 'Valutazione', value: 'score' },
+        { id: 'newest', name: 'Più recenti', value: 'newest' },
+        { id: 'a-z', name: 'A-Z', value: 'a-z' },
+        { id: 'z-a', name: 'Z-A', value: 'z-a' }
       ]
     };
-    const now = new Date().getFullYear();
-    for (let y = now; y >= 1990; y--) {
-      categories.years.push({ id: String(y), slug: String(y), name: String(y) });
+
+    // Generi
+    GENRES.forEach(slug => {
+      const name = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      categories.genres.push({
+        id: slug,
+        name,
+        slug
+      });
+    });
+
+    // Demographics
+    ['shounen', 'shoujo', 'seinen', 'josei'].forEach(slug => {
+      const name = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      categories.demographics.push({
+        id: slug,
+        name,
+        slug
+      });
+    });
+
+    // Anni
+    const currentYear = new Date().getFullYear();
+    for (let year = currentYear; year >= 1990; year--) {
+      categories.years.push({
+        id: year.toString(),
+        name: year.toString(),
+        slug: year.toString()
+      });
     }
-    this.setCache(key, categories);
+
+    this.setCache(cacheKey, categories);
     return categories;
   }
 }
 
-const statsAPI = new StatsAPI();
-export default statsAPI;
-export { StatsAPI };
+export default new StatsAPI();
