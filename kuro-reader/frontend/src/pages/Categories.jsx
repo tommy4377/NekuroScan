@@ -1,4 +1,3 @@
-// frontend/src/pages/Categories.jsx
 import React, { useState, useEffect } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
@@ -38,41 +37,50 @@ function Categories() {
   });
   const [totalLoaded, setTotalLoaded] = useState(0);
   const [pageTitle, setPageTitle] = useState('Esplora Categorie');
+  const [currentPreset, setCurrentPreset] = useState(null);
 
-  const { ref: loadMoreRef, inView } = useInView({ threshold: 0.1, rootMargin: '200px' });
+  const { ref: loadMoreRef, inView } = useInView({ 
+    threshold: 0.1, 
+    rootMargin: '200px' 
+  });
 
   useEffect(() => {
     loadCategories();
   }, []);
 
   useEffect(() => {
-    if (!location.state) return;
-    // Preset handler
+    if (!location.state) {
+      setCurrentPreset(null);
+      return;
+    }
+    
+    // Reset state quando cambia preset
     setSelectedGenres([]);
     setSelectedType(null);
     setMangaList([]);
     setPage(1);
     setHasMore(true);
+    setCurrentPreset(location.state.preset || location.state.type);
 
     if (location.state.preset === 'latest') {
       setPageTitle('Ultimi Aggiornamenti');
       setFilters(prev => ({ ...prev, sortBy: 'newest' }));
-      presetLatest();
+      loadPresetData('latest', 1);
     } else if (location.state.preset === 'popular') {
       setPageTitle('Manga Popolari');
       setFilters(prev => ({ ...prev, sortBy: 'most_read' }));
-      presetPopular();
+      loadPresetData('popular', 1);
     } else if (location.state.type) {
       const typeName = location.state.type.charAt(0).toUpperCase() + location.state.type.slice(1);
       setPageTitle(`Top ${typeName}`);
       setSelectedType(location.state.type);
-      presetTopType(location.state.type);
+      loadPresetData(location.state.type, 1);
     }
   }, [location.state, filters.includeAdult]);
 
   useEffect(() => {
     if (inView && hasMore && !loadingMore && mangaList.length > 0) {
-      loadMore();
+      loadMoreData();
     }
   }, [inView, hasMore, loadingMore, mangaList.length]);
 
@@ -89,13 +97,84 @@ function Categories() {
     }
   };
 
-  const toggleGenre = (genreId) => {
-    setSelectedGenres(prev => prev.includes(genreId) ? prev.filter(g => g !== genreId) : [...prev, genreId]);
+  const loadPresetData = async (preset, pageNum) => {
+    if (pageNum === 1) {
+      setLoadingManga(true);
+    } else {
+      setLoadingMore(true);
+    }
+    
+    try {
+      let result = null;
+      
+      if (preset === 'latest') {
+        result = await statsAPI.getLatestUpdates(filters.includeAdult, pageNum);
+      } else if (preset === 'popular') {
+        result = await statsAPI.getMostFavorites(filters.includeAdult, pageNum);
+      } else {
+        // È un tipo (manga, manhwa, manhua, oneshot)
+        result = await statsAPI.getTopByType(preset, filters.includeAdult, pageNum);
+      }
+      
+      if (result) {
+        if (pageNum === 1) {
+          setMangaList(result.results);
+          setTotalLoaded(result.results.length);
+        } else {
+          setMangaList(prev => [...prev, ...result.results]);
+          setTotalLoaded(prev => prev + result.results.length);
+        }
+        setHasMore(result.hasMore);
+        setPage(pageNum);
+      }
+    } catch (error) {
+      console.error('Error loading preset data:', error);
+      toast({ title: 'Errore caricamento', status: 'error' });
+    } finally {
+      setLoadingManga(false);
+      setLoadingMore(false);
+    }
   };
 
-  // Funzione condivisa per AND multiplo tra generi con filtro combinato
+  const loadMoreData = async () => {
+    if (loadingMore || !hasMore) return;
+    
+    const nextPage = page + 1;
+    
+    if (currentPreset) {
+      // Carica più dati per preset
+      loadPresetData(currentPreset, nextPage);
+    } else if (selectedGenres.length > 0 || selectedType) {
+      // Carica più dati per ricerca
+      loadMoreSearch(nextPage);
+    }
+  };
+
+  const loadMoreSearch = async (pageNum) => {
+    setLoadingMore(true);
+    try {
+      const { results, hasMore: more } = await runSearch({ page: pageNum });
+      setMangaList(prev => [...prev, ...results]);
+      setHasMore(more);
+      setTotalLoaded(prev => prev + results.length);
+      setPage(pageNum);
+    } catch (error) {
+      console.error('Error loading more:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const toggleGenre = (genreId) => {
+    setSelectedGenres(prev => 
+      prev.includes(genreId) 
+        ? prev.filter(g => g !== genreId) 
+        : [...prev, genreId]
+    );
+    setCurrentPreset(null); // Reset preset quando si seleziona un genere
+  };
+
   const runSearch = async ({ page = 1 }) => {
-    // Nessun genere o uno solo -> chiamata singola
     if (selectedGenres.length <= 1) {
       return statsAPI.searchAdvanced({
         genres: selectedGenres,
@@ -104,11 +183,11 @@ function Categories() {
         year: filters.year,
         sort: filters.sortBy || 'most_read',
         page,
-        adult: filters.includeAdult
+        includeAdult: filters.includeAdult
       });
     }
 
-    // AND tra più generi -> intersezione client-side
+    // AND tra più generi
     const perGenre = await Promise.all(
       selectedGenres.map(g => statsAPI.searchAdvanced({
         genres: [g],
@@ -117,14 +196,16 @@ function Categories() {
         year: filters.year,
         sort: filters.sortBy || 'most_read',
         page,
-        adult: filters.includeAdult
+        includeAdult: filters.includeAdult
       }))
     );
+    
     const lists = perGenre.map(x => x.results);
     const countByUrl = new Map();
     lists.flat().forEach(item => countByUrl.set(item.url, (countByUrl.get(item.url) || 0) + 1));
     const intersect = lists.flat().filter(item => countByUrl.get(item.url) === selectedGenres.length);
     const hasMore = perGenre.every(x => x.hasMore);
+    
     return { results: intersect, hasMore, page };
   };
 
@@ -133,6 +214,8 @@ function Categories() {
     setPage(1);
     setMangaList([]);
     setPageTitle('Risultati Ricerca');
+    setCurrentPreset(null);
+    
     try {
       const { results, hasMore } = await runSearch({ page: 1 });
       setMangaList(results);
@@ -146,70 +229,20 @@ function Categories() {
     }
   };
 
-  const loadMore = async () => {
-    if (loadingMore || !hasMore) return;
-    setLoadingMore(true);
-    try {
-      const next = page + 1;
-      const { results, hasMore: more } = await runSearch({ page: next });
-      setMangaList(prev => [...prev, ...results]);
-      setHasMore(more);
-      setTotalLoaded(prev => prev + results.length);
-      setPage(next);
-    } catch (error) {
-      console.error('Error loading more:', error);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
-
-  // Preset loaders
-  const presetLatest = async () => {
-    setLoadingManga(true);
-    try {
-      const r = await statsAPI.getLatestUpdates(filters.includeAdult, 1);
-      setMangaList(r.results);
-      setHasMore(r.hasMore);
-      setTotalLoaded(r.results.length);
-      setPage(1);
-    } catch (e) {
-      console.error(e);
-      toast({ title: 'Errore caricamento', status: 'error' });
-    } finally {
-      setLoadingManga(false);
-    }
-  };
-
-  const presetPopular = async () => {
-    setLoadingManga(true);
-    try {
-      const r = await statsAPI.getMostFavorites(filters.includeAdult, 1);
-      setMangaList(r.results);
-      setHasMore(r.hasMore);
-      setTotalLoaded(r.results.length);
-      setPage(1);
-    } catch (e) {
-      console.error(e);
-      toast({ title: 'Errore caricamento', status: 'error' });
-    } finally {
-      setLoadingManga(false);
-    }
-  };
-
-  const presetTopType = async (type) => {
-    setLoadingManga(true);
-    try {
-      const r = await statsAPI.getTopByType(type, filters.includeAdult, 1);
-      setMangaList(r.results);
-      setHasMore(r.hasMore);
-      setTotalLoaded(r.results.length);
-      setPage(1);
-    } catch (e) {
-      console.error(e);
-      toast({ title: 'Errore caricamento', status: 'error' });
-    } finally {
-      setLoadingManga(false);
-    }
+  const resetFilters = () => {
+    setSelectedGenres([]);
+    setSelectedType(null);
+    setFilters({ 
+      includeAdult: false, 
+      sortBy: 'most_read', 
+      year: '', 
+      status: '' 
+    });
+    setMangaList([]);
+    setPage(1);
+    setHasMore(true);
+    setPageTitle('Esplora Categorie');
+    setCurrentPreset(null);
   };
 
   const GenreButton = ({ id, name, isSelected, onToggle, color = 'purple' }) => (
@@ -285,16 +318,16 @@ function Categories() {
               ))}
             </Select>
 
-            <Button colorScheme="purple" onClick={searchWithFilters} isLoading={loadingManga}>
+            <Button 
+              colorScheme="purple" 
+              onClick={searchWithFilters} 
+              isLoading={loadingManga}
+              isDisabled={selectedGenres.length === 0 && !selectedType}
+            >
               Cerca
             </Button>
 
-            <Button variant="outline" onClick={() => {
-              setSelectedGenres([]); setSelectedType(null);
-              setFilters({ includeAdult: false, sortBy: 'most_read', year:'', status:'' });
-              setMangaList([]); setPage(1); setHasMore(true);
-              setPageTitle('Esplora Categorie');
-            }}>
+            <Button variant="outline" onClick={resetFilters}>
               Pulisci filtri
             </Button>
 
@@ -349,7 +382,10 @@ function Categories() {
                           size="sm"
                           variant={selectedType === type.id ? 'solid' : 'outline'}
                           colorScheme="green"
-                          onClick={() => setSelectedType(selectedType === type.id ? null : type.id)}
+                          onClick={() => {
+                            setSelectedType(selectedType === type.id ? null : type.id);
+                            setCurrentPreset(null);
+                          }}
                         >
                           {type.name}
                         </Button>
@@ -403,8 +439,12 @@ function Categories() {
               <Text fontWeight="bold">
                 {totalLoaded} manga trovati {hasMore && ' (altri disponibili)'}
               </Text>
-              {hasMore && (
-                <Button onClick={loadMore} isLoading={loadingMore} colorScheme="purple" variant="outline">
+              {hasMore && !loadingMore && (
+                <Button 
+                  onClick={loadMoreData} 
+                  colorScheme="purple" 
+                  variant="outline"
+                >
                   Carica altri
                 </Button>
               )}
