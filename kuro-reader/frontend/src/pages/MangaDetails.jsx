@@ -602,5 +602,3 @@ function MangaDetails() {
 }
 
 export default MangaDetails;
-
-
