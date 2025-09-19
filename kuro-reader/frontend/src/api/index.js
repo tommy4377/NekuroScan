@@ -263,59 +263,85 @@ class APIManager {
   }
 
   async getRecentChapters() {
-    const cacheKey = 'recent_chapters';
-    const cached = this.getCached(cacheKey);
-    if (cached) return cached;
+  const cacheKey = 'recent_chapters_real';
+  const cached = this.getCached(cacheKey);
+  if (cached) return cached;
 
-    try {
-      // Ottieni la homepage e cerca la sezione "Ultimi capitoli aggiunti"
-      const html = await this.apis.mangaWorld.makeRequest(this.apis.mangaWorld.baseUrl);
-      const doc = new DOMParser().parseFromString(html, 'text/html');
+  try {
+    const html = await this.apis.mangaWorld.makeRequest(this.apis.mangaWorld.baseUrl);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    
+    const recentChapters = [];
+    
+    // Cerca SOLO quelli con il badge del capitolo (hanno l'elemento con il numero del capitolo)
+    // Ignora i primi che sono trending senza badge
+    const entries = doc.querySelectorAll('.entry');
+    
+    entries.forEach((entry) => {
+      // Controlla se ha il badge del capitolo (elemento che mostra "Capitolo XX")
+      const chapterBadge = entry.querySelector('.chapter-num, .latest-chapter, .xanh, [class*="chapter"]');
       
-      const recentChapters = [];
-      
-      // Selettori per capitoli recenti
-      const selectors = [
-        '.new-chapters .entry',
-        '.latest-updates .entry',
-        '.recent-updates .entry',
-        '.chapters-updates .entry'
-      ];
-      
-      for (const selector of selectors) {
-        const entries = doc.querySelectorAll(selector);
-        if (entries.length > 0) {
-          entries.forEach((entry, i) => {
-            if (i >= 20) return;
-            
-            const link = entry.querySelector('a');
-            const img = entry.querySelector('img');
-            const chapter = entry.querySelector('.chapter-num, .latest-chapter');
-            
-            if (link?.href) {
-              const href = link.getAttribute('href');
-              recentChapters.push({
-                url: href.startsWith('http') ? href : `https://www.mangaworld.so/${href.replace(/^\//, '')}`,
-                title: entry.querySelector('.name, .title')?.textContent?.trim() || 'Unknown',
-                cover: img?.src || img?.dataset?.src || '',
-                latestChapter: chapter?.textContent?.trim() || '',
-                source: 'mangaWorld',
-                isAdult: false
-              });
-            }
-          });
-          break;
-        }
+      // Se non ha badge capitolo, skippa (è un trending)
+      if (!chapterBadge || !chapterBadge.textContent.match(/\d+/)) {
+        return;
       }
       
-      this.setCache(cacheKey, recentChapters);
-      return recentChapters;
+      const link = entry.querySelector('a');
+      const img = entry.querySelector('img');
+      const title = entry.querySelector('.name, .title, .manga-title');
       
-    } catch (error) {
-      console.error('Get recent chapters error:', error);
-      return [];
+      if (link?.href && recentChapters.length < 20) {
+        const href = link.getAttribute('href');
+        recentChapters.push({
+          url: href.startsWith('http') ? href : `https://www.mangaworld.cx/${href.replace(/^\//, '')}`,
+          title: title?.textContent?.trim() || 'Unknown',
+          cover: img?.src || img?.dataset?.src || '',
+          latestChapter: chapterBadge.textContent.trim(),
+          source: 'mangaWorld',
+          isAdult: false,
+          isRecent: true // Flag per identificare che è recente
+        });
+      }
+    });
+    
+    // Se non trova abbastanza risultati con badge, prova con selector più specifico
+    if (recentChapters.length < 10) {
+      // Fallback: cerca nella sezione specifica degli aggiornamenti
+      const updatesSection = doc.querySelector('.new-chapters, .latest-updates, [class*="recent"]');
+      if (updatesSection) {
+        const updateEntries = updatesSection.querySelectorAll('.entry');
+        updateEntries.forEach((entry) => {
+          if (recentChapters.length >= 20) return;
+          
+          const link = entry.querySelector('a');
+          const img = entry.querySelector('img');
+          const title = entry.querySelector('.name, .title');
+          const chapter = entry.querySelector('.chapter-num, .latest-chapter');
+          
+          if (link?.href) {
+            const href = link.getAttribute('href');
+            recentChapters.push({
+              url: href.startsWith('http') ? href : `https://www.mangaworld.cx/${href.replace(/^\//, '')}`,
+              title: title?.textContent?.trim() || 'Unknown',
+              cover: img?.src || img?.dataset?.src || '',
+              latestChapter: chapter?.textContent?.trim() || '',
+              source: 'mangaWorld',
+              isAdult: false,
+              isRecent: true
+            });
+          }
+        });
+      }
     }
+    
+    this.setCache(cacheKey, recentChapters);
+    return recentChapters;
+    
+  } catch (error) {
+    console.error('Get recent chapters error:', error);
+    return [];
   }
+}
 
   async getWeeklyReleases() {
     const cacheKey = 'weekly_releases';
@@ -482,4 +508,5 @@ const apiManager = new APIManager();
 // Esporta anche la classe per testing
 export { APIManager };
 export default apiManager;
+
 
