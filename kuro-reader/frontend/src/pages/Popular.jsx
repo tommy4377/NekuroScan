@@ -23,7 +23,6 @@ export default function Popular() {
   };
 
   useEffect(() => { setList([]); setPage(1); setHasMore(true); load(1); }, [includeAdult]);
-
   useEffect(() => { if (inView && hasMore && !loading) { const np = page + 1; setPage(np); load(np); } }, [inView]);
 
   return (
@@ -44,11 +43,7 @@ export default function Popular() {
             variant={includeAdult ? 'solid' : 'outline'}
             colorScheme="pink"
             size="sm"
-            onClick={() => {
-              const v = !includeAdult;
-              setIncludeAdult(v);
-              localStorage.setItem('includeAdult', v.toString());
-            }}
+            onClick={() => { const v = !includeAdult; setIncludeAdult(v); localStorage.setItem('includeAdult', v.toString()); }}
           >
             {includeAdult ? '🔞 Solo Adult' : 'Solo Normali'}
           </Button>
