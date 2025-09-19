@@ -17,20 +17,21 @@ model user {
 
   favorites user_favorites?
   reading   reading_progress[]
+  library   user_library?
 }
 
 model user_favorites {
   id        Int      @id @default(autoincrement())
   userId    Int      @unique
-  user      user     @relation(fields: [userId], references: [id])
-  favorites String   // JSON string
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favorites String   @db.Text
   updatedAt DateTime @updatedAt
 }
 
 model reading_progress {
   id           Int      @id @default(autoincrement())
   userId       Int
-  user         user     @relation(fields: [userId], references: [id])
+  user         user     @relation(fields: [userId], references: [id], onDelete: Cascade)
   mangaUrl     String
   mangaTitle   String
   chapterIndex Int
@@ -38,4 +39,15 @@ model reading_progress {
   updatedAt    DateTime @updatedAt
 
   @@unique([userId, mangaUrl])
+  @@index([userId])
+}
+
+model user_library {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reading   String?  @db.Text
+  completed String?  @db.Text
+  history   String?  @db.Text
+  updatedAt DateTime @updatedAt
 }
