@@ -1,7 +1,8 @@
 import React, { useEffect, lazy, Suspense } from 'react';
-import { ChakraProvider, Box, Spinner, Center, useToast } from '@chakra-ui/react';
+import { ChakraProvider, Box, Spinner, Center } from '@chakra-ui/react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { theme } from './styles/theme';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Components
 import Navigation from './components/Navigation';
@@ -35,7 +36,7 @@ function LoadingScreen() {
   );
 }
 
-// Scroll to top
+// Scroll to top component
 function ScrollToTop() {
   const { pathname } = useLocation();
   
@@ -84,9 +85,10 @@ function App() {
     // Start auto sync
     const cleanup = startAutoSync();
     
-    // PWA Service Worker con auto-update
+    // PWA Service Worker with auto-update
     if ('serviceWorker' in navigator) {
-      // Registra service worker
+      let refreshing = false;
+      
       navigator.serviceWorker.register('/sw.js').then(registration => {
         console.log('SW registered');
         
@@ -102,9 +104,9 @@ function App() {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               // New update available
-              if (window.confirm('Nuovo aggiornamento disponibile! Vuoi ricaricare?')) {
+              const shouldUpdate = window.confirm('Nuovo aggiornamento disponibile! Vuoi ricaricare?');
+              if (shouldUpdate) {
                 newWorker.postMessage({ type: 'SKIP_WAITING' });
-                window.location.reload();
               }
             }
           });
@@ -114,7 +116,6 @@ function App() {
       });
       
       // Handle controller change
-      let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!refreshing) {
           window.location.reload();
@@ -124,11 +125,11 @@ function App() {
     }
     
     // Clear old cache periodically
-    setInterval(() => {
+    const cacheInterval = setInterval(() => {
       if ('caches' in window) {
         caches.keys().then(names => {
           names.forEach(name => {
-            if (name !== 'kuroreader-v2') {
+            if (!name.includes('kuroreader-v2')) {
               caches.delete(name);
             }
           });
@@ -136,28 +137,33 @@ function App() {
       }
     }, 60000); // Every minute
     
-    return cleanup;
-  }, []);
-
-  // PWA install prompt
-  useEffect(() => {
+    // PWA install prompt
     let deferredPrompt;
     
-    window.addEventListener('beforeinstallprompt', (e) => {
+    const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       deferredPrompt = e;
       
-      // Auto-show install prompt after 5 seconds
+      // Show install prompt after 5 seconds
       setTimeout(() => {
-        if (deferredPrompt) {
+        if (deferredPrompt && !window.matchMedia('(display-mode: standalone)').matches) {
           deferredPrompt.prompt();
           deferredPrompt.userChoice.then(() => {
             deferredPrompt = null;
           });
         }
       }, 5000);
-    });
-  }, []);
+    };
+    
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    
+    // Cleanup
+    return () => {
+      cleanup();
+      clearInterval(cacheInterval);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, [initAuth, startAutoSync]);
 
   const routes = [
     { path: '/', element: <Welcome />, layout: false },
@@ -181,20 +187,22 @@ function App() {
 
   return (
     <ChakraProvider theme={theme}>
-      <Router>
-        <ScrollToTop />
-        <Suspense fallback={<LoadingScreen />}>
-          <Routes>
-            {routes.map(({ path, element, layout = true }) => (
-              <Route
-                key={path}
-                path={path}
-                element={layout ? <Layout>{element}</Layout> : element}
-              />
-            ))}
-          </Routes>
-        </Suspense>
-      </Router>
+      <ErrorBoundary>
+        <Router>
+          <ScrollToTop />
+          <Suspense fallback={<LoadingScreen />}>
+            <Routes>
+              {routes.map(({ path, element, layout = true }) => (
+                <Route
+                  key={path}
+                  path={path}
+                  element={layout ? <Layout>{element}</Layout> : element}
+                />
+              ))}
+            </Routes>
+          </Suspense>
+        </Router>
+      </ErrorBoundary>
     </ChakraProvider>
   );
 }
