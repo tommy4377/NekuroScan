@@ -452,17 +452,12 @@ export class MangaWorldAdultAPI {
           
           // Pattern per array di immagini
           const arrayPatterns = [
-            /pages\s*=\s*```math
-([\s\S]*?)```/,
-            /images\s*=\s*```math
-([\s\S]*?)```/,
-            /pageArray\s*=\s*```math
-([\s\S]*?)```/,
-            /imageArray\s*=\s*```math
-([\s\S]*?)```/,
-            /var\s+\w+\s*=\s*```math
-([\s\S]*?)```;/
-          ];
+  /pages\s*=\s*```math([\s\S]*?)```/s,
+  /images\s*=\s*```math([\s\S]*?)```/s,
+  /pageArray\s*=\s*```math([\s\S]*?)```/s,
+  /imageArray\s*=\s*```math([\s\S]*?)```/s
+];
+
           
           for (const pattern of arrayPatterns) {
             const match = content.match(pattern);
@@ -585,3 +580,4 @@ export class MangaWorldAdultAPI {
     }
   }
 }
+
