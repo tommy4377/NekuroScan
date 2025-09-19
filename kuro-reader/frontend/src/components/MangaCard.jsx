@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 
 const MotionBox = motion(Box);
 
-function MangaCard({ manga, hideSource = false }) {
+function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
   const navigate = useNavigate();
   const [imageLoaded, setImageLoaded] = React.useState(false);
   
@@ -97,6 +97,27 @@ function MangaCard({ manga, hideSource = false }) {
               18+
             </Badge>
           )}
+
+          {/* Latest Chapter Badge - SOLO se showLatestChapter è true */}
+          {showLatestChapter && cleanChapter && (
+            <Box
+              position="absolute"
+              bottom={2}
+              left={2}
+              right={2}
+              bg="blue.600"
+              color="white"
+              px={2}
+              py={1}
+              borderRadius="md"
+              fontSize="xs"
+              textAlign="center"
+              fontWeight="bold"
+              opacity={0.95}
+            >
+              Capitolo {cleanChapter}
+            </Box>
+          )}
         </Box>
         
         {/* Title Section */}
@@ -110,23 +131,6 @@ function MangaCard({ manga, hideSource = false }) {
           >
             {manga.title}
           </Text>
-          
-          {/* Latest Chapter Badge (outside image) */}
-          {cleanChapter && (
-            <Box
-              bg="blue.600"
-              color="white"
-              px={2}
-              py={1}
-              borderRadius="md"
-              fontSize="xs"
-              textAlign="center"
-              fontWeight="bold"
-              mt={1}
-            >
-              Capitolo {cleanChapter}
-            </Box>
-          )}
         </VStack>
       </VStack>
     </MotionBox>
