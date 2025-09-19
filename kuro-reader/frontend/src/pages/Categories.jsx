@@ -1,31 +1,36 @@
-// frontend/src/pages/Categories.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
   Button, useToast, Tabs, TabList, TabPanels, Tab, TabPanel,
   Badge, Input, InputGroup, InputLeftElement, Select, Skeleton,
-  Wrap, WrapItem, IconButton, Spinner, Divider, Tag, TagLabel, TagCloseButton, Checkbox
+  Wrap, WrapItem, IconButton, Spinner, useDisclosure, Modal,
+  ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalCloseButton, Divider, Tag, TagLabel, TagCloseButton, Checkbox,
+  FormControl, FormLabel
 } from '@chakra-ui/react';
-import { SearchIcon } from '@chakra-ui/icons';
-import { useLocation } from 'react-router-dom';
+import { SearchIcon, CloseIcon } from '@chakra-ui/icons';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import { useInView } from 'react-intersection-observer';
+import { FaChevronDown, FaChevronUp, FaFilter } from 'react-icons/fa';
 
 const MotionBox = motion(Box);
 
 function Categories() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-
-  // State
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  
+  // Stati
   const [categories, setCategories] = useState(null);
   const [selectedGenres, setSelectedGenres] = useState([]);
-  const [selectedType, setSelectedType] = useState(null);
+  const [selectedType, setSelectedType] = useState('');
   const [mangaList, setMangaList] = useState([]);
-  const [loadingCats, setLoadingCats] = useState(true);
-  const [loadingManga, setLoadingManga] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -36,67 +41,66 @@ function Categories() {
     year: '',
     status: ''
   });
-  const [totalLoaded, setTotalLoaded] = useState(0);
-  const [pageTitle, setPageTitle] = useState('Esplora Categorie');
+  const [activeTab, setActiveTab] = useState(0);
+  const [showFilters, setShowFilters] = useState(false);
 
   const { ref: loadMoreRef, inView } = useInView({ threshold: 0.1, rootMargin: '200px' });
 
   useEffect(() => {
     loadCategories();
-  }, []);
-
-  useEffect(() => {
-    if (!location.state) return;
-    // Preset handler
-    setSelectedGenres([]);
-    setSelectedType(null);
-    setMangaList([]);
-    setPage(1);
-    setHasMore(true);
-
-    if (location.state.preset === 'latest') {
-      setPageTitle('Ultimi Aggiornamenti');
-      setFilters(prev => ({ ...prev, sortBy: 'newest' }));
-      presetLatest();
-    } else if (location.state.preset === 'popular') {
-      setPageTitle('Manga Popolari');
-      setFilters(prev => ({ ...prev, sortBy: 'most_read' }));
-      presetPopular();
-    } else if (location.state.type) {
-      const typeName = location.state.type.charAt(0).toUpperCase() + location.state.type.slice(1);
-      setPageTitle(`Top ${typeName}`);
-      setSelectedType(location.state.type);
-      presetTopType(location.state.type);
-    }
-  }, [location.state, filters.includeAdult]);
+    handlePresets();
+  }, [location.state]);
 
   useEffect(() => {
     if (inView && hasMore && !loadingMore && mangaList.length > 0) {
       loadMore();
     }
-  }, [inView, hasMore, loadingMore, mangaList.length]);
+  }, [inView]);
+
+  const handlePresets = () => {
+    const state = location.state;
+    if (!state) return;
+
+    setSelectedGenres([]);
+    setSelectedType('');
+    setMangaList([]);
+    
+    if (state.preset === 'latest') {
+      setFilters(prev => ({ ...prev, sortBy: 'newest' }));
+    } else if (state.preset === 'popular') {
+      setFilters(prev => ({ ...prev, sortBy: 'most_read' }));
+    }
+  };
 
   const loadCategories = async () => {
-    setLoadingCats(true);
+    setLoading(true);
     try {
       const cats = await statsAPI.getAllCategories();
       setCategories(cats);
     } catch (error) {
       console.error('Error loading categories:', error);
-      toast({ title: 'Errore caricamento categorie', status: 'error', duration: 3000 });
+      toast({
+        title: 'Errore caricamento categorie',
+        status: 'error',
+        duration: 3000,
+      });
     } finally {
-      setLoadingCats(false);
+      setLoading(false);
     }
   };
 
   const toggleGenre = (genreId) => {
-    setSelectedGenres(prev => prev.includes(genreId) ? prev.filter(g => g !== genreId) : [...prev, genreId]);
+    setSelectedGenres(prev => 
+      prev.includes(genreId) 
+        ? prev.filter(g => g !== genreId) 
+        : [...prev, genreId]
+    );
   };
 
-  // Funzione condivisa per AND multiplo tra generi con filtro combinato
+  // AND multiplo tra generi
   const runSearch = async ({ page = 1 }) => {
-    // Nessun genere o uno solo -> chiamata singola
     if (selectedGenres.length <= 1) {
+      // Caso normale: 0 o 1 genere
       return statsAPI.searchAdvanced({
         genres: selectedGenres,
         types: selectedType ? [selectedType] : [],
@@ -104,58 +108,70 @@ function Categories() {
         year: filters.year,
         sort: filters.sortBy || 'most_read',
         page,
-        adult: filters.includeAdult
+        includeAdult: filters.includeAdult
       });
+    } else {
+      // AND multiplo: intersect client-side
+      const perGenre = await Promise.all(
+        selectedGenres.map(g => 
+          statsAPI.searchAdvanced({
+            genres: [g],
+            types: selectedType ? [selectedType] : [],
+            status: filters.status,
+            year: filters.year,
+            sort: filters.sortBy || 'most_read',
+            page,
+            includeAdult: filters.includeAdult
+          })
+        )
+      );
+      
+      // Intersect per URL
+      const lists = perGenre.map(x => x.results);
+      const urlCount = new Map();
+      lists.flat().forEach(item => urlCount.set(item.url, (urlCount.get(item.url) || 0) + 1));
+      const intersected = lists.flat().filter(item => urlCount.get(item.url) === selectedGenres.length);
+      
+      return { 
+        results: intersected, 
+        hasMore: perGenre.every(x => x.hasMore), 
+        page 
+      };
     }
-
-    // AND tra più generi -> intersezione client-side
-    const perGenre = await Promise.all(
-      selectedGenres.map(g => statsAPI.searchAdvanced({
-        genres: [g],
-        types: selectedType ? [selectedType] : [],
-        status: filters.status,
-        year: filters.year,
-        sort: filters.sortBy || 'most_read',
-        page,
-        adult: filters.includeAdult
-      }))
-    );
-    const lists = perGenre.map(x => x.results);
-    const countByUrl = new Map();
-    lists.flat().forEach(item => countByUrl.set(item.url, (countByUrl.get(item.url) || 0) + 1));
-    const intersect = lists.flat().filter(item => countByUrl.get(item.url) === selectedGenres.length);
-    const hasMore = perGenre.every(x => x.hasMore);
-    return { results: intersect, hasMore, page };
   };
 
   const searchWithFilters = async () => {
-    setLoadingManga(true);
+    setLoading(true);
     setPage(1);
     setMangaList([]);
-    setPageTitle('Risultati Ricerca');
+    setHasMore(true);
+    
     try {
       const { results, hasMore } = await runSearch({ page: 1 });
       setMangaList(results);
       setHasMore(hasMore);
-      setTotalLoaded(results.length);
     } catch (error) {
       console.error('Error searching:', error);
-      toast({ title: 'Errore ricerca', status: 'error', duration: 3000 });
+      toast({
+        title: 'Errore ricerca',
+        status: 'error',
+        duration: 3000,
+      });
     } finally {
-      setLoadingManga(false);
+      setLoading(false);
     }
   };
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return;
+    
     setLoadingMore(true);
     try {
-      const next = page + 1;
-      const { results, hasMore: more } = await runSearch({ page: next });
+      const nextPage = page + 1;
+      const { results, hasMore: more } = await runSearch({ page: nextPage });
       setMangaList(prev => [...prev, ...results]);
       setHasMore(more);
-      setTotalLoaded(prev => prev + results.length);
-      setPage(next);
+      setPage(nextPage);
     } catch (error) {
       console.error('Error loading more:', error);
     } finally {
@@ -163,53 +179,18 @@ function Categories() {
     }
   };
 
-  // Preset loaders
-  const presetLatest = async () => {
-    setLoadingManga(true);
-    try {
-      const r = await statsAPI.getLatestUpdates(filters.includeAdult, 1);
-      setMangaList(r.results);
-      setHasMore(r.hasMore);
-      setTotalLoaded(r.results.length);
-      setPage(1);
-    } catch (e) {
-      console.error(e);
-      toast({ title: 'Errore caricamento', status: 'error' });
-    } finally {
-      setLoadingManga(false);
-    }
-  };
-
-  const presetPopular = async () => {
-    setLoadingManga(true);
-    try {
-      const r = await statsAPI.getMostFavorites(filters.includeAdult, 1);
-      setMangaList(r.results);
-      setHasMore(r.hasMore);
-      setTotalLoaded(r.results.length);
-      setPage(1);
-    } catch (e) {
-      console.error(e);
-      toast({ title: 'Errore caricamento', status: 'error' });
-    } finally {
-      setLoadingManga(false);
-    }
-  };
-
-  const presetTopType = async (type) => {
-    setLoadingManga(true);
-    try {
-      const r = await statsAPI.getTopByType(type, filters.includeAdult, 1);
-      setMangaList(r.results);
-      setHasMore(r.hasMore);
-      setTotalLoaded(r.results.length);
-      setPage(1);
-    } catch (e) {
-      console.error(e);
-      toast({ title: 'Errore caricamento', status: 'error' });
-    } finally {
-      setLoadingManga(false);
-    }
+  const clearFilters = () => {
+    setSelectedGenres([]);
+    setSelectedType('');
+    setFilters({
+      includeAdult: false,
+      sortBy: 'most_read',
+      year: '',
+      status: ''
+    });
+    setMangaList([]);
+    setPage(1);
+    setHasMore(true);
   };
 
   const GenreButton = ({ id, name, isSelected, onToggle, color = 'purple' }) => (
@@ -224,7 +205,7 @@ function Categories() {
     </Button>
   );
 
-  const filteredManga = mangaList.filter(manga =>
+  const filteredManga = mangaList.filter(manga => 
     !searchQuery || manga.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -232,18 +213,21 @@ function Categories() {
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
         <VStack align="stretch" spacing={4}>
-          <Heading size="xl">{pageTitle}</Heading>
+          <Heading size="xl">Esplora Categorie</Heading>
 
           {selectedGenres.length > 0 && (
             <Wrap>
-              {selectedGenres.map((genreId) => (
-                <WrapItem key={genreId}>
-                  <Tag size="lg" colorScheme="purple">
-                    <TagLabel>{genreId.replace(/-/g, ' ')}</TagLabel>
-                    <TagCloseButton onClick={() => toggleGenre(genreId)} />
-                  </Tag>
-                </WrapItem>
-              ))}
+              {selectedGenres.map((genreId) => {
+                const genreName = statsAPI.getGenreName(genreId);
+                return (
+                  <WrapItem key={genreId}>
+                    <Tag size="lg" colorScheme="purple">
+                      <TagLabel>{genreName}</TagLabel>
+                      <TagCloseButton onClick={() => toggleGenre(genreId)} />
+                    </Tag>
+                  </WrapItem>
+                );
+              })}
             </Wrap>
           )}
 
@@ -260,42 +244,30 @@ function Categories() {
               />
             </InputGroup>
 
-            <Select
-              maxW="170px"
-              value={filters.sortBy}
-              onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
-              bg="gray.800"
+            <Button
+              leftIcon={showFilters ? <FaChevronUp /> : <FaFilter />}
+              onClick={() => setShowFilters(!showFilters)}
+              variant="outline"
+              size="sm"
             >
-              <option value="most_read">Più letti</option>
-              <option value="newest">Più recenti</option>
-              <option value="score">Valutazione</option>
-              <option value="a-z">A-Z</option>
-              <option value="z-a">Z-A</option>
-            </Select>
+              Filtri avanzati
+            </Button>
 
-            <Select
-              maxW="150px"
-              value={filters.year}
-              onChange={(e) => setFilters({...filters, year: e.target.value})}
-              bg="gray.800"
-              placeholder="Anno"
+            <Button
+              colorScheme="purple"
+              onClick={searchWithFilters}
+              isLoading={loading}
+              isDisabled={selectedGenres.length === 0 && !selectedType && !filters.status && !filters.year}
             >
-              {categories?.years?.map(year => (
-                <option key={year.id} value={year.id}>{year.name}</option>
-              ))}
-            </Select>
-
-            <Button colorScheme="purple" onClick={searchWithFilters} isLoading={loadingManga}>
               Cerca
             </Button>
 
-            <Button variant="outline" onClick={() => {
-              setSelectedGenres([]); setSelectedType(null);
-              setFilters({ includeAdult: false, sortBy: 'most_read', year:'', status:'' });
-              setMangaList([]); setPage(1); setHasMore(true);
-              setPageTitle('Esplora Categorie');
-            }}>
-              Pulisci filtri
+            <Button
+              variant="outline"
+              onClick={clearFilters}
+              size="sm"
+            >
+              Pulisci
             </Button>
 
             <Checkbox
@@ -306,17 +278,86 @@ function Categories() {
               🔞 Adult
             </Checkbox>
           </HStack>
+
+          {showFilters && (
+            <Box bg="gray.800" p={4} borderRadius="lg">
+              <VStack spacing={4} align="stretch">
+                <HStack spacing={4} wrap="wrap">
+                  <FormControl maxW="150px">
+                    <FormLabel fontSize="sm">Ordina per</FormLabel>
+                    <Select
+                      value={filters.sortBy}
+                      onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
+                      bg="gray.700"
+                      size="sm"
+                    >
+                      <option value="most_read">Più letti</option>
+                      <option value="newest">Più recenti</option>
+                      <option value="score">Valutazione</option>
+                      <option value="a-z">A-Z</option>
+                      <option value="z-a">Z-A</option>
+                    </Select>
+                  </FormControl>
+
+                  <FormControl maxW="120px">
+                    <FormLabel fontSize="sm">Anno</FormLabel>
+                    <Select
+                      value={filters.year}
+                      onChange={(e) => setFilters({...filters, year: e.target.value})}
+                      bg="gray.700"
+                      size="sm"
+                      placeholder="Qualsiasi"
+                    >
+                      {categories?.years?.map(year => (
+                        <option key={year.id} value={year.id}>{year.name}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl maxW="150px">
+                    <FormLabel fontSize="sm">Stato</FormLabel>
+                    <Select
+                      value={filters.status}
+                      onChange={(e) => setFilters({...filters, status: e.target.value})}
+                      bg="gray.700"
+                      size="sm"
+                      placeholder="Qualsiasi"
+                    >
+                      {categories?.status?.map(status => (
+                        <option key={status.id} value={status.id}>{status.name}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl maxW="150px">
+                    <FormLabel fontSize="sm">Tipo</FormLabel>
+                    <Select
+                      value={selectedType}
+                      onChange={(e) => setSelectedType(e.target.value)}
+                      bg="gray.700"
+                      size="sm"
+                      placeholder="Qualsiasi"
+                    >
+                      {categories?.types?.map(type => (
+                        <option key={type.id} value={type.id}>{type.name}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </HStack>
+              </VStack>
+            </Box>
+          )}
         </VStack>
 
         {!location.state && (
-          loadingCats ? (
+          loading ? (
             <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
               {[...Array(6)].map((_, i) => (
                 <Skeleton key={i} height="200px" borderRadius="lg" />
               ))}
             </SimpleGrid>
           ) : (
-            <Tabs colorScheme="purple" variant="enclosed">
+            <Tabs colorScheme="purple" variant="enclosed" onChange={(index) => setActiveTab(index)}>
               <TabList flexWrap="wrap">
                 <Tab>Generi</Tab>
                 <Tab>Tipi</Tab>
@@ -349,7 +390,7 @@ function Categories() {
                           size="sm"
                           variant={selectedType === type.id ? 'solid' : 'outline'}
                           colorScheme="green"
-                          onClick={() => setSelectedType(selectedType === type.id ? null : type.id)}
+                          onClick={() => setSelectedType(selectedType === type.id ? '' : type.id)}
                         >
                           {type.name}
                         </Button>
@@ -397,20 +438,20 @@ function Categories() {
 
         {location.state && (<Divider />)}
 
-        {(mangaList.length > 0 || loadingManga) && (
+        {(mangaList.length > 0 || loading) && (
           <VStack align="stretch" spacing={4}>
             <HStack justify="space-between">
               <Text fontWeight="bold">
-                {totalLoaded} manga trovati {hasMore && ' (altri disponibili)'}
+                {mangaList.length} manga trovati {hasMore && ' (altri disponibili)'}
               </Text>
               {hasMore && (
-                <Button onClick={loadMore} isLoading={loadingMore} colorScheme="purple" variant="outline">
+                <Button onClick={loadMore} isLoading={loadingMore} colorScheme="purple" variant="outline" size="sm">
                   Carica altri
                 </Button>
               )}
             </HStack>
 
-            {loadingManga && mangaList.length === 0 ? (
+            {loading && mangaList.length === 0 ? (
               <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                 {[...Array(20)].map((_, i) => (
                   <Skeleton key={i} height="280px" borderRadius="lg" />
@@ -419,16 +460,16 @@ function Categories() {
             ) : filteredManga.length > 0 ? (
               <>
                 <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-                  {filteredManga.map((manga, i) => (
+                  {filteredManga.map((item, i) => (
                     <MotionBox
-                      key={`${manga.url}-${i}`}
+                      key={`${item.url}-${i}`}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(i * 0.02, 0.5) }}
                     >
                       <Box position="relative">
-                        <MangaCard manga={manga} hideSource showLatest={false} />
-                        {manga.isAdult && (
+                        <MangaCard manga={item} hideSource showLatest={false} />
+                        {item.isAdult && (
                           <Badge position="absolute" top={2} right={2} colorScheme="pink" fontSize="xs">18+</Badge>
                         )}
                       </Box>
