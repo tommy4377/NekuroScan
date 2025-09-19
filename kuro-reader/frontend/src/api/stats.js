@@ -1,19 +1,19 @@
+// frontend/src/api/stats.js
 import { config } from '../config';
 
-// Generi – tutti considerati standard (normal o adult)
+// Generi supportati (inclusi quelli che avevi chiamato "extra" ma che devono funzionare)
 const GENRES = [
   'adulti','arti-marziali','avventura','azione','commedia','doujinshi','drammatico','ecchi',
   'fantasy','gender-bender','harem','hentai','horror','josei','lolicon','maturo','mecha','mistero',
   'psicologico','romantico','sci-fi','scolastico','seinen','shotacon','shoujo','shoujo-ai','shounen',
   'shounen-ai','slice-of-life','smut','soprannaturale','sport','storico','tragico','yaoi','yuri',
-  // questi sono richiesti dal tuo elenco
   'militare','musica','parodia','poliziesco','spazio','vampiri','isekai','reincarnazione',
   'survival','viaggi-nel-tempo','videogiochi','workplace'
 ];
 
 const BASE = (adult) => adult ? 'https://www.mangaworldadult.net' : 'https://www.mangaworld.cx';
 
-export class StatsAPI {
+class StatsAPI {
   constructor() {
     this.cache = new Map();
     this.ttl = 5 * 60 * 1000;
@@ -44,14 +44,52 @@ export class StatsAPI {
     return new DOMParser().parseFromString(data.data, 'text/html');
   }
 
-  // Helpers
+  // hasMore robusto per entrambe le piattaforme
   hasMoreFromPagination(doc) {
-    // Funziona sia su .cx che .adult
-    const next = doc.querySelector('ul.pagination li.page-item.next:not(.disabled), ul.pagination li.next:not(.disabled)');
-    return !!next;
+    const byClass = doc.querySelector('ul.pagination li.page-item.next:not(.disabled), ul.pagination li.next:not(.disabled)');
+    if (byClass) return true;
+    const links = [...doc.querySelectorAll('ul.pagination a, .pagination a, .pagination-container a.page-link')];
+    const found = links.some(a => /successivo|next|chevron-right/i.test(a.textContent || a.getAttribute('aria-label') || ''));
+    return found;
   }
 
-  parseArchiveEntries(doc, source) {
+  // Parser per la griglia "Ultimi capitoli aggiunti" (evita slider di tendenza)
+  parseLatestGrid(doc, base) {
+    const list = [];
+    // entry container standard
+    const entries = doc.querySelectorAll('.comics-grid .entry');
+    entries.forEach(entry => {
+      const link = entry.querySelector('a.thumb, a');
+      const img = entry.querySelector('img');
+      const title = entry.querySelector('.manga-title, .name')?.textContent?.trim();
+      // capitolo più recente dalla prima .xanh nella content-area
+      const content = entry.querySelector('.content') || entry;
+      const firstXanh = content.querySelector('.xanh');
+      // prova a ricavare anche una data (il tag <i> più vicino)
+      const firstDate = content.querySelector('i');
+      const latestChapter = firstXanh?.textContent
+        ?.replace(/^cap\.\s*/i, '')
+        ?.replace(/^capitolo\s*/i, '')
+        ?.trim() || '';
+      const latestDate = firstDate?.textContent?.trim() || '';
+
+      if (link?.href && title) {
+        const href = link.getAttribute('href');
+        list.push({
+          url: href.startsWith('http') ? href : `${base}${href.startsWith('/') ? '' : '/'}${href.replace(/^\//, '')}`,
+          title,
+          cover: img?.src || img?.dataset?.src || '',
+          latestChapter,
+          latestDate,
+          source: base.includes('adult') ? 'mangaWorldAdult' : 'mangaWorld',
+          isAdult: base.includes('adult')
+        });
+      }
+    });
+    return list;
+  }
+
+  parseArchiveEntries(doc, base) {
     const items = [];
     doc.querySelectorAll('.entry').forEach(entry => {
       const a = entry.querySelector('a');
@@ -60,43 +98,18 @@ export class StatsAPI {
       if (a?.href && title) {
         const href = a.getAttribute('href');
         items.push({
-          url: href.startsWith('http') ? href : `${source}${href.startsWith('/') ? '' : '/'}${href.replace(/^\//, '')}`,
+          url: href.startsWith('http') ? href : `${base}${href.startsWith('/') ? '' : '/'}${href.replace(/^\//, '')}`,
           title,
           cover: img?.src || img?.dataset?.src || '',
-          source: source.includes('adult') ? 'mangaWorldAdult' : 'mangaWorld',
-          isAdult: source.includes('adult')
+          source: base.includes('adult') ? 'mangaWorldAdult' : 'mangaWorld',
+          isAdult: base.includes('adult')
         });
       }
     });
     return items;
   }
 
-  parseLatestGrid(doc, source) {
-    // Ultimi capitoli aggiunti: .comics-grid .entry
-    const list = [];
-    doc.querySelectorAll('.comics-grid .entry').forEach(entry => {
-      const link = entry.querySelector('a.thumb, a');
-      const img = entry.querySelector('img');
-      const title = entry.querySelector('.manga-title, .name')?.textContent?.trim();
-      const latest = entry.querySelector('.content .xanh, .xanh')?.textContent?.trim()
-        ?.replace(/^cap\.\s*/i, '')
-        ?.replace(/^capitolo\s*/i, '') || '';
-      if (link?.href && title) {
-        const href = link.getAttribute('href');
-        list.push({
-          url: href.startsWith('http') ? href : `${source}${href.startsWith('/') ? '' : '/'}${href.replace(/^\//, '')}`,
-          title,
-          cover: img?.src || img?.dataset?.src || '',
-          latestChapter: latest,
-          source: source.includes('adult') ? 'mangaWorldAdult' : 'mangaWorld',
-          isAdult: source.includes('adult')
-        });
-      }
-    });
-    return list;
-  }
-
-  // Recenti con paginazione (site = false -> normal, true -> adult)
+  // Recenti con paginazione
   async getLatestUpdates(adult = false, page = 1) {
     const key = `latest_${adult}_${page}`;
     const c = this.getCached(key); if (c) return c;
@@ -110,7 +123,7 @@ export class StatsAPI {
     return out;
   }
 
-  // Più letti (most_read) con paginazione
+  // Più letti con paginazione
   async getMostFavorites(adult = false, page = 1) {
     const key = `most_${adult}_${page}`;
     const c = this.getCached(key); if (c) return c;
@@ -138,7 +151,7 @@ export class StatsAPI {
     return out;
   }
 
-  // Ricerca avanzata esclusiva (adult separato da normal)
+  // Ricerca avanzata (un genere per query; AND multiplo si fa client-side in Categories.jsx)
   async searchAdvanced({
     genres = [],
     types = [],
@@ -150,14 +163,11 @@ export class StatsAPI {
   } = {}) {
     const base = BASE(adult);
     const params = new URLSearchParams();
-    if (genres.length > 0) {
-      // MangaWorld accetta un genere per richiesta – uso il primo per pagina (l’AND vero lo fai lato UI combinando)
-      params.append('genre', genres[0]);
-    }
+    if (genres.length > 0) params.append('genre', genres[0]); // il resto lo intersecti lato UI
     if (types[0]) params.append('type', types[0]);
     if (status) params.append('status', status);
     if (year) params.append('year', year);
-    params.append('sort', sort);
+    params.append('sort', sort || 'most_read');
     params.append('page', String(page));
 
     const url = `${base}/archive?${params.toString()}`;
@@ -171,12 +181,16 @@ export class StatsAPI {
     const key = 'all_cats';
     const c = this.getCached(key); if (c) return c;
     const categories = {
-      genres: GENRES.map(slug => ({ id: slug, slug, name: slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) })),
+      genres: GENRES.map(slug => ({
+        id: slug,
+        slug,
+        name: slug.replace(/-/g, ' ').replace(/\b\w/g, m => m.toUpperCase())
+      })),
       themes: ['ecchi','gender-bender','harem','shoujo-ai','shounen-ai','yaoi','yuri'].map(slug => ({
-        id: slug, slug, name: slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+        id: slug, slug, name: slug.replace(/-/g, ' ').replace(/\b\w/g, m => m.toUpperCase())
       })),
       demographics: ['shounen','shoujo','seinen','josei'].map(slug => ({
-        id: slug, slug, name: slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+        id: slug, slug, name: slug.replace(/-/g, ' ').replace(/\b\w/g, m => m.toUpperCase())
       })),
       types: [
         { id:'manga', name:'Manga', slug:'manga' },
@@ -209,4 +223,6 @@ export class StatsAPI {
   }
 }
 
-export default new StatsAPI();
+const statsAPI = new StatsAPI();
+export default statsAPI;
+export { StatsAPI };
