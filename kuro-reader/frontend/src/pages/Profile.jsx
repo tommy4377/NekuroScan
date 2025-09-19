@@ -3,7 +3,7 @@ import {
   Container, VStack, HStack, Heading, Text, Avatar, Box, Button, Input,
   FormControl, FormLabel, SimpleGrid, Divider, useToast, InputGroup,
   InputRightElement, IconButton, Switch, Badge, Tabs, TabList, Tab,
-  TabPanels, TabPanel, Select, useClipboard
+  TabPanels, TabPanel, Select, useClipboard, Image
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon, EditIcon, CheckIcon, CopyIcon } from '@chakra-ui/icons';
 import { FaCamera, FaSave, FaShare, FaLock, FaGlobe, FaTrash, FaQrcode } from 'react-icons/fa';
@@ -18,8 +18,8 @@ export default function Profile() {
   
   // States
   const [isEditing, setIsEditing] = useState(false);
-  const [username, setUsername] = useState(user?.username || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [bio, setBio] = useState('');
   const [avatar, setAvatar] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -35,9 +35,20 @@ export default function Profile() {
   const { hasCopied, onCopy } = useClipboard(profileUrl);
 
   // Library data
-  const [reading] = useState(() => JSON.parse(localStorage.getItem('reading') || '[]'));
-  const [completed] = useState(() => JSON.parse(localStorage.getItem('completed') || '[]'));
-  const [favorites] = useState(() => JSON.parse(localStorage.getItem('favorites') || '[]'));
+  const [reading, setReading] = useState([]);
+  const [completed, setCompleted] = useState([]);
+  const [favorites, setFavorites] = useState([]);
+
+  // Load library data
+  useEffect(() => {
+    const savedReading = JSON.parse(localStorage.getItem('reading') || '[]');
+    const savedCompleted = JSON.parse(localStorage.getItem('completed') || '[]');
+    const savedFavorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    
+    setReading(savedReading);
+    setCompleted(savedCompleted);
+    setFavorites(savedFavorites);
+  }, []);
 
   // Load saved data
   useEffect(() => {
@@ -48,7 +59,7 @@ export default function Profile() {
       // Load persistent avatar
       const savedAvatar = localStorage.getItem(`avatar_${user.id}`) || 
                         localStorage.getItem('userAvatar') || 
-                        user.avatar;
+                        user.avatar || '';
       if (savedAvatar) {
         setAvatar(savedAvatar);
       }
@@ -58,12 +69,12 @@ export default function Profile() {
                       localStorage.getItem('userBio') || '';
       setBio(savedBio);
       
-      // Load privacy
+      // Load privacy - FIX: check both keys
       const savedPublic = localStorage.getItem(`public_${user.id}`) === 'true' ||
                          localStorage.getItem('profilePublic') === 'true';
       setIsPublic(savedPublic);
       
-      // Generate QR code
+      // Generate QR code if public
       if (savedPublic) {
         generateQRCode();
       }
@@ -99,11 +110,6 @@ export default function Profile() {
       }
       localStorage.setItem('userAvatar', result);
       
-      // Persist user data
-      if (user) {
-        persistUserData(user.id);
-      }
-      
       toast({ title: 'Avatar aggiornato', status: 'success' });
     };
     reader.readAsDataURL(file);
@@ -112,52 +118,69 @@ export default function Profile() {
   const saveProfile = async () => {
     setLoading(true);
     
-    // Save locally with user ID
-    if (user) {
-      localStorage.setItem(`bio_${user.id}`, bio);
-      localStorage.setItem(`avatar_${user.id}`, avatar);
-      localStorage.setItem(`public_${user.id}`, isPublic.toString());
-      
-      // Also save globally for quick access
-      localStorage.setItem('userBio', bio);
-      localStorage.setItem('userAvatar', avatar);
-      localStorage.setItem('profilePublic', isPublic.toString());
-      
-      // Save public profile data if public
-      if (isPublic) {
-        const publicProfiles = JSON.parse(localStorage.getItem('publicProfiles') || '{}');
-        publicProfiles[username] = {
-          username,
-          avatar,
-          bio,
-          stats: {
-            totalRead: reading.length + completed.length,
-            favorites: favorites.length,
-            completed: completed.length
-          },
-          reading: reading.slice(0, 12),
-          completed: completed.slice(0, 12),
-          favorites: favorites.slice(0, 12),
-          privacy: 'public'
-        };
-        localStorage.setItem('publicProfiles', JSON.stringify(publicProfiles));
+    try {
+      // Save locally with user ID
+      if (user) {
+        localStorage.setItem(`bio_${user.id}`, bio);
+        localStorage.setItem(`avatar_${user.id}`, avatar);
+        localStorage.setItem(`public_${user.id}`, isPublic.toString());
+        
+        // Also save globally for quick access
+        localStorage.setItem('userBio', bio);
+        localStorage.setItem('userAvatar', avatar);
+        localStorage.setItem('profilePublic', isPublic.toString());
+        
+        // Save public profile data if public - FIX: Complete profile data
+        if (isPublic) {
+          const publicProfiles = JSON.parse(localStorage.getItem('publicProfiles') || '{}');
+          publicProfiles[username] = {
+            username,
+            avatar,
+            bio,
+            stats: {
+              totalRead: reading.length + completed.length,
+              favorites: favorites.length,
+              completed: completed.length
+            },
+            reading: reading.slice(0, 12),
+            completed: completed.slice(0, 12),
+            favorites: favorites.slice(0, 12),
+            privacy: 'public' // FIX: set as public not private
+          };
+          localStorage.setItem('publicProfiles', JSON.stringify(publicProfiles));
+          
+          await generateQRCode();
+        } else {
+          // Remove from public profiles if set to private
+          const publicProfiles = JSON.parse(localStorage.getItem('publicProfiles') || '{}');
+          delete publicProfiles[username];
+          localStorage.setItem('publicProfiles', JSON.stringify(publicProfiles));
+        }
+        
+        // Persist all user data
+        if (persistUserData) {
+          persistUserData(user.id);
+        }
       }
       
-      // Persist all user data
-      persistUserData(user.id);
-    }
-    
-    setIsEditing(false);
-    setLoading(false);
-    
-    toast({ 
-      title: 'Profilo salvato', 
-      description: isPublic ? 'Il tuo profilo è ora pubblico' : 'Il tuo profilo è privato',
-      status: 'success' 
-    });
-    
-    if (isPublic) {
-      generateQRCode();
+      setIsEditing(false);
+      
+      toast({ 
+        title: 'Profilo salvato', 
+        description: isPublic ? 'Il tuo profilo è ora pubblico' : 'Il tuo profilo è privato',
+        status: 'success',
+        duration: 3000
+      });
+      
+    } catch (error) {
+      console.error('Save profile error:', error);
+      toast({ 
+        title: 'Errore nel salvataggio', 
+        status: 'error',
+        duration: 3000
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -210,6 +233,17 @@ export default function Profile() {
       toast({ title: 'Link copiato!', status: 'success' });
     }
   };
+
+  // FIX: Prevent empty render
+  if (!user) {
+    return (
+      <Container maxW="container.xl" py={8}>
+        <VStack spacing={8}>
+          <Text>Caricamento profilo...</Text>
+        </VStack>
+      </Container>
+    );
+  }
 
   return (
     <Container maxW="container.xl" py={8}>
@@ -347,7 +381,7 @@ export default function Profile() {
                   {qrCode && (
                     <Box mt={3}>
                       <Text fontSize="xs" mb={1}>QR Code:</Text>
-                      <Image src={qrCode} w="100px" />
+                      <Image src={qrCode} w="100px" alt="QR Code" />
                     </Box>
                   )}
                 </Box>
