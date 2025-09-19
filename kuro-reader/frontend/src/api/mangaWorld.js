@@ -119,7 +119,7 @@ export class MangaWorldAPI {
         chapters.push({
           url: full,
           chapterNumber: isNaN(parseFloat(label)) ? i + 1 : parseFloat(label),
-          title: `Capitolo ${label}`,
+          title: `Capitolo ${label.slice(0, 2)}`,
           dateAdd: '' // non mostriamo date
         });
       });
@@ -241,3 +241,4 @@ export class MangaWorldAPI {
     }
   }
 }
+
