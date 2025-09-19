@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
   Button, useToast, Skeleton, Badge, IconButton, Spinner,
-  Select, Switch, Center
+  Switch, Center
 } from '@chakra-ui/react';
 import { FaClock, FaArrowUp } from 'react-icons/fa';
 import { motion } from 'framer-motion';
@@ -22,8 +22,9 @@ function Latest() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   
   const toast = useToast();
-  const observerTarget = useRef(null);
-  
+  const observerRef = useRef(null);
+  const loadingRef = useRef(false);
+
   // Clean chapter number helper
   const cleanChapterNumber = (chapter) => {
     if (!chapter) return '';
@@ -43,7 +44,11 @@ function Latest() {
 
   // Load data function
   const loadData = useCallback(async (pageNum, reset = false) => {
-    if (loading) return;
+    // Previeni chiamate multiple
+    if (loadingRef.current) return;
+    if (!reset && !hasMore) return;
+    
+    loadingRef.current = true;
     
     if (reset) {
       setInitialLoading(true);
@@ -51,11 +56,12 @@ function Latest() {
       setPage(1);
       setHasMore(true);
       pageNum = 1;
+    } else {
+      setLoading(true);
     }
     
-    setLoading(true);
-    
     try {
+      console.log(`Loading page ${pageNum}...`);
       const result = await statsAPI.getLatestUpdates(includeAdult, pageNum);
       
       if (result && result.results) {
@@ -64,14 +70,19 @@ function Latest() {
           latestChapter: cleanChapterNumber(item.latestChapter)
         }));
         
-        if (reset || pageNum === 1) {
-          setList(cleanedResults);
-        } else {
-          setList(prev => [...prev, ...cleanedResults]);
-        }
+        setList(prev => {
+          if (reset || pageNum === 1) {
+            return cleanedResults;
+          }
+          // Evita duplicati
+          const existingUrls = new Set(prev.map(item => item.url));
+          const newItems = cleanedResults.filter(item => !existingUrls.has(item.url));
+          return [...prev, ...newItems];
+        });
         
         setPage(pageNum);
         setHasMore(result.hasMore && cleanedResults.length > 0);
+        console.log(`Loaded ${cleanedResults.length} items. Has more: ${result.hasMore}`);
       }
     } catch (error) {
       console.error('Error loading latest:', error);
@@ -83,38 +94,44 @@ function Latest() {
       });
       setHasMore(false);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
       setInitialLoading(false);
     }
-  }, [includeAdult, loading, toast]);
+  }, [includeAdult, hasMore, toast]);
 
   // Initial load
   useEffect(() => {
     loadData(1, true);
   }, [includeAdult]);
 
-  // Intersection Observer for infinite scroll
+  // Setup Intersection Observer
   useEffect(() => {
     const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0].isIntersecting && hasMore && !loading && !initialLoading) {
+      (entries) => {
+        const target = entries[0];
+        if (target.isIntersecting && hasMore && !loadingRef.current && !initialLoading && list.length > 0) {
+          console.log('Trigger loading next page...');
           loadData(page + 1);
         }
       },
-      { threshold: 0.1, rootMargin: '100px' }
+      {
+        root: null,
+        rootMargin: '200px',
+        threshold: 0.1
+      }
     );
 
-    const currentTarget = observerTarget.current;
-    if (currentTarget) {
-      observer.observe(currentTarget);
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
     }
 
     return () => {
-      if (currentTarget) {
-        observer.unobserve(currentTarget);
+      if (observerRef.current) {
+        observer.unobserve(observerRef.current);
       }
     };
-  }, [hasMore, loading, page, initialLoading, loadData]);
+  }, [hasMore, page, list.length, initialLoading, loadData]);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -185,47 +202,23 @@ function Latest() {
                   transition={{ delay: Math.min(i * 0.03, 0.5) }}
                   position="relative"
                 >
-                  <MangaCard manga={item} hideSource />
-                  
-                  {/* Chapter Badge */}
-                  {item.latestChapter && (
-                    <Box
-                      position="absolute"
-                      bottom="60px"
-                      left={2}
-                      right={2}
-                      bg="blue.600"
-                      color="white"
-                      px={2}
-                      py={1}
-                      borderRadius="md"
-                      fontSize="xs"
-                      textAlign="center"
-                      opacity={0.95}
-                      fontWeight="bold"
-                    >
-                      Capitolo {item.latestChapter}
-                    </Box>
-                  )}
-                  
-                  {/* Adult Badge */}
-                  {item.isAdult && (
-                    <Badge 
-                      position="absolute" 
-                      top={2} 
-                      right={2} 
-                      colorScheme="pink" 
-                      fontSize="xs"
-                    >
-                      18+
-                    </Badge>
-                  )}
+                  <MangaCard 
+                    manga={item} 
+                    hideSource 
+                    showLatestChapter={true} // Passa prop per mostrare il capitolo
+                  />
                 </MotionBox>
               ))}
             </SimpleGrid>
 
-            {/* Load More Trigger */}
-            <Center ref={observerTarget} py={8}>
+            {/* Observer Target - IMPORTANTE: elemento visibile per triggerare il caricamento */}
+            <Box 
+              ref={observerRef}
+              h="100px" 
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+            >
               {loading && (
                 <HStack spacing={3}>
                   <Spinner color="purple.500" />
@@ -233,9 +226,9 @@ function Latest() {
                 </HStack>
               )}
               {!hasMore && list.length > 0 && (
-                <Text color="gray.500">Hai raggiunto la fine</Text>
+                <Text color="gray.500">Fine dei risultati</Text>
               )}
-            </Center>
+            </Box>
           </>
         ) : (
           <Center py={12}>
