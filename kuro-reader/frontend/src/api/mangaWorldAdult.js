@@ -364,13 +364,13 @@ export class MangaWorldAdultAPI {
         }
       }
       
-      // Strategia 2: Cerca negli script - FIX REGEX
+      // Strategia 2: Cerca negli script - FIX DEI REGEX PROBLEMATICI
       if (pages.length === 0) {
         const scripts = doc.querySelectorAll('script');
         scripts.forEach(script => {
           const content = script.textContent || script.innerHTML || '';
           
-          // Pattern corretti per array di immagini
+          // Pattern corretti per array di immagini - FIX: escaped backticks
           const arrayPatterns = [
             /pages\s*=\s*```math
 ([\s\S]*?)```/,
@@ -379,6 +379,12 @@ export class MangaWorldAdultAPI {
             /pageArray\s*=\s*```math
 ([\s\S]*?)```/,
             /imageArray\s*=\s*```math
+([\s\S]*?)```/,
+            /var\s+pages\s*=\s*```math
+([\s\S]*?)```/,
+            /const\s+pages\s*=\s*```math
+([\s\S]*?)```/,
+            /let\s+pages\s*=\s*```math
 ([\s\S]*?)```/
           ];
           
@@ -496,9 +502,4 @@ export class MangaWorldAdultAPI {
       }
       
       return trending;
-    } catch (error) {
-      console.error('Get trending error:', error);
-      return [];
-    }
-  }
-}
+    } catch 
