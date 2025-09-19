@@ -1,11 +1,11 @@
 import React from 'react';
-import { Box, Image, Text, VStack } from '@chakra-ui/react';
+import { Box, Image, Text, VStack, Badge } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
 const MotionBox = motion(Box);
 
-function MangaCard({ manga, hideSource = false, showLatest = true }) {
+function MangaCard({ manga, hideSource = false, showLatest = false }) {
   const navigate = useNavigate();
   
   const handleClick = () => {
@@ -29,6 +29,7 @@ function MangaCard({ manga, hideSource = false, showLatest = true }) {
         height="100%"
         transition="all 0.3s"
         _hover={{ bg: 'gray.700' }}
+        position="relative"
       >
         <Box position="relative" width="100%" paddingBottom="140%">
           <Image
@@ -43,6 +44,24 @@ function MangaCard({ manga, hideSource = false, showLatest = true }) {
             loading="lazy"
             fallbackSrc="https://via.placeholder.com/200x280"
           />
+          
+          {/* Badge posizionati sull'immagine con sfondo semitrasparente */}
+          {showLatest && manga.latestChapter && (
+            <Badge 
+              position="absolute" 
+              bottom={2} 
+              left={2} 
+              right={2}
+              colorScheme="blue"
+              fontSize="xs"
+              textAlign="center"
+              bg="blue.600"
+              color="white"
+              opacity={0.95}
+            >
+              Capitolo {manga.latestChapter.replace(/^cap\.\s*/i, '')}
+            </Badge>
+          )}
         </Box>
         
         <VStack p={3} spacing={1} align="stretch" flex={1}>
@@ -54,12 +73,6 @@ function MangaCard({ manga, hideSource = false, showLatest = true }) {
           >
             {manga.title}
           </Text>
-          
-          {showLatest && manga.latestChapter && (
-            <Text fontSize="xs" color="gray.400" noOfLines={1}>
-              Cap. {manga.latestChapter}
-            </Text>
-          )}
         </VStack>
       </VStack>
     </MotionBox>
