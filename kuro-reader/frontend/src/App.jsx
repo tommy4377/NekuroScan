@@ -1,5 +1,5 @@
 import React, { useEffect, lazy, Suspense } from 'react';
-import { ChakraProvider, Box, Spinner, Center } from '@chakra-ui/react';
+import { ChakraProvider, Box, Spinner, Center, useToast } from '@chakra-ui/react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { theme } from './styles/theme';
 
@@ -7,7 +7,7 @@ import { theme } from './styles/theme';
 import Navigation from './components/Navigation';
 import Library from './components/Library';
 
-// Pages - Lazy load for better performance
+// Pages - Lazy load
 const Home = lazy(() => import('./pages/Home'));
 const Search = lazy(() => import('./pages/Search'));
 const MangaDetails = lazy(() => import('./pages/MangaDetails'));
@@ -21,6 +21,7 @@ const TopType = lazy(() => import('./pages/TopType'));
 const Profile = lazy(() => import('./pages/Profile'));
 const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Notifications = lazy(() => import('./pages/Notifications'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 import useAuth from './hooks/useAuth';
@@ -34,7 +35,7 @@ function LoadingScreen() {
   );
 }
 
-// Scroll to top on route change
+// Scroll to top
 function ScrollToTop() {
   const { pathname } = useLocation();
   
@@ -72,26 +73,6 @@ function Layout({ children }) {
   );
 }
 
-// Route configuration
-const routes = [
-  { path: '/', element: <Welcome />, layout: false },
-  { path: '/login', element: <Login />, layout: false },
-  { path: '/home', element: <Home /> },
-  { path: '/search', element: <Search /> },
-  { path: '/categories', element: <Categories /> },
-  { path: '/library', element: <Library /> },
-  { path: '/manga/:source/:id', element: <MangaDetails /> },
-  { path: '/latest', element: <Latest /> },
-  { path: '/popular', element: <Popular /> },
-  { path: '/top/:type', element: <TopType /> },
-  { path: '/profile', element: <ProtectedRoute><Profile /></ProtectedRoute> },
-  { path: '/settings', element: <ProtectedRoute><Settings /></ProtectedRoute> },
-  { path: '/user/:username', element: <PublicProfile /> },
-  { path: '/read/:source/:mangaId/:chapterId', element: <ReaderPage />, layout: false },
-  { path: '/404', element: <NotFound /> },
-  { path: '*', element: <Navigate to="/404" replace /> }
-];
-
 // Main App Component
 function App() {
   const { initAuth, startAutoSync } = useAuth();
@@ -103,16 +84,58 @@ function App() {
     // Start auto sync
     const cleanup = startAutoSync();
     
-    // Service Worker registration
+    // PWA Service Worker con auto-update
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(err => {
-          console.log('SW registration failed:', err);
+      // Registra service worker
+      navigator.serviceWorker.register('/sw.js').then(registration => {
+        console.log('SW registered');
+        
+        // Check for updates every 30 seconds
+        setInterval(() => {
+          registration.update();
+        }, 30000);
+        
+        // Listen for updates
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // New update available
+              if (window.confirm('Nuovo aggiornamento disponibile! Vuoi ricaricare?')) {
+                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                window.location.reload();
+              }
+            }
+          });
         });
+      }).catch(err => {
+        console.error('SW registration failed:', err);
+      });
+      
+      // Handle controller change
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          window.location.reload();
+          refreshing = true;
+        }
       });
     }
     
-    // Cleanup
+    // Clear old cache periodically
+    setInterval(() => {
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => {
+            if (name !== 'kuroreader-v2') {
+              caches.delete(name);
+            }
+          });
+        });
+      }
+    }, 60000); // Every minute
+    
     return cleanup;
   }, []);
 
@@ -124,19 +147,37 @@ function App() {
       e.preventDefault();
       deferredPrompt = e;
       
-      // Show install button if needed
-      const installBtn = document.getElementById('install-btn');
-      if (installBtn) {
-        installBtn.style.display = 'block';
-        installBtn.addEventListener('click', () => {
+      // Auto-show install prompt after 5 seconds
+      setTimeout(() => {
+        if (deferredPrompt) {
           deferredPrompt.prompt();
-          deferredPrompt.userChoice.then((choice) => {
+          deferredPrompt.userChoice.then(() => {
             deferredPrompt = null;
           });
-        });
-      }
+        }
+      }, 5000);
     });
   }, []);
+
+  const routes = [
+    { path: '/', element: <Welcome />, layout: false },
+    { path: '/login', element: <Login />, layout: false },
+    { path: '/home', element: <Home /> },
+    { path: '/search', element: <Search /> },
+    { path: '/categories', element: <Categories /> },
+    { path: '/library', element: <Library /> },
+    { path: '/manga/:source/:id', element: <MangaDetails /> },
+    { path: '/latest', element: <Latest /> },
+    { path: '/popular', element: <Popular /> },
+    { path: '/top/:type', element: <TopType /> },
+    { path: '/profile', element: <ProtectedRoute><Profile /></ProtectedRoute> },
+    { path: '/settings', element: <Settings /> },
+    { path: '/notifications', element: <Notifications /> },
+    { path: '/user/:username', element: <PublicProfile /> },
+    { path: '/read/:source/:mangaId/:chapterId', element: <ReaderPage />, layout: false },
+    { path: '/404', element: <NotFound /> },
+    { path: '*', element: <Navigate to="/404" replace /> }
+  ];
 
   return (
     <ChakraProvider theme={theme}>
