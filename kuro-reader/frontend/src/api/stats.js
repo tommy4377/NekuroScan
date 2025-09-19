@@ -1,6 +1,6 @@
 import { config } from '../config';
 
-// Generi supportati (RIMOSSI QUELLI NON FUNZIONANTI)
+// Generi supportati
 const GENRES = [
   'adulti','arti-marziali','avventura','azione','commedia','doujinshi','drammatico','ecchi',
   'fantasy','gender-bender','harem','hentai','horror','josei','lolicon','maturo','mecha','mistero',
@@ -61,23 +61,39 @@ export class StatsAPI {
     return parser.parseFromString(html, 'text/html');
   }
 
-  // Controllo paginazione robusto
-  hasMoreFromPagination(doc) {
-    const nextBtn = doc.querySelector('ul.pagination li.page-item.next:not(.disabled), ul.pagination li.next:not(.disabled)');
-    return !!nextBtn;
+  // FIX CRITICO: Cambio logica per hasMore
+  hasMoreFromPagination(doc, currentResults, page) {
+    // METODO 1: Se ci sono risultati, probabilmente ci sono altre pagine
+    if (currentResults.length >= 15) {
+      // Se abbiamo 15+ risultati, probabilmente c'è un'altra pagina
+      return true;
+    }
+    
+    // METODO 2: Cerca il pulsante next (come fallback)
+    const nextBtn = doc.querySelector('ul.pagination li.page-item.next:not(.disabled), ul.pagination li.next:not(.disabled), a.next');
+    if (nextBtn) return true;
+    
+    // METODO 3: Se siamo a pagina 1-3 e ci sono risultati, assumiamo ci siano altre pagine
+    if (page <= 3 && currentResults.length > 0) {
+      return true;
+    }
+    
+    // Se non ci sono risultati o sono pochi, non ci sono altre pagine
+    return false;
   }
 
   // Parser per ultimi capitoli aggiunti
   parseLatestGrid(doc, base) {
     const list = [];
-    const entries = doc.querySelectorAll('.comics-grid .entry');
+    const entries = doc.querySelectorAll('.comics-grid .entry, .entry');
     
-    entries.forEach(entry => {
+    entries.forEach((entry, index) => {
+      if (index >= 20) return; // Limita a 20 per pagina
+      
       const link = entry.querySelector('a.thumb, a');
       const img = entry.querySelector('img');
       const title = entry.querySelector('.manga-title, .name')?.textContent?.trim();
       
-      // Prendi il primo capitolo recente (quello più in alto)
       const firstChapter = entry.querySelector('.content .xanh');
       const latestChapter = firstChapter?.textContent
         ?.replace(/^cap\.\s*/i, '')
@@ -105,7 +121,9 @@ export class StatsAPI {
     const items = [];
     const entries = doc.querySelectorAll('.entry');
     
-    entries.forEach(entry => {
+    entries.forEach((entry, index) => {
+      if (index >= 20) return; // Limita a 20 per pagina
+      
       const link = entry.querySelector('a');
       const img = entry.querySelector('img');
       const title = entry.querySelector('.name, .title, .manga-title')?.textContent?.trim();
@@ -134,11 +152,17 @@ export class StatsAPI {
     try {
       const base = BASE(includeAdult);
       const url = `${base}/?page=${page}`;
+      console.log('Fetching latest from:', url);
+      
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
       
       const results = this.parseLatestGrid(doc, base);
-      const hasMore = this.hasMoreFromPagination(doc);
+      
+      // FIX: hasMore basato sui risultati effettivi
+      const hasMore = this.hasMoreFromPagination(doc, results, page);
+      
+      console.log(`Latest page ${page}: ${results.length} results, hasMore: ${hasMore}`);
       
       const finalResults = {
         results,
@@ -164,11 +188,17 @@ export class StatsAPI {
     try {
       const base = BASE(includeAdult);
       const url = `${base}/archive?sort=most_read&page=${page}`;
+      console.log('Fetching favorites from:', url);
+      
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
       
       const results = this.parseArchiveEntries(doc, base);
-      const hasMore = this.hasMoreFromPagination(doc);
+      
+      // FIX: hasMore basato sui risultati effettivi
+      const hasMore = this.hasMoreFromPagination(doc, results, page);
+      
+      console.log(`Favorites page ${page}: ${results.length} results, hasMore: ${hasMore}`);
       
       const finalResults = {
         results,
@@ -194,11 +224,17 @@ export class StatsAPI {
     try {
       const base = BASE(includeAdult);
       const url = `${base}/archive?type=${type}&sort=most_read&page=${page}`;
+      console.log('Fetching top', type, 'from:', url);
+      
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
       
       const results = this.parseArchiveEntries(doc, base);
-      const hasMore = this.hasMoreFromPagination(doc);
+      
+      // FIX: hasMore basato sui risultati effettivi
+      const hasMore = this.hasMoreFromPagination(doc, results, page);
+      
+      console.log(`Top ${type} page ${page}: ${results.length} results, hasMore: ${hasMore}`);
       
       const finalResults = {
         results,
@@ -232,7 +268,7 @@ export class StatsAPI {
       const params = new URLSearchParams();
       
       if (genres.length > 0) {
-        params.append('genre', genres[0]); // MangaWorld accetta un genere alla volta
+        params.append('genre', genres[0]);
       }
       
       if (types.length > 0) {
@@ -245,11 +281,17 @@ export class StatsAPI {
       params.append('page', page);
 
       const url = `${base}/archive?${params.toString()}`;
+      console.log('Advanced search:', url);
+      
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
       
       const results = this.parseArchiveEntries(doc, base);
-      const hasMore = this.hasMoreFromPagination(doc);
+      
+      // FIX: hasMore basato sui risultati effettivi
+      const hasMore = this.hasMoreFromPagination(doc, results, page);
+      
+      console.log(`Search page ${page}: ${results.length} results, hasMore: ${hasMore}`);
       
       return {
         results,
@@ -267,7 +309,7 @@ export class StatsAPI {
     }
   }
 
-  // Tutte le categorie (AGGIORNATE)
+  // Tutte le categorie
   async getAllCategories() {
     const cacheKey = 'all_categories';
     const cached = this.getCached(cacheKey);
@@ -299,7 +341,6 @@ export class StatsAPI {
       ]
     };
 
-    // Generi (solo quelli funzionanti)
     GENRES.forEach(slug => {
       const name = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       categories.genres.push({
@@ -309,7 +350,6 @@ export class StatsAPI {
       });
     });
 
-    // Demographics
     ['shounen', 'shoujo', 'seinen', 'josei'].forEach(slug => {
       const name = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       categories.demographics.push({
@@ -319,7 +359,6 @@ export class StatsAPI {
       });
     });
 
-    // Anni
     const currentYear = new Date().getFullYear();
     for (let year = currentYear; year >= 1990; year--) {
       categories.years.push({
