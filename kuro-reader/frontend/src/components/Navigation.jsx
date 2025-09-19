@@ -1,9 +1,10 @@
+// frontend/src/components/Navigation.jsx
 import React, { useState, useMemo } from 'react';
 import {
   Box, Flex, HStack, IconButton, Button, Input, InputGroup, InputLeftElement,
   useDisclosure, Container, Avatar, Menu, MenuButton, MenuList, MenuItem,
   MenuDivider, Text, Image, Drawer, DrawerBody, DrawerHeader, DrawerOverlay,
-  DrawerContent, DrawerCloseButton, VStack, Divider, useBreakpointValue
+  DrawerContent, DrawerCloseButton, VStack, Divider
 } from '@chakra-ui/react';
 import { HamburgerIcon, SearchIcon } from '@chakra-ui/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -18,10 +19,8 @@ function Navigation() {
   const location = useLocation();
   const { user, logout, syncToServer } = useAuth();
 
-  // non mostrare nel reader
   if (location.pathname.includes('/read/')) return null;
 
-  // avatar src
   const avatarSrc = useMemo(() => {
     const local = localStorage.getItem('userAvatar');
     return user?.avatar || local || undefined;
@@ -44,7 +43,7 @@ function Navigation() {
 
   return (
     <>
-      <Box h="64px" /> {/* spacer per nav fixed */}
+      <Box h="64px" /> {/* Spacer per nav fixed */}
       <Box
         bg="rgba(26,32,44,0.98)"
         position="fixed"
@@ -90,9 +89,7 @@ function Navigation() {
             <Box display={{ base: 'none', md: 'block' }} flex={1} maxW="420px" mx={4}>
               <form onSubmit={handleSearch}>
                 <InputGroup size="sm">
-                  <InputLeftElement pointerEvents="none">
-                    <SearchIcon color="gray.400" />
-                  </InputLeftElement>
+                  <InputLeftElement pointerEvents="none"><SearchIcon color="gray.400" /></InputLeftElement>
                   <Input
                     placeholder="Cerca manga..."
                     value={query}
@@ -125,7 +122,7 @@ function Navigation() {
                       </VStack>
                     </MenuItem>
                     <MenuDivider />
-                    <MenuItem icon={<FaUser />} onClick={() => navigate('/profile')}>Il mio profilo</MenuItem>
+                    <MenuItem icon={<FaUser />} onClick={() => navigate('/user/' + user.username)}>Profilo pubblico</MenuItem>
                     <MenuItem icon={<FaBookmark />} onClick={() => navigate('/library')}>I miei manga</MenuItem>
                     <MenuDivider />
                     <MenuItem icon={<FaSignOutAlt />} onClick={doLogout} color="red.300">Logout</MenuItem>
@@ -174,7 +171,7 @@ function Navigation() {
               {user ? (
                 <VStack align="stretch" spacing={2}>
                   <HStack><Avatar size="sm" name={user.username} src={avatarSrc} /><Text>{user.username}</Text></HStack>
-                  <Link to="/profile" onClick={onClose}><Button variant="ghost" leftIcon={<FaUser />} w="100%">Il mio profilo</Button></Link>
+                  <Link to={`/user/${user.username}`} onClick={onClose}><Button variant="ghost" leftIcon={<FaUser />} w="100%">Profilo pubblico</Button></Link>
                   <Button variant="ghost" leftIcon={<FaSignOutAlt />} color="red.300" onClick={() => { doLogout(); onClose(); }}>
                     Logout
                   </Button>
