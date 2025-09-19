@@ -1,8 +1,7 @@
 import React, { useEffect, lazy, Suspense } from 'react';
-import { ChakraProvider, Box, Spinner, Center } from '@chakra-ui/react';
+import { ChakraProvider, Box, Spinner, Center, useToast } from '@chakra-ui/react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { theme } from './styles/theme';
-import ErrorBoundary from './components/ErrorBoundary';
 
 // Components
 import Navigation from './components/Navigation';
@@ -24,7 +23,6 @@ const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const NotFound = lazy(() => import('./pages/NotFound'));
-import { ThemeProvider } from './contexts/ThemeContext';
 
 import useAuth from './hooks/useAuth';
 
@@ -37,7 +35,7 @@ function LoadingScreen() {
   );
 }
 
-// Scroll to top component
+// Scroll to top
 function ScrollToTop() {
   const { pathname } = useLocation();
   
@@ -86,10 +84,9 @@ function App() {
     // Start auto sync
     const cleanup = startAutoSync();
     
-    // PWA Service Worker with auto-update
+    // PWA Service Worker con auto-update
     if ('serviceWorker' in navigator) {
-      let refreshing = false;
-      
+      // Registra service worker
       navigator.serviceWorker.register('/sw.js').then(registration => {
         console.log('SW registered');
         
@@ -105,9 +102,9 @@ function App() {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               // New update available
-              const shouldUpdate = window.confirm('Nuovo aggiornamento disponibile! Vuoi ricaricare?');
-              if (shouldUpdate) {
+              if (window.confirm('Nuovo aggiornamento disponibile! Vuoi ricaricare?')) {
                 newWorker.postMessage({ type: 'SKIP_WAITING' });
+                window.location.reload();
               }
             }
           });
@@ -117,6 +114,7 @@ function App() {
       });
       
       // Handle controller change
+      let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!refreshing) {
           window.location.reload();
@@ -126,11 +124,11 @@ function App() {
     }
     
     // Clear old cache periodically
-    const cacheInterval = setInterval(() => {
+    setInterval(() => {
       if ('caches' in window) {
         caches.keys().then(names => {
           names.forEach(name => {
-            if (!name.includes('kuroreader-v2')) {
+            if (name !== 'kuroreader-v2') {
               caches.delete(name);
             }
           });
@@ -138,33 +136,28 @@ function App() {
       }
     }, 60000); // Every minute
     
-    // PWA install prompt
+    return cleanup;
+  }, []);
+
+  // PWA install prompt
+  useEffect(() => {
     let deferredPrompt;
     
-    const handleBeforeInstallPrompt = (e) => {
+    window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
       
-      // Show install prompt after 5 seconds
+      // Auto-show install prompt after 5 seconds
       setTimeout(() => {
-        if (deferredPrompt && !window.matchMedia('(display-mode: standalone)').matches) {
+        if (deferredPrompt) {
           deferredPrompt.prompt();
           deferredPrompt.userChoice.then(() => {
             deferredPrompt = null;
           });
         }
       }, 5000);
-    };
-    
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    
-    // Cleanup
-    return () => {
-      cleanup();
-      clearInterval(cacheInterval);
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, [initAuth, startAutoSync]);
+    });
+  }, []);
 
   const routes = [
     { path: '/', element: <Welcome />, layout: false },
@@ -186,30 +179,24 @@ function App() {
     { path: '*', element: <Navigate to="/404" replace /> }
   ];
 
-    return (
+  return (
     <ChakraProvider theme={theme}>
-      <ThemeProvider>
-        <ErrorBoundary>
-          <Router>
-            <ScrollToTop />
-            <Suspense fallback={<LoadingScreen />}>
-              <Routes>
-                {routes.map(({ path, element, layout = true }) => (
-                  <Route
-                    key={path}
-                    path={path}
-                    element={layout ? <Layout>{element}</Layout> : element}
-                  />
-                ))}
-              </Routes>
-            </Suspense>
-          </Router>
-        </ErrorBoundary>
-      </ThemeProvider>
+      <Router>
+        <ScrollToTop />
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
+            {routes.map(({ path, element, layout = true }) => (
+              <Route
+                key={path}
+                path={path}
+                element={layout ? <Layout>{element}</Layout> : element}
+              />
+            ))}
+          </Routes>
+        </Suspense>
+      </Router>
     </ChakraProvider>
   );
 }
 
 export default App;
-
-
