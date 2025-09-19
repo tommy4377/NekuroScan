@@ -85,19 +85,6 @@ function Popular() {
           {list.map((item, i) => (
             <Box key={`${item.url}-${i}`} position="relative">
               <MangaCard manga={item} hideSource showLatest={false} />
-              {item.latestChapter && (
-                <Badge
-                  position="absolute"
-                  bottom={2}
-                  left={2}
-                  right={2}
-                  colorScheme="blue"
-                  fontSize="xs"
-                  textAlign="center"
-                >
-                  Cap. {item.latestChapter}
-                </Badge>
-              )}
               {item.isAdult && (
                 <Badge position="absolute" top={2} right={2} colorScheme="pink" fontSize="xs">
                   18+
