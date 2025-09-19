@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box, Container, Input, InputGroup, InputLeftElement, SimpleGrid,
   Heading, Text, VStack, HStack, Button, Skeleton, Badge, useToast,
-  ButtonGroup
+  ButtonGroup, Center, Spinner
 } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useInView } from 'react-intersection-observer';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import { motion } from 'framer-motion';
+import debounce from 'lodash.debounce';
 
 const MotionBox = motion(Box);
 
@@ -20,64 +22,118 @@ function Search() {
   const [query, setQuery] = useState('');
   const [searchMode, setSearchMode] = useState(() => {
     const saved = localStorage.getItem('searchMode');
-    return saved || 'all'; // 'all', 'normal', 'adult'
+    return saved || 'all';
   });
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [results, setResults] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const loadingRef = useRef(false);
+
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0.1,
+    rootMargin: '100px',
+    triggerOnce: false
+  });
+
+  // Debounced search function
+  const debouncedSearch = useCallback(
+    debounce(async (searchQuery, mode, pageNum = 1, append = false) => {
+      if (!searchQuery?.trim() || loadingRef.current) { 
+        setResults([]); 
+        setLoading(false);
+        return; 
+      }
+      
+      loadingRef.current = true;
+      
+      if (pageNum === 1) {
+        setLoading(true);
+        setResults([]);
+      } else {
+        setLoadingMore(true);
+      }
+      
+      try {
+        let data = [];
+        const limit = 40;
+        
+        if (mode === 'adult') {
+          const r = await apiManager.searchAdult(searchQuery, limit);
+          data = r || [];
+        } else if (mode === 'normal') {
+          const r = await apiManager.searchManga(searchQuery, limit);
+          data = r.all || r.manga || [];
+        } else {
+          const r = await apiManager.searchAll(searchQuery, { includeAdult: true, limit });
+          data = r.all || [];
+        }
+        
+        if (append) {
+          setResults(prev => {
+            const existingUrls = new Set(prev.map(m => m.url));
+            const newItems = data.filter(m => !existingUrls.has(m.url));
+            return [...prev, ...newItems];
+          });
+        } else {
+          setResults(data);
+        }
+        
+        // Simula paginazione - se ha risultati, potrebbe averne altri
+        setHasMore(data.length >= 20);
+        setPage(pageNum);
+        
+        if (data.length === 0 && pageNum === 1) {
+          toast({ 
+            title: 'Nessun risultato trovato', 
+            status: 'info', 
+            duration: 2500 
+          });
+        }
+      } catch (e) {
+        console.error('Search error:', e);
+        toast({ 
+          title: 'Errore nella ricerca', 
+          status: 'error' 
+        });
+        setResults(append ? results : []);
+        setHasMore(false);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+        loadingRef.current = false;
+      }
+    }, 500),
+    []
+  );
 
   useEffect(() => {
     const q = searchParams.get('q');
     if (q) {
       setQuery(q);
-      performSearch(q);
+      setPage(1);
+      debouncedSearch(q, searchMode, 1, false);
     } else {
       setResults([]);
     }
+    
+    return () => {
+      debouncedSearch.cancel();
+    };
   }, [searchParams, searchMode]);
 
-  const performSearch = async (q) => {
-    if (!q?.trim()) { 
-      setResults([]); 
-      return; 
+  // Auto load more on scroll
+  useEffect(() => {
+    if (inView && hasMore && !loadingRef.current && results.length > 0 && query) {
+      loadMore();
     }
-    
-    setLoading(true);
-    try {
-      let data = [];
-      
-      if (searchMode === 'adult') {
-        // Solo adult
-        const r = await apiManager.searchAdult(q, 40);
-        data = r || [];
-      } else if (searchMode === 'normal') {
-        // Solo normali
-        const r = await apiManager.searchManga(q, 40);
-        data = r.all || r.manga || [];
-      } else {
-        // Tutti (normale + adult)
-        const r = await apiManager.searchAll(q, { includeAdult: true, limit: 40 });
-        data = r.all || [];
-      }
-      
-      setResults(data);
-      
-      if (data.length === 0) {
-        toast({ 
-          title: 'Nessun risultato trovato', 
-          status: 'info', 
-          duration: 2500 
-        });
-      }
-    } catch (e) {
-      console.error('Search error:', e);
-      toast({ 
-        title: 'Errore nella ricerca', 
-        status: 'error' 
-      });
-      setResults([]);
-    } finally {
-      setLoading(false);
-    }
+  }, [inView, hasMore, results.length, query]);
+
+  const loadMore = () => {
+    if (loadingRef.current || !hasMore) return;
+    const nextPage = page + 1;
+    debouncedSearch(query, searchMode, nextPage, true);
   };
 
   const onSubmit = (e) => {
@@ -87,11 +143,26 @@ function Search() {
     }
   };
 
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setQuery(value);
+    
+    // Auto search while typing with debounce
+    if (value.length >= 3) {
+      setPage(1);
+      debouncedSearch(value, searchMode, 1, false);
+    } else if (value.length === 0) {
+      setResults([]);
+      setHasMore(true);
+    }
+  };
+
   const changeSearchMode = (mode) => {
     setSearchMode(mode);
     localStorage.setItem('searchMode', mode);
+    setPage(1);
     if (query.trim()) {
-      performSearch(query);
+      debouncedSearch(query, mode, 1, false);
     }
   };
 
@@ -116,12 +187,13 @@ function Search() {
                   <SearchIcon color="gray.400" />
                 </InputLeftElement>
                 <Input
-                  placeholder="Cerca per titolo..."
+                  placeholder="Cerca per titolo (min. 3 caratteri)..."
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={handleInputChange}
                   bg="gray.800"
                   border="none"
                   _focus={{ bg: 'gray.700', borderColor: 'purple.500' }}
+                  autoFocus
                 />
               </InputGroup>
               <Button 
@@ -129,7 +201,7 @@ function Search() {
                 size="lg" 
                 colorScheme="purple" 
                 isLoading={loading} 
-                isDisabled={!query.trim()}
+                isDisabled={!query.trim() || query.length < 3}
               >
                 Cerca
               </Button>
@@ -182,49 +254,66 @@ function Search() {
               )}
             </HStack>
 
-            {loading ? (
+            {loading && results.length === 0 ? (
               <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                 {[...Array(10)].map((_, i) => (
                   <Skeleton key={i} height="280px" borderRadius="lg" />
                 ))}
               </SimpleGrid>
             ) : (
-              <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-                {results.map((item, i) => (
-                  <MotionBox 
-                    key={`${item.url}-${i}`} 
-                    initial={{ opacity: 0, y: 20 }} 
-                    animate={{ opacity: 1, y: 0 }} 
-                    transition={{ delay: Math.min(i * 0.05, 1) }}
-                  >
-                    <Box position="relative">
+              <>
+                <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
+                  {results.map((item, i) => (
+                    <MotionBox 
+                      key={`${item.url}-${i}`} 
+                      initial={{ opacity: 0, y: 20 }} 
+                      animate={{ opacity: 1, y: 0 }} 
+                      transition={{ delay: Math.min(i * 0.05, 1) }}
+                    >
                       <MangaCard manga={item} hideSource />
-                      {item.isAdult && (
-                        <Badge 
-                          position="absolute" 
-                          top={2} 
-                          right={2} 
-                          colorScheme="pink" 
-                          fontSize="xs"
-                        >
-                          18+
-                        </Badge>
-                      )}
-                    </Box>
-                  </MotionBox>
-                ))}
-              </SimpleGrid>
+                    </MotionBox>
+                  ))}
+                </SimpleGrid>
+                
+                {/* Load More Trigger */}
+                {hasMore && query && (
+                  <Center ref={loadMoreRef} py={4}>
+                    {loadingMore ? (
+                      <HStack>
+                        <Spinner color="purple.500" />
+                        <Text>Caricamento altri risultati...</Text>
+                      </HStack>
+                    ) : (
+                      <Button
+                        colorScheme="purple"
+                        variant="outline"
+                        onClick={loadMore}
+                      >
+                        Carica altri
+                      </Button>
+                    )}
+                  </Center>
+                )}
+              </>
             )}
           </VStack>
         )}
 
-        {!loading && results.length === 0 && query && (
+        {!loading && results.length === 0 && query && query.length >= 3 && (
           <Box textAlign="center" py={12}>
             <Text fontSize="lg" color="gray.500">
               Nessun risultato per "{query}"
             </Text>
             <Text fontSize="sm" color="gray.600" mt={2}>
               Prova a cambiare il tipo di contenuti o modifica la ricerca
+            </Text>
+          </Box>
+        )}
+
+        {query && query.length < 3 && query.length > 0 && (
+          <Box textAlign="center" py={8}>
+            <Text color="gray.500">
+              Digita almeno 3 caratteri per cercare
             </Text>
           </Box>
         )}
