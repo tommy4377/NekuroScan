@@ -3,182 +3,347 @@ import {
   Container, VStack, HStack, Heading, Text, Avatar, Box, Button, Input,
   FormControl, FormLabel, SimpleGrid, Divider, useToast, InputGroup,
   InputRightElement, IconButton, Switch, Badge, Tabs, TabList, Tab,
-  TabPanels, TabPanel, useClipboard, Image, Stack
+  TabPanels, TabPanel, useClipboard, Image, Stack, Textarea, Modal,
+  ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalCloseButton, Progress, Stat, StatLabel, StatNumber, StatHelpText,
+  Wrap, WrapItem, Tooltip, useDisclosure, Alert, AlertIcon,
+  Skeleton, SkeletonCircle, SkeletonText, Flex, Center, Spinner,
+  Menu, MenuButton, MenuList, MenuItem, AvatarBadge
 } from '@chakra-ui/react';
-import { ViewIcon, ViewOffIcon, EditIcon, CheckIcon, CopyIcon } from '@chakra-ui/icons';
-import { FaCamera, FaSave, FaShare, FaLock, FaGlobe, FaTrash, FaQrcode } from 'react-icons/fa';
+import { ViewIcon, ViewOffIcon, EditIcon, CheckIcon, CopyIcon, CloseIcon } from '@chakra-ui/icons';
+import { 
+  FaCamera, FaSave, FaShare, FaLock, FaGlobe, FaTrash, FaQrcode,
+  FaTrophy, FaClock, FaBookOpen, FaHeart, FaEye, FaUserPlus,
+  FaTwitter, FaDiscord, FaInstagram, FaGithub, FaTiktok,
+  FaPalette, FaImage, FaUserFriends, FaMedal, FaCrown
+} from 'react-icons/fa';
+import { motion } from 'framer-motion';
 import MangaCard from '../components/MangaCard';
 import useAuth from '../hooks/useAuth';
 import QRCode from 'qrcode';
+import axios from 'axios';
+import { config } from '../config';
+
+const MotionBox = motion(Box);
+
+// Badge component
+const ProfileBadge = ({ type, label }) => {
+  const badges = {
+    veteran: { icon: FaTrophy, color: 'gold' },
+    reader: { icon: FaBookOpen, color: 'purple' },
+    social: { icon: FaUserFriends, color: 'blue' },
+    premium: { icon: FaCrown, color: 'yellow' }
+  };
+  
+  const badge = badges[type] || badges.reader;
+  const Icon = badge.icon;
+  
+  return (
+    <Tooltip label={label}>
+      <Box
+        p={2}
+        bg={`${badge.color}.500`}
+        borderRadius="full"
+        display="inline-flex"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Icon color="white" size="14" />
+      </Box>
+    </Tooltip>
+  );
+};
+
+// Stats card component
+const StatsCard = ({ icon: Icon, label, value, color = 'purple', helpText }) => (
+  <Stat
+    p={4}
+    bg="gray.800"
+    borderRadius="lg"
+    borderLeft="4px solid"
+    borderLeftColor={`${color}.500`}
+    _hover={{ transform: 'translateY(-2px)', boxShadow: 'lg' }}
+    transition="all 0.2s"
+  >
+    <HStack spacing={3}>
+      <Box p={2} bg={`${color}.500`} borderRadius="lg">
+        <Icon color="white" size="16" />
+      </Box>
+      <Box flex={1}>
+        <StatLabel fontSize="xs" color="gray.400">{label}</StatLabel>
+        <StatNumber fontSize="xl">{value}</StatNumber>
+        {helpText && <StatHelpText fontSize="xs">{helpText}</StatHelpText>}
+      </Box>
+    </HStack>
+  </Stat>
+);
 
 export default function Profile() {
   const toast = useToast();
-  const { user, updateProfile, changePassword, persistUserData } = useAuth();
+  const { user, updateProfile, deleteAccount } = useAuth();
+  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+  const { isOpen: isThemeOpen, onOpen: onThemeOpen, onClose: onThemeClose } = useDisclosure();
   const fileRef = useRef();
+  const bannerRef = useRef();
   
   // States
   const [isEditing, setIsEditing] = useState(false);
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [bio, setBio] = useState('');
-  const [avatar, setAvatar] = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [oldPass, setOldPass] = useState('');
-  const [newPass, setNewPass] = useState('');
-  const [confirmPass, setConfirmPass] = useState('');
-  const [isPublic, setIsPublic] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  
+  // Profile data
+  const [profileData, setProfileData] = useState({
+    username: '',
+    email: '',
+    displayName: '',
+    bio: '',
+    avatarUrl: '',
+    bannerUrl: '',
+    isPublic: false,
+    theme: 'default',
+    socialLinks: {
+      twitter: '',
+      discord: '',
+      instagram: '',
+      github: '',
+      tiktok: ''
+    }
+  });
+  
+  // Password change
+  const [showPass, setShowPass] = useState(false);
+  const [passwords, setPasswords] = useState({
+    old: '',
+    new: '',
+    confirm: ''
+  });
+  
+  // Stats
+  const [stats, setStats] = useState({
+    totalManga: 0,
+    reading: 0,
+    completed: 0,
+    favorites: 0,
+    chaptersRead: 0,
+    readingTime: 0,
+    profileViews: 0,
+    followers: 0,
+    following: 0,
+    badges: []
+  });
+  
+  // Library data
+  const [libraryData, setLibraryData] = useState({
+    reading: [],
+    completed: [],
+    favorites: []
+  });
+  
+  // QR Code
   const [qrCode, setQrCode] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
   
   // Profile URL
-  const profileUrl = `${window.location.origin}/user/${username}`;
+  const profileUrl = `${window.location.origin}/user/${profileData.username}`;
   const { hasCopied, onCopy } = useClipboard(profileUrl);
+  
+  // Themes
+  const themes = [
+    { id: 'default', name: 'Default', color: 'purple' },
+    { id: 'dark', name: 'Dark', color: 'gray' },
+    { id: 'ocean', name: 'Ocean', color: 'blue' },
+    { id: 'sunset', name: 'Sunset', color: 'orange' },
+    { id: 'forest', name: 'Forest', color: 'green' },
+    { id: 'sakura', name: 'Sakura', color: 'pink' }
+  ];
 
-  // Library data
-  const [reading, setReading] = useState([]);
-  const [completed, setCompleted] = useState([]);
-  const [favorites, setFavorites] = useState([]);
-
-  // Load library data
-  useEffect(() => {
-    const savedReading = JSON.parse(localStorage.getItem('reading') || '[]');
-    const savedCompleted = JSON.parse(localStorage.getItem('completed') || '[]');
-    const savedFavorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    
-    setReading(savedReading);
-    setCompleted(savedCompleted);
-    setFavorites(savedFavorites);
-  }, []);
-
-  // Load saved data
+  // Load data on mount
   useEffect(() => {
     if (user) {
-      setUsername(user.username);
-      setEmail(user.email);
-      
-      const savedAvatar = localStorage.getItem(`avatar_${user.id}`) || 
-                        localStorage.getItem('userAvatar') || 
-                        user.avatar || '';
-      if (savedAvatar) {
-        setAvatar(savedAvatar);
-      }
-      
-      const savedBio = localStorage.getItem(`bio_${user.id}`) || 
-                      localStorage.getItem('userBio') || '';
-      setBio(savedBio);
-      
-      const savedPublic = localStorage.getItem(`public_${user.id}`) === 'true' ||
-                         localStorage.getItem('profilePublic') === 'true';
-      setIsPublic(savedPublic);
-      
-      if (savedPublic) {
-        generateQRCode();
-      }
+      loadUserData();
+      loadStats();
     }
   }, [user]);
 
+  // Generate QR when public
+  useEffect(() => {
+    if (profileData.isPublic) {
+      generateQRCode();
+    }
+  }, [profileData.isPublic, profileData.username]);
+
+  const loadUserData = async () => {
+    if (!user) return;
+    
+    try {
+      const response = await axios.get(`${config.API_URL}/api/user/data`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      const { profile, reading, completed, favorites } = response.data;
+      
+      setProfileData({
+        username: user.username,
+        email: user.email,
+        displayName: profile?.displayName || user.username,
+        bio: profile?.bio || '',
+        avatarUrl: profile?.avatarUrl || '',
+        bannerUrl: profile?.bannerUrl || '',
+        isPublic: profile?.isPublic || false,
+        theme: profile?.theme || 'default',
+        socialLinks: profile?.socialLinks || {}
+      });
+      
+      setLibraryData({
+        reading: reading.slice(0, 12),
+        completed: completed.slice(0, 12),
+        favorites: favorites.slice(0, 12)
+      });
+      
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    }
+  };
+
+  const loadStats = async () => {
+    setLoadingStats(true);
+    try {
+      const response = await axios.get(`${config.API_URL}/api/user/stats`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      setStats(response.data);
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
   const generateQRCode = async () => {
     try {
-      const qr = await QRCode.toDataURL(profileUrl);
+      const qr = await QRCode.toDataURL(profileUrl, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#805AD5',
+          light: '#FFFFFF'
+        }
+      });
       setQrCode(qr);
     } catch (err) {
       console.error('QR generation failed:', err);
     }
   };
 
-  const handleAvatarChange = (e) => {
+  const handleFileUpload = async (e, type) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'File troppo grande (max 5MB)', status: 'error' });
+      toast({
+        title: 'File troppo grande',
+        description: 'Massimo 5MB consentiti',
+        status: 'error',
+        duration: 3000
+      });
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result;
-      setAvatar(result);
-      
-      if (user) {
-        localStorage.setItem(`avatar_${user.id}`, result);
+    const setUploading = type === 'avatar' ? setUploadingAvatar : setUploadingBanner;
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append(type, file);
+      formData.append('bio', profileData.bio);
+      formData.append('isPublic', profileData.isPublic);
+      formData.append('displayName', profileData.displayName);
+      formData.append('theme', profileData.theme);
+      formData.append('socialLinks', JSON.stringify(profileData.socialLinks));
+
+      const response = await axios.put(
+        `${config.API_URL}/api/user/profile`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        const profile = response.data.profile;
+        setProfileData(prev => ({
+          ...prev,
+          avatarUrl: profile.avatarUrl || prev.avatarUrl,
+          bannerUrl: profile.bannerUrl || prev.bannerUrl
+        }));
+        
+        toast({
+          title: `${type === 'avatar' ? 'Avatar' : 'Banner'} aggiornato`,
+          status: 'success',
+          duration: 2000
+        });
       }
-      localStorage.setItem('userAvatar', result);
-      
-      toast({ title: 'Avatar aggiornato', status: 'success' });
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: 'Errore upload',
+        description: error.response?.data?.message || 'Errore durante il caricamento',
+        status: 'error',
+        duration: 3000
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const saveProfile = async () => {
     setLoading(true);
     
     try {
-      if (user) {
-        // Salva localmente
-        localStorage.setItem(`bio_${user.id}`, bio);
-        localStorage.setItem(`avatar_${user.id}`, avatar);
-        localStorage.setItem(`public_${user.id}`, isPublic.toString());
-        
-        localStorage.setItem('userBio', bio);
-        localStorage.setItem('userAvatar', avatar);
-        localStorage.setItem('profilePublic', isPublic.toString());
-        
-        // FIX: Salva profilo pubblico in modo che sia accessibile globalmente
-        // Usiamo una struttura JSON che simula un database pubblico
-        if (isPublic) {
-          // Crea un ID univoco per il profilo
-          const profileData = {
-            username: username.toLowerCase(),
-            displayName: username,
-            avatar: avatar || '',
-            bio: bio || '',
-            stats: {
-              totalRead: reading.length + completed.length,
-              favorites: favorites.length,
-              completed: completed.length
-            },
-            reading: reading.slice(0, 12),
-            completed: completed.slice(0, 12),
-            favorites: favorites.slice(0, 12),
-            privacy: 'public',
-            lastUpdated: new Date().toISOString()
-          };
-          
-          // Salva nel "database pubblico simulato"
-          const publicProfiles = JSON.parse(localStorage.getItem('PUBLIC_PROFILES_DB') || '{}');
-          publicProfiles[username.toLowerCase()] = profileData;
-          localStorage.setItem('PUBLIC_PROFILES_DB', JSON.stringify(publicProfiles));
-          
-          // IMPORTANTE: In un'app reale, qui invieresti i dati al server
-          console.log('Profile saved to public database:', profileData);
-          
-          await generateQRCode();
-        } else {
-          // Rimuovi dal database pubblico se diventa privato
-          const publicProfiles = JSON.parse(localStorage.getItem('PUBLIC_PROFILES_DB') || '{}');
-          delete publicProfiles[username.toLowerCase()];
-          localStorage.setItem('PUBLIC_PROFILES_DB', JSON.stringify(publicProfiles));
+      const formData = new FormData();
+      formData.append('bio', profileData.bio);
+      formData.append('isPublic', profileData.isPublic);
+      formData.append('displayName', profileData.displayName);
+      formData.append('theme', profileData.theme);
+      formData.append('socialLinks', JSON.stringify(profileData.socialLinks));
+
+      const response = await axios.put(
+        `${config.API_URL}/api/user/profile`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'multipart/form-data'
+          }
         }
+      );
+
+      if (response.data.success) {
+        setIsEditing(false);
+        toast({
+          title: 'Profilo salvato',
+          description: profileData.isPublic 
+            ? 'Il tuo profilo è ora pubblico e visibile a tutti'
+            : 'Il tuo profilo è privato',
+          status: 'success',
+          duration: 3000
+        });
         
-        if (persistUserData) {
-          persistUserData(user.id);
+        if (profileData.isPublic) {
+          await generateQRCode();
         }
       }
-      
-      setIsEditing(false);
-      
-      toast({ 
-        title: 'Profilo salvato', 
-        description: isPublic ? 'Il tuo profilo è ora pubblico e visibile a tutti' : 'Il tuo profilo è privato',
-        status: 'success',
-        duration: 3000
-      });
-      
     } catch (error) {
       console.error('Save profile error:', error);
-      toast({ 
-        title: 'Errore nel salvataggio', 
+      toast({
+        title: 'Errore salvataggio',
+        description: error.response?.data?.message || 'Impossibile salvare il profilo',
         status: 'error',
         duration: 3000
       });
@@ -188,61 +353,138 @@ export default function Profile() {
   };
 
   const handlePasswordChange = async () => {
-    if (!newPass || newPass.length < 6) {
-      toast({ title: 'Password troppo corta (min 6)', status: 'error' });
+    if (passwords.new !== passwords.confirm) {
+      toast({
+        title: 'Le password non coincidono',
+        status: 'error',
+        duration: 2000
+      });
       return;
     }
     
-    if (newPass !== confirmPass) {
-      toast({ title: 'Le password non coincidono', status: 'error' });
+    if (passwords.new.length < 6) {
+      toast({
+        title: 'Password troppo corta',
+        description: 'Minimo 6 caratteri',
+        status: 'error',
+        duration: 2000
+      });
       return;
     }
 
-    const result = await changePassword(oldPass, newPass);
-    
-    if (result.success) {
-      setOldPass('');
-      setNewPass('');
-      setConfirmPass('');
-      toast({ title: 'Password cambiata', status: 'success' });
-    } else {
-      toast({ title: result.error || 'Errore', status: 'error' });
+    try {
+      const response = await axios.post(
+        `${config.API_URL}/api/auth/change-password`,
+        {
+          oldPassword: passwords.old,
+          newPassword: passwords.new
+        },
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+
+      if (response.data.success) {
+        setPasswords({ old: '', new: '', confirm: '' });
+        toast({
+          title: 'Password cambiata',
+          status: 'success',
+          duration: 2000
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Errore',
+        description: error.response?.data?.message || 'Impossibile cambiare password',
+        status: 'error',
+        duration: 3000
+      });
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) {
+      toast({
+        title: 'Inserisci la password',
+        status: 'error',
+        duration: 2000
+      });
+      return;
+    }
+
+    try {
+      const result = await deleteAccount(deletePassword);
+      
+      if (result.success) {
+        toast({
+          title: 'Account eliminato',
+          description: 'Il tuo account è stato eliminato definitivamente',
+          status: 'success',
+          duration: 3000
+        });
+        window.location.href = '/';
+      } else {
+        toast({
+          title: 'Errore',
+          description: result.error || 'Impossibile eliminare account',
+          status: 'error',
+          duration: 3000
+        });
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+    } finally {
+      onDeleteClose();
+      setDeletePassword('');
     }
   };
 
   const shareProfile = () => {
-    if (!isPublic) {
-      toast({ 
-        title: 'Profilo privato', 
+    if (!profileData.isPublic) {
+      toast({
+        title: 'Profilo privato',
         description: 'Rendi pubblico il profilo per condividerlo',
-        status: 'warning' 
+        status: 'warning',
+        duration: 2000
       });
       return;
     }
     
     if (navigator.share) {
       navigator.share({
-        title: `Profilo di ${username}`,
+        title: `Profilo di ${profileData.displayName}`,
         text: `Guarda il mio profilo su KuroReader!`,
         url: profileUrl
       }).catch(err => {
         if (err.name !== 'AbortError') {
           onCopy();
-          toast({ title: 'Link copiato!', status: 'success' });
+          toast({ title: 'Link copiato!', status: 'success', duration: 2000 });
         }
       });
     } else {
       onCopy();
-      toast({ title: 'Link copiato!', status: 'success' });
+      toast({ title: 'Link copiato!', status: 'success', duration: 2000 });
     }
+  };
+
+  const formatReadingTime = (minutes) => {
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) return `${days}d ${hours % 24}h`;
+    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    return `${minutes}m`;
   };
 
   if (!user) {
     return (
       <Container maxW="container.xl" py={8}>
-        <VStack spacing={8}>
-          <Text>Caricamento profilo...</Text>
-        </VStack>
+        <Center minH="50vh">
+          <VStack spacing={4}>
+            <Spinner size="xl" color="purple.500" />
+            <Text>Caricamento profilo...</Text>
+          </VStack>
+        </Center>
       </Container>
     );
   }
@@ -250,253 +492,691 @@ export default function Profile() {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={8} align="stretch">
-        {/* Header Profile - FIX MOBILE */}
-        <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl" position="relative">
-          <Stack 
-            direction={{ base: 'column', md: 'row' }} 
-            spacing={{ base: 4, md: 6 }} 
-            align={{ base: 'center', md: 'start' }}
+        {/* Banner & Avatar Section */}
+        <Box position="relative" borderRadius="xl" overflow="hidden">
+          {/* Banner */}
+          <Box
+            h={{ base: '150px', md: '250px' }}
+            bg={profileData.bannerUrl ? `url(${profileData.bannerUrl})` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}
+            bgSize="cover"
+            bgPosition="center"
+            position="relative"
           >
-            <Box position="relative">
-              <Avatar 
-                size={{ base: 'xl', md: '2xl' }}
-                name={username} 
-                src={avatar}
-                border="4px solid"
-                borderColor="purple.500"
-              />
+            {isEditing && (
               <IconButton
-                icon={<FaCamera />}
-                size="sm"
-                colorScheme="purple"
-                borderRadius="full"
+                icon={uploadingBanner ? <Spinner /> : <FaImage />}
                 position="absolute"
-                bottom={0}
-                right={0}
-                onClick={() => fileRef.current?.click()}
-                aria-label="Cambia avatar"
+                top={4}
+                right={4}
+                colorScheme="blackAlpha"
+                onClick={() => bannerRef.current?.click()}
+                aria-label="Change banner"
+                isLoading={uploadingBanner}
               />
-              <input 
-                ref={fileRef} 
-                type="file" 
-                accept="image/*" 
-                onChange={handleAvatarChange} 
-                style={{ display: 'none' }} 
-              />
-            </Box>
-
-            <VStack align={{ base: 'center', md: 'stretch' }} flex={1} spacing={4} width="100%">
-              <Stack 
-                direction={{ base: 'column', md: 'row' }} 
-                justify="space-between" 
-                width="100%"
+            )}
+            <input
+              ref={bannerRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleFileUpload(e, 'banner')}
+              style={{ display: 'none' }}
+            />
+          </Box>
+          
+          {/* Profile Content */}
+          <Box bg="gray.800" px={{ base: 4, md: 8 }} pb={6}>
+            <Flex
+              direction={{ base: 'column', md: 'row' }}
+              align={{ base: 'center', md: 'end' }}
+              position="relative"
+              mt="-50px"
+            >
+              {/* Avatar */}
+              <Box position="relative">
+                <Avatar
+                  size="2xl"
+                  name={profileData.displayName}
+                  src={profileData.avatarUrl}
+                  border="4px solid"
+                  borderColor="gray.800"
+                  bg="purple.500"
+                >
+                  {uploadingAvatar && (
+                    <AvatarBadge boxSize="1.25em" bg="gray.700" border="none">
+                      <Spinner size="sm" color="white" />
+                    </AvatarBadge>
+                  )}
+                </Avatar>
+                {isEditing && (
+                  <IconButton
+                    icon={<FaCamera />}
+                    size="sm"
+                    colorScheme="purple"
+                    borderRadius="full"
+                    position="absolute"
+                    bottom={0}
+                    right={0}
+                    onClick={() => fileRef.current?.click()}
+                    aria-label="Change avatar"
+                  />
+                )}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileUpload(e, 'avatar')}
+                  style={{ display: 'none' }}
+                />
+              </Box>
+              
+              {/* Profile Info */}
+              <VStack
                 align={{ base: 'center', md: 'start' }}
-                spacing={{ base: 3, md: 0 }}
+                flex={1}
+                ml={{ base: 0, md: 6 }}
+                mt={{ base: 4, md: 0 }}
+                spacing={3}
+                width="100%"
               >
-                <VStack align={{ base: 'center', md: 'start' }} spacing={1}>
-                  {isEditing ? (
-                    <Input
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      size="lg"
-                      fontWeight="bold"
-                      maxW="300px"
-                    />
-                  ) : (
-                    <Heading size="lg">@{username}</Heading>
-                  )}
-                  <HStack spacing={2}>
-                    <Text color="gray.400" fontSize={{ base: 'sm', md: 'md' }}>{email}</Text>
-                    <Badge colorScheme={isPublic ? 'green' : 'gray'}>
-                      {isPublic ? 'Pubblico' : 'Privato'}
-                    </Badge>
-                  </HStack>
-                </VStack>
-                
-                <HStack>
-                  {isEditing ? (
-                    <>
-                      <Button 
-                        colorScheme="green" 
-                        leftIcon={<CheckIcon />}
-                        onClick={saveProfile}
-                        isLoading={loading}
-                        size={{ base: 'sm', md: 'md' }}
-                      >
-                        Salva
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        onClick={() => setIsEditing(false)}
-                        size={{ base: 'sm', md: 'md' }}
-                      >
-                        Annulla
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button 
-                        leftIcon={<EditIcon />} 
-                        onClick={() => setIsEditing(true)}
-                        size={{ base: 'sm', md: 'md' }}
-                      >
-                        Modifica
-                      </Button>
-                      <Button 
-                        leftIcon={<FaShare />} 
-                        variant="outline" 
-                        onClick={shareProfile}
-                        isDisabled={!isPublic}
-                        size={{ base: 'sm', md: 'md' }}
-                      >
-                        Condividi
-                      </Button>
-                    </>
-                  )}
-                </HStack>
-              </Stack>
-
-              {isEditing ? (
-                <Input
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  placeholder="Scrivi una bio..."
-                  maxLength={200}
-                />
-              ) : (
-                bio && <Text color="gray.300" textAlign={{ base: 'center', md: 'left' }}>{bio}</Text>
-              )}
-
-              {/* Privacy Toggle */}
-              <FormControl display="flex" alignItems="center" justifyContent={{ base: 'center', md: 'flex-start' }}>
-                <FormLabel mb="0">Profilo pubblico</FormLabel>
-                <Switch 
-                  colorScheme="green"
-                  isChecked={isPublic}
-                  onChange={(e) => setIsPublic(e.target.checked)}
-                  isDisabled={!isEditing}
-                />
-              </FormControl>
-
-              {/* Share Section */}
-              {isPublic && !isEditing && (
-                <Box p={4} bg="gray.700" borderRadius="lg" width="100%">
-                  <Text fontSize="sm" mb={2}>Link pubblico:</Text>
+                <HStack justify="space-between" width="100%" flexWrap="wrap">
+                  <VStack align={{ base: 'center', md: 'start' }} spacing={1}>
+                    {isEditing ? (
+                      <Input
+                        value={profileData.displayName}
+                        onChange={(e) => setProfileData({ ...profileData, displayName: e.target.value })}
+                        size="lg"
+                        fontWeight="bold"
+                        maxW="300px"
+                      />
+                    ) : (
+                      <Heading size="lg">{profileData.displayName}</Heading>
+                    )}
+                    <HStack>
+                      <Text color="gray.400">@{profileData.username}</Text>
+                      <Badge colorScheme={profileData.isPublic ? 'green' : 'gray'}>
+                        {profileData.isPublic ? (
+                          <HStack spacing={1}>
+                            <FaGlobe size="10" />
+                            <Text>Pubblico</Text>
+                          </HStack>
+                        ) : (
+                          <HStack spacing={1}>
+                            <FaLock size="10" />
+                            <Text>Privato</Text>
+                          </HStack>
+                        )}
+                      </Badge>
+                    </HStack>
+                  </VStack>
+                  
+                  {/* Action Buttons */}
                   <HStack>
-                    <Input 
-                      value={profileUrl}
-                      isReadOnly
-                      size="sm"
+                    {isEditing ? (
+                      <>
+                        <Button
+                          colorScheme="green"
+                          leftIcon={<CheckIcon />}
+                          onClick={saveProfile}
+                          isLoading={loading}
+                        >
+                          Salva
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          leftIcon={<CloseIcon />}
+                          onClick={() => {
+                            setIsEditing(false);
+                            loadUserData();
+                          }}
+                        >
+                          Annulla
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          leftIcon={<EditIcon />}
+                          onClick={() => setIsEditing(true)}
+                        >
+                          Modifica
+                        </Button>
+                        <Button
+                          leftIcon={<FaShare />}
+                          variant="outline"
+                          onClick={shareProfile}
+                          isDisabled={!profileData.isPublic}
+                        >
+                          Condividi
+                        </Button>
+                        <Menu>
+                          <MenuButton as={IconButton} icon={<FaPalette />} variant="ghost" />
+                          <MenuList>
+                            <MenuItem onClick={onThemeOpen}>
+                              Cambia tema
+                            </MenuItem>
+                          </MenuList>
+                        </Menu>
+                      </>
+                    )}
+                  </HStack>
+                </HStack>
+                
+                {/* Bio */}
+                {isEditing ? (
+                  <Textarea
+                    value={profileData.bio}
+                    onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
+                    placeholder="Scrivi una bio..."
+                    maxLength={500}
+                    rows={3}
+                    width="100%"
+                  />
+                ) : (
+                  profileData.bio && (
+                    <Text color="gray.300" width="100%">
+                      {profileData.bio}
+                    </Text>
+                  )
+                )}
+                
+                {/* Badges */}
+                {stats.badges.length > 0 && (
+                  <HStack spacing={2}>
+                    {stats.badges.map((badge, i) => (
+                      <ProfileBadge key={i} type={badge} label={badge} />
+                    ))}
+                  </HStack>
+                )}
+                
+                {/* Social Links */}
+                {isEditing ? (
+                  <VStack align="start" width="100%" spacing={2}>
+                    <Text fontSize="sm" fontWeight="bold">Link Social</Text>
+                    <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={2} width="100%">
+                      <InputGroup size="sm">
+                        <Input
+                          placeholder="Twitter username"
+                          value={profileData.socialLinks.twitter || ''}
+                          onChange={(e) => setProfileData({
+                            ...profileData,
+                            socialLinks: { ...profileData.socialLinks, twitter: e.target.value }
+                          })}
+                        />
+                      </InputGroup>
+                      <InputGroup size="sm">
+                        <Input
+                          placeholder="Discord username"
+                          value={profileData.socialLinks.discord || ''}
+                          onChange={(e) => setProfileData({
+                            ...profileData,
+                            socialLinks: { ...profileData.socialLinks, discord: e.target.value }
+                          })}
+                        />
+                      </InputGroup>
+                    </SimpleGrid>
+                  </VStack>
+                ) : (
+                  Object.entries(profileData.socialLinks || {}).length > 0 && (
+                    <HStack spacing={2}>
+                      {profileData.socialLinks.twitter && (
+                        <IconButton
+                          icon={<FaTwitter />}
+                          size="sm"
+                          variant="ghost"
+                          as="a"
+                          href={`https://twitter.com/${profileData.socialLinks.twitter}`}
+                          target="_blank"
+                        />
+                      )}
+                      {profileData.socialLinks.discord && (
+                        <Tooltip label={profileData.socialLinks.discord}>
+                          <IconButton icon={<FaDiscord />} size="sm" variant="ghost" />
+                        </Tooltip>
+                      )}
+                      {profileData.socialLinks.instagram && (
+                        <IconButton
+                          icon={<FaInstagram />}
+                          size="sm"
+                          variant="ghost"
+                          as="a"
+                          href={`https://instagram.com/${profileData.socialLinks.instagram}`}
+                          target="_blank"
+                        />
+                      )}
+                    </HStack>
+                  )
+                )}
+                
+                {/* Privacy Toggle */}
+                {isEditing && (
+                  <FormControl display="flex" alignItems="center">
+                    <FormLabel mb="0">Profilo pubblico</FormLabel>
+                    <Switch
+                      colorScheme="green"
+                      isChecked={profileData.isPublic}
+                      onChange={(e) => setProfileData({ ...profileData, isPublic: e.target.checked })}
                     />
-                    <IconButton 
+                  </FormControl>
+                )}
+              </VStack>
+            </Flex>
+          </Box>
+        </Box>
+
+        {/* Stats Grid */}
+        <Box>
+          <Heading size="md" mb={4}>Statistiche</Heading>
+          {loadingStats ? (
+            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
+              {[...Array(8)].map((_, i) => (
+                <Skeleton key={i} height="100px" borderRadius="lg" />
+              ))}
+            </SimpleGrid>
+          ) : (
+            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
+              <StatsCard
+                icon={FaBookOpen}
+                label="Manga totali"
+                value={stats.totalManga}
+                color="purple"
+              />
+              <StatsCard
+                icon={FaClock}
+                label="In lettura"
+                value={stats.reading}
+                color="blue"
+              />
+              <StatsCard
+                icon={FaTrophy}
+                label="Completati"
+                value={stats.completed}
+                color="green"
+              />
+              <StatsCard
+                icon={FaHeart}
+                label="Preferiti"
+                value={stats.favorites}
+                color="pink"
+              />
+              <StatsCard
+                icon={FaBookOpen}
+                label="Capitoli letti"
+                value={stats.chaptersRead}
+                color="orange"
+              />
+              <StatsCard
+                icon={FaClock}
+                label="Tempo lettura"
+                value={formatReadingTime(stats.readingTime)}
+                color="cyan"
+              />
+              <StatsCard
+                icon={FaEye}
+                label="Visite profilo"
+                value={stats.profileViews}
+                color="purple"
+                helpText={profileData.isPublic ? 'Profilo pubblico' : 'Solo tu'}
+              />
+              <StatsCard
+                icon={FaUserFriends}
+                label="Followers"
+                value={stats.followers}
+                color="blue"
+              />
+            </SimpleGrid>
+          )}
+        </Box>
+
+        {/* Share Section */}
+        {profileData.isPublic && !isEditing && (
+          <Box p={6} bg="gray.800" borderRadius="xl">
+            <Heading size="md" mb={4}>Condividi profilo</Heading>
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+              <Box>
+                <Text fontSize="sm" mb={2}>Link pubblico</Text>
+                <InputGroup>
+                  <Input value={profileUrl} isReadOnly />
+                  <InputRightElement>
+                    <IconButton
                       icon={<CopyIcon />}
                       size="sm"
                       onClick={onCopy}
                       aria-label="Copia"
                     />
-                  </HStack>
-                  {hasCopied && (
-                    <Text fontSize="xs" color="green.400" mt={1}>
-                      Copiato!
-                    </Text>
-                  )}
-                  {qrCode && (
-                    <Box mt={3}>
-                      <Text fontSize="xs" mb={1}>QR Code:</Text>
-                      <Image src={qrCode} w="100px" alt="QR Code" />
-                    </Box>
-                  )}
+                  </InputRightElement>
+                </InputGroup>
+                {hasCopied && (
+                  <Text fontSize="xs" color="green.400" mt={1}>
+                    Link copiato!
+                  </Text>
+                )}
+              </Box>
+              {qrCode && (
+                <Box>
+                  <Text fontSize="sm" mb={2}>QR Code</Text>
+                  <Image src={qrCode} alt="QR Code" maxW="150px" />
                 </Box>
               )}
-            </VStack>
-          </Stack>
-        </Box>
+            </SimpleGrid>
+          </Box>
+        )}
 
         {/* Tabs Content */}
         <Tabs colorScheme="purple" variant="enclosed">
           <TabList>
-            <Tab fontSize={{ base: 'sm', md: 'md' }}>Libreria</Tab>
-            <Tab fontSize={{ base: 'sm', md: 'md' }}>Impostazioni</Tab>
+            <Tab>Libreria</Tab>
+            <Tab>Impostazioni</Tab>
+            <Tab>Privacy & Sicurezza</Tab>
           </TabList>
 
           <TabPanels>
+            {/* Library Tab */}
             <TabPanel>
               <VStack spacing={6} align="stretch">
                 <Box>
-                  <Heading size="md" mb={3}>In lettura ({reading.length})</Heading>
-                  {reading.length ? (
+                  <HStack justify="space-between" mb={3}>
+                    <Heading size="md">In lettura ({libraryData.reading.length})</Heading>
+                    <Button size="sm" variant="ghost">Vedi tutti</Button>
+                  </HStack>
+                  {libraryData.reading.length ? (
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-                      {reading.slice(0, 10).map((manga, i) => (
-                        <MangaCard key={i} manga={manga} />
+                      {libraryData.reading.map((manga, i) => (
+                        <MotionBox
+                          key={i}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                        >
+                          <MangaCard manga={manga} />
+                        </MotionBox>
                       ))}
                     </SimpleGrid>
                   ) : (
-                    <Text color="gray.500">Nessun manga in lettura</Text>
+                    <Center py={8} bg="gray.800" borderRadius="lg">
+                      <Text color="gray.500">Nessun manga in lettura</Text>
+                    </Center>
                   )}
                 </Box>
 
                 <Box>
-                  <Heading size="md" mb={3}>Preferiti ({favorites.length})</Heading>
-                  {favorites.length ? (
+                  <HStack justify="space-between" mb={3}>
+                    <Heading size="md">Preferiti ({libraryData.favorites.length})</Heading>
+                    <Button size="sm" variant="ghost">Vedi tutti</Button>
+                  </HStack>
+                  {libraryData.favorites.length ? (
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-                      {favorites.slice(0, 10).map((manga, i) => (
-                        <MangaCard key={i} manga={manga} />
+                      {libraryData.favorites.map((manga, i) => (
+                        <MotionBox
+                          key={i}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                        >
+                          <MangaCard manga={manga} />
+                        </MotionBox>
                       ))}
                     </SimpleGrid>
                   ) : (
-                    <Text color="gray.500">Nessun preferito</Text>
+                    <Center py={8} bg="gray.800" borderRadius="lg">
+                      <Text color="gray.500">Nessun preferito</Text>
+                    </Center>
+                  )}
+                </Box>
+
+                <Box>
+                  <HStack justify="space-between" mb={3}>
+                    <Heading size="md">Completati ({libraryData.completed.length})</Heading>
+                    <Button size="sm" variant="ghost">Vedi tutti</Button>
+                  </HStack>
+                  {libraryData.completed.length ? (
+                    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
+                      {libraryData.completed.map((manga, i) => (
+                        <MotionBox
+                          key={i}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                        >
+                          <MangaCard manga={manga} />
+                        </MotionBox>
+                      ))}
+                    </SimpleGrid>
+                  ) : (
+                    <Center py={8} bg="gray.800" borderRadius="lg">
+                      <Text color="gray.500">Nessun manga completato</Text>
+                    </Center>
                   )}
                 </Box>
               </VStack>
             </TabPanel>
 
+            {/* Settings Tab */}
             <TabPanel>
-              <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="lg">
-                <Heading size="md" mb={4}>Cambia password</Heading>
-                <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-                  <FormControl>
-                    <FormLabel>Password attuale</FormLabel>
-                    <Input 
-                      type={showPass ? 'text' : 'password'} 
-                      value={oldPass} 
-                      onChange={(e) => setOldPass(e.target.value)} 
-                    />
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel>Nuova password</FormLabel>
-                    <InputGroup>
-                      <Input 
-                        type={showPass ? 'text' : 'password'} 
-                        value={newPass} 
-                        onChange={(e) => setNewPass(e.target.value)} 
-                      />
-                      <InputRightElement>
-                        <IconButton 
-                          size="sm" 
-                          variant="ghost" 
-                          icon={showPass ? <ViewOffIcon /> : <ViewIcon />} 
-                          onClick={() => setShowPass(!showPass)} 
-                          aria-label="Toggle"
+              <VStack spacing={6} align="stretch">
+                <Box bg="gray.800" p={6} borderRadius="lg">
+                  <Heading size="md" mb={4}>Informazioni account</Heading>
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                    <FormControl>
+                      <FormLabel>Username</FormLabel>
+                      <Input value={profileData.username} isReadOnly bg="gray.700" />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Email</FormLabel>
+                      <Input value={profileData.email} isReadOnly bg="gray.700" />
+                    </FormControl>
+                  </SimpleGrid>
+                </Box>
+
+                <Box bg="gray.800" p={6} borderRadius="lg">
+                  <Heading size="md" mb={4}>Tema profilo</Heading>
+                  <SimpleGrid columns={{ base: 2, md: 3 }} spacing={3}>
+                    {themes.map((theme) => (
+                      <Box
+                        key={theme.id}
+                        p={3}
+                        bg={theme.id === profileData.theme ? `${theme.color}.900` : 'gray.700'}
+                        borderRadius="lg"
+                        cursor="pointer"
+                        onClick={() => setProfileData({ ...profileData, theme: theme.id })}
+                        _hover={{ bg: `${theme.color}.800` }}
+                        transition="all 0.2s"
+                        borderWidth={2}
+                        borderColor={theme.id === profileData.theme ? `${theme.color}.500` : 'transparent'}
+                      >
+                        <Text fontWeight="bold">{theme.name}</Text>
+                      </Box>
+                    ))}
+                  </SimpleGrid>
+                </Box>
+
+                <Box bg="gray.800" p={6} borderRadius="lg">
+                  <Heading size="md" mb={4}>Notifiche</Heading>
+                  <VStack align="stretch" spacing={3}>
+                    <FormControl display="flex" alignItems="center">
+                      <FormLabel mb="0" flex={1}>Nuovi capitoli</FormLabel>
+                      <Switch colorScheme="purple" defaultChecked />
+                    </FormControl>
+                    <FormControl display="flex" alignItems="center">
+                      <FormLabel mb="0" flex={1}>Nuovi followers</FormLabel>
+                      <Switch colorScheme="purple" defaultChecked />
+                    </FormControl>
+                    <FormControl display="flex" alignItems="center">
+                      <FormLabel mb="0" flex={1}>Aggiornamenti sistema</FormLabel>
+                      <Switch colorScheme="purple" />
+                    </FormControl>
+                  </VStack>
+                </Box>
+              </VStack>
+            </TabPanel>
+
+            {/* Security Tab */}
+            <TabPanel>
+              <VStack spacing={6} align="stretch">
+                <Box bg="gray.800" p={6} borderRadius="lg">
+                  <Heading size="md" mb={4}>Cambia password</Heading>
+                  <VStack spacing={4}>
+                    <FormControl>
+                      <FormLabel>Password attuale</FormLabel>
+                      <InputGroup>
+                        <Input
+                          type={showPass ? 'text' : 'password'}
+                          value={passwords.old}
+                          onChange={(e) => setPasswords({ ...passwords, old: e.target.value })}
                         />
-                      </InputRightElement>
-                    </InputGroup>
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel>Conferma password</FormLabel>
-                    <Input 
-                      type={showPass ? 'text' : 'password'} 
-                      value={confirmPass} 
-                      onChange={(e) => setConfirmPass(e.target.value)} 
-                    />
-                  </FormControl>
-                </SimpleGrid>
-                <Button colorScheme="purple" mt={4} onClick={handlePasswordChange}>
-                  Cambia password
-                </Button>
-              </Box>
+                        <InputRightElement>
+                          <IconButton
+                            size="sm"
+                            variant="ghost"
+                            icon={showPass ? <ViewOffIcon /> : <ViewIcon />}
+                            onClick={() => setShowPass(!showPass)}
+                            aria-label="Toggle password"
+                          />
+                        </InputRightElement>
+                      </InputGroup>
+                    </FormControl>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} width="100%">
+                      <FormControl>
+                        <FormLabel>Nuova password</FormLabel>
+                        <Input
+                          type={showPass ? 'text' : 'password'}
+                          value={passwords.new}
+                          onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
+                        />
+                      </FormControl>
+                      <FormControl>
+                        <FormLabel>Conferma password</FormLabel>
+                        <Input
+                          type={showPass ? 'text' : 'password'}
+                          value={passwords.confirm}
+                          onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+                        />
+                      </FormControl>
+                    </SimpleGrid>
+                    <Button colorScheme="purple" onClick={handlePasswordChange}>
+                      Cambia password
+                    </Button>
+                  </VStack>
+                </Box>
+
+                <Box bg="gray.800" p={6} borderRadius="lg">
+                  <Heading size="md" mb={4}>Sessioni attive</Heading>
+                  <VStack align="stretch" spacing={3}>
+                    <HStack justify="space-between" p={3} bg="gray.700" borderRadius="md">
+                      <VStack align="start" spacing={0}>
+                        <Text fontWeight="bold">Dispositivo attuale</Text>
+                        <Text fontSize="sm" color="gray.400">
+                          {navigator.userAgent.substring(0, 50)}...
+                        </Text>
+                      </VStack>
+                      <Badge colorScheme="green">Attivo</Badge>
+                    </HStack>
+                  </VStack>
+                </Box>
+
+                <Box bg="red.900" p={6} borderRadius="lg">
+                  <Heading size="md" mb={4} color="red.300">
+                    Zona Pericolosa
+                  </Heading>
+                  <Alert status="error" mb={4} bg="red.800">
+                    <AlertIcon />
+                    <Text fontSize="sm">
+                      L'eliminazione dell'account è permanente e irreversibile. 
+                      Tutti i tuoi dati verranno persi per sempre.
+                    </Text>
+                  </Alert>
+                  <Button
+                    colorScheme="red"
+                    leftIcon={<FaTrash />}
+                    onClick={onDeleteOpen}
+                  >
+                    Elimina Account
+                  </Button>
+                </Box>
+              </VStack>
             </TabPanel>
           </TabPanels>
         </Tabs>
+
+        {/* Delete Account Modal */}
+        <Modal isOpen={isDeleteOpen} onClose={onDeleteClose} isCentered>
+          <ModalOverlay />
+          <ModalContent bg="gray.800">
+            <ModalHeader color="red.400">Elimina Account</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <VStack spacing={4} align="stretch">
+                <Alert status="error" bg="red.900">
+                  <AlertIcon />
+                  <Box>
+                    <Text fontWeight="bold">Attenzione!</Text>
+                    <Text fontSize="sm">
+                      Questa azione è irreversibile. Perderai:
+                    </Text>
+                    <Text fontSize="sm">• Tutti i tuoi manga salvati</Text>
+                    <Text fontSize="sm">• I tuoi progressi di lettura</Text>
+                    <Text fontSize="sm">• Il tuo profilo e statistiche</Text>
+                  </Box>
+                </Alert>
+                <FormControl>
+                  <FormLabel>Inserisci la password per confermare</FormLabel>
+                  <Input
+                    type="password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    placeholder="Password"
+                  />
+                </FormControl>
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="ghost" mr={3} onClick={onDeleteClose}>
+                Annulla
+              </Button>
+              <Button
+                colorScheme="red"
+                onClick={handleDeleteAccount}
+                isDisabled={!deletePassword}
+              >
+                Elimina definitivamente
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+        {/* Theme Modal */}
+        <Modal isOpen={isThemeOpen} onClose={onThemeClose} size="lg">
+          <ModalOverlay />
+          <ModalContent bg="gray.800">
+            <ModalHeader>Personalizza tema profilo</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <SimpleGrid columns={2} spacing={4}>
+                {themes.map((theme) => (
+                  <Box
+                    key={theme.id}
+                    p={4}
+                    bg={`${theme.color}.900`}
+                    borderRadius="lg"
+                    cursor="pointer"
+                    onClick={() => {
+                      setProfileData({ ...profileData, theme: theme.id });
+                      onThemeClose();
+                    }}
+                    _hover={{ transform: 'scale(1.05)' }}
+                    transition="all 0.2s"
+                    borderWidth={3}
+                    borderColor={theme.id === profileData.theme ? `${theme.color}.400` : 'transparent'}
+                  >
+                    <VStack>
+                      <Box w="full" h="60px" bg={`${theme.color}.600`} borderRadius="md" />
+                      <Text fontWeight="bold">{theme.name}</Text>
+                    </VStack>
+                  </Box>
+                ))}
+              </SimpleGrid>
+            </ModalBody>
+          </ModalContent>
+        </Modal>
       </VStack>
     </Container>
   );
