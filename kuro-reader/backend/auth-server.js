@@ -3,10 +3,11 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
-
-// Configurazione Prisma
 const prisma = new PrismaClient({
   datasources: { 
     db: { 
@@ -17,73 +18,20 @@ const prisma = new PrismaClient({
 });
 
 const PORT = process.env.PORT || 10000;
-const JWT_SECRET = process.env.JWT_SECRET
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
-// Inizializzazione database
-async function initDatabase() {
-  console.log('Checking database tables...');
-  
-  try {
-    await prisma.$executeRaw`
-      CREATE TABLE IF NOT EXISTS "user" (
-        "id" SERIAL PRIMARY KEY,
-        "username" VARCHAR(255) UNIQUE NOT NULL,
-        "email" VARCHAR(255) UNIQUE NOT NULL,
-        "password" VARCHAR(255) NOT NULL,
-        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
-    
-    await prisma.$executeRaw`
-      CREATE TABLE IF NOT EXISTS "user_favorites" (
-        "id" SERIAL PRIMARY KEY,
-        "userId" INTEGER UNIQUE NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
-        "favorites" TEXT NOT NULL,
-        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
-    
-    await prisma.$executeRaw`
-      CREATE TABLE IF NOT EXISTS "reading_progress" (
-        "id" SERIAL PRIMARY KEY,
-        "userId" INTEGER NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
-        "mangaUrl" VARCHAR(500) NOT NULL,
-        "mangaTitle" VARCHAR(500) NOT NULL,
-        "chapterIndex" INTEGER NOT NULL,
-        "pageIndex" INTEGER DEFAULT 0,
-        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE("userId", "mangaUrl")
-      )
-    `;
-
-    await prisma.$executeRaw`
-      CREATE TABLE IF NOT EXISTS "user_library" (
-        "id" SERIAL PRIMARY KEY,
-        "userId" INTEGER NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
-        "reading" TEXT,
-        "completed" TEXT,
-        "history" TEXT,
-        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE("userId")
-      )
-    `;
-    
-    console.log('Database tables ready!');
-  } catch (error) {
-    console.error('Database initialization error:', error);
-  }
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  console.error('FATAL: JWT_SECRET not set in production!');
+  process.exit(1);
 }
 
-initDatabase();
+// CORS configuration
+const corsOrigins = process.env.NODE_ENV === 'production' 
+  ? ['https://kuroreader.onrender.com']
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'];
 
-// CORS
 app.use(cors({
-  origin: [
-    'https://kuroreader.onrender.com',
-    'http://localhost:5173',
-    'http://localhost:3000'
-  ],
+  origin: corsOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -182,7 +130,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// Login - FIX: supporta username o email
+// Login
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { emailOrUsername, password } = req.body;
@@ -193,7 +141,6 @@ app.post('/api/auth/login', async (req, res) => {
     
     const normalized = emailOrUsername.toLowerCase().trim();
     
-    // Cerca per email o username
     const user = await prisma.user.findFirst({
       where: {
         OR: [
@@ -260,7 +207,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
 
 // =================== LIBRARY SYNC ===================
 
-// Save library data (reading, completed, history)
+// Save library data
 app.post('/api/user/library', authenticateToken, async (req, res) => {
   try {
     const { reading, completed, history } = req.body;
@@ -451,19 +398,23 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Endpoint non trovato' });
 });
 
+// Error handler
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({ message: 'Errore interno del server' });
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Auth server running on port ${PORT}`);
 });
 
 // Graceful shutdown
-process.on('SIGTERM', async () => {
+const gracefulShutdown = async () => {
+  console.log('Starting graceful shutdown...');
   await prisma.$disconnect();
   process.exit(0);
-});
+};
 
-process.on('SIGINT', async () => {
-  await prisma.$disconnect();
-  process.exit(0);
-});
-
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
