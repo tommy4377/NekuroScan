@@ -1,12 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
-  Button, useToast, Skeleton, Badge, IconButton, Spinner,
-  Switch, Center
+  Button, useToast, Skeleton, Badge, IconButton, Switch, Center
 } from '@chakra-ui/react';
 import { FaClock, FaArrowUp, FaPlus } from 'react-icons/fa';
 import { motion } from 'framer-motion';
-import { useInView } from 'react-intersection-observer';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -23,21 +21,6 @@ function Latest() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   
   const toast = useToast();
-  const loadMoreButtonRef = useRef(null);
-  
-  // InView hook per auto-click
-  const { ref: inViewRef, inView } = useInView({
-    threshold: 0.1,
-    rootMargin: '100px',
-  });
-
-  // Auto-click quando il bottone è visibile
-  useEffect(() => {
-    if (inView && !loading && hasMore && loadMoreButtonRef.current) {
-      console.log('Auto-clicking load more button...');
-      loadMoreButtonRef.current.click();
-    }
-  }, [inView, loading, hasMore]);
 
   // Monitor scroll for button
   useEffect(() => {
@@ -52,25 +35,20 @@ function Latest() {
   const fixChapterNumber = (chapter) => {
     if (!chapter) return '';
     
-    // Rimuovi prefissi
     let clean = chapter
       .replace(/^(cap\.|capitolo|chapter|ch\.)\s*/i, '')
       .replace(/^vol\.\s*\d+\s*-\s*/i, '')
       .trim();
     
-    // Estrai numero
     const match = clean.match(/^(\d+(?:\.\d+)?)/);
     if (match) {
       let num = match[1];
       
-      // FIX: Se il numero è >= 10 e ha più di 2 cifre, tronca le ultime 2
       if (parseInt(num) >= 10 && num.length > 2) {
         num = num.slice(0, -2);
       }
-      // Se inizia con 0 e ha 4 cifre (es. 0176), prendi solo le prime 2
       else if (num.startsWith('0') && num.length >= 4) {
         num = num.substring(0, 2);
-        // Rimuovi lo 0 iniziale se > 09
         if (parseInt(num) > 9) {
           num = num.replace(/^0/, '');
         }
@@ -111,7 +89,6 @@ function Latest() {
           if (reset || pageNum === 1) {
             return cleanedResults;
           }
-          // Evita duplicati
           const existingUrls = new Set(prev.map(item => item.url));
           const newItems = cleanedResults.filter(item => !existingUrls.has(item.url));
           return [...prev, ...newItems];
@@ -172,7 +149,14 @@ function Latest() {
         <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
           <HStack justify="space-between" flexWrap="wrap" spacing={4}>
             <HStack spacing={3}>
-              <Box p={3} bg="blue.500" borderRadius="lg">
+              <Box 
+                p={3} 
+                bg="blue.500" 
+                borderRadius="lg"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+              >
                 <FaClock color="white" size="20" />
               </Box>
               <VStack align="start" spacing={0}>
@@ -223,18 +207,17 @@ function Latest() {
               ))}
             </SimpleGrid>
 
-            {/* Load More Button with Auto-Click */}
+            {/* Load More Button */}
             {hasMore && (
-              <Center ref={inViewRef} py={6}>
+              <Center py={6}>
                 <Button
-                  ref={loadMoreButtonRef}
                   onClick={handleLoadMore}
                   isLoading={loading}
                   loadingText="Caricamento..."
                   colorScheme="purple"
                   size="lg"
-                  leftIcon={!loading && <FaPlus />}
-                  variant="outline"
+                  leftIcon={!loading ? <FaPlus /> : undefined}
+                  variant="solid"
                   disabled={loading}
                 >
                   {loading ? 'Caricamento...' : 'Carica altri'}
