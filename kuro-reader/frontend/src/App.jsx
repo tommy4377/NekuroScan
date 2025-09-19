@@ -186,28 +186,30 @@ function App() {
     { path: '*', element: <Navigate to="/404" replace /> }
   ];
 
-  return (
-  <ChakraProvider theme={theme}>
-    <ThemeProvider>
-      <ErrorBoundary>
-        <Router>
-          <ScrollToTop />
-          <Suspense fallback={<LoadingScreen />}>
-            <Routes>
-              {routes.map(({ path, element, layout = true }) => (
-                <Route
-                  key={path}
-                  path={path}
-                  element={layout ? <Layout>{element}</Layout> : element}
-                />
-              ))}
-            </Routes>
-          </Suspense>
-        </Router>
-      </ErrorBoundary>
-    </ThemeProvider>
-  </ChakraProvider>
-);
+    return (
+    <ChakraProvider theme={theme}>
+      <ThemeProvider>
+        <ErrorBoundary>
+          <Router>
+            <ScrollToTop />
+            <Suspense fallback={<LoadingScreen />}>
+              <Routes>
+                {routes.map(({ path, element, layout = true }) => (
+                  <Route
+                    key={path}
+                    path={path}
+                    element={layout ? <Layout>{element}</Layout> : element}
+                  />
+                ))}
+              </Routes>
+            </Suspense>
+          </Router>
+        </ErrorBoundary>
+      </ThemeProvider>
+    </ChakraProvider>
+  );
+}
 
 export default App;
+
 
