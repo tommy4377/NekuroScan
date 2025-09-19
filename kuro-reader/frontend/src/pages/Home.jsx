@@ -295,91 +295,119 @@ function Home() {
 
 // E usa i path corretti nei ContentSection:
 
-<ContentSection 
-  title="Ultimi capitoli" 
-  icon={FaClock} 
-  items={content.latest} 
-  color="blue" 
-  viewAllPath="latest"
-  showLatestChapter={true}
-/>
+return (
+  <Container maxW="container.xl" py={6}>
+    <VStack spacing={6} align="stretch">
 
-<ContentSection 
-  title="I più letti" 
-  icon={FaHeart} 
-  items={content.popular} 
-  color="pink" 
-  viewAllPath="popular"
-/>
+      {/* Sezioni principali */}
+      <ContentSection 
+        title="Ultimi capitoli" 
+        icon={FaClock} 
+        items={content.latest} 
+        color="blue" 
+        viewAllPath="latest"
+        showLatestChapter={true}
+      />
 
-<ContentSection 
-  title="Top Manga" 
-  icon={GiDragonHead} 
-  items={content.topManga} 
-  color="orange" 
-  viewAllPath="top/manga"
-/>
+      <ContentSection 
+        title="I più letti" 
+        icon={FaHeart} 
+        items={content.popular} 
+        color="pink" 
+        viewAllPath="popular"
+      />
 
-<ContentSection 
-  title="Top Manhwa" 
-  icon={BiBook} 
-  items={content.topManhwa} 
-  color="purple" 
-  viewAllPath="top/manhwa"
-/>
+      <ContentSection 
+        title="Top Manga" 
+        icon={GiDragonHead} 
+        items={content.topManga} 
+        color="orange" 
+        viewAllPath="top/manga"
+      />
 
-<ContentSection 
-  title="Top Manhua" 
-  icon={FaDragon} 
-  items={content.topManhua} 
-  color="red" 
-  viewAllPath="top/manhua"
-/>
+      <ContentSection 
+        title="Top Manhwa" 
+        icon={BiBook} 
+        items={content.topManhwa} 
+        color="purple" 
+        viewAllPath="top/manhwa"
+      />
 
-<ContentSection 
-  title="Top Oneshot" 
-  icon={FaBookOpen} 
-  items={content.topOneshot} 
-  color="green" 
-  viewAllPath="top/oneshot"
-/>
-                </VStack>
+      <ContentSection 
+        title="Top Manhua" 
+        icon={FaDragon} 
+        items={content.topManhua} 
+        color="red" 
+        viewAllPath="top/manhua"
+      />
+
+      <ContentSection 
+        title="Top Oneshot" 
+        icon={FaBookOpen} 
+        items={content.topOneshot} 
+        color="green" 
+        viewAllPath="top/oneshot"
+      />
+
+      {/* Tabs per continue reading e consigliati */}
+      <Box bg="gray.800" p={4} borderRadius="xl">
+        <Tabs variant="soft-rounded" colorScheme="purple">
+          <TabList>
+            {content.continueReading.length > 0 && <Tab>Continua a leggere</Tab>}
+            {content.recommendations.length > 0 && <Tab>Consigliati</Tab>}
+          </TabList>
+
+          <TabPanels>
+            {content.continueReading.length > 0 && (
+              <TabPanel px={0} pt={6}>
+                <ContentSection 
+                  title="Continua a leggere" 
+                  icon={FaSync} 
+                  items={content.continueReading} 
+                  color="teal" 
+                  showProgress={true}
+                  emptyMessage="Nessun manga in lettura"
+                />
               </TabPanel>
-              
-              {content.recommendations.length > 0 && (
-                <TabPanel px={0} pt={6}>
-                  <ContentSection 
-                    title="Consigliati per te" 
-                    icon={FaStar} 
-                    items={content.recommendations} 
-                    color="yellow" 
-                    emptyMessage="Aggiungi preferiti per ricevere consigli personalizzati"
-                  />
-                </TabPanel>
-              )}
-            </TabPanels>
-          </Tabs>
-        </Box>
+            )}
 
-        {/* CTA per esplorare */}
-        <Box bg="gray.800" p={6} borderRadius="xl">
-          <VStack spacing={4}>
-            <Heading size="md">Esplora per categoria</Heading>
-            <Button 
-              colorScheme="purple" 
-              onClick={() => navigate('/categories')} 
-              rightIcon={<FaArrowRight />}
-              size="lg"
-              w={{ base: '100%', md: 'auto' }}
-            >
-              Scopri tutte le categorie
-            </Button>
-          </VStack>
-        </Box>
-      </VStack>
-    </Container>
-  );
+            {content.recommendations.length > 0 && (
+              <TabPanel px={0} pt={6}>
+                <ContentSection 
+                  title="Consigliati per te" 
+                  icon={FaStar} 
+                  items={content.recommendations} 
+                  color="yellow" 
+                  emptyMessage="Aggiungi preferiti per ricevere consigli personalizzati"
+                />
+              </TabPanel>
+            )}
+          </TabPanels>
+        </Tabs>
+      </Box>
+
+      {/* CTA per esplorare le categorie */}
+      <Box bg="gray.800" p={6} borderRadius="xl">
+        <VStack spacing={4}>
+          <Heading size="md">Esplora per categoria</Heading>
+          <Button 
+            colorScheme="purple" 
+            onClick={() => navigate('/categories')} 
+            rightIcon={<FaArrowRight />}
+            size="lg"
+            w={{ base: '100%', md: 'auto' }}
+          >
+            Scopri tutte le categorie
+          </Button>
+        </VStack>
+      </Box>
+
+    </VStack>
+  </Container>
+);
+
 }
 
 export default Home;
+
 
