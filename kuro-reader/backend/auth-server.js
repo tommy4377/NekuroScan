@@ -25,10 +25,9 @@ if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
   process.exit(1);
 }
 
-// Initialize database tables if not exist
+// Initialize database tables
 async function initDatabase() {
   try {
-    // Check if user_profile table exists
     const tableExists = await prisma.$queryRaw`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
@@ -39,43 +38,39 @@ async function initDatabase() {
     
     if (!tableExists[0]?.exists) {
       console.log('Creating user_profile table...');
+      
       await prisma.$executeRaw`
         CREATE TABLE IF NOT EXISTS "user_profile" (
           "id" SERIAL PRIMARY KEY,
-          "userId" INTEGER UNIQUE NOT NULL,
+          "userId" INTEGER UNIQUE NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
           "bio" TEXT,
           "avatarUrl" TEXT,
           "bannerUrl" TEXT,
           "isPublic" BOOLEAN DEFAULT false,
           "displayName" TEXT,
-          "socialLinks" JSONB,
+          "socialLinks" JSONB DEFAULT '{}',
           "viewCount" INTEGER DEFAULT 0,
           "badges" TEXT[] DEFAULT ARRAY[]::TEXT[],
           "theme" TEXT DEFAULT 'default',
           "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE
+          "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
       `;
       
       await prisma.$executeRaw`
         CREATE TABLE IF NOT EXISTS "user_follows" (
           "id" SERIAL PRIMARY KEY,
-          "followerId" INTEGER NOT NULL,
-          "followingId" INTEGER NOT NULL,
+          "followerId" INTEGER NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
+          "followingId" INTEGER NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
           "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE("followerId", "followingId"),
-          FOREIGN KEY ("followerId") REFERENCES "user"("id") ON DELETE CASCADE,
-          FOREIGN KEY ("followingId") REFERENCES "user"("id") ON DELETE CASCADE
+          UNIQUE("followerId", "followingId")
         );
       `;
       
       await prisma.$executeRaw`
         CREATE INDEX IF NOT EXISTS "idx_follows_follower" ON "user_follows"("followerId");
-      `;
-      
-      await prisma.$executeRaw`
         CREATE INDEX IF NOT EXISTS "idx_follows_following" ON "user_follows"("followingId");
+        CREATE INDEX IF NOT EXISTS "idx_profile_user" ON "user_profile"("userId");
       `;
       
       console.log('Database tables created successfully');
@@ -85,13 +80,12 @@ async function initDatabase() {
   }
 }
 
-// Initialize database on startup
 initDatabase();
 
 // CORS configuration
 const corsOrigins = process.env.NODE_ENV === 'production' 
   ? ['https://kuroreader.onrender.com']
-  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'];
+  : ['http://localhost:5173', 'http://localhost:3000'];
 
 app.use(cors({
   origin: corsOrigins,
@@ -103,7 +97,19 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Middleware per verificare il token
+// Validate image URL
+function validateImageUrl(url) {
+  if (!url) return false;
+  
+  // Allow data URLs
+  if (url.startsWith('data:image/')) return true;
+  
+  // Check URL format
+  const urlPattern = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i;
+  return urlPattern.test(url);
+}
+
+// Auth middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -128,12 +134,13 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
     
+    // Validation
     if (!username || !email || !password) {
       return res.status(400).json({ message: 'Tutti i campi sono richiesti' });
     }
     
     if (password.length < 6) {
-      return res.status(400).json({ message: 'La password deve essere di almeno 6 caratteri' });
+      return res.status(400).json({ message: 'Password minimo 6 caratteri' });
     }
     
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -144,6 +151,7 @@ app.post('/api/auth/register', async (req, res) => {
     const normalizedEmail = email.toLowerCase().trim();
     const normalizedUsername = username.toLowerCase().trim();
     
+    // Check existing
     const existingUser = await prisma.user.findFirst({
       where: { 
         OR: [
@@ -160,8 +168,8 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ message: 'Username già in uso' });
     }
 
+    // Create user
     const hashedPassword = await bcrypt.hash(password, 10);
-    
     const user = await prisma.user.create({
       data: { 
         username: normalizedUsername, 
@@ -170,15 +178,14 @@ app.post('/api/auth/register', async (req, res) => {
       }
     });
 
-    // Try to create profile, but don't fail if table doesn't exist
+    // Create profile
     try {
       await prisma.$executeRaw`
         INSERT INTO "user_profile" ("userId", "displayName", "isPublic")
-        VALUES (${user.id}, ${username}, false)
-        ON CONFLICT DO NOTHING;
+        VALUES (${user.id}, ${username}, false);
       `;
     } catch (e) {
-      console.log('Profile creation skipped:', e.message);
+      console.log('Profile creation deferred');
     }
 
     const token = jwt.sign(
@@ -198,24 +205,21 @@ app.post('/api/auth/register', async (req, res) => {
     
   } catch (error) {
     console.error('Register error:', error);
-    res.status(500).json({ 
-      message: 'Errore durante la registrazione'
-    });
+    res.status(500).json({ message: 'Errore registrazione' });
   }
 });
 
-// Login - FIXED
+// Login
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { emailOrUsername, password } = req.body;
     
     if (!emailOrUsername || !password) {
-      return res.status(400).json({ message: 'Email/Username e password richiesti' });
+      return res.status(400).json({ message: 'Credenziali richieste' });
     }
     
     const normalized = emailOrUsername.toLowerCase().trim();
     
-    // Simple query without profile
     const user = await prisma.user.findFirst({
       where: {
         OR: [
@@ -234,16 +238,15 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ message: 'Credenziali non valide' });
     }
 
-    // Try to get profile separately
+    // Get profile
     let profile = null;
     try {
-      const profileResult = await prisma.$queryRaw`
-        SELECT * FROM "user_profile" WHERE "userId" = ${user.id} LIMIT 1;
+      const profileData = await prisma.$queryRaw`
+        SELECT * FROM "user_profile" WHERE "userId" = ${user.id};
       `;
-      profile = profileResult[0] || null;
+      profile = profileData[0] || null;
     } catch (e) {
-      // Profile table doesn't exist yet
-      console.log('Profile fetch skipped');
+      console.log('Profile not available');
     }
 
     const token = jwt.sign(
@@ -264,7 +267,7 @@ app.post('/api/auth/login', async (req, res) => {
     
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Errore durante il login' });
+    res.status(500).json({ message: 'Errore login' });
   }
 });
 
@@ -285,15 +288,14 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Utente non trovato' });
     }
     
-    // Try to get profile
     let profile = null;
     try {
-      const profileResult = await prisma.$queryRaw`
-        SELECT * FROM "user_profile" WHERE "userId" = ${user.id} LIMIT 1;
+      const profileData = await prisma.$queryRaw`
+        SELECT * FROM "user_profile" WHERE "userId" = ${user.id};
       `;
-      profile = profileResult[0] || null;
+      profile = profileData[0] || null;
     } catch (e) {
-      console.log('Profile fetch skipped');
+      console.log('Profile not available');
     }
     
     res.json({ 
@@ -305,9 +307,48 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
     
   } catch (error) {
     console.error('Get user error:', error);
-    res.status(500).json({ message: 'Errore nel recupero utente' });
+    res.status(500).json({ message: 'Errore recupero utente' });
   }
 });
+
+// Change password
+app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: 'Password richieste' });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'Nuova password minimo 6 caratteri' });
+    }
+    
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id }
+    });
+    
+    const validPassword = await bcrypt.compare(oldPassword, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Password attuale non corretta' });
+    }
+    
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { password: hashedPassword }
+    });
+    
+    res.json({ success: true, message: 'Password cambiata' });
+    
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ message: 'Errore cambio password' });
+  }
+});
+
+// =================== PROFILE ENDPOINTS ===================
 
 // Get public profile
 app.get('/api/profile/:username', async (req, res) => {
@@ -319,36 +360,54 @@ app.get('/api/profile/:username', async (req, res) => {
     });
     
     if (!user) {
-      return res.status(404).json({ message: 'Utente non trovato' });
+      return res.status(404).json({ message: 'Profilo non trovato' });
     }
     
-    // Try to get profile
     let profile = null;
     try {
-      const profileResult = await prisma.$queryRaw`
-        SELECT * FROM "user_profile" WHERE "userId" = ${user.id} LIMIT 1;
+      const profileData = await prisma.$queryRaw`
+        SELECT * FROM "user_profile" WHERE "userId" = ${user.id};
       `;
-      profile = profileResult[0];
+      profile = profileData[0];
+      
+      if (profile && profile.isPublic) {
+        await prisma.$executeRaw`
+          UPDATE "user_profile" 
+          SET "viewCount" = COALESCE("viewCount", 0) + 1 
+          WHERE "userId" = ${user.id};
+        `;
+      }
     } catch (e) {
-      console.log('Profile table not available');
+      return res.status(404).json({ message: 'Profilo non disponibile' });
     }
     
     if (!profile || !profile.isPublic) {
-      return res.status(403).json({ message: 'Profilo privato' });
+      return res.status(403).json({ message: 'Profilo privato', isPrivate: true });
     }
     
     // Get library data
-    const library = await prisma.user_library.findUnique({
-      where: { userId: user.id }
-    });
-    
-    const favorites = await prisma.user_favorites.findUnique({
-      where: { userId: user.id }
-    });
+    const [library, favorites] = await Promise.all([
+      prisma.user_library.findUnique({ where: { userId: user.id } }),
+      prisma.user_favorites.findUnique({ where: { userId: user.id } })
+    ]);
     
     const reading = JSON.parse(library?.reading || '[]').slice(0, 12);
     const completed = JSON.parse(library?.completed || '[]').slice(0, 12);
     const favs = JSON.parse(favorites?.favorites || '[]').slice(0, 12);
+    
+    // Get follower count
+    let followerCount = 0;
+    let followingCount = 0;
+    try {
+      const [followers, following] = await Promise.all([
+        prisma.$queryRaw`SELECT COUNT(*) as count FROM "user_follows" WHERE "followingId" = ${user.id};`,
+        prisma.$queryRaw`SELECT COUNT(*) as count FROM "user_follows" WHERE "followerId" = ${user.id};`
+      ]);
+      followerCount = parseInt(followers[0]?.count || 0);
+      followingCount = parseInt(following[0]?.count || 0);
+    } catch (e) {
+      console.log('Follow count skipped');
+    }
     
     res.json({
       username: user.username,
@@ -362,7 +421,9 @@ app.get('/api/profile/:username', async (req, res) => {
         totalRead: reading.length + completed.length,
         favorites: favs.length,
         completed: completed.length,
-        views: profile.viewCount || 0
+        views: profile.viewCount || 0,
+        followers: followerCount,
+        following: followingCount
       },
       reading,
       completed,
@@ -380,22 +441,30 @@ app.get('/api/profile/:username', async (req, res) => {
 // Update profile
 app.put('/api/user/profile', authenticateToken, async (req, res) => {
   try {
-    const { bio, avatarUrl, isPublic, displayName, socialLinks, theme } = req.body;
+    const { bio, avatarUrl, bannerUrl, isPublic, displayName, socialLinks, theme } = req.body;
     
-    // Check if profile exists
+    // Validate URLs
+    if (avatarUrl && !validateImageUrl(avatarUrl)) {
+      return res.status(400).json({ message: 'URL avatar non valido' });
+    }
+    
+    if (bannerUrl && !validateImageUrl(bannerUrl)) {
+      return res.status(400).json({ message: 'URL banner non valido' });
+    }
+    
     let profile = null;
     try {
       const existing = await prisma.$queryRaw`
-        SELECT * FROM "user_profile" WHERE "userId" = ${req.user.id} LIMIT 1;
+        SELECT * FROM "user_profile" WHERE "userId" = ${req.user.id};
       `;
       
       if (existing[0]) {
-        // Update existing
         await prisma.$executeRaw`
           UPDATE "user_profile"
           SET 
             "bio" = ${bio || null},
             "avatarUrl" = ${avatarUrl || null},
+            "bannerUrl" = ${bannerUrl || null},
             "isPublic" = ${isPublic === true || isPublic === 'true'},
             "displayName" = ${displayName || null},
             "theme" = ${theme || 'default'},
@@ -404,14 +473,14 @@ app.put('/api/user/profile', authenticateToken, async (req, res) => {
           WHERE "userId" = ${req.user.id};
         `;
       } else {
-        // Create new
         await prisma.$executeRaw`
           INSERT INTO "user_profile" 
-          ("userId", "bio", "avatarUrl", "isPublic", "displayName", "theme", "socialLinks")
+          ("userId", "bio", "avatarUrl", "bannerUrl", "isPublic", "displayName", "theme", "socialLinks")
           VALUES (
             ${req.user.id},
             ${bio || null},
             ${avatarUrl || null},
+            ${bannerUrl || null},
             ${isPublic === true || isPublic === 'true'},
             ${displayName || null},
             ${theme || 'default'},
@@ -421,7 +490,7 @@ app.put('/api/user/profile', authenticateToken, async (req, res) => {
       }
       
       const updated = await prisma.$queryRaw`
-        SELECT * FROM "user_profile" WHERE "userId" = ${req.user.id} LIMIT 1;
+        SELECT * FROM "user_profile" WHERE "userId" = ${req.user.id};
       `;
       profile = updated[0];
       
@@ -444,7 +513,7 @@ app.delete('/api/user/account', authenticateToken, async (req, res) => {
     const { password } = req.body;
     
     if (!password) {
-      return res.status(400).json({ message: 'Password richiesta per confermare' });
+      return res.status(400).json({ message: 'Password richiesta' });
     }
     
     const user = await prisma.user.findUnique({
@@ -460,12 +529,11 @@ app.delete('/api/user/account', authenticateToken, async (req, res) => {
       return res.status(401).json({ message: 'Password non valida' });
     }
     
-    // Delete user (cascade will delete all related data)
     await prisma.user.delete({
       where: { id: req.user.id }
     });
     
-    res.json({ success: true, message: 'Account eliminato con successo' });
+    res.json({ success: true, message: 'Account eliminato' });
     
   } catch (error) {
     console.error('Delete account error:', error);
@@ -473,9 +541,87 @@ app.delete('/api/user/account', authenticateToken, async (req, res) => {
   }
 });
 
-// =================== LIBRARY SYNC (existing endpoints) ===================
+// =================== FOLLOW SYSTEM ===================
 
-// Save library data
+// Follow/Unfollow
+app.post('/api/user/follow/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+    
+    const targetUser = await prisma.user.findUnique({
+      where: { username: username.toLowerCase() }
+    });
+    
+    if (!targetUser) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+    
+    if (targetUser.id === req.user.id) {
+      return res.status(400).json({ message: 'Non puoi seguire te stesso' });
+    }
+    
+    try {
+      // Check if already following
+      const existing = await prisma.$queryRaw`
+        SELECT * FROM "user_follows" 
+        WHERE "followerId" = ${req.user.id} AND "followingId" = ${targetUser.id};
+      `;
+      
+      if (existing[0]) {
+        // Unfollow
+        await prisma.$executeRaw`
+          DELETE FROM "user_follows" 
+          WHERE "followerId" = ${req.user.id} AND "followingId" = ${targetUser.id};
+        `;
+        res.json({ success: true, following: false });
+      } else {
+        // Follow
+        await prisma.$executeRaw`
+          INSERT INTO "user_follows" ("followerId", "followingId")
+          VALUES (${req.user.id}, ${targetUser.id});
+        `;
+        res.json({ success: true, following: true });
+      }
+    } catch (e) {
+      console.error('Follow operation error:', e);
+      res.status(500).json({ message: 'Errore operazione follow' });
+    }
+    
+  } catch (error) {
+    console.error('Follow error:', error);
+    res.status(500).json({ message: 'Errore follow' });
+  }
+});
+
+// Check if following
+app.get('/api/user/following/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+    
+    const targetUser = await prisma.user.findUnique({
+      where: { username: username.toLowerCase() }
+    });
+    
+    if (!targetUser) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+    
+    const following = await prisma.$queryRaw`
+      SELECT * FROM "user_follows" 
+      WHERE "followerId" = ${req.user.id} AND "followingId" = ${targetUser.id};
+    `;
+    
+    res.json({ following: !!following[0] });
+    
+  } catch (error) {
+    console.error('Check following error:', error);
+    res.status(500).json({ message: 'Errore controllo follow' });
+  }
+});
+
+// =================== LIBRARY ENDPOINTS ===================
+
+// Save library
 app.post('/api/user/library', authenticateToken, async (req, res) => {
   try {
     const { reading, completed, history } = req.body;
@@ -496,48 +642,40 @@ app.post('/api/user/library', authenticateToken, async (req, res) => {
       }
     });
     
-    res.json({ success: true, message: 'Libreria salvata' });
+    res.json({ success: true });
     
   } catch (error) {
     console.error('Save library error:', error);
-    res.status(500).json({ message: 'Errore nel salvataggio libreria' });
+    res.status(500).json({ message: 'Errore salvataggio libreria' });
   }
 });
 
-// Get library data
+// Get library
 app.get('/api/user/library', authenticateToken, async (req, res) => {
   try {
     const library = await prisma.user_library.findUnique({
       where: { userId: req.user.id }
     });
     
-    if (!library) {
-      return res.json({
-        reading: [],
-        completed: [],
-        history: []
-      });
-    }
-    
     res.json({
-      reading: JSON.parse(library.reading || '[]'),
-      completed: JSON.parse(library.completed || '[]'),
-      history: JSON.parse(library.history || '[]')
+      reading: JSON.parse(library?.reading || '[]'),
+      completed: JSON.parse(library?.completed || '[]'),
+      history: JSON.parse(library?.history || '[]')
     });
     
   } catch (error) {
     console.error('Get library error:', error);
-    res.status(500).json({ message: 'Errore nel recupero libreria' });
+    res.status(500).json({ message: 'Errore recupero libreria' });
   }
 });
 
-// Save/Update user favorites
+// Save favorites
 app.post('/api/user/favorites', authenticateToken, async (req, res) => {
   try {
     const { favorites } = req.body;
     
     if (!Array.isArray(favorites)) {
-      return res.status(400).json({ message: 'Favorites deve essere un array' });
+      return res.status(400).json({ message: 'Formato non valido' });
     }
     
     await prisma.user_favorites.upsert({
@@ -552,74 +690,69 @@ app.post('/api/user/favorites', authenticateToken, async (req, res) => {
       }
     });
     
-    res.json({ success: true, message: 'Preferiti salvati' });
+    res.json({ success: true });
     
   } catch (error) {
     console.error('Save favorites error:', error);
-    res.status(500).json({ message: 'Errore nel salvataggio preferiti' });
+    res.status(500).json({ message: 'Errore salvataggio preferiti' });
   }
 });
 
-// Get user favorites
+// Get favorites
 app.get('/api/user/favorites', authenticateToken, async (req, res) => {
   try {
-    const userData = await prisma.user_favorites.findUnique({ 
+    const data = await prisma.user_favorites.findUnique({ 
       where: { userId: req.user.id } 
     });
     
     res.json({ 
-      favorites: userData ? JSON.parse(userData.favorites) : [] 
+      favorites: JSON.parse(data?.favorites || '[]')
     });
     
   } catch (error) {
     console.error('Get favorites error:', error);
-    res.status(500).json({ message: 'Errore nel recupero preferiti' });
+    res.status(500).json({ message: 'Errore recupero preferiti' });
   }
 });
 
 // Get all user data
 app.get('/api/user/data', authenticateToken, async (req, res) => {
   try {
-    const [userFavorites, readingProgress, library] = await Promise.all([
-      prisma.user_favorites.findUnique({ 
-        where: { userId: req.user.id } 
-      }),
+    const [favorites, progress, library] = await Promise.all([
+      prisma.user_favorites.findUnique({ where: { userId: req.user.id } }),
       prisma.reading_progress.findMany({ 
         where: { userId: req.user.id },
         orderBy: { updatedAt: 'desc' }
       }),
-      prisma.user_library.findUnique({
-        where: { userId: req.user.id }
-      })
+      prisma.user_library.findUnique({ where: { userId: req.user.id } })
     ]);
     
-    // Try to get profile
     let profile = null;
     try {
-      const profileResult = await prisma.$queryRaw`
-        SELECT * FROM "user_profile" WHERE "userId" = ${req.user.id} LIMIT 1;
+      const profileData = await prisma.$queryRaw`
+        SELECT * FROM "user_profile" WHERE "userId" = ${req.user.id};
       `;
-      profile = profileResult[0] || null;
+      profile = profileData[0] || null;
     } catch (e) {
-      console.log('Profile fetch skipped');
+      console.log('Profile not available');
     }
     
     res.json({ 
-      favorites: userFavorites ? JSON.parse(userFavorites.favorites) : [],
-      readingProgress: readingProgress || [],
-      reading: library ? JSON.parse(library.reading || '[]') : [],
-      completed: library ? JSON.parse(library.completed || '[]') : [],
-      history: library ? JSON.parse(library.history || '[]') : [],
+      favorites: JSON.parse(favorites?.favorites || '[]'),
+      readingProgress: progress || [],
+      reading: JSON.parse(library?.reading || '[]'),
+      completed: JSON.parse(library?.completed || '[]'),
+      history: JSON.parse(library?.history || '[]'),
       profile: profile || {}
     });
     
   } catch (error) {
     console.error('Get user data error:', error);
-    res.status(500).json({ message: 'Errore nel recupero dati utente' });
+    res.status(500).json({ message: 'Errore recupero dati' });
   }
 });
 
-// Save reading progress
+// Save progress
 app.post('/api/user/progress', authenticateToken, async (req, res) => {
   try {
     const { mangaUrl, mangaTitle, chapterIndex, pageIndex = 0 } = req.body;
@@ -653,7 +786,48 @@ app.post('/api/user/progress', authenticateToken, async (req, res) => {
     
   } catch (error) {
     console.error('Save progress error:', error);
-    res.status(500).json({ message: 'Errore nel salvataggio progresso' });
+    res.status(500).json({ message: 'Errore salvataggio progresso' });
+  }
+});
+
+// Get user stats
+app.get('/api/user/stats', authenticateToken, async (req, res) => {
+  try {
+    const [library, favorites, progress] = await Promise.all([
+      prisma.user_library.findUnique({ where: { userId: req.user.id } }),
+      prisma.user_favorites.findUnique({ where: { userId: req.user.id } }),
+      prisma.reading_progress.count({ where: { userId: req.user.id } })
+    ]);
+    
+    const reading = JSON.parse(library?.reading || '[]');
+    const completed = JSON.parse(library?.completed || '[]');
+    const favs = JSON.parse(favorites?.favorites || '[]');
+    
+    let profile = null;
+    try {
+      const profileData = await prisma.$queryRaw`
+        SELECT * FROM "user_profile" WHERE "userId" = ${req.user.id};
+      `;
+      profile = profileData[0];
+    } catch (e) {
+      console.log('Profile not available');
+    }
+    
+    res.json({
+      totalManga: reading.length + completed.length,
+      reading: reading.length,
+      completed: completed.length,
+      favorites: favs.length,
+      chaptersRead: progress * 10,
+      readingTime: progress * 150,
+      profileViews: profile?.viewCount || 0,
+      badges: profile?.badges || [],
+      joinDate: req.user.createdAt
+    });
+    
+  } catch (error) {
+    console.error('Get stats error:', error);
+    res.status(500).json({ message: 'Errore recupero statistiche' });
   }
 });
 
@@ -663,15 +837,12 @@ app.get('/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     service: 'KuroReader Auth Server',
-    version: '2.0.1'
+    version: '2.2.0'
   });
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString()
-  });
+  res.json({ status: 'OK' });
 });
 
 // 404 handler
@@ -682,7 +853,7 @@ app.use((req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
-  res.status(500).json({ message: 'Errore interno del server' });
+  res.status(500).json({ message: 'Errore server' });
 });
 
 // Start server
@@ -692,11 +863,14 @@ app.listen(PORT, () => {
 });
 
 // Graceful shutdown
-const gracefulShutdown = async () => {
-  console.log('Starting graceful shutdown...');
+process.on('SIGTERM', async () => {
+  console.log('Shutting down...');
   await prisma.$disconnect();
   process.exit(0);
-};
+});
 
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
+process.on('SIGINT', async () => {
+  console.log('Shutting down...');
+  await prisma.$disconnect();
+  process.exit(0);
+});
