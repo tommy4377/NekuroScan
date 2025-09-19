@@ -4,7 +4,7 @@ import {
   useDisclosure, Container, Avatar, Menu, MenuButton, MenuList, MenuItem,
   MenuDivider, Text, Image, Drawer, DrawerBody, DrawerHeader, DrawerOverlay,
   DrawerContent, DrawerCloseButton, VStack, Divider, useBreakpointValue,
-  Badge, Tooltip
+  Badge, Tooltip, useToast
 } from '@chakra-ui/react';
 import { HamburgerIcon, CloseIcon, SearchIcon, BellIcon } from '@chakra-ui/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -19,6 +19,7 @@ function Navigation() {
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
   const { user, logout, persistLocalData } = useAuth();
   
   const isMobile = useBreakpointValue({ base: true, md: false });
@@ -55,15 +56,30 @@ function Navigation() {
     }
   };
 
+  // FIX: async logout
   const doLogout = async () => {
-    if (user) await persistLocalData();
+    if (user) {
+      await persistLocalData(); // FIX: await added
+    }
     logout();
     navigate('/');
   };
 
   const shareProfile = () => {
     const profileUrl = `${window.location.origin}/user/${user?.username}`;
-    navigator.clipboard.writeText(profileUrl);
+    navigator.clipboard.writeText(profileUrl).then(() => {
+      toast({
+        title: 'Link copiato!',
+        status: 'success',
+        duration: 2000,
+      });
+    }).catch(() => {
+      toast({
+        title: 'Errore nella copia',
+        status: 'error',
+        duration: 2000,
+      });
+    });
   };
 
   return (
@@ -359,7 +375,10 @@ function Navigation() {
                     justifyContent="flex-start"
                     color="red.400"
                     leftIcon={<FaSignOutAlt />}
-                    onClick={() => { doLogout(); onClose(); }}
+                    onClick={async () => { 
+                      await doLogout(); 
+                      onClose(); 
+                    }}
                   >
                     Logout
                   </Button>
