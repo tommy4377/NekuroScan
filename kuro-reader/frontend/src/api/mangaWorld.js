@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { normalizeChapterLabel } from './shared';
 
 export class MangaWorldAPI {
   constructor() {
@@ -28,73 +29,6 @@ export class MangaWorldAPI {
     const parser = new DOMParser();
     return parser.parseFromString(html, 'text/html');
   }
-
-  normalizeChapterLabel(text, url) {
-  if (!text) return null;
-  
-  // Rimuovi spazi extra e trim
-  let t = text.replace(/\s+/g, ' ').trim();
-  
-  // Rimuovi date
-  t = t.replace(/\s+\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}.*$/, '');
-  t = t.replace(/\s+\d{4}[\/-]\d{1,2}[\/-]\d{1,2}.*$/, '');
-  
-  // Rimuovi prefissi comuni
-  t = t.replace(/^(vol\.\s*\d+\s*-\s*)?/i, '');
-  t = t.replace(/^(capitolo|cap\.|ch\.|chapter)\s*/i, '');
-  
-  // Estrai numero
-  const patterns = [
-    /^(\d+(?:\.\d+)?)/,
-    /\s+(\d+(?:\.\d+)?)\s*$/,
-    /(\d+(?:\.\d+)?)/
-  ];
-  
-  for (const pattern of patterns) {
-    const match = t.match(pattern);
-    if (match) {
-      let num = match[1];
-      
-      // FIX IMPORTANTE: Se il numero è >= 10 e ha più di 2 cifre, tronca le ultime 2
-      const numInt = parseInt(num);
-      if (numInt >= 10 && num.length > 2) {
-        num = num.slice(0, -2);
-      }
-      // Se inizia con 0 e ha 4+ cifre (es. 0176)
-      else if (num.startsWith('0') && num.length >= 4) {
-        num = num.substring(0, 2);
-        // Se diventa > 09, rimuovi lo 0
-        if (parseInt(num) > 9) {
-          num = num.replace(/^0/, '');
-        }
-      }
-      
-      return parseFloat(num);
-    }
-  }
-  
-  // Prova dall'URL
-  if (url) {
-    const urlMatch = url.match(/\/(\d+(?:\.\d+)?)\/?$/);
-    if (urlMatch) {
-      let num = urlMatch[1];
-      
-      const numInt = parseInt(num);
-      if (numInt >= 10 && num.length > 2) {
-        num = num.slice(0, -2);
-      } else if (num.startsWith('0') && num.length >= 4) {
-        num = num.substring(0, 2);
-        if (parseInt(num) > 9) {
-          num = num.replace(/^0/, '');
-        }
-      }
-      
-      return parseFloat(num);
-    }
-  }
-  
-  return null;
-}
 
   async search(searchTerm) {
     try {
@@ -171,7 +105,7 @@ export class MangaWorldAPI {
 
       const plot = doc.querySelector('#noidungm, .comic-description, .description')?.textContent?.trim() || '';
 
-      // Capitoli - CORREZIONE
+      // Capitoli
       const chapters = [];
       const processedUrls = new Set();
       
@@ -198,12 +132,11 @@ export class MangaWorldAPI {
         const href = a.getAttribute('href');
         const full = href?.startsWith('http') ? href : `${this.baseUrl}${href?.replace(/^\//, '')}`;
         
-        // Evita duplicati
         if (processedUrls.has(full)) return;
         processedUrls.add(full);
         
         const raw = a.textContent?.trim() || '';
-        const chapterNumber = this.normalizeChapterLabel(raw, href);
+        const chapterNumber = normalizeChapterLabel(raw, href);
         
         if (chapterNumber !== null) {
           chapters.push({
@@ -361,4 +294,3 @@ export class MangaWorldAPI {
     }
   }
 }
-
