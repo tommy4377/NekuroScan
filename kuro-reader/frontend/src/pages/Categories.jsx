@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
   Button, useToast, Tabs, TabList, TabPanels, Tab, TabPanel,
   Badge, Input, InputGroup, InputLeftElement, Select, Skeleton,
-  Wrap, WrapItem, IconButton, Spinner, Divider, Tag, TagLabel, TagCloseButton, Checkbox
+  Wrap, WrapItem, IconButton, Spinner, Divider, Tag, TagLabel, TagCloseButton, Checkbox, Center
 } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
 import { useLocation } from 'react-router-dom';
@@ -38,10 +38,14 @@ function Categories() {
   const [totalLoaded, setTotalLoaded] = useState(0);
   const [pageTitle, setPageTitle] = useState('Esplora Categorie');
   const [currentPreset, setCurrentPreset] = useState(null);
+  
+  // Ref per prevenire chiamate duplicate
+  const loadingRef = useRef(false);
 
   const { ref: loadMoreRef, inView } = useInView({ 
     threshold: 0.1, 
-    rootMargin: '200px' 
+    rootMargin: '100px',
+    triggerOnce: false
   });
 
   useEffect(() => {
@@ -65,24 +69,25 @@ function Categories() {
     if (location.state.preset === 'latest') {
       setPageTitle('Ultimi Aggiornamenti');
       setFilters(prev => ({ ...prev, sortBy: 'newest' }));
-      loadPresetData('latest', 1);
+      loadPresetData('latest', 1, true);
     } else if (location.state.preset === 'popular') {
       setPageTitle('Manga Popolari');
       setFilters(prev => ({ ...prev, sortBy: 'most_read' }));
-      loadPresetData('popular', 1);
+      loadPresetData('popular', 1, true);
     } else if (location.state.type) {
       const typeName = location.state.type.charAt(0).toUpperCase() + location.state.type.slice(1);
       setPageTitle(`Top ${typeName}`);
       setSelectedType(location.state.type);
-      loadPresetData(location.state.type, 1);
+      loadPresetData(location.state.type, 1, true);
     }
   }, [location.state, filters.includeAdult]);
 
+  // FIX: Migliorato scroll infinito
   useEffect(() => {
-    if (inView && hasMore && !loadingMore && mangaList.length > 0) {
+    if (inView && hasMore && !loadingRef.current && mangaList.length > 0) {
       loadMoreData();
     }
-  }, [inView, hasMore, loadingMore, mangaList.length]);
+  }, [inView, hasMore, mangaList.length]);
 
   const loadCategories = async () => {
     setLoadingCats(true);
@@ -97,9 +102,15 @@ function Categories() {
     }
   };
 
-  const loadPresetData = async (preset, pageNum) => {
-    if (pageNum === 1) {
+  const loadPresetData = async (preset, pageNum, reset = false) => {
+    if (loadingRef.current && !reset) return;
+    loadingRef.current = true;
+    
+    if (reset) {
       setLoadingManga(true);
+      setMangaList([]);
+      setPage(1);
+      setTotalLoaded(0);
     } else {
       setLoadingMore(true);
     }
@@ -116,52 +127,65 @@ function Categories() {
         result = await statsAPI.getTopByType(preset, filters.includeAdult, pageNum);
       }
       
-      if (result) {
-        if (pageNum === 1) {
+      if (result && result.results) {
+        if (reset) {
           setMangaList(result.results);
           setTotalLoaded(result.results.length);
         } else {
-          setMangaList(prev => [...prev, ...result.results]);
+          setMangaList(prev => {
+            const existingUrls = new Set(prev.map(m => m.url));
+            const newItems = result.results.filter(m => !existingUrls.has(m.url));
+            return [...prev, ...newItems];
+          });
           setTotalLoaded(prev => prev + result.results.length);
         }
-        setHasMore(result.hasMore);
+        setHasMore(result.hasMore && result.results.length > 0);
         setPage(pageNum);
       }
     } catch (error) {
       console.error('Error loading preset data:', error);
       toast({ title: 'Errore caricamento', status: 'error' });
+      setHasMore(false);
     } finally {
       setLoadingManga(false);
       setLoadingMore(false);
+      loadingRef.current = false;
     }
   };
 
-  const loadMoreData = async () => {
-    if (loadingMore || !hasMore) return;
+  const loadMoreData = useCallback(async () => {
+    if (loadingRef.current || !hasMore) return;
     
     const nextPage = page + 1;
     
     if (currentPreset) {
-      // Carica più dati per preset
-      loadPresetData(currentPreset, nextPage);
+      await loadPresetData(currentPreset, nextPage);
     } else if (selectedGenres.length > 0 || selectedType) {
-      // Carica più dati per ricerca
-      loadMoreSearch(nextPage);
+      await loadMoreSearch(nextPage);
     }
-  };
+  }, [page, hasMore, currentPreset, selectedGenres, selectedType, filters]);
 
   const loadMoreSearch = async (pageNum) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoadingMore(true);
+    
     try {
       const { results, hasMore: more } = await runSearch({ page: pageNum });
-      setMangaList(prev => [...prev, ...results]);
-      setHasMore(more);
+      setMangaList(prev => {
+        const existingUrls = new Set(prev.map(m => m.url));
+        const newItems = results.filter(m => !existingUrls.has(m.url));
+        return [...prev, ...newItems];
+      });
+      setHasMore(more && results.length > 0);
       setTotalLoaded(prev => prev + results.length);
       setPage(pageNum);
     } catch (error) {
       console.error('Error loading more:', error);
+      setHasMore(false);
     } finally {
       setLoadingMore(false);
+      loadingRef.current = false;
     }
   };
 
@@ -215,6 +239,7 @@ function Categories() {
     setMangaList([]);
     setPageTitle('Risultati Ricerca');
     setCurrentPreset(null);
+    loadingRef.current = true;
     
     try {
       const { results, hasMore } = await runSearch({ page: 1 });
@@ -226,6 +251,7 @@ function Categories() {
       toast({ title: 'Errore ricerca', status: 'error', duration: 3000 });
     } finally {
       setLoadingManga(false);
+      loadingRef.current = false;
     }
   };
 
@@ -437,17 +463,8 @@ function Categories() {
           <VStack align="stretch" spacing={4}>
             <HStack justify="space-between">
               <Text fontWeight="bold">
-                {totalLoaded} manga trovati {hasMore && ' (altri disponibili)'}
+                {totalLoaded} manga trovati {hasMore && ' (scorri per più risultati)'}
               </Text>
-              {hasMore && !loadingMore && (
-                <Button 
-                  onClick={loadMoreData} 
-                  colorScheme="purple" 
-                  variant="outline"
-                >
-                  Carica altri
-                </Button>
-              )}
             </HStack>
 
             {loadingManga && mangaList.length === 0 ? (
@@ -466,25 +483,29 @@ function Categories() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(i * 0.02, 0.5) }}
                     >
-                      <Box position="relative">
-                        <MangaCard manga={manga} hideSource showLatest={false} />
-                        {manga.isAdult && (
-                          <Badge position="absolute" top={2} right={2} colorScheme="pink" fontSize="xs">18+</Badge>
-                        )}
-                      </Box>
+                      <MangaCard manga={manga} hideSource />
                     </MotionBox>
                   ))}
                 </SimpleGrid>
 
+                {/* Load More Trigger */}
                 {hasMore && (
-                  <Box ref={loadMoreRef} textAlign="center" py={4}>
-                    {loadingMore && (
-                      <HStack justify="center">
+                  <Center ref={loadMoreRef} py={4}>
+                    {loadingMore ? (
+                      <HStack>
                         <Spinner color="purple.500" />
                         <Text>Caricamento...</Text>
                       </HStack>
+                    ) : (
+                      <Button
+                        colorScheme="purple"
+                        variant="outline"
+                        onClick={loadMoreData}
+                      >
+                        Carica altri
+                      </Button>
                     )}
-                  </Box>
+                  </Center>
                 )}
               </>
             ) : (
