@@ -1,33 +1,50 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box, Flex, HStack, IconButton, Button, Input, InputGroup, InputLeftElement,
   useDisclosure, Container, Avatar, Menu, MenuButton, MenuList, MenuItem,
   MenuDivider, Text, Image, Drawer, DrawerBody, DrawerHeader, DrawerOverlay,
-  DrawerContent, DrawerCloseButton, VStack, Divider, useBreakpointValue
+  DrawerContent, DrawerCloseButton, VStack, Divider, useBreakpointValue,
+  Badge, Tooltip
 } from '@chakra-ui/react';
-import { HamburgerIcon, CloseIcon, SearchIcon } from '@chakra-ui/icons';
+import { HamburgerIcon, CloseIcon, SearchIcon, BellIcon } from '@chakra-ui/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaBook, FaHome, FaUser, FaBookmark, FaSignInAlt, FaSignOutAlt } from 'react-icons/fa';
+import { FaBook, FaUser, FaBookmark, FaSignInAlt, FaSignOutAlt, FaCog, FaShare } from 'react-icons/fa';
 import { BiCategoryAlt } from 'react-icons/bi';
+import { MdPublic, MdLock } from 'react-icons/md';
 import useAuth from '../hooks/useAuth';
 
 function Navigation() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [query, setQuery] = useState('');
+  const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, syncToServer } = useAuth();
+  const { user, logout, persistLocalData } = useAuth();
   
-  const showFullTitle = useBreakpointValue({ base: false, sm: true });
-  const logoSize = useBreakpointValue({ base: '30px', md: '35px' });
-
+  const isMobile = useBreakpointValue({ base: true, md: false });
+  const logoSize = useBreakpointValue({ base: '32px', md: '40px' });
+  
   // Non mostrare nel reader
   if (location.pathname.includes('/read/')) return null;
 
+  // Effetto scroll per ombra navbar
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Avatar con fallback
   const avatarSrc = useMemo(() => {
     const local = localStorage.getItem('userAvatar');
     return user?.avatar || local || undefined;
   }, [user]);
+
+  // Notifiche non lette
+  const unreadCount = useMemo(() => {
+    const updates = JSON.parse(localStorage.getItem('mangaUpdates') || '[]');
+    return updates.filter(u => !u.read).length;
+  }, [location]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -39,16 +56,21 @@ function Navigation() {
   };
 
   const doLogout = async () => {
-    if (user) await syncToServer();
+    if (user) await persistLocalData();
     logout();
     navigate('/');
   };
 
+  const shareProfile = () => {
+    const profileUrl = `${window.location.origin}/user/${user?.username}`;
+    navigator.clipboard.writeText(profileUrl);
+  };
+
   return (
     <>
-      <Box h="64px" /> {/* Spacer per nav fixed */}
+      <Box h="60px" />
       <Box
-        bg="rgba(26, 32, 44, 0.98)"
+        bg="rgba(26, 32, 44, 0.95)"
         px={2}
         position="fixed"
         top={0}
@@ -57,11 +79,15 @@ function Navigation() {
         zIndex={999}
         borderBottom="1px"
         borderColor="gray.700"
-        backdropFilter="blur(10px)"
+        backdropFilter="blur(12px)"
+        boxShadow={scrolled ? 'lg' : 'none'}
+        transition="all 0.3s"
       >
         <Container maxW="container.xl">
-          <Flex h={16} alignItems="center" justifyContent="space-between">
-            <HStack spacing={{ base: 1, md: 4 }}>
+          <Flex h="60px" alignItems="center" justifyContent="space-between">
+            {/* Left Section */}
+            <HStack spacing={{ base: 2, md: 4 }}>
+              {/* Mobile Menu */}
               <IconButton
                 size="md"
                 icon={isOpen ? <CloseIcon /> : <HamburgerIcon />}
@@ -69,39 +95,51 @@ function Navigation() {
                 display={{ md: 'none' }}
                 onClick={onOpen}
                 variant="ghost"
+                colorScheme="purple"
               />
               
+              {/* Logo & Title */}
               <Link to="/home">
-                <HStack 
-                  _hover={{ opacity: 0.8 }}
-                  cursor="pointer"
-                >
+                <HStack spacing={2} _hover={{ opacity: 0.8 }} transition="all 0.2s">
                   <Image 
                     src="/web-app-manifest-512x512.png" 
                     boxSize={logoSize}
-                    fallbackSrc="https://via.placeholder.com/30" 
+                    fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23805AD5'/%3E%3C/svg%3E"
                   />
-                  {showFullTitle && (
-                    <Text
-                      fontSize={{ base: 'lg', md: '2xl' }}
-                      fontWeight="bold"
-                      bgGradient="linear(to-r, purple.400, pink.400)"
-                      bgClip="text"
-                    >
-                      KuroReader
-                    </Text>
-                  )}
+                  <Text
+                    fontSize={{ base: 'lg', md: '2xl' }}
+                    fontWeight="bold"
+                    bgGradient="linear(to-r, purple.400, pink.400)"
+                    bgClip="text"
+                    display={{ base: 'block', md: 'block' }}
+                  >
+                    KuroReader
+                  </Text>
                 </HStack>
               </Link>
 
+              {/* Desktop Nav */}
               <HStack spacing={2} display={{ base: 'none', md: 'flex' }}>
-                <Link to="/home"><Button variant="ghost" leftIcon={<FaHome />} size="sm">Home</Button></Link>
-                <Link to="/library"><Button variant="ghost" leftIcon={<FaBook />} size="sm">Libreria</Button></Link>
-                <Link to="/categories"><Button variant="ghost" leftIcon={<BiCategoryAlt />} size="sm" colorScheme="purple">Categorie</Button></Link>
+                <Link to="/library">
+                  <Button variant="ghost" leftIcon={<FaBook />} size="sm">
+                    Libreria
+                  </Button>
+                </Link>
+                <Link to="/categories">
+                  <Button variant="ghost" leftIcon={<BiCategoryAlt />} size="sm" colorScheme="purple">
+                    Categorie
+                  </Button>
+                </Link>
               </HStack>
             </HStack>
 
-            <Box display={{ base: 'none', md: 'block' }} flex={1} maxW="400px" mx={4}>
+            {/* Center - Search */}
+            <Box 
+              display={{ base: 'none', md: 'block' }} 
+              flex={1} 
+              maxW="400px" 
+              mx={4}
+            >
               <form onSubmit={handleSearch}>
                 <InputGroup size="sm">
                   <InputLeftElement pointerEvents="none">
@@ -112,14 +150,19 @@ function Navigation() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     bg="gray.800"
-                    border="none"
-                    _focus={{ bg: 'gray.700' }}
+                    border="1px solid"
+                    borderColor="gray.700"
+                    _hover={{ borderColor: 'purple.500' }}
+                    _focus={{ borderColor: 'purple.400', bg: 'gray.700' }}
+                    borderRadius="full"
                   />
                 </InputGroup>
               </form>
             </Box>
 
-            <HStack spacing={1}>
+            {/* Right Section */}
+            <HStack spacing={2}>
+              {/* Mobile Search */}
               <IconButton
                 icon={<SearchIcon />}
                 variant="ghost"
@@ -127,8 +170,40 @@ function Navigation() {
                 onClick={() => navigate('/search')}
                 aria-label="Cerca"
                 size="sm"
+                colorScheme="purple"
               />
               
+              {/* Notifications */}
+              {user && (
+                <Box position="relative">
+                  <IconButton
+                    icon={<BellIcon />}
+                    variant="ghost"
+                    aria-label="Notifiche"
+                    size="sm"
+                    onClick={() => navigate('/notifications')}
+                  />
+                  {unreadCount > 0 && (
+                    <Badge
+                      position="absolute"
+                      top={0}
+                      right={0}
+                      colorScheme="red"
+                      borderRadius="full"
+                      fontSize="xs"
+                      minW="18px"
+                      h="18px"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                    >
+                      {unreadCount}
+                    </Badge>
+                  )}
+                </Box>
+              )}
+              
+              {/* User Menu */}
               {user ? (
                 <Menu>
                   <MenuButton
@@ -143,12 +218,19 @@ function Navigation() {
                       name={user.username}
                       src={avatarSrc}
                       bg="purple.500"
+                      border="2px solid"
+                      borderColor="purple.400"
                     />
                   </MenuButton>
                   <MenuList bg="gray.800" borderColor="gray.700">
-                    <MenuItem isDisabled>
+                    <MenuItem isDisabled bg="gray.900">
                       <VStack align="start" spacing={0}>
-                        <Text fontSize="sm" fontWeight="bold">{user.username}</Text>
+                        <HStack>
+                          <Text fontSize="sm" fontWeight="bold">{user.username}</Text>
+                          {localStorage.getItem('profilePublic') === 'true' && (
+                            <MdPublic size="14" color="green" />
+                          )}
+                        </HStack>
                         <Text fontSize="xs" color="gray.400">{user.email}</Text>
                       </VStack>
                     </MenuItem>
@@ -159,6 +241,14 @@ function Navigation() {
                     <MenuItem icon={<FaBookmark />} onClick={() => navigate('/library')}>
                       I miei manga
                     </MenuItem>
+                    <MenuItem icon={<FaCog />} onClick={() => navigate('/settings')}>
+                      Impostazioni
+                    </MenuItem>
+                    {localStorage.getItem('profilePublic') === 'true' && (
+                      <MenuItem icon={<FaShare />} onClick={shareProfile}>
+                        Condividi profilo
+                      </MenuItem>
+                    )}
                     <MenuDivider />
                     <MenuItem onClick={doLogout} color="red.400" icon={<FaSignOutAlt />}>
                       Logout
@@ -171,6 +261,7 @@ function Navigation() {
                   size="sm"
                   onClick={() => navigate('/login')}
                   display={{ base: 'none', sm: 'flex' }}
+                  leftIcon={<FaSignInAlt />}
                 >
                   Accedi
                 </Button>
@@ -185,12 +276,9 @@ function Navigation() {
         <DrawerOverlay />
         <DrawerContent bg="gray.900">
           <DrawerCloseButton />
-          <DrawerHeader>
+          <DrawerHeader borderBottomWidth="1px" borderColor="gray.700">
             <HStack spacing={2}>
-              <Image 
-                src="/web-app-manifest-512x512.png" 
-                boxSize="25px" 
-              />
+              <Image src="/web-app-manifest-512x512.png" boxSize="28px" />
               <Text
                 fontSize="xl"
                 fontWeight="bold"
@@ -202,8 +290,9 @@ function Navigation() {
             </HStack>
           </DrawerHeader>
 
-          <DrawerBody>
+          <DrawerBody pt={4}>
             <VStack spacing={4} align="stretch">
+              {/* Mobile Search */}
               <form onSubmit={handleSearch}>
                 <InputGroup>
                   <InputLeftElement pointerEvents="none">
@@ -215,21 +304,18 @@ function Navigation() {
                     onChange={(e) => setQuery(e.target.value)}
                     bg="gray.800"
                     border="none"
+                    _focus={{ bg: 'gray.700', borderColor: 'purple.500' }}
                   />
                 </InputGroup>
               </form>
               
-              <Divider />
+              <Divider borderColor="gray.700" />
               
+              {/* Navigation Links */}
               <VStack align="stretch" spacing={2}>
-                <Link to="/home" onClick={onClose}>
-                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaHome />} w="100%">
-                    Home
-                  </Button>
-                </Link>
                 <Link to="/library" onClick={onClose}>
                   <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaBook />} w="100%">
-                    Libreria
+                    La mia Libreria
                   </Button>
                 </Link>
                 <Link to="/categories" onClick={onClose}>
@@ -240,22 +326,32 @@ function Navigation() {
                     w="100%"
                     colorScheme="purple"
                   >
-                    Categorie
+                    Esplora Categorie
                   </Button>
                 </Link>
               </VStack>
               
-              <Divider />
+              <Divider borderColor="gray.700" />
               
+              {/* User Section */}
               {user ? (
-                <VStack align="stretch" spacing={2}>
-                  <HStack align="center">
-                    <Avatar size="sm" name={user.username} src={avatarSrc} />
-                    <Text>{user.username}</Text>
+                <VStack align="stretch" spacing={3}>
+                  <HStack p={3} bg="gray.800" borderRadius="lg">
+                    <Avatar size="md" name={user.username} src={avatarSrc} />
+                    <VStack align="start" spacing={0}>
+                      <Text fontWeight="bold">{user.username}</Text>
+                      <Text fontSize="xs" color="gray.400">{user.email}</Text>
+                    </VStack>
                   </HStack>
+                  
                   <Link to="/profile" onClick={onClose}>
                     <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaUser />} w="100%">
                       Il mio profilo
+                    </Button>
+                  </Link>
+                  <Link to="/settings" onClick={onClose}>
+                    <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaCog />} w="100%">
+                      Impostazioni
                     </Button>
                   </Link>
                   <Button
@@ -269,13 +365,19 @@ function Navigation() {
                   </Button>
                 </VStack>
               ) : (
-                <Button
-                  colorScheme="purple"
-                  leftIcon={<FaSignInAlt />}
-                  onClick={() => { navigate('/login'); onClose(); }}
-                >
-                  Accedi
-                </Button>
+                <VStack spacing={2}>
+                  <Button
+                    colorScheme="purple"
+                    leftIcon={<FaSignInAlt />}
+                    onClick={() => { navigate('/login'); onClose(); }}
+                    w="100%"
+                  >
+                    Accedi
+                  </Button>
+                  <Text fontSize="xs" color="gray.400" textAlign="center">
+                    Accedi per salvare i tuoi progressi
+                  </Text>
+                </VStack>
               )}
             </VStack>
           </DrawerBody>
