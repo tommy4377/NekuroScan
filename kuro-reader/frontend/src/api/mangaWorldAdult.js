@@ -36,64 +36,6 @@ export class MangaWorldAdultAPI {
     return parser.parseFromString(html, 'text/html');
   }
 
-  extractChapterNumber(text, url) {
-    if (!text) return null;
-    
-    // Rimuovi date
-    text = text.replace(/\s+\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}.*$/, '');
-    text = text.replace(/\s+\d{4}[\/-]\d{1,2}[\/-]\d{1,2}.*$/, '');
-    text = text.trim();
-    
-    // Pattern per estrarre numero
-    const patterns = [
-      /capitolo\s+(\d+(?:\.\d+)?)/i,
-      /cap\.\s*(\d+(?:\.\d+)?)/i,
-      /ch\.\s*(\d+(?:\.\d+)?)/i,
-      /chapter\s+(\d+(?:\.\d+)?)/i,
-      /episodio\s+(\d+(?:\.\d+)?)/i,
-      /ep\.\s*(\d+(?:\.\d+)?)/i,
-      /^\s*(\d+(?:\.\d+)?)\s*$/,
-      /\s+(\d+(?:\.\d+)?)\s*$/
-    ];
-    
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (match) {
-        let num = match[1];
-        // Se il numero è tipo 0176, prendi solo 01
-        if (num.length >= 4 && num.startsWith('0')) {
-          num = num.substring(0, 2);
-        }
-        // Rimuovi zeri iniziali non necessari
-        num = num.replace(/^0+(\d)/, '$1');
-        return parseFloat(num);
-      }
-    }
-    
-    // Prova dall'URL
-    if (url) {
-      const urlPatterns = [
-        /\/(\d+(?:\.\d+)?)\/?$/,
-        /capitolo[_-](\d+(?:\.\d+)?)/i,
-        /chapter[_-](\d+(?:\.\d+)?)/i
-      ];
-      
-      for (const pattern of urlPatterns) {
-        const match = url.match(pattern);
-        if (match) {
-          let num = match[1];
-          if (num.length >= 4 && num.startsWith('0')) {
-            num = num.substring(0, 2);
-          }
-          num = num.replace(/^0+(\d)/, '$1');
-          return parseFloat(num);
-        }
-      }
-    }
-    
-    return null;
-  }
-
   async search(searchTerm) {
     try {
       const url = `${this.baseUrl}archive?keyword=${encodeURIComponent(searchTerm)}`;
@@ -198,70 +140,166 @@ export class MangaWorldAdultAPI {
       const plotText = plotDiv?.textContent?.trim() || '';
       const plot = plotText.replace(/^TRAMA:?\s*/i, '').trim();
       
-      // Capitoli - CORREZIONE COMPLETA
+      // CAPITOLI - FIX COMPLETO
       const chapters = [];
       const processedUrls = new Set();
       
-      // Selettori multipli per trovare i capitoli
-      const chapterSelectors = [
-        '.chapters-wrapper .chapter a',
-        '.chapters-wrapper .chap a',
-        '#chapterList .chapter a',
-        '.volume-chapters a[href*="/read/"]',
-        '.chapters .chapter a',
-        '.chapter-list a[href*="/read/"]',
-        'a[href*="/read/"]'
-      ];
+      // Trova il contenitore dei capitoli
+      const chapterContainer = doc.querySelector('.chapters-wrapper, #chapterList, .chapters');
       
-      let chapterLinks = [];
-      for (const selector of chapterSelectors) {
-        const links = doc.querySelectorAll(selector);
-        if (links.length > 0) {
-          chapterLinks = Array.from(links);
-          console.log(`Found ${links.length} chapters with selector: ${selector}`);
-          break;
-        }
-      }
-      
-      // Se non trova capitoli con i selettori standard, prova un approccio più generico
-      if (chapterLinks.length === 0) {
-        const allLinks = doc.querySelectorAll('a');
-        chapterLinks = Array.from(allLinks).filter(link => {
-          const href = link.getAttribute('href');
-          return href && href.includes('/read/');
-        });
-      }
-      
-      // Processa ogni link trovato
-      chapterLinks.forEach((elem) => {
-        const href = elem.getAttribute('href');
-        if (!href || !href.includes('/read/')) return;
+      if (chapterContainer) {
+        // Cerca solo i link diretti dentro .chapter
+        const chapterDivs = chapterContainer.querySelectorAll('.chapter');
         
-        const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
-        
-        // Evita duplicati
-        if (processedUrls.has(fullUrl)) return;
-        processedUrls.add(fullUrl);
-        
-        // Estrai testo e numero capitolo
-        let chapterText = elem.textContent?.trim() || '';
-        const chapterNumber = this.extractChapterNumber(chapterText, href);
-        
-        if (chapterNumber !== null) {
-          chapters.push({
-            url: fullUrl,
-            chapterNumber: chapterNumber,
-            title: `Capitolo ${chapterNumber}`,
-            dateAdd: ''
+        if (chapterDivs.length > 0) {
+          // Metodo 1: Div .chapter con link dentro
+          chapterDivs.forEach((chDiv, index) => {
+            const link = chDiv.querySelector('a[href*="/read/"]');
+            if (link) {
+              const href = link.getAttribute('href');
+              const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+              
+              if (!processedUrls.has(fullUrl)) {
+                processedUrls.add(fullUrl);
+                
+                // Prendi SOLO il testo del link, non tutto il div
+                let chapterText = link.textContent?.trim() || '';
+                
+                // Rimuovi completamente le date
+                chapterText = chapterText.replace(/\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/g, '');
+                chapterText = chapterText.replace(/\d{4}[\/-]\d{1,2}[\/-]\d{1,2}/g, '');
+                chapterText = chapterText.trim();
+                
+                // Estrai il numero del capitolo
+                let chapterNumber = null;
+                
+                // Pattern specifici per estrarre SOLO il numero del capitolo
+                const patterns = [
+                  /^capitolo\s+(\d+(?:\.\d+)?)/i,
+                  /^cap\.\s*(\d+(?:\.\d+)?)/i,
+                  /^chapter\s+(\d+(?:\.\d+)?)/i,
+                  /^ch\.\s*(\d+(?:\.\d+)?)/i,
+                  /^episodio\s+(\d+(?:\.\d+)?)/i,
+                  /^ep\.\s*(\d+(?:\.\d+)?)/i,
+                  /^(\d+(?:\.\d+)?)(?:\s|$)/  // Solo numero all'inizio
+                ];
+                
+                for (const pattern of patterns) {
+                  const match = chapterText.match(pattern);
+                  if (match) {
+                    chapterNumber = parseFloat(match[1]);
+                    break;
+                  }
+                }
+                
+                // Se non trova numero dal testo, prova dall'URL
+                if (chapterNumber === null) {
+                  const urlPatterns = [
+                    /\/capitolo[_-](\d+(?:\.\d+)?)/i,
+                    /\/chapter[_-](\d+(?:\.\d+)?)/i,
+                    /\/cap[_-](\d+(?:\.\d+)?)/i,
+                    /\/(\d+(?:\.\d+)?)(?:\?|\/|$)/  // Numero alla fine dell'URL
+                  ];
+                  
+                  for (const pattern of urlPatterns) {
+                    const match = href.match(pattern);
+                    if (match) {
+                      chapterNumber = parseFloat(match[1]);
+                      break;
+                    }
+                  }
+                }
+                
+                // Se ancora non trova, usa l'indice
+                if (chapterNumber === null) {
+                  chapterNumber = index + 1;
+                }
+                
+                chapters.push({
+                  url: fullUrl,
+                  chapterNumber: chapterNumber,
+                  title: `Capitolo ${chapterNumber}`,
+                  dateAdd: ''
+                });
+              }
+            }
+          });
+        } else {
+          // Metodo 2: Link diretti nel container
+          const directLinks = chapterContainer.querySelectorAll('a[href*="/read/"]');
+          directLinks.forEach((link, index) => {
+            const href = link.getAttribute('href');
+            if (!href) return;
+            
+            const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+            
+            if (!processedUrls.has(fullUrl)) {
+              processedUrls.add(fullUrl);
+              
+              let chapterText = link.textContent?.trim() || '';
+              
+              // Rimuovi date
+              chapterText = chapterText.replace(/\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/g, '');
+              chapterText = chapterText.replace(/\d{4}[\/-]\d{1,2}[\/-]\d{1,2}/g, '');
+              chapterText = chapterText.trim();
+              
+              let chapterNumber = null;
+              
+              // Estrai numero
+              const patterns = [
+                /capitolo\s+(\d+(?:\.\d+)?)/i,
+                /cap\.\s*(\d+(?:\.\d+)?)/i,
+                /chapter\s+(\d+(?:\.\d+)?)/i,
+                /^(\d+(?:\.\d+)?)/
+              ];
+              
+              for (const pattern of patterns) {
+                const match = chapterText.match(pattern);
+                if (match) {
+                  chapterNumber = parseFloat(match[1]);
+                  break;
+                }
+              }
+              
+              if (chapterNumber === null) {
+                chapterNumber = index + 1;
+              }
+              
+              chapters.push({
+                url: fullUrl,
+                chapterNumber: chapterNumber,
+                title: `Capitolo ${chapterNumber}`,
+                dateAdd: ''
+              });
+            }
           });
         }
-      });
+      }
       
-      // Se non riesce a estrarre numeri, usa indici sequenziali
-      if (chapters.every(ch => ch.chapterNumber === null)) {
-        chapters.forEach((ch, i) => {
-          ch.chapterNumber = i + 1;
-          ch.title = `Capitolo ${i + 1}`;
+      // Se non trova capitoli nel container, cerca ovunque (fallback)
+      if (chapters.length === 0) {
+        const allLinks = doc.querySelectorAll('a[href*="/read/"]');
+        const filteredLinks = Array.from(allLinks).filter(link => {
+          const parent = link.closest('.chapters-wrapper, .chapters, .volume-chapters, #chapterList');
+          return parent !== null;
+        });
+        
+        filteredLinks.forEach((link, index) => {
+          const href = link.getAttribute('href');
+          if (!href) return;
+          
+          const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+          
+          if (!processedUrls.has(fullUrl)) {
+            processedUrls.add(fullUrl);
+            
+            chapters.push({
+              url: fullUrl,
+              chapterNumber: index + 1,
+              title: `Capitolo ${index + 1}`,
+              dateAdd: ''
+            });
+          }
         });
       }
       
@@ -269,6 +307,7 @@ export class MangaWorldAdultAPI {
       chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
       
       console.log(`Total chapters found: ${chapters.length}`);
+      console.log('First 5 chapters:', chapters.slice(0, 5));
       
       return {
         url,
@@ -301,15 +340,11 @@ export class MangaWorldAdultAPI {
         url = `${this.baseUrl}${url.replace(/^\//, '')}`;
       }
       
-      // Prima prova con style=list
-      if (!url.includes('style=list')) {
-        url = url.includes('?') ? `${url}&style=list` : `${url}?style=list`;
-      }
-      
       console.log('Loading adult chapter from:', url);
       
-      const html = await this.makeRequest(url);
-      const doc = this.parseHTML(html);
+      // Prima prova SENZA style=list (spesso nei siti adult le pagine sono già tutte caricate)
+      let html = await this.makeRequest(url);
+      let doc = this.parseHTML(html);
       
       const pages = [];
       const seenUrls = new Set();
@@ -317,32 +352,39 @@ export class MangaWorldAdultAPI {
       // Funzione helper per aggiungere pagina
       const addPage = (src) => {
         if (src && src.includes('http') && !src.includes('placeholder') && !src.includes('thumb') && !seenUrls.has(src)) {
-          seenUrls.add(src);
-          pages.push(src);
+          // Pulisci l'URL
+          let cleanUrl = src.split('?')[0]; // Rimuovi query params se non necessari
+          if (src.includes('?') && (src.includes('token') || src.includes('expires'))) {
+            cleanUrl = src; // Mantieni params se sono per autenticazione
+          }
+          seenUrls.add(cleanUrl);
+          pages.push(cleanUrl);
           return true;
         }
         return false;
       };
       
-      // Strategia 1: Cerca immagini dirette
+      // Strategia 1: Cerca le immagini delle pagine
       const imageSelectors = [
-        '#page img',
-        '.page img',
+        '#page img:not([src*="loading"])',
+        '.page img:not([src*="loading"])',
         '.page-break img',
         '#reader-pages img',
         '#reader img',
         '.reading-content img',
         '.chapter-content img',
         'img.page-image',
-        'img[data-src]',
-        'img[data-lazy]',
-        'img[data-original]'
+        '#content img',
+        '.content img'
       ];
+      
+      let foundPages = false;
       
       for (const selector of imageSelectors) {
         const images = doc.querySelectorAll(selector);
         if (images.length > 0) {
           images.forEach(img => {
+            // Prova tutti i possibili attributi
             const possibleSrcs = [
               img.src,
               img.getAttribute('data-src'),
@@ -355,13 +397,49 @@ export class MangaWorldAdultAPI {
             ];
             
             for (const src of possibleSrcs) {
-              if (addPage(src)) break;
+              if (src && src.trim() && addPage(src)) {
+                foundPages = true;
+                break;
+              }
             }
           });
           
-          if (pages.length > 0) {
+          if (foundPages && pages.length > 0) {
             console.log(`Found ${pages.length} pages using selector: ${selector}`);
             break;
+          }
+        }
+      }
+      
+      // Se non trova pagine, prova con style=list
+      if (pages.length === 0) {
+        const listUrl = url.includes('?') ? `${url}&style=list` : `${url}?style=list`;
+        console.log('Trying with style=list:', listUrl);
+        
+        html = await this.makeRequest(listUrl);
+        doc = this.parseHTML(html);
+        
+        // Riprova con i selettori
+        for (const selector of imageSelectors) {
+          const images = doc.querySelectorAll(selector);
+          if (images.length > 0) {
+            images.forEach(img => {
+              const possibleSrcs = [
+                img.src,
+                img.getAttribute('data-src'),
+                img.getAttribute('data-lazy'),
+                img.getAttribute('data-original'),
+                img.dataset?.src
+              ];
+              
+              for (const src of possibleSrcs) {
+                if (src && src.trim()) {
+                  addPage(src);
+                }
+              }
+            });
+            
+            if (pages.length > 0) break;
           }
         }
       }
@@ -374,12 +452,17 @@ export class MangaWorldAdultAPI {
           
           // Pattern per array di immagini
           const arrayPatterns = [
-  /pages\s*=\s*```math([\s\S]*?)```/s,
-  /images\s*=\s*```math([\s\S]*?)```/s,
-  /pageArray\s*=\s*```math([\s\S]*?)```/s,
-  /imageArray\s*=\s*```math([\s\S]*?)```/s
-];
-
+            /pages\s*=\s*```math
+([\s\S]*?)```/,
+            /images\s*=\s*```math
+([\s\S]*?)```/,
+            /pageArray\s*=\s*```math
+([\s\S]*?)```/,
+            /imageArray\s*=\s*```math
+([\s\S]*?)```/,
+            /var\s+\w+\s*=\s*```math
+([\s\S]*?)```;/
+          ];
           
           for (const pattern of arrayPatterns) {
             const match = content.match(pattern);
@@ -392,72 +475,49 @@ export class MangaWorldAdultAPI {
             }
           }
           
-          // Pattern per URL singoli
+          // Pattern per URL singoli se non in array
           if (pages.length === 0) {
-            const singleUrlPattern = /["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|gif|webp))["']/gi;
+            const singleUrlPattern = /["'](https?:\/\/[^"']+\/[^"']*\.(?:jpg|jpeg|png|gif|webp))["']/gi;
             let match;
             while ((match = singleUrlPattern.exec(content)) !== null) {
-              addPage(match[1]);
+              if (!match[1].includes('thumb') && !match[1].includes('cover')) {
+                addPage(match[1]);
+              }
             }
           }
         });
       }
       
-      // Strategia 3: Prova senza style=list
+      // Strategia 3: Controlla se c'è un iframe o embed
       if (pages.length === 0) {
-        const altUrl = chapterUrl.replace(/[?&]style=list/, '');
-        if (altUrl !== url) {
-          console.log('Trying without style=list...');
-          const altHtml = await this.makeRequest(altUrl);
-          const altDoc = this.parseHTML(altHtml);
-          
-          // Cerca nel contenitore del reader
-          const readerContainers = [
-            '#reader',
-            '.reader',
-            '.reading-content',
-            '.chapter-reader',
-            '#chapter-reader'
-          ];
-          
-          for (const containerSelector of readerContainers) {
-            const container = altDoc.querySelector(containerSelector);
-            if (container) {
-              const imgs = container.querySelectorAll('img');
-              imgs.forEach(img => {
-                const srcs = [img.src, img.dataset?.src, img.getAttribute('data-src')];
-                for (const src of srcs) {
-                  if (addPage(src)) break;
-                }
-              });
-              if (pages.length > 0) break;
-            }
-          }
-        }
-      }
-      
-      // Strategia 4: API alternativa o iframe
-      if (pages.length === 0) {
-        const iframes = doc.querySelectorAll('iframe');
+        const iframes = doc.querySelectorAll('iframe[src*="read"], iframe[src*="chapter"], embed');
         for (const iframe of iframes) {
-          const iframeSrc = iframe.src;
-          if (iframeSrc && iframeSrc.includes('read')) {
-            console.log('Found iframe reader, trying to load it...');
+          const iframeSrc = iframe.src || iframe.getAttribute('src');
+          if (iframeSrc) {
+            console.log('Found iframe reader, loading it...');
             try {
               const iframeHtml = await this.makeRequest(iframeSrc);
               const iframeDoc = this.parseHTML(iframeHtml);
+              
+              // Cerca immagini nell'iframe
               const iframeImgs = iframeDoc.querySelectorAll('img');
               iframeImgs.forEach(img => {
-                addPage(img.src);
+                if (img.src && !img.src.includes('loading')) {
+                  addPage(img.src);
+                }
               });
             } catch (e) {
-              console.error('Failed to load iframe content:', e);
+              console.error('Failed to load iframe:', e);
             }
           }
         }
       }
       
       console.log(`Total pages found: ${pages.length}`);
+      
+      if (pages.length === 0) {
+        console.error('No pages found! HTML snippet:', doc.body?.innerHTML?.substring(0, 1000));
+      }
       
       return {
         url: chapterUrl,
@@ -525,4 +585,3 @@ export class MangaWorldAdultAPI {
     }
   }
 }
-
