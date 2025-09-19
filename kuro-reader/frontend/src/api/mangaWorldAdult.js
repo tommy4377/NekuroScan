@@ -5,6 +5,69 @@ export class MangaWorldAdultAPI {
     this.baseUrl = 'https://www.mangaworldadult.net/';
   }
 
+  // Aggiungi questa funzione nella classe MangaWorldAdultAPI, dopo il costruttore
+
+normalizeChapterNumber(text, url) {
+  if (!text) return null;
+  
+  // Rimuovi spazi extra e trim
+  let cleanText = text.replace(/\s+/g, ' ').trim();
+  
+  // Rimuovi date
+  cleanText = cleanText.replace(/\s+\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}.*$/, '');
+  cleanText = cleanText.replace(/\s+\d{4}[\/-]\d{1,2}[\/-]\d{1,2}.*$/, '');
+  
+  // Rimuovi prefissi comuni
+  cleanText = cleanText.replace(/^(vol\.\s*\d+\s*-\s*)?/i, '');
+  cleanText = cleanText.replace(/^(capitolo|cap\.|ch\.|chapter|episodio|ep\.)\s*/i, '');
+  
+  // Estrai numero dal testo
+  const textPatterns = [
+    /^(\d+(?:\.\d+)?)/,
+    /\s+(\d+(?:\.\d+)?)\s*$/,
+    /(\d+(?:\.\d+)?)/
+  ];
+  
+  for (const pattern of textPatterns) {
+    const match = cleanText.match(pattern);
+    if (match) {
+      let num = match[1];
+      // Fix per numeri a 4 cifre tipo 0176 -> diventa 01
+      if (num.length >= 4 && num.startsWith('0')) {
+        num = num.substring(0, 2);
+      }
+      // Rimuovi zeri iniziali ma mantieni almeno una cifra
+      num = num.replace(/^0+(\d)/, '$1');
+      return parseFloat(num);
+    }
+  }
+  
+  // Prova a estrarre dall'URL se non trova nel testo
+  if (url) {
+    const urlPatterns = [
+      /\/capitolo[_-](\d+(?:\.\d+)?)/i,
+      /\/chapter[_-](\d+(?:\.\d+)?)/i,
+      /\/cap[_-](\d+(?:\.\d+)?)/i,
+      /\/(\d+(?:\.\d+)?)(?:\?|\/|$)/  // Numero alla fine dell'URL
+    ];
+    
+    for (const pattern of urlPatterns) {
+      const match = url.match(pattern);
+      if (match) {
+        let num = match[1];
+        // Stesso fix per numeri a 4 cifre
+        if (num.length >= 4 && num.startsWith('0')) {
+          num = num.substring(0, 2);
+        }
+        num = num.replace(/^0+(\d)/, '$1');
+        return parseFloat(num);
+      }
+    }
+  }
+  
+  return null;
+}
+
   async makeRequest(url) {
     try {
       const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
@@ -140,171 +203,119 @@ export class MangaWorldAdultAPI {
       const plotText = plotDiv?.textContent?.trim() || '';
       const plot = plotText.replace(/^TRAMA:?\s*/i, '').trim();
       
-      // CAPITOLI - FIX COMPLETO
-      const chapters = [];
-      const processedUrls = new Set();
-      
-      // Trova il contenitore dei capitoli
-      const chapterContainer = doc.querySelector('.chapters-wrapper, #chapterList, .chapters');
-      
-      if (chapterContainer) {
-        // Cerca solo i link diretti dentro .chapter
-        const chapterDivs = chapterContainer.querySelectorAll('.chapter');
+      // Sostituisci la sezione dei capitoli nella funzione getMangaFromUrl con questo codice:
+
+// CAPITOLI - FIX COMPLETO
+const chapters = [];
+const processedUrls = new Set();
+
+// Trova il contenitore dei capitoli
+const chapterContainer = doc.querySelector('.chapters-wrapper, #chapterList, .chapters');
+
+if (chapterContainer) {
+  // Cerca solo i link diretti dentro .chapter
+  const chapterDivs = chapterContainer.querySelectorAll('.chapter');
+  
+  if (chapterDivs.length > 0) {
+    // Metodo 1: Div .chapter con link dentro
+    chapterDivs.forEach((chDiv, index) => {
+      const link = chDiv.querySelector('a[href*="/read/"]');
+      if (link) {
+        const href = link.getAttribute('href');
+        const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
         
-        if (chapterDivs.length > 0) {
-          // Metodo 1: Div .chapter con link dentro
-          chapterDivs.forEach((chDiv, index) => {
-            const link = chDiv.querySelector('a[href*="/read/"]');
-            if (link) {
-              const href = link.getAttribute('href');
-              const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
-              
-              if (!processedUrls.has(fullUrl)) {
-                processedUrls.add(fullUrl);
-                
-                // Prendi SOLO il testo del link, non tutto il div
-                let chapterText = link.textContent?.trim() || '';
-                
-                // Rimuovi completamente le date
-                chapterText = chapterText.replace(/\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/g, '');
-                chapterText = chapterText.replace(/\d{4}[\/-]\d{1,2}[\/-]\d{1,2}/g, '');
-                chapterText = chapterText.trim();
-                
-                // Estrai il numero del capitolo
-                let chapterNumber = null;
-                
-                // Pattern specifici per estrarre SOLO il numero del capitolo
-                const patterns = [
-                  /^capitolo\s+(\d+(?:\.\d+)?)/i,
-                  /^cap\.\s*(\d+(?:\.\d+)?)/i,
-                  /^chapter\s+(\d+(?:\.\d+)?)/i,
-                  /^ch\.\s*(\d+(?:\.\d+)?)/i,
-                  /^episodio\s+(\d+(?:\.\d+)?)/i,
-                  /^ep\.\s*(\d+(?:\.\d+)?)/i,
-                  /^(\d+(?:\.\d+)?)(?:\s|$)/  // Solo numero all'inizio
-                ];
-                
-                for (const pattern of patterns) {
-                  const match = chapterText.match(pattern);
-                  if (match) {
-                    chapterNumber = parseFloat(match[1]);
-                    break;
-                  }
-                }
-                
-                // Se non trova numero dal testo, prova dall'URL
-                if (chapterNumber === null) {
-                  const urlPatterns = [
-                    /\/capitolo[_-](\d+(?:\.\d+)?)/i,
-                    /\/chapter[_-](\d+(?:\.\d+)?)/i,
-                    /\/cap[_-](\d+(?:\.\d+)?)/i,
-                    /\/(\d+(?:\.\d+)?)(?:\?|\/|$)/  // Numero alla fine dell'URL
-                  ];
-                  
-                  for (const pattern of urlPatterns) {
-                    const match = href.match(pattern);
-                    if (match) {
-                      chapterNumber = parseFloat(match[1]);
-                      break;
-                    }
-                  }
-                }
-                
-                // Se ancora non trova, usa l'indice
-                if (chapterNumber === null) {
-                  chapterNumber = index + 1;
-                }
-                
-                chapters.push({
-                  url: fullUrl,
-                  chapterNumber: chapterNumber,
-                  title: `Capitolo ${chapterNumber}`,
-                  dateAdd: ''
-                });
-              }
-            }
-          });
-        } else {
-          // Metodo 2: Link diretti nel container
-          const directLinks = chapterContainer.querySelectorAll('a[href*="/read/"]');
-          directLinks.forEach((link, index) => {
-            const href = link.getAttribute('href');
-            if (!href) return;
-            
-            const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
-            
-            if (!processedUrls.has(fullUrl)) {
-              processedUrls.add(fullUrl);
-              
-              let chapterText = link.textContent?.trim() || '';
-              
-              // Rimuovi date
-              chapterText = chapterText.replace(/\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/g, '');
-              chapterText = chapterText.replace(/\d{4}[\/-]\d{1,2}[\/-]\d{1,2}/g, '');
-              chapterText = chapterText.trim();
-              
-              let chapterNumber = null;
-              
-              // Estrai numero
-              const patterns = [
-                /capitolo\s+(\d+(?:\.\d+)?)/i,
-                /cap\.\s*(\d+(?:\.\d+)?)/i,
-                /chapter\s+(\d+(?:\.\d+)?)/i,
-                /^(\d+(?:\.\d+)?)/
-              ];
-              
-              for (const pattern of patterns) {
-                const match = chapterText.match(pattern);
-                if (match) {
-                  chapterNumber = parseFloat(match[1]);
-                  break;
-                }
-              }
-              
-              if (chapterNumber === null) {
-                chapterNumber = index + 1;
-              }
-              
-              chapters.push({
-                url: fullUrl,
-                chapterNumber: chapterNumber,
-                title: `Capitolo ${chapterNumber}`,
-                dateAdd: ''
-              });
-            }
+        if (!processedUrls.has(fullUrl)) {
+          processedUrls.add(fullUrl);
+          
+          // Prendi SOLO il testo del link, non tutto il div
+          let chapterText = link.textContent?.trim() || '';
+          
+          // USA LA NUOVA FUNZIONE per estrarre e normalizzare il numero
+          let chapterNumber = this.normalizeChapterNumber(chapterText, href);
+          
+          // Se non trova numero, usa l'indice
+          if (chapterNumber === null) {
+            chapterNumber = index + 1;
+          }
+          
+          chapters.push({
+            url: fullUrl,
+            chapterNumber: chapterNumber,
+            title: `Capitolo ${chapterNumber}`,
+            dateAdd: ''
           });
         }
       }
+    });
+  } else {
+    // Metodo 2: Link diretti nel container
+    const directLinks = chapterContainer.querySelectorAll('a[href*="/read/"]');
+    directLinks.forEach((link, index) => {
+      const href = link.getAttribute('href');
+      if (!href) return;
       
-      // Se non trova capitoli nel container, cerca ovunque (fallback)
-      if (chapters.length === 0) {
-        const allLinks = doc.querySelectorAll('a[href*="/read/"]');
-        const filteredLinks = Array.from(allLinks).filter(link => {
-          const parent = link.closest('.chapters-wrapper, .chapters, .volume-chapters, #chapterList');
-          return parent !== null;
-        });
+      const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+      
+      if (!processedUrls.has(fullUrl)) {
+        processedUrls.add(fullUrl);
         
-        filteredLinks.forEach((link, index) => {
-          const href = link.getAttribute('href');
-          if (!href) return;
-          
-          const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
-          
-          if (!processedUrls.has(fullUrl)) {
-            processedUrls.add(fullUrl);
-            
-            chapters.push({
-              url: fullUrl,
-              chapterNumber: index + 1,
-              title: `Capitolo ${index + 1}`,
-              dateAdd: ''
-            });
-          }
+        let chapterText = link.textContent?.trim() || '';
+        
+        // USA LA NUOVA FUNZIONE
+        let chapterNumber = this.normalizeChapterNumber(chapterText, href);
+        
+        if (chapterNumber === null) {
+          chapterNumber = index + 1;
+        }
+        
+        chapters.push({
+          url: fullUrl,
+          chapterNumber: chapterNumber,
+          title: `Capitolo ${chapterNumber}`,
+          dateAdd: ''
         });
       }
+    });
+  }
+}
+
+// Se non trova capitoli nel container, cerca ovunque (fallback)
+if (chapters.length === 0) {
+  const allLinks = doc.querySelectorAll('a[href*="/read/"]');
+  const filteredLinks = Array.from(allLinks).filter(link => {
+    const parent = link.closest('.chapters-wrapper, .chapters, .volume-chapters, #chapterList');
+    return parent !== null;
+  });
+  
+  filteredLinks.forEach((link, index) => {
+    const href = link.getAttribute('href');
+    if (!href) return;
+    
+    const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+    
+    if (!processedUrls.has(fullUrl)) {
+      processedUrls.add(fullUrl);
       
-      // IMPORTANTE: Ordina dal più basso al più alto
-      chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
+      let chapterText = link.textContent?.trim() || '';
+      // USA LA NUOVA FUNZIONE
+      let chapterNumber = this.normalizeChapterNumber(chapterText, href);
+      
+      if (chapterNumber === null) {
+        chapterNumber = index + 1;
+      }
+      
+      chapters.push({
+        url: fullUrl,
+        chapterNumber: chapterNumber,
+        title: `Capitolo ${chapterNumber}`,
+        dateAdd: ''
+      });
+    }
+  });
+}
+
+// IMPORTANTE: Ordina dal più basso al più alto
+chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
       
       console.log(`Total chapters found: ${chapters.length}`);
       console.log('First 5 chapters:', chapters.slice(0, 5));
@@ -580,4 +591,5 @@ export class MangaWorldAdultAPI {
     }
   }
 }
+
 
