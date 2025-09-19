@@ -25,7 +25,8 @@
     "react-lazy-load-image-component": "^1.6.0",
     "zustand": "^4.4.7",
     "swiper": "^11.0.5",
-    "react-intersection-observer": "^9.5.3"
+    "react-intersection-observer": "^9.5.3",
+    "qrcode": "^1.5.3"
   },
   "devDependencies": {
     "@types/react": "^18.2.47",
@@ -34,3 +35,4 @@
     "vite-plugin-pwa": "^0.17.4"
   }
 }
+
