@@ -1,4 +1,3 @@
-// frontend/src/api/mangaWorldAdult.js
 import { config } from '../config';
 
 export class MangaWorldAdultAPI {
@@ -32,11 +31,9 @@ export class MangaWorldAdultAPI {
   normalizeChapterLabel(text) {
     if (!text) return '';
     let t = text.replace(/\s+/g, ' ').trim();
-    // Rimuovi prefissi
-    t = t.replace(/^(vol\.\s*\d+\s*-\s*)?(cap\.|capitolo)\s*/i, '');
-    // Prendi il primo numero (es: 108, 108.5, 01, 01.3)
-    const m = t.match(/(\d+(?:\.\d+)?)/);
-    if (m) return m[1];
+    t = t.replace(/^(vol\.\s*\d+\s*-\s*)?(cap\.|capitolo|ch\.)\s*/i, '');
+    const match = t.match(/(\d+(?:\.\d+)?)/);
+    if (match) return match[1];
     return t;
   }
 
@@ -76,79 +73,53 @@ export class MangaWorldAdultAPI {
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
 
-      const titleElem = doc.querySelector('h1.name, h1.bigger, .info h1, .manga-title, .title');
-      const title = titleElem?.textContent?.trim() || 'Unknown Title';
-
+      const title = doc.querySelector('h1.name, .info h1, .manga-title')?.textContent?.trim() || 'Unknown Title';
       const coverImg = doc.querySelector('.thumb img, .manga-image img, .cover img');
       const coverUrl = coverImg?.src || coverImg?.dataset?.src || '';
 
-      const info = { alternativeTitles: [], authors: [], artists: [], genres: [], status: '', type: 'Manga', year: '' };
-      const metaDiv = doc.querySelector('.meta-data, .info, .manga-info, .details');
-
-      if (metaDiv) {
-        metaDiv.querySelectorAll('a[href*="/archive?genre"]').forEach(a => {
-          const g = a.textContent?.trim();
-          if (g) info.genres.push({ genre: g });
-        });
-        const statusLink = metaDiv.querySelector('a[href*="/archive?status"]');
-        if (statusLink) info.status = statusLink.textContent?.trim() || '';
-        const yearLink = metaDiv.querySelector('a[href*="/archive?year"]');
-        if (yearLink) info.year = yearLink.textContent?.trim() || '';
-        const typeLink = metaDiv.querySelector('a[href*="/archive?type"]');
-        if (typeLink) info.type = typeLink.textContent?.trim() || 'Manga';
+      const infoDiv = doc.querySelector('div.info, .manga-info, .meta-data');
+      const info = { genres: [], status: '', type: 'Manga', year: '' };
+      if (infoDiv) {
+        infoDiv.querySelectorAll('a[href*="/archive?genre"]').forEach(link => info.genres.push({ genre: link.textContent.trim() }));
+        const statusLink = infoDiv.querySelector('a[href*="/archive?status"]');
+        if (statusLink) info.status = statusLink.textContent.trim();
+        const yearLink = infoDiv.querySelector('a[href*="/archive?year"]');
+        if (yearLink) info.year = yearLink.textContent.trim();
+        const typeLink = infoDiv.querySelector('a[href*="/archive?type"]');
+        if (typeLink) info.type = typeLink.textContent.trim();
       }
 
-      // Capitoli (estrai e normalizza numero)
+      const plot = doc.querySelector('#noidungm, .comic-description, .description')?.textContent?.trim() || '';
+
       const chapters = [];
-      const containers = [
-        '.chapters-wrapper',
-        '#chapterList',
-        '.list-chapters',
-        '.chapters',
-        '.manga-chapters',
-        '.chapter-list'
-      ];
-      let foundLinks = [];
-      for (const sel of containers) {
-        const box = doc.querySelector(sel);
-        if (box) {
-          foundLinks = [...box.querySelectorAll('a[href*="/read/"]')];
-          if (foundLinks.length) break;
-        }
-      }
-      if (!foundLinks.length) {
-        foundLinks = [...doc.querySelectorAll('a[href*="/read/"]')];
-      }
+      const chapterLinks = doc.querySelectorAll('.chapters-wrapper a, #chapterList a, .list-chapters a, .chapters a, a[href*="/read/"]');
 
-      foundLinks.forEach((a, i) => {
+      chapterLinks.forEach((a, i) => {
         const href = a.getAttribute('href');
-        const full = href?.startsWith('http') ? href : `${this.baseUrl}${href?.replace(/^\//, '')}`;
-        const rawText = a.textContent?.trim() || '';
-        const label = this.normalizeChapterLabel(rawText);
+        if (!href) return;
+        const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+        const rawText = a.textContent?.trim() || `Capitolo ${i + 1}`;
+        const chapterNumberStr = this.normalizeChapterLabel(rawText);
+        const chapterNumber = parseFloat(chapterNumberStr);
         chapters.push({
-          url: full,
-          chapterNumber: isNaN(parseFloat(label)) ? i + 1 : parseFloat(label),
-          title: `Capitolo ${label.slice(0, 2)}`,
-          
-          dateAdd: '' // non mostrare date sull’adult
+          url: fullUrl,
+          chapterNumber: isNaN(chapterNumber) ? i + 1 : chapterNumber,
+          title: `Capitolo ${chapterNumberStr}`,
+          dateAdd: ''
         });
       });
 
-      // Ordina ASC per coerenza
       chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
 
       return {
         url,
         title,
         coverUrl,
-        alternativeTitles: info.alternativeTitles,
-        authors: info.authors,
-        artists: info.artists,
         genres: info.genres,
         status: info.status,
         type: info.type,
         year: info.year,
-        plot: doc.querySelector('#noidungm, .comic-description, .description')?.textContent?.trim() || '',
+        plot,
         chapters,
         chaptersNumber: chapters.length,
         source: 'mangaWorldAdult',
@@ -162,32 +133,18 @@ export class MangaWorldAdultAPI {
 
   async getChapterDetail(chapterUrl) {
     try {
-      let url = chapterUrl;
-      if (!url.includes('style=list')) {
-        url = url.includes('?') ? `${chapterUrl}&style=list` : `${chapterUrl}?style=list`;
-      }
+      let url = chapterUrl.includes('style=list') ? chapterUrl : (chapterUrl.includes('?') ? `${chapterUrl}&style=list` : `${chapterUrl}?style=list`);
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
+
       const pages = [];
-
-      const selectors = [
-        '#page img',
-        '.page img',
-        '#reader img',
-        '.chapter-content img',
-        '.reading-content img',
-        'img[data-src]',
-        'img[data-lazy]',
-        'img[data-original]',
-        'img.page-image'
-      ];
-
+      const selectors = ['#page img', '.page img', '#reader img', '.chapter-content img', '.reading-content img', 'img[data-src]', 'img[data-lazy]', 'img[data-original]'];
       for (const sel of selectors) {
-        const imgs = doc.querySelectorAll(sel);
-        if (imgs.length) {
-          imgs.forEach(img => {
-            const src = img.getAttribute('src') || img.dataset?.src || img.dataset?.lazy || img.dataset?.original;
-            if (src && /^https?:\/\//.test(src) && !pages.includes(src)) pages.push(src);
+        const images = doc.querySelectorAll(sel);
+        if (images.length) {
+          images.forEach(img => {
+            const src = img.src || img.dataset?.src || img.dataset?.lazy || img.dataset?.original;
+            if (src && src.includes('http') && !pages.includes(src)) pages.push(src);
           });
           if (pages.length) break;
         }
@@ -196,8 +153,8 @@ export class MangaWorldAdultAPI {
       if (!pages.length) {
         doc.querySelectorAll('script').forEach(s => {
           const c = s.textContent || '';
-          const reg = /["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|gif|webp))["']/gi;
           let m;
+          const reg = /["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|gif|webp))["']/gi;
           while ((m = reg.exec(c)) !== null) {
             const u = m[1];
             if (u && !pages.includes(u)) pages.push(u);
@@ -217,12 +174,7 @@ export class MangaWorldAdultAPI {
       const html = await this.makeRequest(this.baseUrl);
       const doc = this.parseHTML(html);
       const trending = [];
-      const selectors = [
-        '.comics-flex .entry.vertical',
-        '#chapters-slide .entry',
-        '.hot-manga .entry',
-        '.trending .entry'
-      ];
+      const selectors = ['.comics-flex .entry.vertical', '#chapters-slide .entry', '.hot-manga .entry', '.trending .entry'];
       for (const sel of selectors) {
         const entries = doc.querySelectorAll(sel);
         if (entries.length) {
@@ -253,4 +205,3 @@ export class MangaWorldAdultAPI {
     }
   }
 }
-
