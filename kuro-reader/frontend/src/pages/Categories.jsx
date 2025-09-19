@@ -7,7 +7,6 @@ import {
 } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
 import { useLocation } from 'react-router-dom';
-import { useInView } from 'react-intersection-observer';
 import { motion } from 'framer-motion';
 import { FaPlus } from 'react-icons/fa';
 import MangaCard from '../components/MangaCard';
