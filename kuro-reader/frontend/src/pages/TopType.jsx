@@ -45,11 +45,7 @@ export default function TopType() {
             variant={includeAdult ? 'solid' : 'outline'}
             colorScheme="pink"
             size="sm"
-            onClick={() => {
-              const v = !includeAdult;
-              setIncludeAdult(v);
-              localStorage.setItem('includeAdult', v.toString());
-            }}
+            onClick={() => { const v = !includeAdult; setIncludeAdult(v); localStorage.setItem('includeAdult', v.toString()); }}
           >
             {includeAdult ? '🔞 Solo Adult' : 'Solo Normali'}
           </Button>
