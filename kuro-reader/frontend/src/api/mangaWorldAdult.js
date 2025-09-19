@@ -502,4 +502,9 @@ export class MangaWorldAdultAPI {
       }
       
       return trending;
-    } catch 
+    } catch (error) {
+      console.error('Get trending error:', error);
+      return [];
+    }
+  }
+}
