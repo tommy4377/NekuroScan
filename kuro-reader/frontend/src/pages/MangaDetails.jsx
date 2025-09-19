@@ -52,7 +52,7 @@ function MangaDetails() {
   const [completedChapters, setCompletedChapters] = useState([]);
   const toast = useToast();
   const navigate = useNavigate();
-  const { user, syncFavorites } = useAuth();
+  const { user, syncFavorites } = useAuth(); // syncFavorites now exists in useAuth
 
   useEffect(() => {
     loadManga();
@@ -135,16 +135,11 @@ function MangaDetails() {
 
   const toggleFavorite = async () => {
     const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    let updated;
     
     if (isFavorite) {
-      const updated = favorites.filter(f => f.url !== manga.url);
-      localStorage.setItem('favorites', JSON.stringify(updated));
+      updated = favorites.filter(f => f.url !== manga.url);
       setIsFavorite(false);
-      
-      // Sync con server se loggato
-      if (user) {
-        await syncFavorites(updated);
-      }
       
       toast({
         title: 'Rimosso dai preferiti',
@@ -161,20 +156,21 @@ function MangaDetails() {
         addedAt: new Date().toISOString()
       };
       
-      favorites.unshift(mangaToSave);
-      localStorage.setItem('favorites', JSON.stringify(favorites));
+      updated = [mangaToSave, ...favorites];
       setIsFavorite(true);
-      
-      // Sync con server se loggato
-      if (user) {
-        await syncFavorites(favorites);
-      }
       
       toast({
         title: 'Aggiunto ai preferiti',
         status: 'success',
         duration: 2000,
       });
+    }
+    
+    localStorage.setItem('favorites', JSON.stringify(updated));
+    
+    // Sync con server se loggato - FIX: syncFavorites ora esiste
+    if (user) {
+      await syncFavorites(updated);
     }
   };
 
@@ -199,6 +195,7 @@ function MangaDetails() {
       chapterTitle: chapter.title,
       totalChapters: manga.chapters.length,
       page: 0,
+      pageIndex: 0, // FIX: Add consistent pageIndex
       timestamp: new Date().toISOString()
     };
     localStorage.setItem('readingProgress', JSON.stringify(progress));
@@ -207,7 +204,7 @@ function MangaDetails() {
     updateReadingList(chapterIndex, chapter);
     
     // Naviga al reader
-      navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
+    navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
   };
 
   const updateReadingList = (chapterIndex, chapter) => {
@@ -602,5 +599,3 @@ function MangaDetails() {
 }
 
 export default MangaDetails;
-
-
