@@ -1,188 +1,60 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Box, Container, Heading, SimpleGrid, VStack, Spinner, Text,
-  HStack, Badge, useToast, IconButton
-} from '@chakra-ui/react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Container, VStack, HStack, Heading, Text, SimpleGrid, Spinner, Box, Button, Badge } from '@chakra-ui/react';
 import { useInView } from 'react-intersection-observer';
-import { FaTrophy, FaArrowUp } from 'react-icons/fa';
+import { FaTrophy } from 'react-icons/fa';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
-import { motion } from 'framer-motion';
 
-const MotionBox = motion(Box);
-
-function TopType() {
+export default function TopType() {
   const { type } = useParams();
-  const [manga, setManga] = useState([]);
+  const [includeAdult] = useState(() => localStorage.getItem('includeAdult') === 'true');
+  const [list, setList] = useState([]);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
   const { ref, inView } = useInView({ threshold: 0.1 });
-  const toast = useToast();
-  
-  const getTypeInfo = () => {
-    switch(type) {
-      case 'manga':
-        return { name: 'Manga', color: 'orange' };
-      case 'manhwa':
-        return { name: 'Manhwa', color: 'purple' };
-      case 'manhua':
-        return { name: 'Manhua', color: 'red' };
-      case 'oneshot':
-        return { name: 'Oneshot', color: 'green' };
-      case 'novel':
-        return { name: 'Novel', color: 'blue' };
-      default:
-        return { name: type, color: 'gray' };
-    }
-  };
-  
-  const typeInfo = getTypeInfo();
-  
-  useEffect(() => {
-    if (inView && hasMore && !loading) {
-      loadMore();
-    }
-  }, [inView]);
-  
-  useEffect(() => {
-    loadInitial();
-  }, [type]);
-  
-  const loadInitial = async () => {
+
+  const load = async (p) => {
     setLoading(true);
-    setManga([]);
-    setPage(1);
-    try {
-      const result = await statsAPI.getTopByType(type, 1);
-      setManga(result.results);
-      setHasMore(result.hasMore);
-      setPage(2);
-    } catch (error) {
-      console.error('Error loading:', error);
-      toast({
-        title: 'Errore caricamento',
-        status: 'error',
-        duration: 3000,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const loadMore = async () => {
-    if (loading || !hasMore) return;
-    
-    setLoading(true);
-    try {
-      const result = await statsAPI.getTopByType(type, page);
-      setManga(prev => [...prev, ...result.results]);
-      setHasMore(result.hasMore);
-      setPage(prev => prev + 1);
-    } catch (error) {
-      console.error('Error loading more:', error);
-    } finally {
-      setLoading(false);
-    }
+    const r = await statsAPI.getTopByType(type, includeAdult, p);
+    setList(prev => [...prev, ...r.results]);
+    setHasMore(r.hasMore);
+    setLoading(false);
   };
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-  
+  useEffect(() => { setList([]); setPage(1); load(1); }, [type, includeAdult]);
+  useEffect(() => { if (inView && hasMore && !loading) { const np = page + 1; setPage(np); load(np); } }, [inView]);
+
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
-        {/* Header */}
         <HStack>
-          <Box p={2} bg={`${typeInfo.color}.500`} borderRadius="lg">
-            <FaTrophy color="white" size={24} />
-          </Box>
+          <Box p={2} bg="purple.500" borderRadius="lg"><FaTrophy color="#fff" /></Box>
           <VStack align="start" spacing={0}>
+            <Heading size="lg">Top {type}</Heading>
             <HStack>
-              <Heading size="lg">Top {typeInfo.name}</Heading>
-              <Badge colorScheme={typeInfo.color} fontSize="sm">
-                {manga.length} risultati
-              </Badge>
+              <Text fontSize="sm" color="gray.400">{list.length} caricati</Text>
+              <Badge colorScheme={includeAdult ? 'pink' : 'blue'}>{includeAdult ? 'Adult' : 'Normali'}</Badge>
             </HStack>
-            <Text fontSize="sm" color="gray.400">
-              I migliori {typeInfo.name.toLowerCase()} più letti
-            </Text>
           </VStack>
         </HStack>
-        
-        {/* Grid manga */}
+
         <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-          {manga.map((item, i) => (
-            <MotionBox
-              key={`${item.url}-${i}`}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(i * 0.02, 0.5) }}
-              position="relative"
-            >
+          {list.map((item, i) => (
+            <Box key={`${item.url}-${i}`} position="relative">
               <MangaCard manga={item} />
-              {i < 10 && (
-                <Box
-                  position="absolute"
-                  top={2}
-                  left={2}
-                  bg={`${typeInfo.color}.500`}
-                  color="white"
-                  fontSize="xs"
-                  fontWeight="bold"
-                  px={2}
-                  py={1}
-                  borderRadius="md"
-                >
-                  #{i + 1}
-                </Box>
-              )}
-            </MotionBox>
+              {item.isAdult && <Badge position="absolute" top={2} right={2} colorScheme="pink">18+</Badge>}
+            </Box>
           ))}
         </SimpleGrid>
-        
-        {/* Loading indicator */}
+
         {hasMore && (
-          <Box ref={ref} textAlign="center" py={8}>
-            {loading ? (
-              <VStack>
-                <Spinner size="xl" color="purple.500" thickness="4px" />
-                <Text color="gray.500">Caricamento...</Text>
-              </VStack>
-            ) : (
-              <Button onClick={loadMore} variant="outline">
-                Carica altri
-              </Button>
-            )}
+          <Box ref={ref} textAlign="center" py={6}>
+            {loading ? <Spinner color="purple.500" /> : <Button variant="outline" onClick={() => { const np = page + 1; setPage(np); load(np); }}>Carica altri</Button>}
           </Box>
         )}
-        
-        {!hasMore && manga.length > 0 && (
-          <Text textAlign="center" color="gray.500" py={4}>
-            Hai raggiunto la fine • {manga.length} {typeInfo.name.toLowerCase()} totali
-          </Text>
-        )}
       </VStack>
-
-      {/* Scroll to top button */}
-      {manga.length > 20 && (
-        <IconButton
-          icon={<FaArrowUp />}
-          position="fixed"
-          bottom={8}
-          right={8}
-          colorScheme="purple"
-          borderRadius="full"
-          size="lg"
-          onClick={scrollToTop}
-          boxShadow="lg"
-          aria-label="Torna su"
-        />
-      )}
     </Container>
   );
 }
-
-export default TopType;
