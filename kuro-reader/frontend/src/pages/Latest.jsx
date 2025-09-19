@@ -4,8 +4,9 @@ import {
   Button, useToast, Skeleton, Badge, IconButton, Spinner,
   Switch, Center
 } from '@chakra-ui/react';
-import { FaClock, FaArrowUp } from 'react-icons/fa';
+import { FaClock, FaArrowUp, FaPlus } from 'react-icons/fa';
 import { motion } from 'framer-motion';
+import { useInView } from 'react-intersection-observer';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -22,16 +23,21 @@ function Latest() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   
   const toast = useToast();
-  const observerRef = useRef(null);
-  const loadingRef = useRef(false);
+  const loadMoreButtonRef = useRef(null);
+  
+  // InView hook per auto-click
+  const { ref: inViewRef, inView } = useInView({
+    threshold: 0.1,
+    rootMargin: '100px',
+  });
 
-  // Clean chapter number helper
-  const cleanChapterNumber = (chapter) => {
-    if (!chapter) return '';
-    let clean = chapter.replace(/^(cap\.|capitolo|chapter|ch\.)\s*/i, '').trim();
-    const match = clean.match(/^(\d+(?:\.\d+)?)/);
-    return match ? match[1] : clean;
-  };
+  // Auto-click quando il bottone è visibile
+  useEffect(() => {
+    if (inView && !loading && hasMore && loadMoreButtonRef.current) {
+      console.log('Auto-clicking load more button...');
+      loadMoreButtonRef.current.click();
+    }
+  }, [inView, loading, hasMore]);
 
   // Monitor scroll for button
   useEffect(() => {
@@ -42,13 +48,44 @@ function Latest() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Fixed chapter number helper
+  const fixChapterNumber = (chapter) => {
+    if (!chapter) return '';
+    
+    // Rimuovi prefissi
+    let clean = chapter
+      .replace(/^(cap\.|capitolo|chapter|ch\.)\s*/i, '')
+      .replace(/^vol\.\s*\d+\s*-\s*/i, '')
+      .trim();
+    
+    // Estrai numero
+    const match = clean.match(/^(\d+(?:\.\d+)?)/);
+    if (match) {
+      let num = match[1];
+      
+      // FIX: Se il numero è >= 10 e ha più di 2 cifre, tronca le ultime 2
+      if (parseInt(num) >= 10 && num.length > 2) {
+        num = num.slice(0, -2);
+      }
+      // Se inizia con 0 e ha 4 cifre (es. 0176), prendi solo le prime 2
+      else if (num.startsWith('0') && num.length >= 4) {
+        num = num.substring(0, 2);
+        // Rimuovi lo 0 iniziale se > 09
+        if (parseInt(num) > 9) {
+          num = num.replace(/^0/, '');
+        }
+      }
+      
+      return num;
+    }
+    
+    return clean;
+  };
+
   // Load data function
   const loadData = useCallback(async (pageNum, reset = false) => {
-    // Previeni chiamate multiple
-    if (loadingRef.current) return;
+    if (loading) return;
     if (!reset && !hasMore) return;
-    
-    loadingRef.current = true;
     
     if (reset) {
       setInitialLoading(true);
@@ -56,9 +93,9 @@ function Latest() {
       setPage(1);
       setHasMore(true);
       pageNum = 1;
-    } else {
-      setLoading(true);
     }
+    
+    setLoading(true);
     
     try {
       console.log(`Loading page ${pageNum}...`);
@@ -67,7 +104,7 @@ function Latest() {
       if (result && result.results) {
         const cleanedResults = result.results.map(item => ({
           ...item,
-          latestChapter: cleanChapterNumber(item.latestChapter)
+          latestChapter: fixChapterNumber(item.latestChapter)
         }));
         
         setList(prev => {
@@ -82,19 +119,17 @@ function Latest() {
         
         setPage(pageNum);
         setHasMore(result.hasMore && cleanedResults.length > 0);
-        console.log(`Loaded ${cleanedResults.length} items. Has more: ${result.hasMore}`);
       }
     } catch (error) {
       console.error('Error loading latest:', error);
       toast({
         title: 'Errore caricamento',
-        description: 'Impossibile caricare gli aggiornamenti',
+        description: 'Riprova tra qualche secondo',
         status: 'error',
         duration: 3000,
       });
       setHasMore(false);
     } finally {
-      loadingRef.current = false;
       setLoading(false);
       setInitialLoading(false);
     }
@@ -105,33 +140,11 @@ function Latest() {
     loadData(1, true);
   }, [includeAdult]);
 
-  // Setup Intersection Observer
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const target = entries[0];
-        if (target.isIntersecting && hasMore && !loadingRef.current && !initialLoading && list.length > 0) {
-          console.log('Trigger loading next page...');
-          loadData(page + 1);
-        }
-      },
-      {
-        root: null,
-        rootMargin: '200px',
-        threshold: 0.1
-      }
-    );
-
-    if (observerRef.current) {
-      observer.observe(observerRef.current);
+  const handleLoadMore = () => {
+    if (!loading && hasMore) {
+      loadData(page + 1);
     }
-
-    return () => {
-      if (observerRef.current) {
-        observer.unobserve(observerRef.current);
-      }
-    };
-  }, [hasMore, page, list.length, initialLoading, loadData]);
+  };
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -200,35 +213,40 @@ function Latest() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(i * 0.03, 0.5) }}
-                  position="relative"
                 >
                   <MangaCard 
                     manga={item} 
                     hideSource 
-                    showLatestChapter={true} // Passa prop per mostrare il capitolo
+                    showLatestChapter={true}
                   />
                 </MotionBox>
               ))}
             </SimpleGrid>
 
-            {/* Observer Target - IMPORTANTE: elemento visibile per triggerare il caricamento */}
-            <Box 
-              ref={observerRef}
-              h="100px" 
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              {loading && (
-                <HStack spacing={3}>
-                  <Spinner color="purple.500" />
-                  <Text>Caricamento...</Text>
-                </HStack>
-              )}
-              {!hasMore && list.length > 0 && (
-                <Text color="gray.500">Fine dei risultati</Text>
-              )}
-            </Box>
+            {/* Load More Button with Auto-Click */}
+            {hasMore && (
+              <Center ref={inViewRef} py={6}>
+                <Button
+                  ref={loadMoreButtonRef}
+                  onClick={handleLoadMore}
+                  isLoading={loading}
+                  loadingText="Caricamento..."
+                  colorScheme="purple"
+                  size="lg"
+                  leftIcon={!loading && <FaPlus />}
+                  variant="outline"
+                  disabled={loading}
+                >
+                  {loading ? 'Caricamento...' : 'Carica altri'}
+                </Button>
+              </Center>
+            )}
+            
+            {!hasMore && list.length > 20 && (
+              <Center py={4}>
+                <Text color="gray.500">Hai raggiunto la fine</Text>
+              </Center>
+            )}
           </>
         ) : (
           <Center py={12}>
