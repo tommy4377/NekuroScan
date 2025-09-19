@@ -24,6 +24,7 @@ const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+import { ThemeProvider } from './contexts/ThemeContext';
 
 import useAuth from './hooks/useAuth';
 
@@ -186,7 +187,8 @@ function App() {
   ];
 
   return (
-    <ChakraProvider theme={theme}>
+  <ChakraProvider theme={theme}>
+    <ThemeProvider>
       <ErrorBoundary>
         <Router>
           <ScrollToTop />
@@ -203,8 +205,9 @@ function App() {
           </Suspense>
         </Router>
       </ErrorBoundary>
-    </ChakraProvider>
-  );
-}
+    </ThemeProvider>
+  </ChakraProvider>
+);
 
 export default App;
+
