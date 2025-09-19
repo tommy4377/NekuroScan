@@ -372,21 +372,15 @@ export class MangaWorldAdultAPI {
           
           // Pattern corretti per array di immagini - FIX: escaped backticks
           const arrayPatterns = [
-            /pages\s*=\s*```math
-([\s\S]*?)```/,
-            /images\s*=\s*```math
-([\s\S]*?)```/,
-            /pageArray\s*=\s*```math
-([\s\S]*?)```/,
-            /imageArray\s*=\s*```math
-([\s\S]*?)```/,
-            /var\s+pages\s*=\s*```math
-([\s\S]*?)```/,
-            /const\s+pages\s*=\s*```math
-([\s\S]*?)```/,
-            /let\s+pages\s*=\s*```math
-([\s\S]*?)```/
-          ];
+  /pages\s*=\s*```math([\s\S]*?)```/,
+  /images\s*=\s*```math([\s\S]*?)```/,
+  /pageArray\s*=\s*```math([\s\S]*?)```/,
+  /imageArray\s*=\s*```math([\s\S]*?)```/,
+  /var\s+pages\s*=\s*```math([\s\S]*?)```/,
+  /const\s+pages\s*=\s*```math([\s\S]*?)```/,
+  /let\s+pages\s*=\s*```math([\s\S]*?)```/
+];
+
           
           for (const pattern of arrayPatterns) {
             const match = content.match(pattern);
@@ -508,3 +502,4 @@ export class MangaWorldAdultAPI {
     }
   }
 }
+
