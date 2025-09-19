@@ -1,13 +1,15 @@
-// frontend/src/pages/Home.jsx
 import React, { useEffect, useState } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
   Button, useToast, Skeleton, IconButton, Tabs, TabList, Tab,
-  TabPanels, TabPanel, Icon as ChakraIcon, useBreakpointValue
+  TabPanels, TabPanel, Badge, Icon as ChakraIcon, useBreakpointValue
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { FaClock, FaHeart, FaChevronRight, FaSync, FaTrophy, FaDragon, FaBookOpen } from 'react-icons/fa';
+import { 
+  FaFire, FaClock, FaStar, FaBookOpen, FaHeart,
+  FaChevronRight, FaSync, FaTrophy, FaDragon
+} from 'react-icons/fa';
 import { GiDragonHead } from 'react-icons/gi';
 import { BiBook } from 'react-icons/bi';
 import MangaCard from '../components/MangaCard';
@@ -20,9 +22,9 @@ function Home() {
   const navigate = useNavigate();
   const toast = useToast();
   const isMobile = useBreakpointValue({ base: true, md: false });
-
+  
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
-
+  
   const [latest, setLatest] = useState([]);
   const [popular, setPopular] = useState([]);
   const [topManga, setTopManga] = useState([]);
@@ -30,13 +32,15 @@ function Home() {
   const [topManhua, setTopManhua] = useState([]);
   const [topOneshot, setTopOneshot] = useState([]);
   const [continueReading, setContinueReading] = useState([]);
-
+  
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { loadAll(); }, [includeAdult]);
+  useEffect(() => {
+    loadAllContent();
+  }, [includeAdult]);
 
-  const loadAll = async () => {
+  const loadAllContent = async () => {
     setLoading(true);
     try {
       const [l, p, m, wh, wu, os] = await Promise.all([
@@ -47,16 +51,25 @@ function Home() {
         statsAPI.getTopByType('manhua', includeAdult, 1),
         statsAPI.getTopByType('oneshot', includeAdult, 1),
       ]);
-      setLatest((l.results || []).slice(0, 10));
-      setPopular((p.results || []).slice(0, 10));
-      setTopManga((m.results || []).slice(0, 10));
-      setTopManhwa((wh.results || []).slice(0, 10));
-      setTopManhua((wu.results || []).slice(0, 10));
-      setTopOneshot((os.results || []).slice(0, 10));
-      setContinueReading(JSON.parse(localStorage.getItem('reading') || '[]').slice(0, 10));
-    } catch (e) {
-      console.error(e);
-      toast({ title: 'Errore caricamento', status: 'warning' });
+      
+      setLatest(l.results || []);
+      setPopular(p.results || []);
+      setTopManga(m.results || []);
+      setTopManhwa(wh.results || []);
+      setTopManhua(wu.results || []);
+      setTopOneshot(os.results || []);
+      
+      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+      setContinueReading(reading.slice(0, 10));
+      
+    } catch (error) {
+      console.error('Error loading home content:', error);
+      toast({
+        title: 'Errore caricamento',
+        description: 'Alcuni contenuti potrebbero non essere disponibili',
+        status: 'warning',
+        duration: 3000,
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -65,18 +78,33 @@ function Home() {
 
   const handleViewAll = (section) => {
     switch(section) {
-      case 'latest': navigate('/latest'); break;
-      case 'popular': navigate('/popular'); break;
-      case 'manga': navigate('/top/manga'); break;
-      case 'manhwa': navigate('/top/manhwa'); break;
-      case 'manhua': navigate('/top/manhua'); break;
-      case 'oneshot': navigate('/top/oneshot'); break;
-      case 'library': navigate('/library'); break;
-      default: navigate('/categories');
+      case 'latest':
+        navigate('/latest');
+        break;
+      case 'popular':
+        navigate('/popular');
+        break;
+      case 'manga':
+        navigate('/top/manga');
+        break;
+      case 'manhwa':
+        navigate('/top/manhwa');
+        break;
+      case 'manhua':
+        navigate('/top/manhua');
+        break;
+      case 'oneshot':
+        navigate('/top/oneshot');
+        break;
+      case 'library':
+        navigate('/library');
+        break;
+      default:
+        navigate('/categories');
     }
   };
 
-  const ContentSection = ({ title, icon, items, color = 'purple', section, showLatestInCard = false }) => (
+  const ContentSection = ({ title, icon, items, color = 'purple', section, showLatestBadge = false }) => (
     <VStack align="stretch" spacing={4}>
       <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
         <HStack justify="space-between" mb={4}>
@@ -103,7 +131,9 @@ function Home() {
 
         {loading ? (
           <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={4}>
-            {[...Array(5)].map((_, i) => <Skeleton key={i} height="280px" borderRadius="lg" />)}
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} height="280px" borderRadius="lg" />
+            ))}
           </SimpleGrid>
         ) : items.length > 0 ? (
           <Box overflowX="auto" pb={2}>
@@ -118,14 +148,31 @@ function Home() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(i * 0.03, 0.5) }}
                 >
-                  <MangaCard manga={item} hideSource showLatest={showLatestInCard} />
-                  {/* niente overlay, testo "Cap. xx" è dentro la card */}
+                  <MangaCard manga={item} hideSource showLatest={false} />
+                  {showLatestBadge && item.latestChapter && (
+                    <Badge
+                      position="absolute"
+                      bottom={2}
+                      left={2}
+                      right={2}
+                      colorScheme="blue"
+                      fontSize="xs"
+                      textAlign="center"
+                    >
+                      Cap. {item.latestChapter}
+                    </Badge>
+                  )}
+                  {item.isAdult && (
+                    <Badge position="absolute" top={2} right={2} colorScheme="pink" fontSize="xs">18+</Badge>
+                  )}
                 </MotionBox>
               ))}
             </HStack>
           </Box>
         ) : (
-          <Box textAlign="center" py={8}><Text color="gray.500">Nessun contenuto disponibile</Text></Box>
+          <Box textAlign="center" py={8}>
+            <Text color="gray.500">Nessun contenuto disponibile</Text>
+          </Box>
         )}
       </Box>
     </VStack>
@@ -151,7 +198,14 @@ function Home() {
               >
                 {includeAdult ? '🔞 Solo Adult' : 'Solo Normali'}
               </Button>
-              <IconButton icon={<FaSync />} onClick={() => { setRefreshing(true); loadAll(); }} aria-label="Ricarica" isLoading={refreshing} variant="ghost" colorScheme="purple" />
+              <IconButton
+                icon={<FaSync />}
+                onClick={() => { setRefreshing(true); loadAllContent(); }}
+                aria-label="Ricarica"
+                isLoading={refreshing}
+                variant="ghost"
+                colorScheme="purple"
+              />
             </HStack>
           </HStack>
         </Box>
@@ -163,7 +217,6 @@ function Home() {
             items={continueReading}
             color="green"
             section="library"
-            showLatestInCard={false}
           />
         )}
 
@@ -176,7 +229,7 @@ function Home() {
             </TabList>
             <TabPanels>
               <TabPanel px={0} pt={6}>
-                <ContentSection title="Capitoli recenti" icon={FaClock} items={latest} color="blue" section="latest" showLatestInCard />
+                <ContentSection title="Capitoli recenti" icon={FaClock} items={latest} color="blue" section="latest" showLatestBadge />
               </TabPanel>
               <TabPanel px={0} pt={6}>
                 <ContentSection title="I più letti" icon={FaHeart} items={popular} color="pink" section="popular" />
