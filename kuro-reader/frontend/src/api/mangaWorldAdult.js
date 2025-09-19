@@ -1,77 +1,10 @@
 import { config } from '../config';
+import { normalizeChapterLabel } from './shared';
 
 export class MangaWorldAdultAPI {
   constructor() {
     this.baseUrl = 'https://www.mangaworldadult.net/';
   }
-
-
-normalizeChapterLabel(text, url) {
-  if (!text) return null;
-  
-  // Rimuovi spazi extra e trim
-  let t = text.replace(/\s+/g, ' ').trim();
-  
-  // Rimuovi date
-  t = t.replace(/\s+\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}.*$/, '');
-  t = t.replace(/\s+\d{4}[\/-]\d{1,2}[\/-]\d{1,2}.*$/, '');
-  
-  // Rimuovi prefissi comuni
-  t = t.replace(/^(vol\.\s*\d+\s*-\s*)?/i, '');
-  t = t.replace(/^(capitolo|cap\.|ch\.|chapter)\s*/i, '');
-  
-  // Estrai numero
-  const patterns = [
-    /^(\d+(?:\.\d+)?)/,
-    /\s+(\d+(?:\.\d+)?)\s*$/,
-    /(\d+(?:\.\d+)?)/
-  ];
-  
-  for (const pattern of patterns) {
-    const match = t.match(pattern);
-    if (match) {
-      let num = match[1];
-      
-      // FIX IMPORTANTE: Se il numero è >= 10 e ha più di 2 cifre, tronca le ultime 2
-      const numInt = parseInt(num);
-      if (numInt >= 10 && num.length > 2) {
-        num = num.slice(0, -2);
-      }
-      // Se inizia con 0 e ha 4+ cifre (es. 0176)
-      else if (num.startsWith('0') && num.length >= 4) {
-        num = num.substring(0, 2);
-        // Se diventa > 09, rimuovi lo 0
-        if (parseInt(num) > 9) {
-          num = num.replace(/^0/, '');
-        }
-      }
-      
-      return parseFloat(num);
-    }
-  }
-  
-  // Prova dall'URL
-  if (url) {
-    const urlMatch = url.match(/\/(\d+(?:\.\d+)?)\/?$/);
-    if (urlMatch) {
-      let num = urlMatch[1];
-      
-      const numInt = parseInt(num);
-      if (numInt >= 10 && num.length > 2) {
-        num = num.slice(0, -2);
-      } else if (num.startsWith('0') && num.length >= 4) {
-        num = num.substring(0, 2);
-        if (parseInt(num) > 9) {
-          num = num.replace(/^0/, '');
-        }
-      }
-      
-      return parseFloat(num);
-    }
-  }
-  
-  return null;
-}
 
   async makeRequest(url) {
     try {
@@ -148,15 +81,12 @@ normalizeChapterLabel(text, url) {
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
       
-      // Titolo
       const titleElem = doc.querySelector('h1.name, h1.bigger, .info h1, h1');
       const title = titleElem?.textContent?.trim() || 'Unknown Title';
       
-      // Cover
       const coverImg = doc.querySelector('.thumb img, .manga-image img, .cover img');
       const coverUrl = coverImg?.src || coverImg?.dataset?.src || '';
       
-      // Info
       const info = {
         alternativeTitles: [],
         authors: [],
@@ -169,7 +99,6 @@ normalizeChapterLabel(text, url) {
       
       const metaDiv = doc.querySelector('.meta-data, .info, .comic-info');
       if (metaDiv) {
-        // Generi
         const genreLinks = metaDiv.querySelectorAll('a[href*="/archive?genre"]');
         genreLinks.forEach(link => {
           const genre = link.textContent.trim();
@@ -178,152 +107,133 @@ normalizeChapterLabel(text, url) {
           }
         });
         
-        // Autori
         const authorLinks = metaDiv.querySelectorAll('a[href*="/archive?author"]');
         authorLinks.forEach(link => {
           info.authors.push(link.textContent.trim());
         });
         
-        // Status
         const statusLink = metaDiv.querySelector('a[href*="/archive?status"]');
         if (statusLink) {
           info.status = statusLink.textContent.trim();
         }
         
-        // Anno
         const yearLink = metaDiv.querySelector('a[href*="/archive?year"]');
         if (yearLink) {
           info.year = yearLink.textContent.trim();
         }
         
-        // Tipo
         const typeLink = metaDiv.querySelector('a[href*="/archive?type"]');
         if (typeLink) {
           info.type = typeLink.textContent.trim();
         }
       }
       
-      // Trama
       const plotDiv = doc.querySelector('#noidungm, .comic-description, .description');
       const plotText = plotDiv?.textContent?.trim() || '';
       const plot = plotText.replace(/^TRAMA:?\s*/i, '').trim();
       
-      // Sostituisci la sezione dei capitoli nella funzione getMangaFromUrl con questo codice:
+      // CAPITOLI
+      const chapters = [];
+      const processedUrls = new Set();
 
-// CAPITOLI - FIX COMPLETO
-const chapters = [];
-const processedUrls = new Set();
+      const chapterContainer = doc.querySelector('.chapters-wrapper, #chapterList, .chapters');
 
-// Trova il contenitore dei capitoli
-const chapterContainer = doc.querySelector('.chapters-wrapper, #chapterList, .chapters');
-
-if (chapterContainer) {
-  // Cerca solo i link diretti dentro .chapter
-  const chapterDivs = chapterContainer.querySelectorAll('.chapter');
-  
-  if (chapterDivs.length > 0) {
-    // Metodo 1: Div .chapter con link dentro
-    chapterDivs.forEach((chDiv, index) => {
-      const link = chDiv.querySelector('a[href*="/read/"]');
-      if (link) {
-        const href = link.getAttribute('href');
-        const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+      if (chapterContainer) {
+        const chapterDivs = chapterContainer.querySelectorAll('.chapter');
         
-        if (!processedUrls.has(fullUrl)) {
-          processedUrls.add(fullUrl);
-          
-          // Prendi SOLO il testo del link, non tutto il div
-          let chapterText = link.textContent?.trim() || '';
-          
-          // USA LA NUOVA FUNZIONE per estrarre e normalizzare il numero
-          let chapterNumber = this.normalizeChapterNumber(chapterText, href);
-          
-          // Se non trova numero, usa l'indice
-          if (chapterNumber === null) {
-            chapterNumber = index + 1;
-          }
-          
-          chapters.push({
-            url: fullUrl,
-            chapterNumber: chapterNumber,
-            title: `Capitolo ${chapterNumber}`,
-            dateAdd: ''
+        if (chapterDivs.length > 0) {
+          chapterDivs.forEach((chDiv, index) => {
+            const link = chDiv.querySelector('a[href*="/read/"]');
+            if (link) {
+              const href = link.getAttribute('href');
+              const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+              
+              if (!processedUrls.has(fullUrl)) {
+                processedUrls.add(fullUrl);
+                
+                let chapterText = link.textContent?.trim() || '';
+                let chapterNumber = normalizeChapterLabel(chapterText, href);
+                
+                if (chapterNumber === null) {
+                  chapterNumber = index + 1;
+                }
+                
+                chapters.push({
+                  url: fullUrl,
+                  chapterNumber: chapterNumber,
+                  title: `Capitolo ${chapterNumber}`,
+                  dateAdd: ''
+                });
+              }
+            }
+          });
+        } else {
+          const directLinks = chapterContainer.querySelectorAll('a[href*="/read/"]');
+          directLinks.forEach((link, index) => {
+            const href = link.getAttribute('href');
+            if (!href) return;
+            
+            const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+            
+            if (!processedUrls.has(fullUrl)) {
+              processedUrls.add(fullUrl);
+              
+              let chapterText = link.textContent?.trim() || '';
+              let chapterNumber = normalizeChapterLabel(chapterText, href);
+              
+              if (chapterNumber === null) {
+                chapterNumber = index + 1;
+              }
+              
+              chapters.push({
+                url: fullUrl,
+                chapterNumber: chapterNumber,
+                title: `Capitolo ${chapterNumber}`,
+                dateAdd: ''
+              });
+            }
           });
         }
       }
-    });
-  } else {
-    // Metodo 2: Link diretti nel container
-    const directLinks = chapterContainer.querySelectorAll('a[href*="/read/"]');
-    directLinks.forEach((link, index) => {
-      const href = link.getAttribute('href');
-      if (!href) return;
-      
-      const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
-      
-      if (!processedUrls.has(fullUrl)) {
-        processedUrls.add(fullUrl);
+
+      // Fallback se non trova capitoli nel container
+      if (chapters.length === 0) {
+        const allLinks = doc.querySelectorAll('a[href*="/read/"]');
+        const filteredLinks = Array.from(allLinks).filter(link => {
+          const parent = link.closest('.chapters-wrapper, .chapters, .volume-chapters, #chapterList');
+          return parent !== null;
+        });
         
-        let chapterText = link.textContent?.trim() || '';
-        
-        // USA LA NUOVA FUNZIONE
-        let chapterNumber = this.normalizeChapterNumber(chapterText, href);
-        
-        if (chapterNumber === null) {
-          chapterNumber = index + 1;
-        }
-        
-        chapters.push({
-          url: fullUrl,
-          chapterNumber: chapterNumber,
-          title: `Capitolo ${chapterNumber}`,
-          dateAdd: ''
+        filteredLinks.forEach((link, index) => {
+          const href = link.getAttribute('href');
+          if (!href) return;
+          
+          const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+          
+          if (!processedUrls.has(fullUrl)) {
+            processedUrls.add(fullUrl);
+            
+            let chapterText = link.textContent?.trim() || '';
+            let chapterNumber = normalizeChapterLabel(chapterText, href);
+            
+            if (chapterNumber === null) {
+              chapterNumber = index + 1;
+            }
+            
+            chapters.push({
+              url: fullUrl,
+              chapterNumber: chapterNumber,
+              title: `Capitolo ${chapterNumber}`,
+              dateAdd: ''
+            });
+          }
         });
       }
-    });
-  }
-}
 
-// Se non trova capitoli nel container, cerca ovunque (fallback)
-if (chapters.length === 0) {
-  const allLinks = doc.querySelectorAll('a[href*="/read/"]');
-  const filteredLinks = Array.from(allLinks).filter(link => {
-    const parent = link.closest('.chapters-wrapper, .chapters, .volume-chapters, #chapterList');
-    return parent !== null;
-  });
-  
-  filteredLinks.forEach((link, index) => {
-    const href = link.getAttribute('href');
-    if (!href) return;
-    
-    const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
-    
-    if (!processedUrls.has(fullUrl)) {
-      processedUrls.add(fullUrl);
-      
-      let chapterText = link.textContent?.trim() || '';
-      // USA LA NUOVA FUNZIONE
-      let chapterNumber = this.normalizeChapterNumber(chapterText, href);
-      
-      if (chapterNumber === null) {
-        chapterNumber = index + 1;
-      }
-      
-      chapters.push({
-        url: fullUrl,
-        chapterNumber: chapterNumber,
-        title: `Capitolo ${chapterNumber}`,
-        dateAdd: ''
-      });
-    }
-  });
-}
-
-// IMPORTANTE: Ordina dal più basso al più alto
-chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
+      // Ordina dal più basso al più alto
+      chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
       
       console.log(`Total chapters found: ${chapters.length}`);
-      console.log('First 5 chapters:', chapters.slice(0, 5));
       
       return {
         url,
@@ -350,7 +260,6 @@ chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
 
   async getChapterDetail(chapterUrl) {
     try {
-      // Normalizza URL
       let url = chapterUrl;
       if (!url.startsWith('http')) {
         url = `${this.baseUrl}${url.replace(/^\//, '')}`;
@@ -358,20 +267,17 @@ chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
       
       console.log('Loading adult chapter from:', url);
       
-      // Prima prova SENZA style=list (spesso nei siti adult le pagine sono già tutte caricate)
       let html = await this.makeRequest(url);
       let doc = this.parseHTML(html);
       
       const pages = [];
       const seenUrls = new Set();
       
-      // Funzione helper per aggiungere pagina
       const addPage = (src) => {
         if (src && src.includes('http') && !src.includes('placeholder') && !src.includes('thumb') && !seenUrls.has(src)) {
-          // Pulisci l'URL
-          let cleanUrl = src.split('?')[0]; // Rimuovi query params se non necessari
+          let cleanUrl = src.split('?')[0];
           if (src.includes('?') && (src.includes('token') || src.includes('expires'))) {
-            cleanUrl = src; // Mantieni params se sono per autenticazione
+            cleanUrl = src;
           }
           seenUrls.add(cleanUrl);
           pages.push(cleanUrl);
@@ -400,7 +306,6 @@ chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
         const images = doc.querySelectorAll(selector);
         if (images.length > 0) {
           images.forEach(img => {
-            // Prova tutti i possibili attributi
             const possibleSrcs = [
               img.src,
               img.getAttribute('data-src'),
@@ -435,7 +340,6 @@ chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
         html = await this.makeRequest(listUrl);
         doc = this.parseHTML(html);
         
-        // Riprova con i selettori
         for (const selector of imageSelectors) {
           const images = doc.querySelectorAll(selector);
           if (images.length > 0) {
@@ -460,20 +364,23 @@ chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
         }
       }
       
-      // Strategia 2: Cerca negli script
+      // Strategia 2: Cerca negli script - FIX REGEX
       if (pages.length === 0) {
         const scripts = doc.querySelectorAll('script');
         scripts.forEach(script => {
           const content = script.textContent || script.innerHTML || '';
           
-          // Pattern per array di immagini
+          // Pattern corretti per array di immagini
           const arrayPatterns = [
-  /pages\s*=\s*```math([\s\S]*?)```/s,
-  /images\s*=\s*```math([\s\S]*?)```/s,
-  /pageArray\s*=\s*```math([\s\S]*?)```/s,
-  /imageArray\s*=\s*```math([\s\S]*?)```/s
-];
-
+            /pages\s*=\s*```math
+([\s\S]*?)```/,
+            /images\s*=\s*```math
+([\s\S]*?)```/,
+            /pageArray\s*=\s*```math
+([\s\S]*?)```/,
+            /imageArray\s*=\s*```math
+([\s\S]*?)```/
+          ];
           
           for (const pattern of arrayPatterns) {
             const match = content.match(pattern);
@@ -510,7 +417,6 @@ chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
               const iframeHtml = await this.makeRequest(iframeSrc);
               const iframeDoc = this.parseHTML(iframeHtml);
               
-              // Cerca immagini nell'iframe
               const iframeImgs = iframeDoc.querySelectorAll('img');
               iframeImgs.forEach(img => {
                 if (img.src && !img.src.includes('loading')) {
@@ -596,7 +502,3 @@ chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
     }
   }
 }
-
-
-
-
