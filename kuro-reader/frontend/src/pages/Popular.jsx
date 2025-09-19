@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
-  Button, useToast, Skeleton, Badge, IconButton, Spinner,
+  Button, useToast, Skeleton, Badge, IconButton,
   Select, Switch, Tabs, TabList, Tab, TabPanels, TabPanel, Center
 } from '@chakra-ui/react';
-import { FaHeart, FaArrowUp, FaFire, FaStar, FaTrophy } from 'react-icons/fa';
+import { FaHeart, FaArrowUp, FaFire, FaStar, FaTrophy, FaPlus } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
@@ -35,8 +35,6 @@ function Popular() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   
   const toast = useToast();
-  const observerRef = useRef(null);
-  const loadingRef = useRef(false);
 
   const tabKeys = ['mostRead', 'topRated', 'trending'];
   const currentKey = tabKeys[activeTab];
@@ -52,10 +50,8 @@ function Popular() {
 
   // Load data function
   const loadData = useCallback(async (type, pageNum, reset = false) => {
-    if (loadingRef.current && !reset) return;
+    if (loading && !reset) return;
     if (!hasMore[type] && !reset) return;
-    
-    loadingRef.current = true;
     
     if (reset || pageNum === 1) {
       setInitialLoading(true);
@@ -63,9 +59,9 @@ function Popular() {
       setPages(prev => ({ ...prev, [type]: 1 }));
       setHasMore(prev => ({ ...prev, [type]: true }));
       pageNum = 1;
-    } else {
-      setLoading(true);
     }
+    
+    setLoading(true);
     
     try {
       console.log(`Loading ${type} page ${pageNum}...`);
@@ -98,7 +94,9 @@ function Popular() {
           ...prev,
           [type]: reset || pageNum === 1 
             ? result.results 
-            : [...prev[type], ...result.results]
+            : [...prev[type], ...result.results.filter(item => 
+                !prev[type].some(existing => existing.url === item.url)
+              )]
         }));
         
         setPages(prev => ({ ...prev, [type]: pageNum }));
@@ -116,48 +114,21 @@ function Popular() {
       });
       setHasMore(prev => ({ ...prev, [type]: false }));
     } finally {
-      loadingRef.current = false;
-      setInitialLoading(false);
       setLoading(false);
+      setInitialLoading(false);
     }
-  }, [includeAdult, hasMore, toast]);
+  }, [includeAdult, hasMore, toast, loading]);
 
   // Initial load for active tab
   useEffect(() => {
     loadData(currentKey, 1, true);
   }, [currentKey, includeAdult]);
 
-  // Setup Intersection Observer
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const target = entries[0];
-        if (target.isIntersecting && 
-            hasMore[currentKey] && 
-            !loadingRef.current && 
-            !initialLoading && 
-            lists[currentKey].length > 0) {
-          console.log(`Trigger loading next page for ${currentKey}...`);
-          loadData(currentKey, pages[currentKey] + 1);
-        }
-      },
-      {
-        root: null,
-        rootMargin: '200px',
-        threshold: 0.1
-      }
-    );
-
-    if (observerRef.current) {
-      observer.observe(observerRef.current);
+  const handleLoadMore = () => {
+    if (!loading && hasMore[currentKey]) {
+      loadData(currentKey, pages[currentKey] + 1);
     }
-
-    return () => {
-      if (observerRef.current) {
-        observer.unobserve(observerRef.current);
-      }
-    };
-  }, [currentKey, hasMore, pages, lists, initialLoading, loadData]);
+  };
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -218,24 +189,29 @@ function Popular() {
           ))}
         </SimpleGrid>
         
-        {/* Observer Target */}
-        <Box 
-          ref={observerRef}
-          h="100px"
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-        >
-          {loading && (
-            <HStack spacing={3}>
-              <Spinner color="purple.500" />
-              <Text>Caricamento...</Text>
-            </HStack>
-          )}
-          {!hasMore[currentKey] && currentList.length > 0 && (
+        {/* Load More Button */}
+        {hasMore[currentKey] && (
+          <Center py={6}>
+            <Button
+              onClick={handleLoadMore}
+              isLoading={loading}
+              loadingText="Caricamento..."
+              colorScheme="purple"
+              size="lg"
+              leftIcon={!loading ? <FaPlus /> : undefined}
+              variant="solid"
+              disabled={loading}
+            >
+              {loading ? 'Caricamento...' : 'Carica altri'}
+            </Button>
+          </Center>
+        )}
+        
+        {!hasMore[currentKey] && currentList.length > 0 && (
+          <Center py={4}>
             <Text color="gray.500">Fine dei risultati</Text>
-          )}
-        </Box>
+          </Center>
+        )}
       </>
     );
   };
@@ -247,7 +223,14 @@ function Popular() {
         <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
           <HStack justify="space-between" flexWrap="wrap" spacing={4}>
             <HStack spacing={3}>
-              <Box p={3} bg="pink.500" borderRadius="lg">
+              <Box 
+                p={3} 
+                bg="pink.500" 
+                borderRadius="lg"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+              >
                 <FaHeart color="white" size="20" />
               </Box>
               <VStack align="start" spacing={0}>
