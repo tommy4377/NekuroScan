@@ -207,7 +207,7 @@ function MangaDetails() {
     updateReadingList(chapterIndex, chapter);
     
     // Naviga al reader
-      navigate(`/read/${manga.source}/${id}/${chapterId}?chapter=${chapterIndex}`);
+      navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
   };
 
   const updateReadingList = (chapterIndex, chapter) => {
@@ -602,3 +602,4 @@ function MangaDetails() {
 }
 
 export default MangaDetails;
+
