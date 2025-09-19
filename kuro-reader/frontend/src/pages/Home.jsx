@@ -154,140 +154,114 @@ function Home() {
     navigate(path, { state: { includeAdult } });
   };
 
-  // Componente per le sezioni di contenuto
-  const ContentSection = ({ 
-    title, 
-    icon, 
-    items, 
-    color = 'purple', 
-    viewAllPath,
-    showLatestChapter = false,
-    showProgress = false,
-    emptyMessage = 'Nessun contenuto disponibile'
-  }) => {
-    if (!items || items.length === 0 && !loading) {
-      return (
-        <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
-          <HStack justify="space-between" mb={4}>
-            <HStack spacing={3}>
-              <Box p={2} bg={`${color}.500`} borderRadius="lg">
-                <ChakraIcon as={icon} color="white" boxSize={5} />
-              </Box>
-              <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
-            </HStack>
-          </HStack>
-          <Center py={8}>
-            <Text color="gray.500">{emptyMessage}</Text>
-          </Center>
-        </Box>
-      );
-    }
+  // Nella Home.jsx, aggiorna solo la ContentSection per non duplicare il capitolo:
 
+const ContentSection = ({ 
+  title, 
+  icon, 
+  items, 
+  color = 'purple', 
+  viewAllPath,
+  showLatestChapter = false, // <-- Usa questo flag
+  showProgress = false,
+  emptyMessage = 'Nessun contenuto disponibile'
+}) => {
+  if (!items || items.length === 0 && !loading) {
     return (
-      <VStack align="stretch" spacing={4}>
-        <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
-          <HStack justify="space-between" mb={4}>
-            <HStack spacing={3}>
-              <Box p={2} bg={`${color}.500`} borderRadius="lg">
-                <ChakraIcon as={icon} color="white" boxSize={5} />
-              </Box>
-              <VStack align="start" spacing={0}>
-                <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
-                <Text fontSize="xs" color="gray.400">
-                  {items.length} disponibili
-                </Text>
-              </VStack>
-            </HStack>
-            {viewAllPath && (
-              <Button
-                variant="ghost"
-                size="sm"
-                rightIcon={<FaChevronRight />}
-                onClick={() => navigateToSection(viewAllPath)}
-                color={`${color}.400`}
-                _hover={{ bg: `${color}.900` }}
-              >
-                Vedi tutti
-              </Button>
-            )}
+      <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
+        <HStack justify="space-between" mb={4}>
+          <HStack spacing={3}>
+            <Box p={2} bg={`${color}.500`} borderRadius="lg">
+              <ChakraIcon as={icon} color="white" boxSize={5} />
+            </Box>
+            <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
           </HStack>
-
-          <Box overflowX="auto" pb={2}>
-            <HStack spacing={{ base: 3, md: 4 }} align="start">
-              {items.map((item, i) => (
-                <MotionBox
-                  key={`${item.url}-${i}`}
-                  minW={{ base: '140px', md: '160px' }}
-                  maxW={{ base: '140px', md: '160px' }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(i * 0.05, 0.5) }}
-                  position="relative"
-                >
-                  <MangaCard manga={item} hideSource />
-                  
-                  {/* Badge per ultimo capitolo */}
-                  {showLatestChapter && item.latestChapter && (
-                    <Box
-                      position="absolute"
-                      bottom="60px"
-                      left={2}
-                      right={2}
-                      bg="blue.600"
-                      color="white"
-                      px={2}
-                      py={1}
-                      borderRadius="md"
-                      fontSize="xs"
-                      textAlign="center"
-                      fontWeight="bold"
-                      opacity={0.95}
-                    >
-                      Cap. {item.latestChapter}
-                    </Box>
-                  )}
-                  
-                  {/* Progress per continua a leggere */}
-                  {showProgress && item.continueFrom && (
-                    <Box
-                      position="absolute"
-                      bottom="60px"
-                      left={2}
-                      right={2}
-                      bg="green.600"
-                      color="white"
-                      px={2}
-                      py={1}
-                      borderRadius="md"
-                      fontSize="xs"
-                      textAlign="center"
-                      fontWeight="bold"
-                      opacity={0.95}
-                    >
-                      {item.continueFrom}
-                    </Box>
-                  )}
-                  
-                  {/* Badge adult */}
-                  {item.isAdult && (
-                    <Badge 
-                      position="absolute" 
-                      top={2} 
-                      right={2} 
-                      colorScheme="pink" 
-                      fontSize="xs"
-                    >
-                      18+
-                    </Badge>
-                  )}
-                </MotionBox>
-              ))}
-            </HStack>
-          </Box>
-        </Box>
-      </VStack>
+        </HStack>
+        <Center py={8}>
+          <Text color="gray.500">{emptyMessage}</Text>
+        </Center>
+      </Box>
     );
-  };
+  }
+
+  return (
+    <VStack align="stretch" spacing={4}>
+      <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
+        <HStack justify="space-between" mb={4}>
+          <HStack spacing={3}>
+            <Box p={2} bg={`${color}.500`} borderRadius="lg">
+              <ChakraIcon as={icon} color="white" boxSize={5} />
+            </Box>
+            <VStack align="start" spacing={0}>
+              <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
+              <Text fontSize="xs" color="gray.400">
+                {items.length} disponibili
+              </Text>
+            </VStack>
+          </HStack>
+          {viewAllPath && (
+            <Button
+              variant="ghost"
+              size="sm"
+              rightIcon={<FaChevronRight />}
+              onClick={() => navigateToSection(viewAllPath)}
+              color={`${color}.400`}
+              _hover={{ bg: `${color}.900` }}
+            >
+              Vedi tutti
+            </Button>
+          )}
+        </HStack>
+
+        <Box overflowX="auto" pb={2}>
+          <HStack spacing={{ base: 3, md: 4 }} align="start">
+            {items.map((item, i) => (
+              <MotionBox
+                key={`${item.url}-${i}`}
+                minW={{ base: '140px', md: '160px' }}
+                maxW={{ base: '140px', md: '160px' }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(i * 0.05, 0.5) }}
+                position="relative"
+              >
+                <MangaCard 
+                  manga={item} 
+                  hideSource 
+                  showLatestChapter={showLatestChapter} // <-- Passa il flag al MangaCard
+                />
+                
+                {/* Progress per continua a leggere - SOLO per questa sezione */}
+                {showProgress && item.continueFrom && (
+                  <Box
+                    position="absolute"
+                    bottom="60px"
+                    left={2}
+                    right={2}
+                    bg="green.600"
+                    color="white"
+                    px={2}
+                    py={1}
+                    borderRadius="md"
+                    fontSize="xs"
+                    textAlign="center"
+                    fontWeight="bold"
+                    opacity={0.95}
+                    zIndex={10}
+                  >
+                    {item.continueFrom}
+                  </Box>
+                )}
+                
+                {/* NON aggiungere badge duplicati qui */}
+              </MotionBox>
+            ))}
+          </HStack>
+        </Box>
+      </Box>
+    </VStack>
+  );
+};
 
   if (loading) {
     return (
@@ -491,3 +465,4 @@ function Home() {
 }
 
 export default Home;
+
