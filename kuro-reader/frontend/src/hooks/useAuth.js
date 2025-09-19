@@ -21,7 +21,7 @@ const useAuth = create((set, get) => ({
   isAuthenticated: !!localStorage.getItem('token'),
   loading: false,
   error: null,
-  syncStatus: 'idle', // idle, syncing, synced, error
+  syncStatus: 'idle',
   lastSync: null,
 
   // Initialize
@@ -40,7 +40,7 @@ const useAuth = create((set, get) => ({
           set({ user: updatedUser });
           localStorage.setItem('user', JSON.stringify(updatedUser));
           
-          // Restore user-specific data
+          // Restore user data
           get().restoreUserData(updatedUser.id);
           
           // Start sync
@@ -67,7 +67,6 @@ const useAuth = create((set, get) => ({
       
       const { user, token } = response.data;
       
-      // Save auth data
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -80,10 +79,7 @@ const useAuth = create((set, get) => ({
         error: null
       });
       
-      // Restore user data
       get().restoreUserData(user.id);
-      
-      // Sync from server
       await get().syncFromServer();
       
       return { success: true, user };
@@ -120,10 +116,7 @@ const useAuth = create((set, get) => ({
         error: null
       });
       
-      // Save current local data for this user
       get().persistUserData(user.id);
-      
-      // Sync to server
       await get().syncToServer();
       
       return { success: true, user };
@@ -139,17 +132,14 @@ const useAuth = create((set, get) => ({
   logout: () => {
     const userId = get().user?.id;
     
-    // Save user data before logout
     if (userId) {
       get().persistUserData(userId);
     }
     
-    // Clear auth
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     delete axios.defaults.headers.common['Authorization'];
     
-    // Clear temporary data
     localStorage.removeItem('userAvatar');
     
     set({
@@ -162,7 +152,7 @@ const useAuth = create((set, get) => ({
     });
   },
 
-  // Persist user data locally
+  // Persist user data locally - FIXED
   persistUserData: (userId) => {
     if (!userId) return;
     
@@ -195,7 +185,6 @@ const useAuth = create((set, get) => ({
     try {
       const userData = JSON.parse(savedData);
       
-      // Restore each item if it exists
       Object.entries(userData).forEach(([key, value]) => {
         if (value !== null && value !== undefined) {
           localStorage.setItem(key, value);
@@ -207,13 +196,12 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Persist just local data (called before logout)
+  // Persist local data - FIXED
   persistLocalData: async () => {
     const userId = get().user?.id;
     if (userId) {
       get().persistUserData(userId);
       
-      // Try to sync to server one last time
       if (get().isAuthenticated) {
         try {
           await get().syncToServer();
@@ -221,6 +209,19 @@ const useAuth = create((set, get) => ({
           console.error('Final sync failed:', error);
         }
       }
+    }
+  },
+
+  // Sync favorites - NEW METHOD
+  syncFavorites: async (favorites) => {
+    const token = get().token;
+    if (!token) return;
+    
+    try {
+      await axios.post('/user/favorites', { favorites });
+      console.log('Favorites synced');
+    } catch (error) {
+      console.error('Failed to sync favorites:', error);
     }
   },
 
@@ -232,30 +233,26 @@ const useAuth = create((set, get) => ({
     set({ syncStatus: 'syncing' });
     
     try {
-      // Favorites
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
       if (favorites.length > 0) {
         await axios.post('/user/favorites', { favorites });
       }
       
-      // Library data
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       const completed = JSON.parse(localStorage.getItem('completed') || '[]');
       const history = JSON.parse(localStorage.getItem('history') || '[]');
       
       await axios.post('/user/library', { reading, completed, history });
       
-      // Reading progress - batch update
       const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
       const progressArray = Object.entries(readingProgress).map(([mangaUrl, progress]) => ({
         mangaUrl,
         mangaTitle: progress.chapterTitle || '',
         chapterIndex: progress.chapterIndex || 0,
-        pageIndex: progress.page || 0
+        pageIndex: progress.page || progress.pageIndex || 0
       }));
       
       if (progressArray.length > 0) {
-        // Send in batches of 10
         for (let i = 0; i < progressArray.length; i += 10) {
           const batch = progressArray.slice(i, i + 10);
           await Promise.all(batch.map(p => 
@@ -286,12 +283,10 @@ const useAuth = create((set, get) => ({
       const response = await axios.get('/user/data');
       const { favorites, reading, completed, history, readingProgress } = response.data;
       
-      // Merge favorites
       const localFavorites = JSON.parse(localStorage.getItem('favorites') || '[]');
       const mergedFavorites = get().mergeArrays(favorites, localFavorites, 'url');
       localStorage.setItem('favorites', JSON.stringify(mergedFavorites));
       
-      // Merge library
       const localReading = JSON.parse(localStorage.getItem('reading') || '[]');
       const mergedReading = get().mergeArrays(reading, localReading, 'url');
       localStorage.setItem('reading', JSON.stringify(mergedReading));
@@ -304,7 +299,6 @@ const useAuth = create((set, get) => ({
       const mergedHistory = get().mergeArrays(history, localHistory, 'url');
       localStorage.setItem('history', JSON.stringify(mergedHistory.slice(0, 200)));
       
-      // Merge reading progress
       const localProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
       readingProgress?.forEach(progress => {
         const local = localProgress[progress.mangaUrl];
@@ -313,6 +307,7 @@ const useAuth = create((set, get) => ({
             chapterId: progress.mangaUrl,
             chapterIndex: progress.chapterIndex,
             page: progress.pageIndex,
+            pageIndex: progress.pageIndex,
             timestamp: progress.updatedAt
           };
         }
@@ -334,12 +329,10 @@ const useAuth = create((set, get) => ({
   mergeArrays: (serverArray, localArray, key) => {
     const merged = new Map();
     
-    // Add server items
     serverArray?.forEach(item => {
       merged.set(item[key], item);
     });
     
-    // Add/update local items
     localArray?.forEach(item => {
       const existing = merged.get(item[key]);
       if (!existing || 
@@ -358,7 +351,7 @@ const useAuth = create((set, get) => ({
       if (get().isAuthenticated && get().syncStatus !== 'syncing') {
         get().syncToServer();
       }
-    }, 60000); // Every minute
+    }, 60000);
     
     return () => clearInterval(interval);
   },
