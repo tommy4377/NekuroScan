@@ -1,3 +1,4 @@
+// frontend/src/App.jsx
 import React, { useEffect } from 'react';
 import { ChakraProvider, Box } from '@chakra-ui/react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -62,9 +63,7 @@ function App() {
           {/* Reader senza navbar */}
           <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
 
-          {/* Backward compatibilità */}
-          <Route path="/profile" element={<Layout><PublicProfile self /></Layout>} />
-
+          {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
