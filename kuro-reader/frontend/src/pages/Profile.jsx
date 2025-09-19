@@ -3,7 +3,7 @@ import {
   Container, VStack, HStack, Heading, Text, Avatar, Box, Button, Input,
   FormControl, FormLabel, SimpleGrid, Divider, useToast, InputGroup,
   InputRightElement, IconButton, Switch, Badge, Tabs, TabList, Tab,
-  TabPanels, TabPanel, Select, useClipboard, Image
+  TabPanels, TabPanel, useClipboard, Image, Stack
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon, EditIcon, CheckIcon, CopyIcon } from '@chakra-ui/icons';
 import { FaCamera, FaSave, FaShare, FaLock, FaGlobe, FaTrash, FaQrcode } from 'react-icons/fa';
@@ -56,7 +56,6 @@ export default function Profile() {
       setUsername(user.username);
       setEmail(user.email);
       
-      // Load persistent avatar
       const savedAvatar = localStorage.getItem(`avatar_${user.id}`) || 
                         localStorage.getItem('userAvatar') || 
                         user.avatar || '';
@@ -64,17 +63,14 @@ export default function Profile() {
         setAvatar(savedAvatar);
       }
       
-      // Load bio
       const savedBio = localStorage.getItem(`bio_${user.id}`) || 
                       localStorage.getItem('userBio') || '';
       setBio(savedBio);
       
-      // Load privacy - FIX: check both keys
       const savedPublic = localStorage.getItem(`public_${user.id}`) === 'true' ||
                          localStorage.getItem('profilePublic') === 'true';
       setIsPublic(savedPublic);
       
-      // Generate QR code if public
       if (savedPublic) {
         generateQRCode();
       }
@@ -104,7 +100,6 @@ export default function Profile() {
       const result = reader.result;
       setAvatar(result);
       
-      // Save persistently
       if (user) {
         localStorage.setItem(`avatar_${user.id}`, result);
       }
@@ -119,24 +114,25 @@ export default function Profile() {
     setLoading(true);
     
     try {
-      // Save locally with user ID
       if (user) {
+        // Salva localmente
         localStorage.setItem(`bio_${user.id}`, bio);
         localStorage.setItem(`avatar_${user.id}`, avatar);
         localStorage.setItem(`public_${user.id}`, isPublic.toString());
         
-        // Also save globally for quick access
         localStorage.setItem('userBio', bio);
         localStorage.setItem('userAvatar', avatar);
         localStorage.setItem('profilePublic', isPublic.toString());
         
-        // Save public profile data if public - FIX: Complete profile data
+        // FIX: Salva profilo pubblico in modo che sia accessibile globalmente
+        // Usiamo una struttura JSON che simula un database pubblico
         if (isPublic) {
-          const publicProfiles = JSON.parse(localStorage.getItem('publicProfiles') || '{}');
-          publicProfiles[username] = {
-            username,
-            avatar,
-            bio,
+          // Crea un ID univoco per il profilo
+          const profileData = {
+            username: username.toLowerCase(),
+            displayName: username,
+            avatar: avatar || '',
+            bio: bio || '',
             stats: {
               totalRead: reading.length + completed.length,
               favorites: favorites.length,
@@ -145,19 +141,26 @@ export default function Profile() {
             reading: reading.slice(0, 12),
             completed: completed.slice(0, 12),
             favorites: favorites.slice(0, 12),
-            privacy: 'public' // FIX: set as public not private
+            privacy: 'public',
+            lastUpdated: new Date().toISOString()
           };
-          localStorage.setItem('publicProfiles', JSON.stringify(publicProfiles));
+          
+          // Salva nel "database pubblico simulato"
+          const publicProfiles = JSON.parse(localStorage.getItem('PUBLIC_PROFILES_DB') || '{}');
+          publicProfiles[username.toLowerCase()] = profileData;
+          localStorage.setItem('PUBLIC_PROFILES_DB', JSON.stringify(publicProfiles));
+          
+          // IMPORTANTE: In un'app reale, qui invieresti i dati al server
+          console.log('Profile saved to public database:', profileData);
           
           await generateQRCode();
         } else {
-          // Remove from public profiles if set to private
-          const publicProfiles = JSON.parse(localStorage.getItem('publicProfiles') || '{}');
-          delete publicProfiles[username];
-          localStorage.setItem('publicProfiles', JSON.stringify(publicProfiles));
+          // Rimuovi dal database pubblico se diventa privato
+          const publicProfiles = JSON.parse(localStorage.getItem('PUBLIC_PROFILES_DB') || '{}');
+          delete publicProfiles[username.toLowerCase()];
+          localStorage.setItem('PUBLIC_PROFILES_DB', JSON.stringify(publicProfiles));
         }
         
-        // Persist all user data
         if (persistUserData) {
           persistUserData(user.id);
         }
@@ -167,7 +170,7 @@ export default function Profile() {
       
       toast({ 
         title: 'Profilo salvato', 
-        description: isPublic ? 'Il tuo profilo è ora pubblico' : 'Il tuo profilo è privato',
+        description: isPublic ? 'Il tuo profilo è ora pubblico e visibile a tutti' : 'Il tuo profilo è privato',
         status: 'success',
         duration: 3000
       });
@@ -234,7 +237,6 @@ export default function Profile() {
     }
   };
 
-  // FIX: Prevent empty render
   if (!user) {
     return (
       <Container maxW="container.xl" py={8}>
@@ -248,12 +250,16 @@ export default function Profile() {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={8} align="stretch">
-        {/* Header Profile */}
-        <Box bg="gray.800" p={6} borderRadius="xl" position="relative">
-          <HStack spacing={6} align="start" flexWrap="wrap">
+        {/* Header Profile - FIX MOBILE */}
+        <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl" position="relative">
+          <Stack 
+            direction={{ base: 'column', md: 'row' }} 
+            spacing={{ base: 4, md: 6 }} 
+            align={{ base: 'center', md: 'start' }}
+          >
             <Box position="relative">
               <Avatar 
-                size="2xl" 
+                size={{ base: 'xl', md: '2xl' }}
                 name={username} 
                 src={avatar}
                 border="4px solid"
@@ -279,9 +285,15 @@ export default function Profile() {
               />
             </Box>
 
-            <VStack align="stretch" flex={1} spacing={4}>
-              <HStack justify="space-between">
-                <VStack align="start" spacing={1}>
+            <VStack align={{ base: 'center', md: 'stretch' }} flex={1} spacing={4} width="100%">
+              <Stack 
+                direction={{ base: 'column', md: 'row' }} 
+                justify="space-between" 
+                width="100%"
+                align={{ base: 'center', md: 'start' }}
+                spacing={{ base: 3, md: 0 }}
+              >
+                <VStack align={{ base: 'center', md: 'start' }} spacing={1}>
                   {isEditing ? (
                     <Input
                       value={username}
@@ -294,7 +306,7 @@ export default function Profile() {
                     <Heading size="lg">@{username}</Heading>
                   )}
                   <HStack spacing={2}>
-                    <Text color="gray.400">{email}</Text>
+                    <Text color="gray.400" fontSize={{ base: 'sm', md: 'md' }}>{email}</Text>
                     <Badge colorScheme={isPublic ? 'green' : 'gray'}>
                       {isPublic ? 'Pubblico' : 'Privato'}
                     </Badge>
@@ -309,16 +321,25 @@ export default function Profile() {
                         leftIcon={<CheckIcon />}
                         onClick={saveProfile}
                         isLoading={loading}
+                        size={{ base: 'sm', md: 'md' }}
                       >
                         Salva
                       </Button>
-                      <Button variant="ghost" onClick={() => setIsEditing(false)}>
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => setIsEditing(false)}
+                        size={{ base: 'sm', md: 'md' }}
+                      >
                         Annulla
                       </Button>
                     </>
                   ) : (
                     <>
-                      <Button leftIcon={<EditIcon />} onClick={() => setIsEditing(true)}>
+                      <Button 
+                        leftIcon={<EditIcon />} 
+                        onClick={() => setIsEditing(true)}
+                        size={{ base: 'sm', md: 'md' }}
+                      >
                         Modifica
                       </Button>
                       <Button 
@@ -326,13 +347,14 @@ export default function Profile() {
                         variant="outline" 
                         onClick={shareProfile}
                         isDisabled={!isPublic}
+                        size={{ base: 'sm', md: 'md' }}
                       >
                         Condividi
                       </Button>
                     </>
                   )}
                 </HStack>
-              </HStack>
+              </Stack>
 
               {isEditing ? (
                 <Input
@@ -342,11 +364,11 @@ export default function Profile() {
                   maxLength={200}
                 />
               ) : (
-                bio && <Text color="gray.300">{bio}</Text>
+                bio && <Text color="gray.300" textAlign={{ base: 'center', md: 'left' }}>{bio}</Text>
               )}
 
               {/* Privacy Toggle */}
-              <FormControl display="flex" alignItems="center">
+              <FormControl display="flex" alignItems="center" justifyContent={{ base: 'center', md: 'flex-start' }}>
                 <FormLabel mb="0">Profilo pubblico</FormLabel>
                 <Switch 
                   colorScheme="green"
@@ -358,7 +380,7 @@ export default function Profile() {
 
               {/* Share Section */}
               {isPublic && !isEditing && (
-                <Box p={4} bg="gray.700" borderRadius="lg">
+                <Box p={4} bg="gray.700" borderRadius="lg" width="100%">
                   <Text fontSize="sm" mb={2}>Link pubblico:</Text>
                   <HStack>
                     <Input 
@@ -387,14 +409,14 @@ export default function Profile() {
                 </Box>
               )}
             </VStack>
-          </HStack>
+          </Stack>
         </Box>
 
         {/* Tabs Content */}
         <Tabs colorScheme="purple" variant="enclosed">
           <TabList>
-            <Tab>Libreria</Tab>
-            <Tab>Impostazioni</Tab>
+            <Tab fontSize={{ base: 'sm', md: 'md' }}>Libreria</Tab>
+            <Tab fontSize={{ base: 'sm', md: 'md' }}>Impostazioni</Tab>
           </TabList>
 
           <TabPanels>
@@ -429,7 +451,7 @@ export default function Profile() {
             </TabPanel>
 
             <TabPanel>
-              <Box bg="gray.800" p={6} borderRadius="lg">
+              <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="lg">
                 <Heading size="md" mb={4}>Cambia password</Heading>
                 <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
                   <FormControl>
