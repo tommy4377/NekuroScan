@@ -5,85 +5,68 @@ export class MangaWorldAdultAPI {
     this.baseUrl = 'https://www.mangaworldadult.net/';
   }
 
-  // Aggiungi questa funzione nella classe MangaWorldAdultAPI, dopo il costruttore
 
-// Aggiungi questa funzione nella classe MangaWorldAdultAPI, dopo il costruttore
-
-normalizeChapterNumber(text, url) {
+normalizeChapterLabel(text, url) {
   if (!text) return null;
   
   // Rimuovi spazi extra e trim
-  let cleanText = text.replace(/\s+/g, ' ').trim();
+  let t = text.replace(/\s+/g, ' ').trim();
   
   // Rimuovi date
-  cleanText = cleanText.replace(/\s+\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}.*$/, '');
-  cleanText = cleanText.replace(/\s+\d{4}[\/-]\d{1,2}[\/-]\d{1,2}.*$/, '');
+  t = t.replace(/\s+\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}.*$/, '');
+  t = t.replace(/\s+\d{4}[\/-]\d{1,2}[\/-]\d{1,2}.*$/, '');
   
   // Rimuovi prefissi comuni
-  cleanText = cleanText.replace(/^(vol\.\s*\d+\s*-\s*)?/i, '');
-  cleanText = cleanText.replace(/^(capitolo|cap\.|ch\.|chapter|episodio|ep\.)\s*/i, '');
+  t = t.replace(/^(vol\.\s*\d+\s*-\s*)?/i, '');
+  t = t.replace(/^(capitolo|cap\.|ch\.|chapter)\s*/i, '');
   
-  // Estrai numero dal testo
-  const textPatterns = [
+  // Estrai numero
+  const patterns = [
     /^(\d+(?:\.\d+)?)/,
     /\s+(\d+(?:\.\d+)?)\s*$/,
     /(\d+(?:\.\d+)?)/
   ];
   
-  for (const pattern of textPatterns) {
-    const match = cleanText.match(pattern);
+  for (const pattern of patterns) {
+    const match = t.match(pattern);
     if (match) {
       let num = match[1];
       
-      // LOGICA AGGIORNATA: tronca solo se il numero ha 3 o più cifre E è >= 10
-      if (num.length >= 3) {
-        const numValue = parseInt(num);
-        if (numValue >= 10) {
-          // Tronca alle prime 2 cifre: 1021 -> 10, 1128 -> 11, etc.
-          num = num.substring(0, 2);
+      // FIX IMPORTANTE: Se il numero è >= 10 e ha più di 2 cifre, tronca le ultime 2
+      const numInt = parseInt(num);
+      if (numInt >= 10 && num.length > 2) {
+        num = num.slice(0, -2);
+      }
+      // Se inizia con 0 e ha 4+ cifre (es. 0176)
+      else if (num.startsWith('0') && num.length >= 4) {
+        num = num.substring(0, 2);
+        // Se diventa > 09, rimuovi lo 0
+        if (parseInt(num) > 9) {
+          num = num.replace(/^0/, '');
         }
       }
-      // Se inizia con 0 e ha 4+ cifre, tronca alle prime 2: 0176 -> 01
-      else if (num.length >= 4 && num.startsWith('0')) {
-        num = num.substring(0, 2);
-      }
       
-      // Rimuovi zeri iniziali ma mantieni almeno una cifra
-      num = num.replace(/^0+(\d)/, '$1');
       return parseFloat(num);
     }
   }
   
-  // Prova a estrarre dall'URL se non trova nel testo
+  // Prova dall'URL
   if (url) {
-    const urlPatterns = [
-      /\/capitolo[_-](\d+(?:\.\d+)?)/i,
-      /\/chapter[_-](\d+(?:\.\d+)?)/i,
-      /\/cap[_-](\d+(?:\.\d+)?)/i,
-      /\/(\d+(?:\.\d+)?)(?:\?|\/|$)/  // Numero alla fine dell'URL
-    ];
-    
-    for (const pattern of urlPatterns) {
-      const match = url.match(pattern);
-      if (match) {
-        let num = match[1];
-        
-        // STESSA LOGICA per i numeri dall'URL
-        if (num.length >= 3) {
-          const numValue = parseInt(num);
-          if (numValue >= 10) {
-            // Tronca alle prime 2 cifre
-            num = num.substring(0, 2);
-          }
+    const urlMatch = url.match(/\/(\d+(?:\.\d+)?)\/?$/);
+    if (urlMatch) {
+      let num = urlMatch[1];
+      
+      const numInt = parseInt(num);
+      if (numInt >= 10 && num.length > 2) {
+        num = num.slice(0, -2);
+      } else if (num.startsWith('0') && num.length >= 4) {
+        num = num.substring(0, 2);
+        if (parseInt(num) > 9) {
+          num = num.replace(/^0/, '');
         }
-        // Se inizia con 0 e ha 4+ cifre, tronca alle prime 2
-        else if (num.length >= 4 && num.startsWith('0')) {
-          num = num.substring(0, 2);
-        }
-        
-        num = num.replace(/^0+(\d)/, '$1');
-        return parseFloat(num);
       }
+      
+      return parseFloat(num);
     }
   }
   
@@ -613,6 +596,7 @@ chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
     }
   }
 }
+
 
 
 
