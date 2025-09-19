@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Container, VStack, HStack, Heading, Text, Avatar, SimpleGrid, Box,
   Badge, Tabs, TabList, Tab, TabPanels, TabPanel, Center, Spinner,
-  Button, useToast, Stat, StatLabel, StatNumber, Image
+  Button, useToast, Stat, StatLabel, StatNumber, Image, Stack
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FaLock, FaUserPlus } from 'react-icons/fa';
@@ -27,25 +27,23 @@ export default function PublicProfile() {
     setLoading(true);
     
     try {
-      // FIX: Prima controlla i profili pubblici salvati
-      const savedProfiles = JSON.parse(localStorage.getItem('publicProfiles') || '{}');
+      // FIX: Cerca nel database pubblico simulato (che è condiviso)
+      const publicProfiles = JSON.parse(localStorage.getItem('PUBLIC_PROFILES_DB') || '{}');
       
-      // FIX: Cerca il profilo con case-insensitive
-      const profileKey = Object.keys(savedProfiles).find(
-        key => key.toLowerCase() === username.toLowerCase()
-      );
+      // Cerca il profilo con username case-insensitive
+      const profileData = publicProfiles[username.toLowerCase()];
       
-      if (profileKey) {
-        // Profilo pubblico trovato
-        const profileData = savedProfiles[profileKey];
+      if (profileData) {
+        // Profilo pubblico trovato nel database
         setProfile(profileData);
         setIsPrivate(false);
         setLoading(false);
         return;
       }
       
-      // Se è il proprio profilo dell'utente loggato
+      // Se non trovato nel database pubblico, controlla se è il proprio profilo
       if (user && user.username.toLowerCase() === username.toLowerCase()) {
+        // È il proprio profilo, mostralo anche se privato
         const avatar = localStorage.getItem('userAvatar');
         const bio = localStorage.getItem('userBio');
         const isPublic = localStorage.getItem('profilePublic') === 'true';
@@ -56,6 +54,7 @@ export default function PublicProfile() {
         
         setProfile({
           username: user.username,
+          displayName: user.username,
           avatar,
           bio,
           stats: {
@@ -65,39 +64,12 @@ export default function PublicProfile() {
           },
           reading: reading.slice(0, 12),
           completed: completed.slice(0, 12),
-          favorites: favorites.slice(0, 12)
+          favorites: favorites.slice(0, 12),
+          privacy: isPublic ? 'public' : 'private'
         });
         setIsPrivate(!isPublic);
         setLoading(false);
         return;
-      }
-      
-      // FIX: Controlla anche nei localStorage con l'ID utente
-      // Prova a cercare qualsiasi dato pubblico di questo username
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('public_') && key.includes(username.toLowerCase())) {
-          // Trovato qualcosa, prova a ricostruire il profilo
-          const avatar = localStorage.getItem(`avatar_${username}`) || '';
-          const bio = localStorage.getItem(`bio_${username}`) || '';
-          
-          setProfile({
-            username,
-            avatar,
-            bio,
-            stats: {
-              totalRead: 0,
-              favorites: 0,
-              completed: 0
-            },
-            reading: [],
-            completed: [],
-            favorites: []
-          });
-          setIsPrivate(false);
-          setLoading(false);
-          return;
-        }
       }
       
       // Profilo non trovato
@@ -168,19 +140,25 @@ export default function PublicProfile() {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
-        {/* Profile Header */}
-        <Box bg="gray.800" p={6} borderRadius="xl">
-          <HStack spacing={6} align="start" flexWrap="wrap">
+        {/* Profile Header - FIX MOBILE */}
+        <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
+          <Stack 
+            direction={{ base: 'column', md: 'row' }} 
+            spacing={{ base: 4, md: 6 }} 
+            align={{ base: 'center', md: 'start' }}
+          >
             <Avatar 
-              size="2xl" 
-              name={profile.username} 
+              size={{ base: 'xl', md: '2xl' }}
+              name={profile.displayName || profile.username} 
               src={profile.avatar}
               border="4px solid"
               borderColor="purple.500"
             />
-            <VStack align="start" spacing={3} flex={1}>
+            <VStack align={{ base: 'center', md: 'start' }} spacing={3} flex={1}>
               <HStack>
-                <Heading size="lg">@{profile.username}</Heading>
+                <Heading size={{ base: 'md', md: 'lg' }}>
+                  @{profile.displayName || profile.username}
+                </Heading>
                 {!isOwnProfile && (
                   <Button 
                     leftIcon={<FaUserPlus />} 
@@ -194,37 +172,51 @@ export default function PublicProfile() {
               </HStack>
               
               {profile.bio && (
-                <Text color="gray.300">{profile.bio}</Text>
+                <Text color="gray.300" textAlign={{ base: 'center', md: 'left' }}>
+                  {profile.bio}
+                </Text>
               )}
               
               <HStack spacing={6}>
                 <Stat>
-                  <StatLabel>Letti</StatLabel>
-                  <StatNumber>{profile.stats?.totalRead || 0}</StatNumber>
+                  <StatLabel fontSize={{ base: 'xs', md: 'sm' }}>Letti</StatLabel>
+                  <StatNumber fontSize={{ base: 'md', md: 'lg' }}>
+                    {profile.stats?.totalRead || 0}
+                  </StatNumber>
                 </Stat>
                 <Stat>
-                  <StatLabel>Preferiti</StatLabel>
-                  <StatNumber>{profile.stats?.favorites || 0}</StatNumber>
+                  <StatLabel fontSize={{ base: 'xs', md: 'sm' }}>Preferiti</StatLabel>
+                  <StatNumber fontSize={{ base: 'md', md: 'lg' }}>
+                    {profile.stats?.favorites || 0}
+                  </StatNumber>
                 </Stat>
                 <Stat>
-                  <StatLabel>Completati</StatLabel>
-                  <StatNumber>{profile.stats?.completed || 0}</StatNumber>
+                  <StatLabel fontSize={{ base: 'xs', md: 'sm' }}>Completati</StatLabel>
+                  <StatNumber fontSize={{ base: 'md', md: 'lg' }}>
+                    {profile.stats?.completed || 0}
+                  </StatNumber>
                 </Stat>
               </HStack>
             </VStack>
-          </HStack>
+          </Stack>
         </Box>
 
         {/* Library Tabs */}
         <Tabs colorScheme="purple" variant="enclosed">
           <TabList>
-            <Tab>In lettura ({profile.reading?.length || 0})</Tab>
-            <Tab>Preferiti ({profile.favorites?.length || 0})</Tab>
-            <Tab>Completati ({profile.completed?.length || 0})</Tab>
+            <Tab fontSize={{ base: 'sm', md: 'md' }}>
+              In lettura ({profile.reading?.length || 0})
+            </Tab>
+            <Tab fontSize={{ base: 'sm', md: 'md' }}>
+              Preferiti ({profile.favorites?.length || 0})
+            </Tab>
+            <Tab fontSize={{ base: 'sm', md: 'md' }}>
+              Completati ({profile.completed?.length || 0})
+            </Tab>
           </TabList>
           
           <TabPanels>
-            <TabPanel>
+            <TabPanel px={{ base: 2, md: 4 }}>
               {profile.reading?.length > 0 ? (
                 <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                   {profile.reading.map((manga, i) => (
@@ -238,7 +230,7 @@ export default function PublicProfile() {
               )}
             </TabPanel>
             
-            <TabPanel>
+            <TabPanel px={{ base: 2, md: 4 }}>
               {profile.favorites?.length > 0 ? (
                 <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                   {profile.favorites.map((manga, i) => (
@@ -252,7 +244,7 @@ export default function PublicProfile() {
               )}
             </TabPanel>
             
-            <TabPanel>
+            <TabPanel px={{ base: 2, md: 4 }}>
               {profile.completed?.length > 0 ? (
                 <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                   {profile.completed.map((manga, i) => (
