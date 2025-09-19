@@ -10,7 +10,8 @@ import {
   useColorModeValue,
   HStack,
   Icon,
-  SimpleGrid
+  SimpleGrid,
+  Stack
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { FaBook, FaSearch, FaBookmark, FaMobileAlt } from 'react-icons/fa';
@@ -50,41 +51,53 @@ function Welcome() {
 
   return (
     <Box minH="100vh" bg="gray.900">
-      <Container maxW="container.xl" py={{ base: 10, md: 20 }}>
-        <VStack spacing={12} align="center">
-          {/* Hero Section */}
+      <Container maxW="container.xl" py={{ base: 6, md: 20 }}>
+        <VStack spacing={{ base: 8, md: 12 }} align="center">
+          {/* Hero Section - FIX MOBILE */}
           <MotionBox
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             width="100%"
           >
-            <VStack spacing={6} textAlign="center">
+            <VStack spacing={{ base: 4, md: 6 }} textAlign="center">
               <Image
                 src="/web-app-manifest-512x512.png"
-                boxSize={{ base: "100px", md: "120px" }}
-                fallbackSrc="https://via.placeholder.com/120"
+                boxSize={{ base: "80px", md: "120px" }}
+                fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23805AD5'/%3E%3C/svg%3E"
               />
               
               <Heading
-                size={{ base: "xl", md: "2xl" }}
+                size={{ base: "lg", md: "2xl" }}
                 bgGradient={bgGradient}
                 bgClip="text"
               >
                 KuroReader
               </Heading>
               
-              <Text fontSize={{ base: "lg", md: "xl" }} color="gray.400" maxW="600px" px={4}>
+              <Text 
+                fontSize={{ base: "md", md: "xl" }} 
+                color="gray.400" 
+                maxW={{ base: "90%", md: "600px" }}
+                px={{ base: 2, md: 4 }}
+              >
                 Il miglior lettore di manga online. 
                 Scopri migliaia di titoli e immergiti nelle tue storie preferite.
               </Text>
               
-              <HStack spacing={4} pt={4} flexWrap="wrap" justify="center">
+              <Stack 
+                direction={{ base: "column", sm: "row" }}
+                spacing={4} 
+                pt={4}
+                width={{ base: "100%", sm: "auto" }}
+                px={{ base: 4, sm: 0 }}
+              >
                 <Button
                   size={{ base: "md", md: "lg" }}
                   colorScheme="purple"
                   onClick={() => navigate('/home')}
                   leftIcon={<FaBook />}
+                  width={{ base: "100%", sm: "auto" }}
                 >
                   Inizia a leggere
                 </Button>
@@ -94,21 +107,26 @@ function Welcome() {
                   colorScheme="purple"
                   onClick={() => navigate('/search')}
                   leftIcon={<FaSearch />}
+                  width={{ base: "100%", sm: "auto" }}
                 >
                   Esplora catalogo
                 </Button>
-              </HStack>
+              </Stack>
             </VStack>
           </MotionBox>
 
-          {/* Features Grid */}
+          {/* Features Grid - FIX MOBILE */}
           <MotionBox
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.6 }}
             width="100%"
+            px={{ base: 2, md: 0 }}
           >
-            <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={6}>
+            <SimpleGrid 
+              columns={{ base: 1, sm: 2, lg: 4 }} 
+              spacing={{ base: 4, md: 6 }}
+            >
               {features.map((feature, index) => (
                 <MotionBox
                   key={index}
@@ -117,7 +135,7 @@ function Welcome() {
                   transition={{ delay: 0.1 * index, duration: 0.5 }}
                 >
                   <VStack
-                    p={6}
+                    p={{ base: 4, md: 6 }}
                     bg="gray.800"
                     borderRadius="lg"
                     spacing={4}
@@ -128,11 +146,22 @@ function Welcome() {
                     transition="all 0.3s"
                     height="100%"
                   >
-                    <Icon as={feature.icon} boxSize={10} color="purple.400" />
-                    <Text fontWeight="bold" fontSize="lg">
+                    <Icon 
+                      as={feature.icon} 
+                      boxSize={{ base: 8, md: 10 }} 
+                      color="purple.400" 
+                    />
+                    <Text 
+                      fontWeight="bold" 
+                      fontSize={{ base: "md", md: "lg" }}
+                    >
                       {feature.title}
                     </Text>
-                    <Text color="gray.400" fontSize="sm" textAlign="center">
+                    <Text 
+                      color="gray.400" 
+                      fontSize={{ base: "xs", md: "sm" }}
+                      textAlign="center"
+                    >
                       {feature.description}
                     </Text>
                   </VStack>
@@ -141,44 +170,57 @@ function Welcome() {
             </SimpleGrid>
           </MotionBox>
 
-          {/* CTA Section - FIX: un solo pulsante accedi */}
+          {/* CTA Section - FIX MOBILE */}
           <MotionBox
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6, duration: 0.6 }}
             width="100%"
+            px={{ base: 2, md: 0 }}
           >
             <VStack
               spacing={4}
-              p={8}
+              p={{ base: 6, md: 8 }}
               bg="gray.800"
               borderRadius="xl"
               width="100%"
-              maxW="600px"
+              maxW={{ base: "100%", md: "600px" }}
               mx="auto"
             >
-              <Heading size="lg">Pronto per iniziare?</Heading>
-              <Text color="gray.400" textAlign="center">
+              <Heading size={{ base: "md", md: "lg" }}>
+                Pronto per iniziare?
+              </Heading>
+              <Text 
+                color="gray.400" 
+                textAlign="center"
+                fontSize={{ base: "sm", md: "md" }}
+              >
                 Accedi per salvare i tuoi progressi o continua come ospite
               </Text>
-              <HStack spacing={3}>
+              <Stack 
+                direction={{ base: "column", sm: "row" }}
+                spacing={3}
+                width={{ base: "100%", sm: "auto" }}
+              >
                 <Button
-                  size="lg"
+                  size={{ base: "md", md: "lg" }}
                   colorScheme="purple"
                   onClick={() => navigate('/home')}
                   rightIcon={<FaBook />}
+                  width={{ base: "100%", sm: "auto" }}
                 >
                   Continua come ospite
                 </Button>
                 <Button
-                  size="lg"
+                  size={{ base: "md", md: "lg" }}
                   variant="outline"
                   colorScheme="purple"
                   onClick={() => navigate('/login')}
+                  width={{ base: "100%", sm: "auto" }}
                 >
                   Accedi
                 </Button>
-              </HStack>
+              </Stack>
             </VStack>
           </MotionBox>
         </VStack>
