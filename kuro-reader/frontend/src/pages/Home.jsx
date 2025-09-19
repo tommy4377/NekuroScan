@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
   Button, useToast, Skeleton, IconButton, Tabs, TabList, Tab,
-  TabPanels, TabPanel, Badge, Icon as ChakraIcon, useBreakpointValue
+  TabPanels, TabPanel, Icon as ChakraIcon, useBreakpointValue
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -34,9 +34,7 @@ function Home() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadAll();
-  }, [includeAdult]);
+  useEffect(() => { loadAll(); }, [includeAdult]);
 
   const loadAll = async () => {
     setLoading(true);
@@ -78,7 +76,7 @@ function Home() {
     }
   };
 
-  const ContentSection = ({ title, icon, items, color = 'purple', section, showLatestBadge = false }) => (
+  const ContentSection = ({ title, icon, items, color = 'purple', section, showLatestInCard = false }) => (
     <VStack align="stretch" spacing={4}>
       <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
         <HStack justify="space-between" mb={4}>
@@ -120,23 +118,8 @@ function Home() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(i * 0.03, 0.5) }}
                 >
-                  <MangaCard manga={item} hideSource showLatest={false} />
-                  {showLatestBadge && item.latestChapter && (
-                    <Badge
-                      position="absolute"
-                      bottom={2}
-                      left={2}
-                      right={2}
-                      colorScheme="blue"
-                      fontSize="xs"
-                      textAlign="center"
-                    >
-                      Cap. {item.latestChapter}
-                    </Badge>
-                  )}
-                  {item.isAdult && (
-                    <Badge position="absolute" top={2} right={2} colorScheme="pink" fontSize="xs">18+</Badge>
-                  )}
+                  <MangaCard manga={item} hideSource showLatest={showLatestInCard} />
+                  {/* niente overlay, testo "Cap. xx" è dentro la card */}
                 </MotionBox>
               ))}
             </HStack>
@@ -168,14 +151,7 @@ function Home() {
               >
                 {includeAdult ? '🔞 Solo Adult' : 'Solo Normali'}
               </Button>
-              <IconButton
-                icon={<FaSync />}
-                onClick={() => { setRefreshing(true); loadAll(); }}
-                aria-label="Ricarica"
-                isLoading={refreshing}
-                variant="ghost"
-                colorScheme="purple"
-              />
+              <IconButton icon={<FaSync />} onClick={() => { setRefreshing(true); loadAll(); }} aria-label="Ricarica" isLoading={refreshing} variant="ghost" colorScheme="purple" />
             </HStack>
           </HStack>
         </Box>
@@ -187,6 +163,7 @@ function Home() {
             items={continueReading}
             color="green"
             section="library"
+            showLatestInCard={false}
           />
         )}
 
@@ -199,7 +176,7 @@ function Home() {
             </TabList>
             <TabPanels>
               <TabPanel px={0} pt={6}>
-                <ContentSection title="Capitoli recenti" icon={FaClock} items={latest} color="blue" section="latest" showLatestBadge />
+                <ContentSection title="Capitoli recenti" icon={FaClock} items={latest} color="blue" section="latest" showLatestInCard />
               </TabPanel>
               <TabPanel px={0} pt={6}>
                 <ContentSection title="I più letti" icon={FaHeart} items={popular} color="pink" section="popular" />
