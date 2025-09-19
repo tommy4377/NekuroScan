@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Container, VStack, HStack, Heading, Text, Avatar, SimpleGrid, Box,
   Badge, Tabs, TabList, Tab, TabPanels, TabPanel, Center, Spinner,
-  Button, useToast, Stat, StatLabel, StatNumber
+  Button, useToast, Stat, StatLabel, StatNumber, Image // FIX: Added Image import
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FaLock, FaUserPlus } from 'react-icons/fa';
@@ -27,9 +27,6 @@ export default function PublicProfile() {
     setLoading(true);
     
     try {
-      // Simula il caricamento del profilo
-      // In produzione, faresti una chiamata API
-      
       // Per ora usiamo localStorage per demo
       const savedProfiles = JSON.parse(localStorage.getItem('publicProfiles') || '{}');
       const profileData = savedProfiles[username];
@@ -179,6 +176,14 @@ export default function PublicProfile() {
                   <StatNumber>{profile.stats?.completed || 0}</StatNumber>
                 </Stat>
               </HStack>
+              
+              {/* QR Code if available */}
+              {profile.qrCode && (
+                <Box mt={3}>
+                  <Text fontSize="xs" mb={1}>QR Code del profilo:</Text>
+                  <Image src={profile.qrCode} w="100px" alt="QR Code" />
+                </Box>
+              )}
             </VStack>
           </HStack>
         </Box>
