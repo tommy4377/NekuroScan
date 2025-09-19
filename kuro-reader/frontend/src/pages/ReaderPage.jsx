@@ -1062,7 +1062,7 @@ function ReaderPage() {
           </HStack>
           <HStack justify="space-between" width="100%">
             <Text fontSize="xs" color="gray.400" noOfLines={1}>
-              {manga?.chapters?.[chapterIndex]?.title}
+          Capitolo {chapterIndex + 1}
             </Text>
             <Text fontSize="xs">
               Pagina {currentPage + 1}/{chapter?.pages?.length || 0}
@@ -1397,3 +1397,4 @@ function ReaderPage() {
 }
 
 export default ReaderPage;
+
