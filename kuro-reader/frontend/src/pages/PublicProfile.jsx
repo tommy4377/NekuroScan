@@ -2,12 +2,22 @@ import React, { useEffect, useState } from 'react';
 import {
   Container, VStack, HStack, Heading, Text, Avatar, SimpleGrid, Box,
   Badge, Tabs, TabList, Tab, TabPanels, TabPanel, Center, Spinner,
-  Button, useToast, Stat, StatLabel, StatNumber, Image, Stack
+  Button, useToast, Stat, StatLabel, StatNumber, Image, Flex,
+  IconButton, Tooltip, Skeleton, SkeletonCircle, SkeletonText
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaLock, FaUserPlus } from 'react-icons/fa';
+import { 
+  FaLock, FaUserPlus, FaUserMinus, FaHeart, FaBookOpen, 
+  FaTrophy, FaEye, FaClock, FaShare, FaTwitter, FaDiscord,
+  FaInstagram, FaGithub, FaTiktok, FaGlobe, FaUserFriends
+} from 'react-icons/fa';
+import { motion } from 'framer-motion';
 import MangaCard from '../components/MangaCard';
 import useAuth from '../hooks/useAuth';
+import axios from 'axios';
+import { config } from '../config';
+
+const MotionBox = motion(Box);
 
 export default function PublicProfile() {
   const { username } = useParams();
@@ -17,96 +27,145 @@ export default function PublicProfile() {
   
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [following, setFollowing] = useState(false);
+  const [checkingFollow, setCheckingFollow] = useState(false);
 
   useEffect(() => {
     loadProfile();
-  }, [username]);
+    if (user && username !== user.username) {
+      checkFollowStatus();
+    }
+  }, [username, user]);
 
   const loadProfile = async () => {
     setLoading(true);
     
     try {
-      // FIX: Cerca nel database pubblico simulato (che è condiviso)
-      const publicProfiles = JSON.parse(localStorage.getItem('PUBLIC_PROFILES_DB') || '{}');
-      
-      // Cerca il profilo con username case-insensitive
-      const profileData = publicProfiles[username.toLowerCase()];
-      
-      if (profileData) {
-        // Profilo pubblico trovato nel database
-        setProfile(profileData);
-        setIsPrivate(false);
-        setLoading(false);
-        return;
-      }
-      
-      // Se non trovato nel database pubblico, controlla se è il proprio profilo
-      if (user && user.username.toLowerCase() === username.toLowerCase()) {
-        // È il proprio profilo, mostralo anche se privato
-        const avatar = localStorage.getItem('userAvatar');
-        const bio = localStorage.getItem('userBio');
-        const isPublic = localStorage.getItem('profilePublic') === 'true';
-        
-        const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-        const completed = JSON.parse(localStorage.getItem('completed') || '[]');
-        const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-        
-        setProfile({
-          username: user.username,
-          displayName: user.username,
-          avatar,
-          bio,
-          stats: {
-            totalRead: reading.length + completed.length,
-            favorites: favorites.length,
-            completed: completed.length
-          },
-          reading: reading.slice(0, 12),
-          completed: completed.slice(0, 12),
-          favorites: favorites.slice(0, 12),
-          privacy: isPublic ? 'public' : 'private'
-        });
-        setIsPrivate(!isPublic);
-        setLoading(false);
-        return;
-      }
-      
-      // Profilo non trovato
-      setProfile(null);
-      setLoading(false);
-      
+      const response = await axios.get(`${config.API_URL}/api/profile/${username}`);
+      setProfile(response.data);
     } catch (error) {
-      console.error('Error loading profile:', error);
-      setProfile(null);
+      if (error.response?.status === 403) {
+        // Private profile
+        setProfile({ isPrivate: true });
+      } else {
+        setProfile(null);
+      }
+    } finally {
       setLoading(false);
     }
   };
 
-  const followUser = () => {
-    toast({
-      title: 'Funzione in arrivo',
-      description: 'La funzione follow sarà disponibile presto',
-      status: 'info',
-      duration: 3000
-    });
+  const checkFollowStatus = async () => {
+    if (!user) return;
+    
+    setCheckingFollow(true);
+    try {
+      const response = await axios.get(
+        `${config.API_URL}/api/user/following/${username}`,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+      setFollowing(response.data.following);
+    } catch (error) {
+      console.error('Error checking follow status:', error);
+    } finally {
+      setCheckingFollow(false);
+    }
+  };
+
+  const toggleFollow = async () => {
+    if (!user) {
+      toast({
+        title: 'Accedi per seguire',
+        status: 'warning',
+        duration: 2000
+      });
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        `${config.API_URL}/api/user/follow/${username}`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+      
+      setFollowing(response.data.following);
+      toast({
+        title: response.data.following ? 'Stai seguendo' : 'Non stai più seguendo',
+        status: 'success',
+        duration: 2000
+      });
+    } catch (error) {
+      toast({
+        title: 'Errore',
+        description: error.response?.data?.message || 'Impossibile completare l\'azione',
+        status: 'error',
+        duration: 3000
+      });
+    }
+  };
+
+  const shareProfile = () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      navigator.share({
+        title: `Profilo di ${profile.displayName}`,
+        text: `Guarda il profilo di ${profile.displayName} su KuroReader!`,
+        url
+      }).catch(() => {
+        navigator.clipboard.writeText(url);
+        toast({ title: 'Link copiato!', status: 'success' });
+      });
+    } else {
+      navigator.clipboard.writeText(url);
+      toast({ title: 'Link copiato!', status: 'success' });
+    }
+  };
+
+  const formatReadingTime = (minutes) => {
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) return `${days}d ${hours % 24}h`;
+    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    return `${minutes}m`;
   };
 
   if (loading) {
     return (
-      <Container maxW="container.xl" py={20}>
-        <Center>
-          <Spinner size="xl" color="purple.500" />
-        </Center>
+      <Container maxW="container.xl" py={8}>
+        <VStack spacing={6} align="stretch">
+          <Skeleton height="250px" borderRadius="xl" />
+          <HStack spacing={4}>
+            <SkeletonCircle size="120" />
+            <VStack align="start" flex={1} spacing={3}>
+              <Skeleton height="30px" width="200px" />
+              <Skeleton height="20px" width="150px" />
+              <SkeletonText noOfLines={3} />
+            </VStack>
+          </HStack>
+          <SimpleGrid columns={4} spacing={4}>
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} height="100px" borderRadius="lg" />
+            ))}
+          </SimpleGrid>
+        </VStack>
       </Container>
     );
   }
 
-  if (isPrivate) {
+  if (profile?.isPrivate) {
     return (
       <Container maxW="container.md" py={20}>
         <VStack spacing={6}>
-          <FaLock size={60} color="gray" />
+          <Box p={6} bg="gray.800" borderRadius="full">
+            <FaLock size={60} color="gray" />
+          </Box>
           <Heading size="lg">Profilo Privato</Heading>
           <Text color="gray.400">
             Questo profilo non è pubblico
@@ -125,7 +184,7 @@ export default function PublicProfile() {
         <VStack spacing={6}>
           <Heading size="lg">Utente non trovato</Heading>
           <Text color="gray.400">
-            Il profilo "@{username}" non esiste o non è pubblico
+            Il profilo "@{username}" non esiste
           </Text>
           <Button colorScheme="purple" onClick={() => navigate('/home')}>
             Torna alla Home
@@ -137,123 +196,355 @@ export default function PublicProfile() {
 
   const isOwnProfile = user?.username?.toLowerCase() === username.toLowerCase();
 
+  // Get theme color
+  const getThemeColor = () => {
+    const themes = {
+      default: 'purple',
+      dark: 'gray',
+      ocean: 'blue',
+      sunset: 'orange',
+      forest: 'green',
+      sakura: 'pink'
+    };
+    return themes[profile.theme] || 'purple';
+  };
+
+  const themeColor = getThemeColor();
+
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
-        {/* Profile Header - FIX MOBILE */}
-        <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
-          <Stack 
-            direction={{ base: 'column', md: 'row' }} 
-            spacing={{ base: 4, md: 6 }} 
-            align={{ base: 'center', md: 'start' }}
-          >
-            <Avatar 
-              size={{ base: 'xl', md: '2xl' }}
-              name={profile.displayName || profile.username} 
-              src={profile.avatar}
-              border="4px solid"
-              borderColor="purple.500"
-            />
-            <VStack align={{ base: 'center', md: 'start' }} spacing={3} flex={1}>
-              <HStack>
-                <Heading size={{ base: 'md', md: 'lg' }}>
-                  @{profile.displayName || profile.username}
-                </Heading>
-                {!isOwnProfile && (
-                  <Button 
-                    leftIcon={<FaUserPlus />} 
-                    colorScheme="purple" 
-                    size="sm"
-                    onClick={followUser}
-                  >
-                    Segui
-                  </Button>
+        {/* Banner & Profile */}
+        <Box position="relative" borderRadius="xl" overflow="hidden">
+          {/* Banner */}
+          <Box
+            h={{ base: '150px', md: '250px' }}
+            bg={profile.bannerUrl ? `url(${profile.bannerUrl})` : `linear-gradient(135deg, ${themeColor}.600 0%, ${themeColor}.800 100%)`}
+            bgSize="cover"
+            bgPosition="center"
+          />
+          
+          {/* Profile Content */}
+          <Box bg="gray.800" px={{ base: 4, md: 8 }} pb={6}>
+            <Flex
+              direction={{ base: 'column', md: 'row' }}
+              align={{ base: 'center', md: 'end' }}
+              position="relative"
+              mt="-50px"
+            >
+              {/* Avatar */}
+              <Avatar
+                size="2xl"
+                name={profile.displayName || profile.username}
+                src={profile.avatarUrl}
+                border="4px solid"
+                borderColor="gray.800"
+                bg={`${themeColor}.500`}
+              />
+              
+              {/* Info */}
+              <VStack
+                align={{ base: 'center', md: 'start' }}
+                flex={1}
+                ml={{ base: 0, md: 6 }}
+                mt={{ base: 4, md: 0 }}
+                spacing={3}
+                width="100%"
+              >
+                <HStack justify="space-between" width="100%" flexWrap="wrap">
+                  <VStack align={{ base: 'center', md: 'start' }} spacing={1}>
+                    <Heading size="lg">{profile.displayName}</Heading>
+                    <HStack>
+                      <Text color="gray.400">@{profile.username}</Text>
+                      <Badge colorScheme="green">
+                        <HStack spacing={1}>
+                          <FaGlobe size="10" />
+                          <Text>Pubblico</Text>
+                        </HStack>
+                      </Badge>
+                    </HStack>
+                  </VStack>
+                  
+                  <HStack>
+                    {!isOwnProfile && user && (
+                      <Button
+                        leftIcon={following ? <FaUserMinus /> : <FaUserPlus />}
+                        colorScheme={following ? 'gray' : themeColor}
+                        size="sm"
+                        onClick={toggleFollow}
+                        isLoading={checkingFollow}
+                      >
+                        {following ? 'Non seguire' : 'Segui'}
+                      </Button>
+                    )}
+                    {isOwnProfile && (
+                      <Button
+                        size="sm"
+                        onClick={() => navigate('/profile')}
+                        colorScheme={themeColor}
+                      >
+                        Modifica profilo
+                      </Button>
+                    )}
+                    <IconButton
+                      icon={<FaShare />}
+                      size="sm"
+                      variant="outline"
+                      onClick={shareProfile}
+                      aria-label="Condividi"
+                    />
+                  </HStack>
+                </HStack>
+                
+                {profile.bio && (
+                  <Text color="gray.300" width="100%">
+                    {profile.bio}
+                  </Text>
                 )}
-              </HStack>
-              
-              {profile.bio && (
-                <Text color="gray.300" textAlign={{ base: 'center', md: 'left' }}>
-                  {profile.bio}
-                </Text>
-              )}
-              
-              <HStack spacing={6}>
-                <Stat>
-                  <StatLabel fontSize={{ base: 'xs', md: 'sm' }}>Letti</StatLabel>
-                  <StatNumber fontSize={{ base: 'md', md: 'lg' }}>
-                    {profile.stats?.totalRead || 0}
-                  </StatNumber>
-                </Stat>
-                <Stat>
-                  <StatLabel fontSize={{ base: 'xs', md: 'sm' }}>Preferiti</StatLabel>
-                  <StatNumber fontSize={{ base: 'md', md: 'lg' }}>
-                    {profile.stats?.favorites || 0}
-                  </StatNumber>
-                </Stat>
-                <Stat>
-                  <StatLabel fontSize={{ base: 'xs', md: 'sm' }}>Completati</StatLabel>
-                  <StatNumber fontSize={{ base: 'md', md: 'lg' }}>
-                    {profile.stats?.completed || 0}
-                  </StatNumber>
-                </Stat>
-              </HStack>
-            </VStack>
-          </Stack>
+                
+                {/* Badges */}
+                {profile.badges?.length > 0 && (
+                  <HStack spacing={2}>
+                    {profile.badges.map((badge, i) => (
+                      <Tooltip key={i} label={badge}>
+                        <Badge colorScheme={themeColor}>{badge}</Badge>
+                      </Tooltip>
+                    ))}
+                  </HStack>
+                )}
+                
+                {/* Social Links */}
+                {profile.socialLinks && Object.keys(profile.socialLinks).length > 0 && (
+                  <HStack spacing={2}>
+                    {profile.socialLinks.twitter && (
+                      <IconButton
+                        icon={<FaTwitter />}
+                        size="sm"
+                        variant="ghost"
+                        as="a"
+                        href={`https://twitter.com/${profile.socialLinks.twitter}`}
+                        target="_blank"
+                        aria-label="Twitter"
+                      />
+                    )}
+                    {profile.socialLinks.discord && (
+                      <Tooltip label={profile.socialLinks.discord}>
+                        <IconButton
+                          icon={<FaDiscord />}
+                          size="sm"
+                          variant="ghost"
+                          aria-label="Discord"
+                        />
+                      </Tooltip>
+                    )}
+                    {profile.socialLinks.instagram && (
+                      <IconButton
+                        icon={<FaInstagram />}
+                        size="sm"
+                        variant="ghost"
+                        as="a"
+                        href={`https://instagram.com/${profile.socialLinks.instagram}`}
+                        target="_blank"
+                        aria-label="Instagram"
+                      />
+                    )}
+                    {profile.socialLinks.github && (
+                      <IconButton
+                        icon={<FaGithub />}
+                        size="sm"
+                        variant="ghost"
+                        as="a"
+                        href={`https://github.com/${profile.socialLinks.github}`}
+                        target="_blank"
+                        aria-label="GitHub"
+                      />
+                    )}
+                    {profile.socialLinks.tiktok && (
+                      <IconButton
+                        icon={<FaTiktok />}
+                        size="sm"
+                        variant="ghost"
+                        as="a"
+                        href={`https://tiktok.com/@${profile.socialLinks.tiktok}`}
+                        target="_blank"
+                        aria-label="TikTok"
+                      />
+                    )}
+                  </HStack>
+                )}
+                
+                {/* Member since */}
+                {profile.joinedAt && (
+                  <Text fontSize="sm" color="gray.500">
+                    Membro dal {new Date(profile.joinedAt).toLocaleDateString('it-IT', {
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                  </Text>
+                )}
+              </VStack>
+            </Flex>
+          </Box>
         </Box>
 
+        {/* Stats Grid */}
+        <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
+          <Stat
+            p={4}
+            bg="gray.800"
+            borderRadius="lg"
+            borderLeft="4px solid"
+            borderLeftColor={`${themeColor}.500`}
+          >
+            <HStack spacing={3}>
+              <Box p={2} bg={`${themeColor}.500`} borderRadius="lg">
+                <FaBookOpen color="white" size="16" />
+              </Box>
+              <Box>
+                <StatLabel fontSize="xs">Manga totali</StatLabel>
+                <StatNumber fontSize="xl">{profile.stats?.totalRead || 0}</StatNumber>
+              </Box>
+            </HStack>
+          </Stat>
+          
+          <Stat
+            p={4}
+            bg="gray.800"
+            borderRadius="lg"
+            borderLeft="4px solid"
+            borderLeftColor="pink.500"
+          >
+            <HStack spacing={3}>
+              <Box p={2} bg="pink.500" borderRadius="lg">
+                <FaHeart color="white" size="16" />
+              </Box>
+              <Box>
+                <StatLabel fontSize="xs">Preferiti</StatLabel>
+                <StatNumber fontSize="xl">{profile.stats?.favorites || 0}</StatNumber>
+              </Box>
+            </HStack>
+          </Stat>
+          
+          <Stat
+            p={4}
+            bg="gray.800"
+            borderRadius="lg"
+            borderLeft="4px solid"
+            borderLeftColor="green.500"
+          >
+            <HStack spacing={3}>
+              <Box p={2} bg="green.500" borderRadius="lg">
+                <FaTrophy color="white" size="16" />
+              </Box>
+              <Box>
+                <StatLabel fontSize="xs">Completati</StatLabel>
+                <StatNumber fontSize="xl">{profile.stats?.completed || 0}</StatNumber>
+              </Box>
+            </HStack>
+          </Stat>
+          
+          <Stat
+            p={4}
+            bg="gray.800"
+            borderRadius="lg"
+            borderLeft="4px solid"
+            borderLeftColor="blue.500"
+          >
+            <HStack spacing={3}>
+              <Box p={2} bg="blue.500" borderRadius="lg">
+                <FaUserFriends color="white" size="16" />
+              </Box>
+              <Box>
+                <StatLabel fontSize="xs">Followers</StatLabel>
+                <StatNumber fontSize="xl">{profile.stats?.followers || 0}</StatNumber>
+              </Box>
+            </HStack>
+          </Stat>
+        </SimpleGrid>
+
         {/* Library Tabs */}
-        <Tabs colorScheme="purple" variant="enclosed">
+        <Tabs colorScheme={themeColor} variant="enclosed">
           <TabList>
-            <Tab fontSize={{ base: 'sm', md: 'md' }}>
+            <Tab>
               In lettura ({profile.reading?.length || 0})
             </Tab>
-            <Tab fontSize={{ base: 'sm', md: 'md' }}>
+            <Tab>
               Preferiti ({profile.favorites?.length || 0})
             </Tab>
-            <Tab fontSize={{ base: 'sm', md: 'md' }}>
+            <Tab>
               Completati ({profile.completed?.length || 0})
             </Tab>
           </TabList>
           
           <TabPanels>
-            <TabPanel px={{ base: 2, md: 4 }}>
+            <TabPanel px={{ base: 0, md: 4 }}>
               {profile.reading?.length > 0 ? (
                 <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                   {profile.reading.map((manga, i) => (
-                    <MangaCard key={i} manga={manga} />
+                    <MotionBox
+                      key={i}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(i * 0.05, 0.5) }}
+                    >
+                      <MangaCard manga={manga} />
+                    </MotionBox>
                   ))}
                 </SimpleGrid>
               ) : (
-                <Center py={8}>
-                  <Text color="gray.500">Nessun manga in lettura</Text>
+                <Center py={12} bg="gray.800" borderRadius="lg">
+                  <VStack spacing={3}>
+                    <FaBookOpen size={40} color="gray" />
+                    <Text color="gray.500">Nessun manga in lettura</Text>
+                  </VStack>
                 </Center>
               )}
             </TabPanel>
             
-            <TabPanel px={{ base: 2, md: 4 }}>
+            <TabPanel px={{ base: 0, md: 4 }}>
               {profile.favorites?.length > 0 ? (
                 <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                   {profile.favorites.map((manga, i) => (
-                    <MangaCard key={i} manga={manga} />
+                    <MotionBox
+                      key={i}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(i * 0.05, 0.5) }}
+                    >
+                      <MangaCard manga={manga} />
+                    </MotionBox>
                   ))}
                 </SimpleGrid>
               ) : (
-                <Center py={8}>
-                  <Text color="gray.500">Nessun preferito</Text>
+                <Center py={12} bg="gray.800" borderRadius="lg">
+                  <VStack spacing={3}>
+                    <FaHeart size={40} color="gray" />
+                    <Text color="gray.500">Nessun preferito</Text>
+                  </VStack>
                 </Center>
               )}
             </TabPanel>
             
-            <TabPanel px={{ base: 2, md: 4 }}>
+            <TabPanel px={{ base: 0, md: 4 }}>
               {profile.completed?.length > 0 ? (
                 <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                   {profile.completed.map((manga, i) => (
-                    <MangaCard key={i} manga={manga} />
+                    <MotionBox
+                      key={i}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(i * 0.05, 0.5) }}
+                    >
+                      <MangaCard manga={manga} />
+                    </MotionBox>
                   ))}
                 </SimpleGrid>
               ) : (
-                <Center py={8}>
-                  <Text color="gray.500">Nessun manga completato</Text>
+                <Center py={12} bg="gray.800" borderRadius="lg">
+                  <VStack spacing={3}>
+                    <FaTrophy size={40} color="gray" />
+                    <Text color="gray.500">Nessun manga completato</Text>
+                  </VStack>
                 </Center>
               )}
             </TabPanel>
