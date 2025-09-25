@@ -24,7 +24,7 @@ const useAuth = create((set, get) => ({
   syncStatus: 'idle',
   lastSync: null,
 
-  // Initialize
+  // Initialize - LOAD DATA FROM SERVER
   initAuth: async () => {
     const token = localStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user') || 'null');
@@ -34,16 +34,14 @@ const useAuth = create((set, get) => ({
       set({ user, token, isAuthenticated: true });
       
       try {
+        // Get fresh user data from server
         const response = await axios.get('/auth/me');
         if (response.data.user) {
           const updatedUser = response.data.user;
           set({ user: updatedUser });
           localStorage.setItem('user', JSON.stringify(updatedUser));
           
-          // Restore user data
-          get().restoreUserData(updatedUser.id);
-          
-          // Start sync
+          // Load all user data from server
           await get().syncFromServer();
         }
       } catch (error) {
@@ -79,7 +77,7 @@ const useAuth = create((set, get) => ({
         error: null
       });
       
-      get().restoreUserData(user.id);
+      // Load user data from server after login
       await get().syncFromServer();
       
       return { success: true, user };
@@ -116,9 +114,6 @@ const useAuth = create((set, get) => ({
         error: null
       });
       
-      get().persistUserData(user.id);
-      await get().syncToServer();
-      
       return { success: true, user };
       
     } catch (error) {
@@ -128,59 +123,18 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Logout con persistenza dati migliorata
+  // Logout
   logout: async () => {
     const state = get();
-    const userId = state.user?.id;
     
-    if (userId) {
-      // Salva tutti i dati locali prima del logout
-      try {
-        const dataToSave = {
-          favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
-          reading: JSON.parse(localStorage.getItem('reading') || '[]'),
-          completed: JSON.parse(localStorage.getItem('completed') || '[]'),
-          history: JSON.parse(localStorage.getItem('history') || '[]'),
-          readingProgress: JSON.parse(localStorage.getItem('readingProgress') || '{}')
-        };
-        
-        // Salva sul server se autenticato
-        if (state.token) {
-          await axios.post(
-            '/user/sync',
-            dataToSave,
-            {
-              headers: { Authorization: `Bearer ${state.token}` }
-            }
-          ).catch(err => console.error('Sync before logout failed:', err));
-        }
-        
-        // Salva localmente per l'utente
-        localStorage.setItem(`userData_${userId}`, JSON.stringify({
-          ...dataToSave,
-          avatar: localStorage.getItem('userAvatar'),
-          settings: localStorage.getItem('settings'),
-          profilePublic: localStorage.getItem('profilePublic'),
-          includeAdult: localStorage.getItem('includeAdult'),
-          searchMode: localStorage.getItem('searchMode'),
-          preferredReadingMode: localStorage.getItem('preferredReadingMode'),
-          preferredFitMode: localStorage.getItem('preferredFitMode'),
-          savedAt: new Date().toISOString()
-        }));
-        
-        console.log('User data saved before logout');
-      } catch (error) {
-        console.error('Error saving data before logout:', error);
-      }
+    // Save data before logout
+    if (state.isAuthenticated) {
+      await get().syncToServer();
     }
     
-    // Rimuovi solo i dati di autenticazione, non i dati dell'utente
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     delete axios.defaults.headers.common['Authorization'];
-    
-    // NON rimuovere i dati dell'utente (favorites, reading, etc.)
-    // Così l'utente può continuare come ospite con i suoi dati
     
     set({
       user: null,
@@ -192,91 +146,15 @@ const useAuth = create((set, get) => ({
     });
   },
 
-  // Persist user data locally
-  persistUserData: (userId) => {
-    if (!userId) return;
-    
-    const userData = {
-      avatar: localStorage.getItem('userAvatar'),
-      favorites: localStorage.getItem('favorites'),
-      reading: localStorage.getItem('reading'),
-      completed: localStorage.getItem('completed'),
-      history: localStorage.getItem('history'),
-      readingProgress: localStorage.getItem('readingProgress'),
-      bookmarks: localStorage.getItem('bookmarks'),
-      settings: localStorage.getItem('settings'),
-      profilePublic: localStorage.getItem('profilePublic'),
-      includeAdult: localStorage.getItem('includeAdult'),
-      searchMode: localStorage.getItem('searchMode'),
-      preferredReadingMode: localStorage.getItem('preferredReadingMode'),
-      preferredFitMode: localStorage.getItem('preferredFitMode'),
-      timestamp: new Date().toISOString()
-    };
-    
-    localStorage.setItem(`userData_${userId}`, JSON.stringify(userData));
-  },
-
-  // Restore user data
-  restoreUserData: (userId) => {
-    if (!userId) return;
-    
-    const savedData = localStorage.getItem(`userData_${userId}`);
-    if (!savedData) return;
-    
-    try {
-      const userData = JSON.parse(savedData);
-      
-      Object.entries(userData).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && key !== 'timestamp') {
-          localStorage.setItem(key, value);
-        }
-      });
-      
-      console.log('User data restored from saved state');
-    } catch (error) {
-      console.error('Error restoring user data:', error);
-    }
-  },
-
-  // Persist local data
-  persistLocalData: async () => {
-    const userId = get().user?.id;
-    if (userId) {
-      get().persistUserData(userId);
-      
-      if (get().isAuthenticated) {
-        try {
-          await get().syncToServer();
-        } catch (error) {
-          console.error('Final sync failed:', error);
-        }
-      }
-    }
-  },
-
-  // Sync favorites
-  syncFavorites: async (favorites) => {
-    const token = get().token;
-    if (!token) return;
-    
-    try {
-      await axios.post('/user/favorites', { favorites });
-      console.log('Favorites synced');
-      return true;
-    } catch (error) {
-      console.error('Failed to sync favorites:', error);
-      return false;
-    }
-  },
-
-  // Sync all data to server
+  // Sync TO server - SAVE ALL DATA
   syncToServer: async () => {
     const token = get().token;
-    if (!token) return;
+    if (!token) return false;
     
     set({ syncStatus: 'syncing' });
     
     try {
+      // Collect all local data
       const dataToSync = {
         favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
         reading: JSON.parse(localStorage.getItem('reading') || '[]'),
@@ -285,6 +163,7 @@ const useAuth = create((set, get) => ({
         readingProgress: JSON.parse(localStorage.getItem('readingProgress') || '{}')
       };
       
+      // Send to server
       await axios.post('/user/sync', dataToSync);
       
       set({ 
@@ -292,119 +171,103 @@ const useAuth = create((set, get) => ({
         lastSync: new Date().toISOString() 
       });
       
-      console.log('Data synced to server');
+      console.log('✅ Data synced to server');
       return true;
       
     } catch (error) {
-      console.error('Sync to server error:', error);
+      console.error('❌ Sync to server error:', error);
       set({ syncStatus: 'error' });
       return false;
     }
   },
 
-  // Sync from server
+  // Sync FROM server - LOAD ALL DATA
   syncFromServer: async () => {
     const token = get().token;
-    if (!token) return;
+    if (!token) return false;
     
     set({ syncStatus: 'syncing' });
     
     try {
       const response = await axios.get('/user/data');
-      const { favorites, reading, completed, history, readingProgress } = response.data;
+      const { 
+        favorites = [], 
+        reading = [], 
+        completed = [], 
+        history = [], 
+        readingProgress = {},
+        profile = {}
+      } = response.data;
       
-      // Merge with local data
-      const localFavorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-      const mergedFavorites = get().mergeArrays(favorites, localFavorites, 'url');
-      localStorage.setItem('favorites', JSON.stringify(mergedFavorites));
+      // Save to localStorage
+      localStorage.setItem('favorites', JSON.stringify(favorites));
+      localStorage.setItem('reading', JSON.stringify(reading));
+      localStorage.setItem('completed', JSON.stringify(completed));
+      localStorage.setItem('history', JSON.stringify(history));
+      localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
       
-      const localReading = JSON.parse(localStorage.getItem('reading') || '[]');
-      const mergedReading = get().mergeArrays(reading, localReading, 'url');
-      localStorage.setItem('reading', JSON.stringify(mergedReading));
-      
-      const localCompleted = JSON.parse(localStorage.getItem('completed') || '[]');
-      const mergedCompleted = get().mergeArrays(completed, localCompleted, 'url');
-      localStorage.setItem('completed', JSON.stringify(mergedCompleted));
-      
-      const localHistory = JSON.parse(localStorage.getItem('history') || '[]');
-      const mergedHistory = get().mergeArrays(history, localHistory, 'url');
-      localStorage.setItem('history', JSON.stringify(mergedHistory.slice(0, 200)));
-      
-      // Merge reading progress
-      const localProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-      readingProgress?.forEach(progress => {
-        const local = localProgress[progress.mangaUrl];
-        if (!local || new Date(progress.updatedAt) > new Date(local.timestamp || 0)) {
-          localProgress[progress.mangaUrl] = {
-            chapterId: progress.mangaUrl,
-            chapterIndex: progress.chapterIndex,
-            page: progress.pageIndex,
-            pageIndex: progress.pageIndex,
-            timestamp: progress.updatedAt
-          };
+      // Save profile data
+      if (profile) {
+        localStorage.setItem('profilePublic', profile.isPublic ? 'true' : 'false');
+        
+        // Update user with profile data
+        const currentUser = get().user;
+        if (currentUser) {
+          const updatedUser = { ...currentUser, profile };
+          set({ user: updatedUser });
+          localStorage.setItem('user', JSON.stringify(updatedUser));
         }
-      });
-      localStorage.setItem('readingProgress', JSON.stringify(localProgress));
+      }
       
       set({ 
         syncStatus: 'synced',
         lastSync: new Date().toISOString()
       });
       
-      console.log('Data synced from server');
+      console.log('✅ Data loaded from server');
       return true;
       
     } catch (error) {
-      console.error('Sync from server error:', error);
+      console.error('❌ Sync from server error:', error);
       set({ syncStatus: 'error' });
       return false;
     }
   },
 
-  // Helper: merge arrays keeping most recent
-  mergeArrays: (serverArray, localArray, key) => {
-    const merged = new Map();
-    
-    serverArray?.forEach(item => {
-      merged.set(item[key], item);
-    });
-    
-    localArray?.forEach(item => {
-      const existing = merged.get(item[key]);
-      if (!existing || 
-          new Date(item.lastRead || item.addedAt || 0) > 
-          new Date(existing.lastRead || existing.addedAt || 0)) {
-        merged.set(item[key], item);
-      }
-    });
-    
-    return Array.from(merged.values());
-  },
-
   // Auto sync
   startAutoSync: () => {
+    // Sync every 30 seconds if authenticated
     const interval = setInterval(() => {
       if (get().isAuthenticated && get().syncStatus !== 'syncing') {
         get().syncToServer();
       }
-    }, 60000); // Ogni minuto
+    }, 30000);
     
-    // Sync anche quando la finestra torna in focus
+    // Sync when window gets focus
     const handleFocus = () => {
       if (get().isAuthenticated) {
         get().syncToServer();
       }
     };
     
+    // Sync before page unload
+    const handleBeforeUnload = () => {
+      if (get().isAuthenticated) {
+        get().syncToServer();
+      }
+    };
+    
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('beforeunload', handleBeforeUnload);
     
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   },
 
-  // Update user profile
+  // Update profile
   updateProfile: async (updates) => {
     set({ loading: true });
     
@@ -429,56 +292,41 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Change password
-  changePassword: async (oldPassword, newPassword) => {
+  // Sync favorites specifically
+  syncFavorites: async (favorites) => {
+    const token = get().token;
+    if (!token) return;
+    
     try {
-      const response = await axios.post('/auth/change-password', { 
-        oldPassword, 
-        newPassword 
-      });
+      // Save locally first
+      localStorage.setItem('favorites', JSON.stringify(favorites));
       
-      if (response.data.success) {
-        return { success: true };
-      }
-      
-      return { success: false, error: 'Cambio password fallito' };
-      
+      // Then sync to server
+      await axios.post('/user/sync', { favorites });
+      console.log('✅ Favorites synced');
+      return true;
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || 'Cambio password fallito' 
-      };
+      console.error('❌ Failed to sync favorites:', error);
+      return false;
     }
   },
 
-  // Delete account
-  deleteAccount: async (password) => {
+  // Sync reading list specifically  
+  syncReading: async (reading) => {
+    const token = get().token;
+    if (!token) return;
+    
     try {
-      const response = await axios.delete('/user/account', {
-        data: { password }
-      });
+      // Save locally first
+      localStorage.setItem('reading', JSON.stringify(reading));
       
-      if (response.data.success) {
-        // Clear all data
-        localStorage.clear();
-        set({
-          user: null,
-          token: null,
-          isAuthenticated: false,
-          error: null,
-          syncStatus: 'idle',
-          lastSync: null
-        });
-        return { success: true };
-      }
-      
-      return { success: false, error: 'Eliminazione fallita' };
-      
+      // Then sync to server
+      await axios.post('/user/sync', { reading });
+      console.log('✅ Reading list synced');
+      return true;
     } catch (error) {
-      return {
-        success: false,
-        error: error.response?.data?.message || 'Eliminazione account fallita'
-      };
+      console.error('❌ Failed to sync reading list:', error);
+      return false;
     }
   }
 }));

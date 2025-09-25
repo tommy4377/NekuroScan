@@ -160,6 +160,18 @@ function App() {
     });
   }, []);
 
+  // Auto save on route change
+useEffect(() => {
+  return () => {
+    // Save data when leaving the app or changing routes
+    if (user && isAuthenticated) {
+      syncToServer();
+    }
+  };
+}, [location.pathname, user, isAuthenticated]);
+
+  
+
   const routes = [
     { path: '/', element: <Welcome />, layout: false },
     { path: '/login', element: <Login />, layout: false },

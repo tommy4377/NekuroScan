@@ -35,7 +35,6 @@ model user_profile {
   socialLinks   Json?
   viewCount     Int      @default(0)
   badges        String[] @default([])
-  theme         String?  @default("default")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }

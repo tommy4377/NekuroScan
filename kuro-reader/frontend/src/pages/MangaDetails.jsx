@@ -161,46 +161,47 @@ function MangaDetails() {
   };
 
   const toggleFavorite = async () => {
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    let updated;
+  const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+  let updated;
+  
+  if (isFavorite) {
+    updated = favorites.filter(f => f.url !== manga.url);
+    setIsFavorite(false);
     
-    if (isFavorite) {
-      updated = favorites.filter(f => f.url !== manga.url);
-      setIsFavorite(false);
-      
-      toast({
-        title: 'Rimosso dai preferiti',
-        status: 'info',
-        duration: 2000,
-      });
-    } else {
-      const mangaToSave = {
-        url: manga.url,
-        title: manga.title,
-        cover: manga.coverUrl,
-        type: manga.type,
-        source: manga.source || source,
-        genres: manga.genres || [],
-        addedAt: new Date().toISOString()
-      };
-      
-      updated = [mangaToSave, ...favorites];
-      setIsFavorite(true);
-      
-      toast({
-        title: 'Aggiunto ai preferiti',
-        status: 'success',
-        duration: 2000,
-      });
-    }
+    toast({
+      title: 'Rimosso dai preferiti',
+      status: 'info',
+      duration: 2000,
+    });
+  } else {
+    const mangaToSave = {
+      url: manga.url,
+      title: manga.title,
+      cover: manga.coverUrl,
+      type: manga.type,
+      source: manga.source || source,
+      genres: manga.genres || [],
+      addedAt: new Date().toISOString()
+    };
     
-    localStorage.setItem('favorites', JSON.stringify(updated));
+    updated = [mangaToSave, ...favorites];
+    setIsFavorite(true);
     
-    // Sync con server se loggato
-    if (user && syncFavorites) {
-      await syncFavorites(updated);
-    }
-  };
+    toast({
+      title: 'Aggiunto ai preferiti',
+      status: 'success',
+      duration: 2000,
+    });
+  }
+  
+  // Save locally
+  localStorage.setItem('favorites', JSON.stringify(updated));
+  
+  // Sync with server immediately
+  if (user && syncFavorites) {
+    await syncFavorites(updated);
+  }
+};
 
   const toggleNotifications = async () => {
     if (!user) {
@@ -305,31 +306,40 @@ function MangaDetails() {
     navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
   };
 
-  const updateReadingList = (chapterIndex, chapter) => {
-    const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-    const existingIndex = reading.findIndex(r => r.url === manga.url);
-    
-    const readingItem = {
-      url: manga.url,
-      title: manga.title,
-      cover: manga.coverUrl,
-      type: manga.type,
-      source: manga.source || source,
-      lastChapterIndex: chapterIndex,
-      lastChapterTitle: chapter.title,
-      totalChapters: manga.chapters.length,
-      progress: Math.round((chapterIndex / manga.chapters.length) * 100),
-      lastRead: new Date().toISOString()
-    };
-    
-    if (existingIndex !== -1) {
-      reading[existingIndex] = readingItem;
-    } else {
-      reading.unshift(readingItem);
-    }
-    
-    localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
+  const updateReadingList = async (chapterIndex, chapter) => {
+  const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+  const existingIndex = reading.findIndex(r => r.url === manga.url);
+  
+  const readingItem = {
+    url: manga.url,
+    title: manga.title,
+    cover: manga.coverUrl,
+    type: manga.type,
+    source: manga.source || source,
+    lastChapterIndex: chapterIndex,
+    lastChapterTitle: chapter.title,
+    totalChapters: manga.chapters.length,
+    progress: Math.round((chapterIndex / manga.chapters.length) * 100),
+    lastRead: new Date().toISOString()
   };
+  
+  if (existingIndex !== -1) {
+    reading[existingIndex] = readingItem;
+  } else {
+    reading.unshift(readingItem);
+  }
+  
+  // Save locally
+  localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
+  
+  // Sync with server immediately if logged in
+  if (user) {
+    const { syncReading } = useAuth.getState();
+    if (syncReading) {
+      await syncReading(reading.slice(0, 100));
+    }
+  }
+};
 
   const continueReading = () => {
     if (readingProgress && readingProgress.chapterIndex !== undefined) {

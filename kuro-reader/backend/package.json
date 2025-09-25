@@ -5,8 +5,11 @@
   "scripts": {
     "start": "node auth-server.js",
     "dev": "nodemon auth-server.js",
+    "migrate": "node migrate.js",
+    "repair": "node repair-data.js",
+    "setup": "npm run migrate && npm run repair",
     "build": "npx prisma generate",
-    "migrate": "npx prisma migrate deploy",
+    "migrate:deploy": "npx prisma migrate deploy",
     "migrate:dev": "npx prisma migrate dev",
     "db:push": "npx prisma db push",
     "db:seed": "npx prisma db seed"
