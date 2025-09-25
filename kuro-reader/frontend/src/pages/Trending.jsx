@@ -22,19 +22,14 @@ function Trending() {
     recentChapters: [],
     weeklyTop: []
   });
-  const [pages, setPages] = useState({
-    trending: 1,
-    recentChapters: 1,
-    weeklyTop: 1
-  });
-  const [hasMore, setHasMore] = useState({
-    trending: true,
-    recentChapters: true,
-    weeklyTop: true
-  });
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showAllItems, setShowAllItems] = useState({
+    trending: false,
+    recentChapters: false,
+    weeklyTop: false
+  });
   
   const toast = useToast();
 
@@ -51,22 +46,14 @@ function Trending() {
   }, []);
 
   // Load data function
-  const loadData = useCallback(async (type, pageNum, reset = false) => {
-    if (loading && !reset) return;
-    if (!hasMore[type] && !reset) return;
+  const loadData = useCallback(async (type) => {
+    if (loading) return;
     
-    if (reset || pageNum === 1) {
-      setInitialLoading(true);
-      setLists(prev => ({ ...prev, [type]: [] }));
-      setPages(prev => ({ ...prev, [type]: 1 }));
-      setHasMore(prev => ({ ...prev, [type]: true }));
-      pageNum = 1;
-    }
-    
+    setInitialLoading(true);
     setLoading(true);
     
     try {
-      console.log(`Loading ${type} page ${pageNum}...`);
+      console.log(`Loading ${type}...`);
       let result = [];
       
       switch(type) {
@@ -84,17 +71,8 @@ function Trending() {
       if (result && result.length > 0) {
         setLists(prev => ({
           ...prev,
-          [type]: reset || pageNum === 1 
-            ? result 
-            : [...prev[type], ...result.filter(item => 
-                !prev[type].some(existing => existing.url === item.url)
-              )]
+          [type]: result
         }));
-        
-        setPages(prev => ({ ...prev, [type]: pageNum }));
-        
-        // Since API doesn't support pagination for these, disable load more after first page
-        setHasMore(prev => ({ ...prev, [type]: pageNum === 1 && result.length >= 15 }));
       }
     } catch (error) {
       console.error(`Error loading ${type}:`, error);
@@ -104,31 +82,49 @@ function Trending() {
         status: 'error',
         duration: 3000,
       });
-      setHasMore(prev => ({ ...prev, [type]: false }));
     } finally {
       setLoading(false);
       setInitialLoading(false);
     }
-  }, [includeAdult, hasMore, toast, loading]);
+  }, [includeAdult, toast, loading]);
 
   // Initial load for active tab
   useEffect(() => {
-    loadData(currentKey, 1, true);
+    loadData(currentKey);
   }, [currentKey, includeAdult]);
 
-  const handleLoadMore = () => {
-    if (!loading && hasMore[currentKey]) {
-      // For trending content, we simulate pagination by loading from different sources
-      loadData(currentKey, pages[currentKey] + 1);
-    }
+  const handleShowMore = () => {
+    setShowAllItems(prev => ({
+      ...prev,
+      [currentKey]: true
+    }));
+  };
+
+  const handleShowLess = () => {
+    setShowAllItems(prev => ({
+      ...prev,
+      [currentKey]: false
+    }));
+    scrollToTop();
   };
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const navigateToCategories = () => {
+    navigate('/categories', { 
+      state: { 
+        includeAdult,
+        preset: currentKey === 'trending' ? 'popular' : 'latest'
+      } 
+    });
+  };
+
   const renderContent = () => {
     const currentList = lists[currentKey];
+    const showAll = showAllItems[currentKey];
+    const itemsToShow = showAll ? currentList : currentList.slice(0, 20);
     
     if (initialLoading) {
       return (
@@ -153,7 +149,7 @@ function Trending() {
     return (
       <>
         <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-          {currentList.map((item, i) => (
+          {itemsToShow.map((item, i) => (
             <MotionBox
               key={`${item.url}-${i}`}
               initial={{ opacity: 0, y: 20 }}
@@ -168,7 +164,7 @@ function Trending() {
               />
               
               {/* Trending Badge for top 3 */}
-              {currentKey === 'trending' && i < 3 && pages[currentKey] === 1 && (
+              {currentKey === 'trending' && i < 3 && (
                 <Badge
                   position="absolute"
                   top={2}
@@ -186,27 +182,57 @@ function Trending() {
           ))}
         </SimpleGrid>
         
-        {/* Load More Button */}
-        {hasMore[currentKey] && (
+        {/* Load More / Show Less Button */}
+        {currentList.length > 20 && (
           <Center py={6}>
-            <Button
-              onClick={handleLoadMore}
-              isLoading={loading}
-              loadingText="Caricamento..."
-              colorScheme="purple"
-              size="lg"
-              leftIcon={!loading ? <FaPlus /> : undefined}
-              variant="solid"
-              disabled={loading}
-            >
-              {loading ? 'Caricamento...' : 'Carica altri'}
-            </Button>
+            {!showAll ? (
+              <VStack spacing={3}>
+                <Button
+                  onClick={handleShowMore}
+                  colorScheme="purple"
+                  size="lg"
+                  leftIcon={<FaPlus />}
+                  variant="solid"
+                >
+                  Mostra tutti ({currentList.length - 20} rimanenti)
+                </Button>
+                <Button
+                  onClick={navigateToCategories}
+                  variant="outline"
+                  colorScheme="purple"
+                  size="sm"
+                >
+                  Esplora altre categorie
+                </Button>
+              </VStack>
+            ) : (
+              <Button
+                onClick={handleShowLess}
+                colorScheme="gray"
+                size="lg"
+                variant="outline"
+              >
+                Mostra meno
+              </Button>
+            )}
           </Center>
         )}
         
-        {!hasMore[currentKey] && currentList.length > 0 && (
-          <Center py={4}>
-            <Text color="gray.500">Fine dei risultati</Text>
+        {/* If less than 20 items, show explore button */}
+        {currentList.length <= 20 && currentList.length > 0 && (
+          <Center py={6}>
+            <VStack spacing={3}>
+              <Text color="gray.500">
+                Hai visto tutti i {currentList.length} contenuti disponibili
+              </Text>
+              <Button
+                onClick={navigateToCategories}
+                colorScheme="purple"
+                variant="outline"
+              >
+                Esplora altre categorie
+              </Button>
+            </VStack>
           </Center>
         )}
       </>
@@ -262,7 +288,14 @@ function Trending() {
         <Tabs 
           colorScheme="purple" 
           variant="soft-rounded"
-          onChange={setActiveTab}
+          onChange={(index) => {
+            setActiveTab(index);
+            setShowAllItems({
+              trending: false,
+              recentChapters: false,
+              weeklyTop: false
+            });
+          }}
           defaultIndex={0}
         >
           <TabList bg="gray.800" p={2} borderRadius="lg">
