@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Container, VStack, Heading, Text, Button, Code } from '@chakra-ui/react';
+import { Box, Container, VStack, Heading, Text, Button, Code, HStack } from '@chakra-ui/react';
 import { FaExclamationTriangle, FaHome, FaRedo } from 'react-icons/fa';
 
 class ErrorBoundary extends React.Component {
