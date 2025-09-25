@@ -1,11 +1,12 @@
 import React, { useEffect, lazy, Suspense } from 'react';
-import { ChakraProvider, Box, Spinner, Center, useToast } from '@chakra-ui/react';
+import { ChakraProvider, Box, Spinner, Center } from '@chakra-ui/react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { theme } from './styles/theme';
 
 // Components
 import Navigation from './components/Navigation';
 import Library from './components/Library';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Pages - Lazy load
 const Home = lazy(() => import('./pages/Home'));
@@ -18,7 +19,7 @@ const Categories = lazy(() => import('./pages/Categories'));
 const Latest = lazy(() => import('./pages/Latest'));
 const Popular = lazy(() => import('./pages/Popular'));
 const TopType = lazy(() => import('./pages/TopType'));
-const Trending = lazy(() => import('./pages/Trending')); // AGGIUNTO
+const Trending = lazy(() => import('./pages/Trending'));
 const Profile = lazy(() => import('./pages/Profile'));
 const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -36,36 +37,31 @@ function LoadingScreen() {
   );
 }
 
-// Scroll to top
+// Scroll to top (deve stare sotto Router)
 function ScrollToTop() {
   const { pathname } = useLocation();
-  
   useEffect(() => {
     if (!pathname.includes('/read/')) {
       window.scrollTo(0, 0);
     }
   }, [pathname]);
-  
   return null;
 }
 
-// Protected Route
+// Protected Route (sotto Router)
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
-  
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  
   return children;
 }
 
-// Layout wrapper
+// Layout wrapper (sotto Router)
 function Layout({ children }) {
   const location = useLocation();
   const isReaderPage = location.pathname.includes('/read/');
-  
   return (
     <Box minH="100vh" bg="gray.900">
       {!isReaderPage && <Navigation />}
@@ -74,27 +70,24 @@ function Layout({ children }) {
   );
 }
 
-// Main App Component
-function App() {
+// Tutta la logica che usa useLocation va qui, SOTTO il Router
+function AppContent() {
   const { initAuth, startAutoSync, user, isAuthenticated, syncToServer } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
     // Initialize auth
     initAuth();
-    
     // Start auto sync
     const cleanup = startAutoSync();
-    
+
     // PWA Service Worker con auto-update
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then(registration => {
-        console.log('SW registered');
-        setInterval(() => {
-          registration.update();
-        }, 30000);
+        setInterval(() => registration.update(), 30000);
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
+          if (!newWorker) return;
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               if (window.confirm('Nuovo aggiornamento disponibile! Vuoi ricaricare?')) {
@@ -107,6 +100,7 @@ function App() {
       }).catch(err => {
         console.error('SW registration failed:', err);
       });
+
       let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!refreshing) {
@@ -115,41 +109,48 @@ function App() {
         }
       });
     }
-    setInterval(() => {
+
+    // Pulisci cache vecchie periodicamente
+    const cacheInterval = setInterval(() => {
       if ('caches' in window) {
         caches.keys().then(names => {
           names.forEach(name => {
-            if (name !== 'kuroreader-v2') {
-              caches.delete(name);
-            }
+            if (name !== 'kuroreader-v2') caches.delete(name);
           });
         });
       }
     }, 60000);
-    return cleanup;
+
+    return () => {
+      clearInterval(cacheInterval);
+      cleanup && cleanup();
+    };
   }, []);
 
+  // PWA install prompt
   useEffect(() => {
     let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
+    const handler = (e) => {
       e.preventDefault();
       deferredPrompt = e;
       setTimeout(() => {
         if (deferredPrompt) {
           deferredPrompt.prompt();
-          deferredPrompt.userChoice.then(() => {
+          deferredPrompt.userChoice.finally(() => {
             deferredPrompt = null;
           });
         }
       }, 5000);
-    });
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  // ✅ Auto save on route change
+  // Salvataggio “al cambio rotta”: cleanup dell’effetto
   useEffect(() => {
     return () => {
       if (user && isAuthenticated) {
-        syncToServer();
+        try { syncToServer(); } catch {}
       }
     };
   }, [location.pathname, user, isAuthenticated, syncToServer]);
@@ -164,7 +165,7 @@ function App() {
     { path: '/manga/:source/:id', element: <MangaDetails /> },
     { path: '/latest', element: <Latest /> },
     { path: '/popular', element: <Popular /> },
-    { path: '/trending', element: <Trending /> }, // AGGIUNTO
+    { path: '/trending', element: <Trending /> },
     { path: '/top/:type', element: <TopType /> },
     { path: '/profile', element: <ProtectedRoute><Profile /></ProtectedRoute> },
     { path: '/settings', element: <Settings /> },
@@ -176,20 +177,31 @@ function App() {
   ];
 
   return (
+    <>
+      <ScrollToTop />
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          {routes.map(({ path, element, layout = true }) => (
+            <Route
+              key={path}
+              path={path}
+              element={layout ? <Layout>{element}</Layout> : element}
+            />
+          ))}
+        </Routes>
+      </Suspense>
+    </>
+  );
+}
+
+// Main App Component: qui NON si usa useLocation
+function App() {
+  return (
     <ChakraProvider theme={theme}>
       <Router>
-        <ScrollToTop />
-        <Suspense fallback={<LoadingScreen />}>
-          <Routes>
-            {routes.map(({ path, element, layout = true }) => (
-              <Route
-                key={path}
-                path={path}
-                element={layout ? <Layout>{element}</Layout> : element}
-              />
-            ))}
-          </Routes>
-        </Suspense>
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
       </Router>
     </ChakraProvider>
   );
