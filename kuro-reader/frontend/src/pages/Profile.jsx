@@ -15,9 +15,10 @@ import {
   FaCamera, FaSave, FaShare, FaLock, FaGlobe, FaTrash, FaQrcode,
   FaTrophy, FaClock, FaBookOpen, FaHeart, FaEye, FaUserPlus,
   FaTwitter, FaDiscord, FaInstagram, FaGithub, FaTiktok,
-  FaPalette, FaImage, FaUserFriends, FaMedal, FaCrown
+  FaImage, FaUserFriends, FaMedal, FaCrown
 } from 'react-icons/fa';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import MangaCard from '../components/MangaCard';
 import useAuth from '../hooks/useAuth';
 import QRCode from 'qrcode';
@@ -25,34 +26,6 @@ import axios from 'axios';
 import { config } from '../config';
 
 const MotionBox = motion(Box);
-
-// Badge component
-const ProfileBadge = ({ type, label }) => {
-  const badges = {
-    veteran: { icon: FaTrophy, color: 'gold' },
-    reader: { icon: FaBookOpen, color: 'purple' },
-    social: { icon: FaUserFriends, color: 'blue' },
-    premium: { icon: FaCrown, color: 'yellow' }
-  };
-  
-  const badge = badges[type] || badges.reader;
-  const Icon = badge.icon;
-  
-  return (
-    <Tooltip label={label}>
-      <Box
-        p={2}
-        bg={`${badge.color}.500`}
-        borderRadius="full"
-        display="inline-flex"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Icon color="white" size="14" />
-      </Box>
-    </Tooltip>
-  );
-};
 
 // Stats card component
 const StatsCard = ({ icon: Icon, label, value, color = 'purple', helpText }) => (
@@ -80,9 +53,9 @@ const StatsCard = ({ icon: Icon, label, value, color = 'purple', helpText }) => 
 
 export default function Profile() {
   const toast = useToast();
-  const { user, updateProfile, deleteAccount } = useAuth();
+  const navigate = useNavigate();
+  const { user, updateProfile, syncToServer } = useAuth();
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
-  const { isOpen: isThemeOpen, onOpen: onThemeOpen, onClose: onThemeClose } = useDisclosure();
   const fileRef = useRef();
   const bannerRef = useRef();
   
@@ -93,7 +66,7 @@ export default function Profile() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   
-  // Profile data
+  // Profile data - SENZA TEMI
   const [profileData, setProfileData] = useState({
     username: '',
     email: '',
@@ -102,7 +75,6 @@ export default function Profile() {
     avatarUrl: '',
     bannerUrl: '',
     isPublic: false,
-    theme: 'default',
     socialLinks: {
       twitter: '',
       discord: '',
@@ -145,19 +117,9 @@ export default function Profile() {
   const [qrCode, setQrCode] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
   
-  // Profile URL
-  const profileUrl = `${window.location.origin}/user/${profileData.username}`;
+  // Profile URL con username corretto
+  const profileUrl = user ? `${window.location.origin}/user/${user.username}` : '';
   const { hasCopied, onCopy } = useClipboard(profileUrl);
-  
-  // Themes
-  const themes = [
-    { id: 'default', name: 'Default', color: 'purple' },
-    { id: 'dark', name: 'Dark', color: 'gray' },
-    { id: 'ocean', name: 'Ocean', color: 'blue' },
-    { id: 'sunset', name: 'Sunset', color: 'orange' },
-    { id: 'forest', name: 'Forest', color: 'green' },
-    { id: 'sakura', name: 'Sakura', color: 'pink' }
-  ];
 
   // Load data on mount
   useEffect(() => {
@@ -169,10 +131,10 @@ export default function Profile() {
 
   // Generate QR when public
   useEffect(() => {
-    if (profileData.isPublic) {
+    if (profileData.isPublic && user) {
       generateQRCode();
     }
-  }, [profileData.isPublic, profileData.username]);
+  }, [profileData.isPublic, user]);
 
   const loadUserData = async () => {
     if (!user) return;
@@ -192,7 +154,6 @@ export default function Profile() {
         avatarUrl: profile?.avatarUrl || '',
         bannerUrl: profile?.bannerUrl || '',
         isPublic: profile?.isPublic || false,
-        theme: profile?.theme || 'default',
         socialLinks: profile?.socialLinks || {}
       });
       
@@ -201,6 +162,9 @@ export default function Profile() {
         completed: completed.slice(0, 12),
         favorites: favorites.slice(0, 12)
       });
+      
+      // Salva anche in localStorage per accesso offline
+      localStorage.setItem('profilePublic', profile?.isPublic ? 'true' : 'false');
       
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -223,8 +187,11 @@ export default function Profile() {
   };
 
   const generateQRCode = async () => {
+    if (!user) return;
+    
     try {
-      const qr = await QRCode.toDataURL(profileUrl, {
+      const url = `${window.location.origin}/user/${user.username}`;
+      const qr = await QRCode.toDataURL(url, {
         width: 200,
         margin: 2,
         color: {
@@ -261,7 +228,6 @@ export default function Profile() {
       formData.append('bio', profileData.bio);
       formData.append('isPublic', profileData.isPublic);
       formData.append('displayName', profileData.displayName);
-      formData.append('theme', profileData.theme);
       formData.append('socialLinks', JSON.stringify(profileData.socialLinks));
 
       const response = await axios.put(
@@ -288,6 +254,9 @@ export default function Profile() {
           status: 'success',
           duration: 2000
         });
+        
+        // Ricarica i dati per assicurarsi che siano persistiti
+        await loadUserData();
       }
     } catch (error) {
       console.error('Upload error:', error);
@@ -310,7 +279,6 @@ export default function Profile() {
       formData.append('bio', profileData.bio);
       formData.append('isPublic', profileData.isPublic);
       formData.append('displayName', profileData.displayName);
-      formData.append('theme', profileData.theme);
       formData.append('socialLinks', JSON.stringify(profileData.socialLinks));
 
       const response = await axios.put(
@@ -326,6 +294,10 @@ export default function Profile() {
 
       if (response.data.success) {
         setIsEditing(false);
+        
+        // Salva anche in localStorage
+        localStorage.setItem('profilePublic', profileData.isPublic ? 'true' : 'false');
+        
         toast({
           title: 'Profilo salvato',
           description: profileData.isPublic 
@@ -338,6 +310,9 @@ export default function Profile() {
         if (profileData.isPublic) {
           await generateQRCode();
         }
+        
+        // Sincronizza dati con server
+        await syncToServer();
       }
     } catch (error) {
       console.error('Save profile error:', error);
@@ -399,43 +374,6 @@ export default function Profile() {
         status: 'error',
         duration: 3000
       });
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!deletePassword) {
-      toast({
-        title: 'Inserisci la password',
-        status: 'error',
-        duration: 2000
-      });
-      return;
-    }
-
-    try {
-      const result = await deleteAccount(deletePassword);
-      
-      if (result.success) {
-        toast({
-          title: 'Account eliminato',
-          description: 'Il tuo account è stato eliminato definitivamente',
-          status: 'success',
-          duration: 3000
-        });
-        window.location.href = '/';
-      } else {
-        toast({
-          title: 'Errore',
-          description: result.error || 'Impossibile eliminare account',
-          status: 'error',
-          duration: 3000
-        });
-      }
-    } catch (error) {
-      console.error('Delete error:', error);
-    } finally {
-      onDeleteClose();
-      setDeletePassword('');
     }
   };
 
@@ -648,14 +586,6 @@ export default function Profile() {
                         >
                           Condividi
                         </Button>
-                        <Menu>
-                          <MenuButton as={IconButton} icon={<FaPalette />} variant="ghost" />
-                          <MenuList>
-                            <MenuItem onClick={onThemeOpen}>
-                              Cambia tema
-                            </MenuItem>
-                          </MenuList>
-                        </Menu>
                       </>
                     )}
                   </HStack>
@@ -677,15 +607,6 @@ export default function Profile() {
                       {profileData.bio}
                     </Text>
                   )
-                )}
-                
-                {/* Badges */}
-                {stats.badges.length > 0 && (
-                  <HStack spacing={2}>
-                    {stats.badges.map((badge, i) => (
-                      <ProfileBadge key={i} type={badge} label={badge} />
-                    ))}
-                  </HStack>
                 )}
                 
                 {/* Social Links */}
@@ -876,7 +797,9 @@ export default function Profile() {
                 <Box>
                   <HStack justify="space-between" mb={3}>
                     <Heading size="md">In lettura ({libraryData.reading.length})</Heading>
-                    <Button size="sm" variant="ghost">Vedi tutti</Button>
+                    <Button size="sm" variant="ghost" onClick={() => navigate('/library')}>
+                      Vedi tutti
+                    </Button>
                   </HStack>
                   {libraryData.reading.length ? (
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
@@ -901,7 +824,9 @@ export default function Profile() {
                 <Box>
                   <HStack justify="space-between" mb={3}>
                     <Heading size="md">Preferiti ({libraryData.favorites.length})</Heading>
-                    <Button size="sm" variant="ghost">Vedi tutti</Button>
+                    <Button size="sm" variant="ghost" onClick={() => navigate('/library')}>
+                      Vedi tutti
+                    </Button>
                   </HStack>
                   {libraryData.favorites.length ? (
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
@@ -922,31 +847,6 @@ export default function Profile() {
                     </Center>
                   )}
                 </Box>
-
-                <Box>
-                  <HStack justify="space-between" mb={3}>
-                    <Heading size="md">Completati ({libraryData.completed.length})</Heading>
-                    <Button size="sm" variant="ghost">Vedi tutti</Button>
-                  </HStack>
-                  {libraryData.completed.length ? (
-                    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-                      {libraryData.completed.map((manga, i) => (
-                        <MotionBox
-                          key={i}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.05 }}
-                        >
-                          <MangaCard manga={manga} />
-                        </MotionBox>
-                      ))}
-                    </SimpleGrid>
-                  ) : (
-                    <Center py={8} bg="gray.800" borderRadius="lg">
-                      <Text color="gray.500">Nessun manga completato</Text>
-                    </Center>
-                  )}
-                </Box>
               </VStack>
             </TabPanel>
 
@@ -964,28 +864,6 @@ export default function Profile() {
                       <FormLabel>Email</FormLabel>
                       <Input value={profileData.email} isReadOnly bg="gray.700" />
                     </FormControl>
-                  </SimpleGrid>
-                </Box>
-
-                <Box bg="gray.800" p={6} borderRadius="lg">
-                  <Heading size="md" mb={4}>Tema profilo</Heading>
-                  <SimpleGrid columns={{ base: 2, md: 3 }} spacing={3}>
-                    {themes.map((theme) => (
-                      <Box
-                        key={theme.id}
-                        p={3}
-                        bg={theme.id === profileData.theme ? `${theme.color}.900` : 'gray.700'}
-                        borderRadius="lg"
-                        cursor="pointer"
-                        onClick={() => setProfileData({ ...profileData, theme: theme.id })}
-                        _hover={{ bg: `${theme.color}.800` }}
-                        transition="all 0.2s"
-                        borderWidth={2}
-                        borderColor={theme.id === profileData.theme ? `${theme.color}.500` : 'transparent'}
-                      >
-                        <Text fontWeight="bold">{theme.name}</Text>
-                      </Box>
-                    ))}
                   </SimpleGrid>
                 </Box>
 
@@ -1057,126 +935,10 @@ export default function Profile() {
                     </Button>
                   </VStack>
                 </Box>
-
-                <Box bg="gray.800" p={6} borderRadius="lg">
-                  <Heading size="md" mb={4}>Sessioni attive</Heading>
-                  <VStack align="stretch" spacing={3}>
-                    <HStack justify="space-between" p={3} bg="gray.700" borderRadius="md">
-                      <VStack align="start" spacing={0}>
-                        <Text fontWeight="bold">Dispositivo attuale</Text>
-                        <Text fontSize="sm" color="gray.400">
-                          {navigator.userAgent.substring(0, 50)}...
-                        </Text>
-                      </VStack>
-                      <Badge colorScheme="green">Attivo</Badge>
-                    </HStack>
-                  </VStack>
-                </Box>
-
-                <Box bg="red.900" p={6} borderRadius="lg">
-                  <Heading size="md" mb={4} color="red.300">
-                    Zona Pericolosa
-                  </Heading>
-                  <Alert status="error" mb={4} bg="red.800">
-                    <AlertIcon />
-                    <Text fontSize="sm">
-                      L'eliminazione dell'account è permanente e irreversibile. 
-                      Tutti i tuoi dati verranno persi per sempre.
-                    </Text>
-                  </Alert>
-                  <Button
-                    colorScheme="red"
-                    leftIcon={<FaTrash />}
-                    onClick={onDeleteOpen}
-                  >
-                    Elimina Account
-                  </Button>
-                </Box>
               </VStack>
             </TabPanel>
           </TabPanels>
         </Tabs>
-
-        {/* Delete Account Modal */}
-        <Modal isOpen={isDeleteOpen} onClose={onDeleteClose} isCentered>
-          <ModalOverlay />
-          <ModalContent bg="gray.800">
-            <ModalHeader color="red.400">Elimina Account</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <VStack spacing={4} align="stretch">
-                <Alert status="error" bg="red.900">
-                  <AlertIcon />
-                  <Box>
-                    <Text fontWeight="bold">Attenzione!</Text>
-                    <Text fontSize="sm">
-                      Questa azione è irreversibile. Perderai:
-                    </Text>
-                    <Text fontSize="sm">• Tutti i tuoi manga salvati</Text>
-                    <Text fontSize="sm">• I tuoi progressi di lettura</Text>
-                    <Text fontSize="sm">• Il tuo profilo e statistiche</Text>
-                  </Box>
-                </Alert>
-                <FormControl>
-                  <FormLabel>Inserisci la password per confermare</FormLabel>
-                  <Input
-                    type="password"
-                    value={deletePassword}
-                    onChange={(e) => setDeletePassword(e.target.value)}
-                    placeholder="Password"
-                  />
-                </FormControl>
-              </VStack>
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="ghost" mr={3} onClick={onDeleteClose}>
-                Annulla
-              </Button>
-              <Button
-                colorScheme="red"
-                onClick={handleDeleteAccount}
-                isDisabled={!deletePassword}
-              >
-                Elimina definitivamente
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
-
-        {/* Theme Modal */}
-        <Modal isOpen={isThemeOpen} onClose={onThemeClose} size="lg">
-          <ModalOverlay />
-          <ModalContent bg="gray.800">
-            <ModalHeader>Personalizza tema profilo</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <SimpleGrid columns={2} spacing={4}>
-                {themes.map((theme) => (
-                  <Box
-                    key={theme.id}
-                    p={4}
-                    bg={`${theme.color}.900`}
-                    borderRadius="lg"
-                    cursor="pointer"
-                    onClick={() => {
-                      setProfileData({ ...profileData, theme: theme.id });
-                      onThemeClose();
-                    }}
-                    _hover={{ transform: 'scale(1.05)' }}
-                    transition="all 0.2s"
-                    borderWidth={3}
-                    borderColor={theme.id === profileData.theme ? `${theme.color}.400` : 'transparent'}
-                  >
-                    <VStack>
-                      <Box w="full" h="60px" bg={`${theme.color}.600`} borderRadius="md" />
-                      <Text fontWeight="bold">{theme.name}</Text>
-                    </VStack>
-                  </Box>
-                ))}
-              </SimpleGrid>
-            </ModalBody>
-          </ModalContent>
-        </Modal>
       </VStack>
     </Container>
   );
