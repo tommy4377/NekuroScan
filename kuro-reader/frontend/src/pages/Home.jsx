@@ -48,7 +48,7 @@ function Home() {
   // Stati per i contenuti
   const [content, setContent] = useState({
     trending: [],      // Capitoli di tendenza
-    latest: [],        // Ultimi capitoli aggiunti
+    latest: [],        // Ultimi capitoli aggiunti (corretti)
     popular: [],       // I più letti
     topManga: [],
     topManhwa: [],
@@ -79,7 +79,7 @@ function Home() {
         oneshotRes
       ] = await Promise.allSettled([
         apiManager.getTrending(includeAdult),          // Capitoli di tendenza
-        statsAPI.getLatestUpdates(includeAdult, 1),    // Ultimi capitoli aggiunti  
+        apiManager.getRecentChapters(includeAdult),    // Ultimi capitoli aggiunti (API corretta)
         statsAPI.getMostFavorites(includeAdult, 1),    // I più letti
         statsAPI.getTopByType('manga', includeAdult, 1),
         statsAPI.getTopByType('manhwa', includeAdult, 1),
@@ -400,6 +400,12 @@ function Home() {
             >
               <Tab>
                 <HStack spacing={2}>
+                  <FaClock />
+                  <Text display={{ base: 'none', sm: 'block' }}>Aggiornamenti</Text>
+                </HStack>
+              </Tab>
+              <Tab>
+                <HStack spacing={2}>
                   <FaHeart />
                   <Text display={{ base: 'none', sm: 'block' }}>Popolari</Text>
                 </HStack>
@@ -421,15 +427,26 @@ function Home() {
             </TabList>
             
             <TabPanels>
+              {/* Tab Aggiornamenti - Ultimi capitoli in alto */}
+              <TabPanel px={0} pt={6}>
+                <ContentSection 
+                  title="Ultimi capitoli" 
+                  icon={FaClock} 
+                  items={content.latest} 
+                  color="blue" 
+                  viewAllPath="/latest"
+                  showLatestChapter={true}
+                />
+              </TabPanel>
+              
               {/* Tab Popolari */}
               <TabPanel px={0} pt={6}>
                 <ContentSection 
-                  title="I più letti del momento" 
+                  title="I più letti" 
                   icon={FaHeart} 
                   items={content.popular} 
                   color="pink" 
                   viewAllPath="/popular"
-                  showLatestChapter={true}
                 />
               </TabPanel>
               
@@ -486,10 +503,7 @@ function Home() {
         {/* CTA per esplorare */}
         <Box bg="gray.800" p={6} borderRadius="xl">
           <VStack spacing={4}>
-            <Heading size="md">Esplora tutte le categorie</Heading>
-            <Text color="gray.400" textAlign="center">
-              Scopri nuovi manga in base ai tuoi gusti
-            </Text>
+            <Heading size="md">Esplora per categoria</Heading>
             <Button 
               colorScheme="purple" 
               onClick={() => navigate('/categories')} 
@@ -497,7 +511,7 @@ function Home() {
               size="lg"
               w={{ base: '100%', md: 'auto' }}
             >
-              Esplora categorie
+              Scopri tutte le categorie
             </Button>
           </VStack>
         </Box>
