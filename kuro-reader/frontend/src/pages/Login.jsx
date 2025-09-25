@@ -4,12 +4,13 @@ import {
   FormControl, FormLabel, useToast, Tabs, TabList,
   TabPanels, Tab, TabPanel, InputGroup, InputRightElement,
   Checkbox, Link, Image, HStack, Divider, Alert, AlertIcon,
-  IconButton, useBreakpointValue, Center, keyframes
+  IconButton, useBreakpointValue, Center
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon, ArrowBackIcon } from '@chakra-ui/icons';
 import { FaGoogle, FaGithub, FaDiscord } from 'react-icons/fa';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { keyframes } from '@emotion/react';
 import useAuth from '../hooks/useAuth';
 
 const MotionBox = motion(Box);
