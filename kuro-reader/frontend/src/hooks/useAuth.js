@@ -4,47 +4,53 @@ import { config } from '../config';
 
 const API_URL = `${config.API_URL}/api`;
 
-// Configurazione axios
+// Axios setup
 axios.defaults.baseURL = API_URL;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
-// Configura token dall'inizio se esiste
+// Set token if exists
 const savedToken = localStorage.getItem('token');
 if (savedToken) {
   axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
 }
 
 const useAuth = create((set, get) => ({
+  // State
   user: JSON.parse(localStorage.getItem('user') || 'null'),
   token: localStorage.getItem('token'),
   isAuthenticated: !!localStorage.getItem('token'),
   loading: false,
   error: null,
+  syncStatus: 'idle',
+  lastSync: null,
 
-  // Initialize auth on app start
+  // Initialize
   initAuth: async () => {
     const token = localStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user') || 'null');
     
     if (token && user) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      set({
-        user,
-        token,
-        isAuthenticated: true
-      });
+      set({ user, token, isAuthenticated: true });
       
-      // Verifica validità token
       try {
         const response = await axios.get('/auth/me');
         if (response.data.user) {
-          set({ user: response.data.user });
-          localStorage.setItem('user', JSON.stringify(response.data.user));
+          const updatedUser = response.data.user;
+          set({ user: updatedUser });
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          
+          // Restore user data
+          get().restoreUserData(updatedUser.id);
+          
+          // Start sync
+          await get().syncFromServer();
         }
       } catch (error) {
         console.error('Token validation failed:', error);
-        // Token scaduto, pulisci auth
-        get().logout();
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          get().logout();
+        }
       }
     }
   },
@@ -54,23 +60,15 @@ const useAuth = create((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      // Validazione input
-      if (!emailOrUsername || !password) {
-        throw new Error('Email/Username e password sono richiesti');
-      }
-      
       const response = await axios.post('/auth/login', {
-        emailOrUsername: emailOrUsername.trim(),
-        password: password
+        emailOrUsername: emailOrUsername.toLowerCase().trim(),
+        password
       });
       
       const { user, token } = response.data;
       
-      // Salva in localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
-      
-      // Configura axios header
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       set({
@@ -81,22 +79,15 @@ const useAuth = create((set, get) => ({
         error: null
       });
       
-      // Sincronizza dati dal server
-      try {
-        await get().syncFromServer();
-      } catch (syncError) {
-        console.error('Sync error:', syncError);
-      }
+      get().restoreUserData(user.id);
+      await get().syncFromServer();
       
-      return { success: true };
+      return { success: true, user };
       
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message || 'Login fallito';
-      set({
-        error: errorMessage,
-        loading: false
-      });
-      return { success: false, error: errorMessage };
+      const message = error.response?.data?.message || 'Login fallito';
+      set({ error: message, loading: false });
+      return { success: false, error: message };
     }
   },
 
@@ -105,18 +96,9 @@ const useAuth = create((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      // Validazione
-      if (!username || !email || !password) {
-        throw new Error('Tutti i campi sono richiesti');
-      }
-      
-      if (password.length < 6) {
-        throw new Error('La password deve essere di almeno 6 caratteri');
-      }
-      
       const response = await axios.post('/auth/register', {
-        username: username.trim(),
-        email: email.trim().toLowerCase(),
+        username: username.toLowerCase().trim(),
+        email: email.toLowerCase().trim(),
         password
       });
       
@@ -124,7 +106,6 @@ const useAuth = create((set, get) => ({
       
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
-      
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       set({
@@ -135,88 +116,112 @@ const useAuth = create((set, get) => ({
         error: null
       });
       
-      // Sync local data to server
-      try {
-        await get().syncToServer();
-      } catch (syncError) {
-        console.error('Sync error:', syncError);
-      }
+      get().persistUserData(user.id);
+      await get().syncToServer();
       
-      return { success: true };
+      return { success: true, user };
       
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message || 'Registrazione fallita';
-      set({
-        error: errorMessage,
-        loading: false
-      });
-      return { success: false, error: errorMessage };
+      const message = error.response?.data?.message || 'Registrazione fallita';
+      set({ error: message, loading: false });
+      return { success: false, error: message };
     }
   },
 
   // Logout
   logout: () => {
-    // Pulisci localStorage
+    const userId = get().user?.id;
+    
+    if (userId) {
+      get().persistUserData(userId);
+    }
+    
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    
-    // Rimuovi header Authorization
     delete axios.defaults.headers.common['Authorization'];
     
-    // Reset stato
+    localStorage.removeItem('userAvatar');
+    
     set({
       user: null,
       token: null,
       isAuthenticated: false,
-      error: null
+      error: null,
+      syncStatus: 'idle',
+      lastSync: null
     });
   },
 
-  // Update profile
-  updateProfile: async (profileData) => {
-    const token = get().token;
-    if (!token) return { success: false, error: 'Non autenticato' };
+  // Persist user data locally - FIXED
+  persistUserData: (userId) => {
+    if (!userId) return;
+    
+    const userData = {
+      avatar: localStorage.getItem('userAvatar'),
+      favorites: localStorage.getItem('favorites'),
+      reading: localStorage.getItem('reading'),
+      completed: localStorage.getItem('completed'),
+      history: localStorage.getItem('history'),
+      readingProgress: localStorage.getItem('readingProgress'),
+      bookmarks: localStorage.getItem('bookmarks'),
+      settings: localStorage.getItem('settings'),
+      profilePublic: localStorage.getItem('profilePublic'),
+      includeAdult: localStorage.getItem('includeAdult'),
+      searchMode: localStorage.getItem('searchMode'),
+      preferredReadingMode: localStorage.getItem('preferredReadingMode'),
+      preferredFitMode: localStorage.getItem('preferredFitMode')
+    };
+    
+    localStorage.setItem(`userData_${userId}`, JSON.stringify(userData));
+  },
+
+  // Restore user data
+  restoreUserData: (userId) => {
+    if (!userId) return;
+    
+    const savedData = localStorage.getItem(`userData_${userId}`);
+    if (!savedData) return;
     
     try {
-      const response = await axios.put('/user/profile', profileData);
-      const updatedUser = response.data.user;
+      const userData = JSON.parse(savedData);
       
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      set({ user: updatedUser });
+      Object.entries(userData).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          localStorage.setItem(key, value);
+        }
+      });
       
-      return { success: true, user: updatedUser };
     } catch (error) {
-      console.error('Update profile error:', error);
-      return { 
-        success: false, 
-        error: error.response?.data?.message || 'Errore aggiornamento profilo' 
-      };
+      console.error('Error restoring user data:', error);
     }
   },
 
-  // Persist local data before logout
+  // Persist local data - FIXED
   persistLocalData: async () => {
+    const userId = get().user?.id;
+    if (userId) {
+      get().persistUserData(userId);
+      
+      if (get().isAuthenticated) {
+        try {
+          await get().syncToServer();
+        } catch (error) {
+          console.error('Final sync failed:', error);
+        }
+      }
+    }
+  },
+
+  // Sync favorites - NEW METHOD
+  syncFavorites: async (favorites) => {
     const token = get().token;
     if (!token) return;
     
     try {
-      await get().syncToServer();
+      await axios.post('/user/favorites', { favorites });
+      console.log('Favorites synced');
     } catch (error) {
-      console.error('Error persisting data:', error);
-    }
-  },
-
-  // Subscribe to notifications
-  subscribeToNotifications: async (subscription) => {
-    const token = get().token;
-    if (!token) return { success: false };
-    
-    try {
-      await axios.post('/notifications/subscribe', { subscription });
-      return { success: true };
-    } catch (error) {
-      console.error('Subscribe error:', error);
-      return { success: false };
+      console.error('Failed to sync favorites:', error);
     }
   },
 
@@ -225,39 +230,45 @@ const useAuth = create((set, get) => ({
     const token = get().token;
     if (!token) return;
     
+    set({ syncStatus: 'syncing' });
+    
     try {
-      // Sync favorites
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
       if (favorites.length > 0) {
         await axios.post('/user/favorites', { favorites });
       }
       
-      // Sync library
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       const completed = JSON.parse(localStorage.getItem('completed') || '[]');
       const history = JSON.parse(localStorage.getItem('history') || '[]');
       
-      await axios.post('/user/library', {
-        reading,
-        completed,
-        history
-      });
+      await axios.post('/user/library', { reading, completed, history });
       
-      // Sync reading progress
       const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-      for (const [mangaUrl, progress] of Object.entries(readingProgress)) {
-        if (progress.chapterIndex !== undefined) {
-          await axios.post('/user/progress', {
-            mangaUrl,
-            mangaTitle: progress.chapterTitle || '',
-            chapterIndex: progress.chapterIndex,
-            pageIndex: progress.page || 0
-          });
+      const progressArray = Object.entries(readingProgress).map(([mangaUrl, progress]) => ({
+        mangaUrl,
+        mangaTitle: progress.chapterTitle || '',
+        chapterIndex: progress.chapterIndex || 0,
+        pageIndex: progress.page || progress.pageIndex || 0
+      }));
+      
+      if (progressArray.length > 0) {
+        for (let i = 0; i < progressArray.length; i += 10) {
+          const batch = progressArray.slice(i, i + 10);
+          await Promise.all(batch.map(p => 
+            axios.post('/user/progress', p).catch(e => console.error('Progress sync error:', e))
+          ));
         }
       }
       
+      set({ 
+        syncStatus: 'synced', 
+        lastSync: new Date().toISOString() 
+      });
+      
     } catch (error) {
       console.error('Sync to server error:', error);
+      set({ syncStatus: 'error' });
     }
   },
 
@@ -266,73 +277,118 @@ const useAuth = create((set, get) => ({
     const token = get().token;
     if (!token) return;
     
+    set({ syncStatus: 'syncing' });
+    
     try {
       const response = await axios.get('/user/data');
       const { favorites, reading, completed, history, readingProgress } = response.data;
       
-      // Merge con dati locali
-      if (favorites && favorites.length > 0) {
-        const localFavorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-        const mergedFavorites = [...favorites];
-        localFavorites.forEach(local => {
-          if (!mergedFavorites.find(f => f.url === local.url)) {
-            mergedFavorites.push(local);
-          }
-        });
-        localStorage.setItem('favorites', JSON.stringify(mergedFavorites));
-      }
+      const localFavorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+      const mergedFavorites = get().mergeArrays(favorites, localFavorites, 'url');
+      localStorage.setItem('favorites', JSON.stringify(mergedFavorites));
       
-      // Update library
-      if (reading && reading.length > 0) {
-        localStorage.setItem('reading', JSON.stringify(reading));
-      }
-      if (completed && completed.length > 0) {
-        localStorage.setItem('completed', JSON.stringify(completed));
-      }
-      if (history && history.length > 0) {
-        localStorage.setItem('history', JSON.stringify(history));
-      }
+      const localReading = JSON.parse(localStorage.getItem('reading') || '[]');
+      const mergedReading = get().mergeArrays(reading, localReading, 'url');
+      localStorage.setItem('reading', JSON.stringify(mergedReading));
       
-      // Update reading progress
-      if (readingProgress && readingProgress.length > 0) {
-        const localProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-        readingProgress.forEach(progress => {
+      const localCompleted = JSON.parse(localStorage.getItem('completed') || '[]');
+      const mergedCompleted = get().mergeArrays(completed, localCompleted, 'url');
+      localStorage.setItem('completed', JSON.stringify(mergedCompleted));
+      
+      const localHistory = JSON.parse(localStorage.getItem('history') || '[]');
+      const mergedHistory = get().mergeArrays(history, localHistory, 'url');
+      localStorage.setItem('history', JSON.stringify(mergedHistory.slice(0, 200)));
+      
+      const localProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+      readingProgress?.forEach(progress => {
+        const local = localProgress[progress.mangaUrl];
+        if (!local || new Date(progress.updatedAt) > new Date(local.timestamp || 0)) {
           localProgress[progress.mangaUrl] = {
             chapterId: progress.mangaUrl,
             chapterIndex: progress.chapterIndex,
             page: progress.pageIndex,
+            pageIndex: progress.pageIndex,
             timestamp: progress.updatedAt
           };
-        });
-        localStorage.setItem('readingProgress', JSON.stringify(localProgress));
-      }
+        }
+      });
+      localStorage.setItem('readingProgress', JSON.stringify(localProgress));
+      
+      set({ 
+        syncStatus: 'synced',
+        lastSync: new Date().toISOString()
+      });
       
     } catch (error) {
       console.error('Sync from server error:', error);
+      set({ syncStatus: 'error' });
     }
   },
 
-  // Sync favorites
-  syncFavorites: async (favorites) => {
-    const token = get().token;
-    if (!token) return;
+  // Helper: merge arrays keeping most recent
+  mergeArrays: (serverArray, localArray, key) => {
+    const merged = new Map();
     
-    try {
-      await axios.post('/user/favorites', { favorites });
-    } catch (error) {
-      console.error('Sync favorites error:', error);
-    }
+    serverArray?.forEach(item => {
+      merged.set(item[key], item);
+    });
+    
+    localArray?.forEach(item => {
+      const existing = merged.get(item[key]);
+      if (!existing || 
+          new Date(item.lastRead || item.addedAt || 0) > 
+          new Date(existing.lastRead || existing.addedAt || 0)) {
+        merged.set(item[key], item);
+      }
+    });
+    
+    return Array.from(merged.values());
   },
 
-  // Auto-sync periodically
+  // Auto sync
   startAutoSync: () => {
-    const syncInterval = setInterval(() => {
-      if (get().isAuthenticated) {
+    const interval = setInterval(() => {
+      if (get().isAuthenticated && get().syncStatus !== 'syncing') {
         get().syncToServer();
       }
-    }, 60000); // Sync ogni minuto
+    }, 60000);
     
-    return () => clearInterval(syncInterval);
+    return () => clearInterval(interval);
+  },
+
+  // Update user profile
+  updateProfile: async (updates) => {
+    set({ loading: true });
+    
+    try {
+      const response = await axios.put('/user/profile', updates);
+      const updatedUser = response.data.user;
+      
+      set({ user: updatedUser, loading: false });
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      return { success: true, user: updatedUser };
+      
+    } catch (error) {
+      set({ loading: false });
+      return { 
+        success: false, 
+        error: error.response?.data?.message || 'Aggiornamento fallito' 
+      };
+    }
+  },
+
+  // Change password
+  changePassword: async (oldPassword, newPassword) => {
+    try {
+      await axios.post('/auth/change-password', { oldPassword, newPassword });
+      return { success: true };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error.response?.data?.message || 'Cambio password fallito' 
+      };
+    }
   }
 }));
 

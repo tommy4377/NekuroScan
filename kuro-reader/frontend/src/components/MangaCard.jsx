@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 
 const MotionBox = motion(Box);
 
-function MangaCard({ manga, hideSource = false, showChapterBadge = false }) {
+function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
   const navigate = useNavigate();
   const [imageLoaded, setImageLoaded] = React.useState(false);
   
@@ -15,19 +15,17 @@ function MangaCard({ manga, hideSource = false, showChapterBadge = false }) {
     navigate(`/manga/${source}/${mangaId}`);
   };
 
-  // Pulisce il numero del capitolo
-  const getCleanChapterNumber = () => {
+  // Clean chapter number
+  const getCleanChapter = () => {
     if (!manga.latestChapter) return null;
     
     let chapter = manga.latestChapter;
     if (typeof chapter === 'string') {
-      // Rimuovi prefissi comuni
       chapter = chapter
         .replace(/^(cap\.|capitolo|chapter|ch\.)\s*/i, '')
         .replace(/^vol\.\s*\d+\s*-\s*/i, '')
         .trim();
       
-      // Estrai solo il numero
       const match = chapter.match(/^(\d+(?:\.\d+)?)/);
       if (match) {
         return match[1];
@@ -36,7 +34,7 @@ function MangaCard({ manga, hideSource = false, showChapterBadge = false }) {
     return chapter;
   };
 
-  const chapterNumber = showChapterBadge ? getCleanChapterNumber() : null;
+  const cleanChapter = getCleanChapter();
 
   return (
     <MotionBox
@@ -60,7 +58,7 @@ function MangaCard({ manga, hideSource = false, showChapterBadge = false }) {
         }}
         position="relative"
       >
-        {/* Container Immagine */}
+        {/* Image Container */}
         <Box position="relative" width="100%" paddingBottom="140%">
           {!imageLoaded && (
             <Skeleton 
@@ -85,7 +83,7 @@ function MangaCard({ manga, hideSource = false, showChapterBadge = false }) {
             fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280' viewBox='0 0 200 280'%3E%3Crect width='200' height='280' fill='%234A5568'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23A0AEC0' font-family='sans-serif' font-size='16'%3ENo Image%3C/text%3E%3C/svg%3E"
           />
           
-          {/* Badge Adult - sempre in alto a destra */}
+          {/* Adult Badge */}
           {manga.isAdult && (
             <Badge 
               position="absolute" 
@@ -95,14 +93,34 @@ function MangaCard({ manga, hideSource = false, showChapterBadge = false }) {
               fontSize="xs"
               px={2}
               py={1}
-              zIndex={2}
             >
               18+
             </Badge>
           )}
+
+          {/* Latest Chapter Badge - SOLO se showLatestChapter è true */}
+          {showLatestChapter && cleanChapter && (
+            <Box
+              position="absolute"
+              bottom={2}
+              left={2}
+              right={2}
+              bg="blue.600"
+              color="white"
+              px={2}
+              py={1}
+              borderRadius="md"
+              fontSize="xs"
+              textAlign="center"
+              fontWeight="bold"
+              opacity={0.95}
+            >
+              Capitolo {cleanChapter}
+            </Box>
+          )}
         </Box>
         
-        {/* Sezione Titolo */}
+        {/* Title Section */}
         <VStack p={3} spacing={1} align="stretch" flex={1} width="100%">
           <Text
             fontSize="sm"
@@ -114,25 +132,6 @@ function MangaCard({ manga, hideSource = false, showChapterBadge = false }) {
             {manga.title}
           </Text>
         </VStack>
-
-        {/* Badge Capitolo - SOLO se richiesto e presente, fuori dall'immagine */}
-        {showChapterBadge && chapterNumber && (
-          <Box
-            position="absolute"
-            bottom={0}
-            left={0}
-            right={0}
-            bg="blue.600"
-            color="white"
-            px={2}
-            py={1}
-            textAlign="center"
-            fontSize="xs"
-            fontWeight="bold"
-          >
-            Cap. {chapterNumber}
-          </Box>
-        )}
       </VStack>
     </MotionBox>
   );
