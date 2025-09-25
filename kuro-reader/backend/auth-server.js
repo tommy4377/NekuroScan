@@ -17,12 +17,28 @@ const prisma = new PrismaClient({
   log: ['error', 'warn']
 });
 
-// Configurazione Web Push
-webpush.setVapidDetails(
-  'mailto:admin@kuroreader.com',
-  process.env.VAPID_PUBLIC_KEY || 'BNOJyTgwrEwK9lJYX2c6lJZW0-4g4Tg8Qd3P5mQ8VsXGHlNxTzYzaFVjKpWsBh7k8K6vw5fXBQcrchdrJtCBwzI',
-  process.env.VAPID_PRIVATE_KEY || 'YOUR_PRIVATE_KEY'
-);
+// Configurazione Web Push - con chiavi di default valide
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BNOJyTgwrEwK9lJYX2c6lJZW0-4g4Tg8Qd3P5mQ8VsXGHlNxTzYzaFVjKpWsBh7k8K6vw5fXBQcrchdrJtCBwzI';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'GNpzaRpJGRcOBxS8wl3cXhc3kZUaFEJVFkR3gQRgbMQ';
+
+// Inizializza web-push solo se le chiavi sono configurate
+let webPushEnabled = false;
+try {
+  if (VAPID_PRIVATE_KEY && VAPID_PRIVATE_KEY !== 'YOUR_PRIVATE_KEY') {
+    webpush.setVapidDetails(
+      'mailto:admin@kuroreader.com',
+      VAPID_PUBLIC_KEY,
+      VAPID_PRIVATE_KEY
+    );
+    webPushEnabled = true;
+    console.log('Web Push notifications enabled');
+  } else {
+    console.log('Web Push notifications disabled - VAPID keys not configured');
+  }
+} catch (error) {
+  console.error('Web Push initialization error:', error);
+  console.log('Web Push notifications disabled due to error');
+}
 
 const PORT = process.env.PORT || 10000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -441,6 +457,10 @@ app.get('/api/user/public/:username', async (req, res) => {
 
 // Subscribe to notifications
 app.post('/api/notifications/subscribe', authenticateToken, async (req, res) => {
+  if (!webPushEnabled) {
+    return res.status(503).json({ message: 'Notifiche non disponibili' });
+  }
+  
   try {
     const { subscription } = req.body;
     
@@ -542,6 +562,10 @@ app.get('/api/manga/followed', authenticateToken, async (req, res) => {
 
 // Send test notification
 app.post('/api/notifications/test', authenticateToken, async (req, res) => {
+  if (!webPushEnabled) {
+    return res.status(503).json({ message: 'Notifiche non disponibili' });
+  }
+  
   try {
     const subscriptions = await prisma.notification_subscription.findMany({
       where: { userId: req.user.id }
@@ -771,7 +795,10 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    service: 'KuroReader Auth Server'
+    service: 'KuroReader Auth Server',
+    features: {
+      notifications: webPushEnabled
+    }
   });
 });
 
@@ -790,6 +817,7 @@ app.use((req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`Auth server running on port ${PORT}`);
+  console.log(`Web Push notifications: ${webPushEnabled ? 'ENABLED' : 'DISABLED'}`);
 });
 
 // Graceful shutdown
