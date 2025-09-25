@@ -1,3 +1,4 @@
+// frontend/src/pages/Home.jsx
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
@@ -20,23 +21,6 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 
 const MotionBox = motion(Box);
 
-// Helper per pulire i numeri dei capitoli
-const cleanChapterNumber = (chapter) => {
-  if (!chapter) return '';
-  
-  let clean = chapter
-    .replace(/^(cap\.|capitolo|chapter|ch\.)\s*/i, '')
-    .replace(/^vol\.\s*\d+\s*-\s*/i, '')
-    .trim();
-  
-  const match = clean.match(/^(\d+(?:\.\d+)?)/);
-  if (match) {
-    return match[1];
-  }
-  
-  return clean;
-};
-
 function Home() {
   const navigate = useNavigate();
   const toast = useToast();
@@ -44,9 +28,8 @@ function Home() {
   
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
   
-  // Stati per i contenuti
   const [content, setContent] = useState({
-    latest: [],
+    recentChapters: [], // NUOVI capitoli recenti reali
     popular: [],
     topManga: [],
     topManhwa: [],
@@ -60,14 +43,23 @@ function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  // Carica tutti i contenuti
   const loadAllContent = useCallback(async () => {
     setLoading(true);
     setError(null);
     
     try {
-      const [latestRes, popularRes, mangaRes, manhwaRes, manhuaRes, oneshotRes] = await Promise.allSettled([
-        statsAPI.getLatestUpdates(includeAdult, 1),
+      // Carica VERI capitoli recenti dalla homepage/archivio ordinato per data
+      const recentChaptersPromise = apiManager.getRecentChapters();
+      
+      const [
+        recentChaptersRes,
+        popularRes, 
+        mangaRes, 
+        manhwaRes, 
+        manhuaRes, 
+        oneshotRes
+      ] = await Promise.allSettled([
+        recentChaptersPromise,
         statsAPI.getMostFavorites(includeAdult, 1),
         statsAPI.getTopByType('manga', includeAdult, 1),
         statsAPI.getTopByType('manhwa', includeAdult, 1),
@@ -77,10 +69,9 @@ function Home() {
       
       const processResult = (result, fallback = []) => {
         if (result.status === 'fulfilled' && result.value?.results) {
-          return result.value.results.slice(0, 15).map(item => ({
-            ...item,
-            latestChapter: cleanChapterNumber(item.latestChapter)
-          }));
+          return result.value.results.slice(0, 15);
+        } else if (result.status === 'fulfilled' && Array.isArray(result.value)) {
+          return result.value.slice(0, 15);
         }
         return fallback;
       };
@@ -109,7 +100,7 @@ function Home() {
       }
       
       setContent({
-        latest: processResult(latestRes),
+        recentChapters: processResult(recentChaptersRes), // Veri capitoli recenti
         popular: processResult(popularRes),
         topManga: processResult(mangaRes),
         topManhwa: processResult(manhwaRes),
@@ -144,8 +135,9 @@ function Home() {
     await loadAllContent();
   };
 
-  const navigateToSection = (path) => {
-    navigate(path, { state: { includeAdult } });
+  // FIX: navigazione corretta per "Vedi tutti"
+  const navigateToSection = (path, state = {}) => {
+    navigate(path, { state: { ...state, includeAdult } });
   };
 
   const ContentSection = ({ 
@@ -154,6 +146,7 @@ function Home() {
     items, 
     color = 'purple', 
     viewAllPath,
+    viewAllState = {},
     showLatestChapter = false,
     showProgress = false,
     emptyMessage = 'Nessun contenuto disponibile'
@@ -214,7 +207,7 @@ function Home() {
                 variant="ghost"
                 size="sm"
                 rightIcon={<FaChevronRight />}
-                onClick={() => navigateToSection(viewAllPath)}
+                onClick={() => navigateToSection(viewAllPath, viewAllState)}
                 color={`${color}.400`}
                 _hover={{ bg: `${color}.900` }}
               >
@@ -336,116 +329,86 @@ function Home() {
           />
         )}
 
-        {/* Tabs per contenuti principali */}
+        {/* NUOVA SEZIONE: Ultimi capitoli aggiunti */}
+        {content.recentChapters.length > 0 && (
+          <ContentSection 
+            title="Ultimi capitoli aggiunti" 
+            icon={FaClock} 
+            items={content.recentChapters} 
+            color="blue" 
+            viewAllPath="/categories"
+            viewAllState={{ preset: 'latest' }}
+            showLatestChapter={true}
+          />
+        )}
+
+        {/* Manga più letti / popolari */}
+        {content.popular.length > 0 && (
+          <ContentSection 
+            title="I più letti del momento" 
+            icon={FaHeart} 
+            items={content.popular} 
+            color="pink" 
+            viewAllPath="/categories"
+            viewAllState={{ preset: 'popular' }}
+          />
+        )}
+
+        {/* Top Series per tipo */}
         <Box bg="gray.800" borderRadius="xl" p={{ base: 3, md: 4 }}>
-          <Tabs colorScheme="purple" variant="soft-rounded">
-            <TabList 
-              bg="gray.900" 
-              p={2} 
-              borderRadius="lg" 
-              overflowX="auto"
-              css={{
-                '&::-webkit-scrollbar': { display: 'none' },
-                scrollbarWidth: 'none'
-              }}
-            >
-              <Tab>
-                <HStack spacing={2}>
-                  <FaClock />
-                  <Text display={{ base: 'none', sm: 'block' }}>Aggiornamenti</Text>
-                </HStack>
-              </Tab>
-              <Tab>
-                <HStack spacing={2}>
-                  <FaHeart />
-                  <Text display={{ base: 'none', sm: 'block' }}>Popolari</Text>
-                </HStack>
-              </Tab>
-              <Tab>
-                <HStack spacing={2}>
-                  <FaTrophy />
-                  <Text display={{ base: 'none', sm: 'block' }}>Top Series</Text>
-                </HStack>
-              </Tab>
-              {content.recommendations.length > 0 && (
-                <Tab>
-                  <HStack spacing={2}>
-                    <FaStar />
-                    <Text display={{ base: 'none', sm: 'block' }}>Per te</Text>
-                  </HStack>
-                </Tab>
-              )}
-            </TabList>
-            
-            <TabPanels>
-              <TabPanel px={0} pt={6}>
-                <ContentSection 
-                  title="Ultimi capitoli" 
-                  icon={FaClock} 
-                  items={content.latest} 
-                  color="blue" 
-                  viewAllPath="/latest"
-                  showLatestChapter={true}
-                />
-              </TabPanel>
-              
-              <TabPanel px={0} pt={6}>
-                <ContentSection 
-                  title="I più letti" 
-                  icon={FaHeart} 
-                  items={content.popular} 
-                  color="pink" 
-                  viewAllPath="/popular"
-                />
-              </TabPanel>
-              
-              <TabPanel px={0} pt={6}>
-                <VStack spacing={6} align="stretch">
-                  <ContentSection 
-                    title="Top Manga" 
-                    icon={GiDragonHead} 
-                    items={content.topManga} 
-                    color="orange" 
-                    viewAllPath="/categories"
-                  />
-                  <ContentSection 
-                    title="Top Manhwa" 
-                    icon={BiBook} 
-                    items={content.topManhwa} 
-                    color="purple" 
-                    viewAllPath="/categories"
-                  />
-                  <ContentSection 
-                    title="Top Manhua" 
-                    icon={FaDragon} 
-                    items={content.topManhua} 
-                    color="red" 
-                    viewAllPath="/categories"
-                  />
-                  <ContentSection 
-                    title="Top Oneshot" 
-                    icon={FaBookOpen} 
-                    items={content.topOneshot} 
-                    color="green" 
-                    viewAllPath="/categories"
-                  />
-                </VStack>
-              </TabPanel>
-              
-              {content.recommendations.length > 0 && (
-                <TabPanel px={0} pt={6}>
-                  <ContentSection 
-                    title="Consigliati per te" 
-                    icon={FaStar} 
-                    items={content.recommendations} 
-                    color="yellow" 
-                    emptyMessage="Aggiungi preferiti per ricevere consigli personalizzati"
-                  />
-                </TabPanel>
-              )}
-            </TabPanels>
-          </Tabs>
+          <HStack mb={4}>
+            <Box p={2} bg="orange.500" borderRadius="lg">
+              <FaTrophy color="white" size="20" />
+            </Box>
+            <Heading size={{ base: 'md', md: 'lg' }}>Top Series</Heading>
+          </HStack>
+          
+          <VStack spacing={4} align="stretch">
+            <ContentSection 
+              title="Top Manga" 
+              icon={GiDragonHead} 
+              items={content.topManga} 
+              color="orange" 
+              viewAllPath="/categories"
+              viewAllState={{ type: 'manga' }}
+            />
+            <ContentSection 
+              title="Top Manhwa" 
+              icon={BiBook} 
+              items={content.topManhwa} 
+              color="purple" 
+              viewAllPath="/categories"
+              viewAllState={{ type: 'manhwa' }}
+            />
+            <ContentSection 
+              title="Top Manhua" 
+              icon={FaDragon} 
+              items={content.topManhua} 
+              color="red" 
+              viewAllPath="/categories"
+              viewAllState={{ type: 'manhua' }}
+            />
+            <ContentSection 
+              title="Top Oneshot" 
+              icon={FaBookOpen} 
+              items={content.topOneshot} 
+              color="green" 
+              viewAllPath="/categories"
+              viewAllState={{ type: 'oneshot' }}
+            />
+          </VStack>
         </Box>
+
+        {/* Consigliati */}
+        {content.recommendations.length > 0 && (
+          <ContentSection 
+            title="Consigliati per te" 
+            icon={FaStar} 
+            items={content.recommendations} 
+            color="yellow" 
+            emptyMessage="Aggiungi preferiti per ricevere consigli personalizzati"
+          />
+        )}
 
         {/* CTA per esplorare */}
         <Box bg="gray.800" p={6} borderRadius="xl">

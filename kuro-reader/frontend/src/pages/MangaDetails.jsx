@@ -34,11 +34,15 @@ import {
   FaList,
   FaTh,
   FaRedo,
-  FaCheckCircle
+  FaCheckCircle,
+  FaBell,
+  FaBellSlash
 } from 'react-icons/fa';
 import apiManager from '../api';
 import { motion } from 'framer-motion';
 import useAuth from '../hooks/useAuth';
+import axios from 'axios';
+import { config } from '../config';
 
 const MotionBox = motion(Box);
 
@@ -47,18 +51,25 @@ function MangaDetails() {
   const [manga, setManga] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [viewMode, setViewMode] = useState('list');
   const [readingProgress, setReadingProgress] = useState(null);
   const [completedChapters, setCompletedChapters] = useState([]);
   const toast = useToast();
   const navigate = useNavigate();
-  const { user, syncFavorites } = useAuth(); // syncFavorites now exists in useAuth
+  const { user, syncFavorites } = useAuth();
 
   useEffect(() => {
     loadManga();
     checkFavorite();
     loadReadingProgress();
   }, [source, id]);
+
+  useEffect(() => {
+    if (manga) {
+      checkNotificationStatus();
+    }
+  }, [manga, user]);
 
   const loadManga = async () => {
     try {
@@ -116,6 +127,22 @@ function MangaDetails() {
     setIsFavorite(favorites.some(f => f.url === mangaUrl));
   };
 
+  const checkNotificationStatus = async () => {
+    if (!user || !manga) return;
+    
+    try {
+      const response = await axios.get(`${config.API_URL}/api/user/data`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      const notificationSettings = response.data.notificationSettings || [];
+      const isEnabled = notificationSettings.some(n => n.mangaUrl === manga.url);
+      setNotificationsEnabled(isEnabled);
+    } catch (error) {
+      console.error('Error checking notification status:', error);
+    }
+  };
+
   const loadReadingProgress = () => {
     const mangaUrl = atob(id);
     const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
@@ -153,6 +180,7 @@ function MangaDetails() {
         cover: manga.coverUrl,
         type: manga.type,
         source: manga.source || source,
+        genres: manga.genres || [],
         addedAt: new Date().toISOString()
       };
       
@@ -168,9 +196,79 @@ function MangaDetails() {
     
     localStorage.setItem('favorites', JSON.stringify(updated));
     
-    // Sync con server se loggato - FIX: syncFavorites ora esiste
-    if (user) {
+    // Sync con server se loggato
+    if (user && syncFavorites) {
       await syncFavorites(updated);
+    }
+  };
+
+  const toggleNotifications = async () => {
+    if (!user) {
+      toast({
+        title: 'Accedi per attivare le notifiche',
+        description: 'Crea un account per ricevere notifiche sui nuovi capitoli',
+        status: 'warning',
+        duration: 3000,
+      });
+      navigate('/login');
+      return;
+    }
+    
+    try {
+      const newStatus = !notificationsEnabled;
+      
+      const response = await axios.post(
+        `${config.API_URL}/api/notifications/manga`,
+        {
+          mangaUrl: manga.url,
+          mangaTitle: manga.title,
+          enabled: newStatus
+        },
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+      
+      if (response.data.success) {
+        setNotificationsEnabled(newStatus);
+        
+        // Request browser notification permission if enabling
+        if (newStatus && 'Notification' in window) {
+          const permission = await Notification.requestPermission();
+          if (permission === 'granted') {
+            new Notification('Notifiche attivate', {
+              body: `Riceverai notifiche per nuovi capitoli di ${manga.title}`,
+              icon: manga.coverUrl,
+              badge: '/web-app-manifest-192x192.png',
+              vibrate: [200, 100, 200]
+            });
+          } else if (permission === 'denied') {
+            toast({
+              title: 'Permessi notifiche negati',
+              description: 'Abilita le notifiche nelle impostazioni del browser',
+              status: 'warning',
+              duration: 4000,
+            });
+          }
+        }
+        
+        toast({
+          title: newStatus ? 'Notifiche attivate' : 'Notifiche disattivate',
+          description: newStatus 
+            ? `Riceverai notifiche per nuovi capitoli di ${manga.title}`
+            : 'Non riceverai più notifiche per questo manga',
+          status: 'success',
+          duration: 3000,
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling notifications:', error);
+      toast({
+        title: 'Errore',
+        description: 'Impossibile aggiornare le notifiche',
+        status: 'error',
+        duration: 2000,
+      });
     }
   };
 
@@ -195,7 +293,7 @@ function MangaDetails() {
       chapterTitle: chapter.title,
       totalChapters: manga.chapters.length,
       page: 0,
-      pageIndex: 0, // FIX: Add consistent pageIndex
+      pageIndex: 0,
       timestamp: new Date().toISOString()
     };
     localStorage.setItem('readingProgress', JSON.stringify(progress));
@@ -459,6 +557,16 @@ function MangaDetails() {
                   variant={isFavorite ? 'solid' : 'outline'}
                   onClick={toggleFavorite}
                   aria-label="Preferiti"
+                  title={isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                />
+                
+                <IconButton
+                  icon={notificationsEnabled ? <FaBell /> : <FaBellSlash />}
+                  colorScheme={notificationsEnabled ? 'green' : 'gray'}
+                  variant={notificationsEnabled ? 'solid' : 'outline'}
+                  onClick={toggleNotifications}
+                  aria-label="Notifiche"
+                  title={notificationsEnabled ? 'Disattiva notifiche' : 'Attiva notifiche per nuovi capitoli'}
                 />
                 
                 <IconButton

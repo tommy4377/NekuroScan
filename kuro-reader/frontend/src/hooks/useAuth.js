@@ -128,19 +128,59 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Logout
-  logout: () => {
-    const userId = get().user?.id;
+  // Logout con persistenza dati migliorata
+  logout: async () => {
+    const state = get();
+    const userId = state.user?.id;
     
     if (userId) {
-      get().persistUserData(userId);
+      // Salva tutti i dati locali prima del logout
+      try {
+        const dataToSave = {
+          favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
+          reading: JSON.parse(localStorage.getItem('reading') || '[]'),
+          completed: JSON.parse(localStorage.getItem('completed') || '[]'),
+          history: JSON.parse(localStorage.getItem('history') || '[]'),
+          readingProgress: JSON.parse(localStorage.getItem('readingProgress') || '{}')
+        };
+        
+        // Salva sul server se autenticato
+        if (state.token) {
+          await axios.post(
+            '/user/sync',
+            dataToSave,
+            {
+              headers: { Authorization: `Bearer ${state.token}` }
+            }
+          ).catch(err => console.error('Sync before logout failed:', err));
+        }
+        
+        // Salva localmente per l'utente
+        localStorage.setItem(`userData_${userId}`, JSON.stringify({
+          ...dataToSave,
+          avatar: localStorage.getItem('userAvatar'),
+          settings: localStorage.getItem('settings'),
+          profilePublic: localStorage.getItem('profilePublic'),
+          includeAdult: localStorage.getItem('includeAdult'),
+          searchMode: localStorage.getItem('searchMode'),
+          preferredReadingMode: localStorage.getItem('preferredReadingMode'),
+          preferredFitMode: localStorage.getItem('preferredFitMode'),
+          savedAt: new Date().toISOString()
+        }));
+        
+        console.log('User data saved before logout');
+      } catch (error) {
+        console.error('Error saving data before logout:', error);
+      }
     }
     
+    // Rimuovi solo i dati di autenticazione, non i dati dell'utente
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     delete axios.defaults.headers.common['Authorization'];
     
-    localStorage.removeItem('userAvatar');
+    // NON rimuovere i dati dell'utente (favorites, reading, etc.)
+    // Così l'utente può continuare come ospite con i suoi dati
     
     set({
       user: null,
@@ -152,7 +192,7 @@ const useAuth = create((set, get) => ({
     });
   },
 
-  // Persist user data locally - FIXED
+  // Persist user data locally
   persistUserData: (userId) => {
     if (!userId) return;
     
@@ -169,7 +209,8 @@ const useAuth = create((set, get) => ({
       includeAdult: localStorage.getItem('includeAdult'),
       searchMode: localStorage.getItem('searchMode'),
       preferredReadingMode: localStorage.getItem('preferredReadingMode'),
-      preferredFitMode: localStorage.getItem('preferredFitMode')
+      preferredFitMode: localStorage.getItem('preferredFitMode'),
+      timestamp: new Date().toISOString()
     };
     
     localStorage.setItem(`userData_${userId}`, JSON.stringify(userData));
@@ -186,17 +227,18 @@ const useAuth = create((set, get) => ({
       const userData = JSON.parse(savedData);
       
       Object.entries(userData).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
+        if (value !== null && value !== undefined && key !== 'timestamp') {
           localStorage.setItem(key, value);
         }
       });
       
+      console.log('User data restored from saved state');
     } catch (error) {
       console.error('Error restoring user data:', error);
     }
   },
 
-  // Persist local data - FIXED
+  // Persist local data
   persistLocalData: async () => {
     const userId = get().user?.id;
     if (userId) {
@@ -212,7 +254,7 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Sync favorites - NEW METHOD
+  // Sync favorites
   syncFavorites: async (favorites) => {
     const token = get().token;
     if (!token) return;
@@ -220,12 +262,14 @@ const useAuth = create((set, get) => ({
     try {
       await axios.post('/user/favorites', { favorites });
       console.log('Favorites synced');
+      return true;
     } catch (error) {
       console.error('Failed to sync favorites:', error);
+      return false;
     }
   },
 
-  // Sync to server
+  // Sync all data to server
   syncToServer: async () => {
     const token = get().token;
     if (!token) return;
@@ -233,42 +277,28 @@ const useAuth = create((set, get) => ({
     set({ syncStatus: 'syncing' });
     
     try {
-      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-      if (favorites.length > 0) {
-        await axios.post('/user/favorites', { favorites });
-      }
+      const dataToSync = {
+        favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
+        reading: JSON.parse(localStorage.getItem('reading') || '[]'),
+        completed: JSON.parse(localStorage.getItem('completed') || '[]'),
+        history: JSON.parse(localStorage.getItem('history') || '[]'),
+        readingProgress: JSON.parse(localStorage.getItem('readingProgress') || '{}')
+      };
       
-      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-      const completed = JSON.parse(localStorage.getItem('completed') || '[]');
-      const history = JSON.parse(localStorage.getItem('history') || '[]');
-      
-      await axios.post('/user/library', { reading, completed, history });
-      
-      const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-      const progressArray = Object.entries(readingProgress).map(([mangaUrl, progress]) => ({
-        mangaUrl,
-        mangaTitle: progress.chapterTitle || '',
-        chapterIndex: progress.chapterIndex || 0,
-        pageIndex: progress.page || progress.pageIndex || 0
-      }));
-      
-      if (progressArray.length > 0) {
-        for (let i = 0; i < progressArray.length; i += 10) {
-          const batch = progressArray.slice(i, i + 10);
-          await Promise.all(batch.map(p => 
-            axios.post('/user/progress', p).catch(e => console.error('Progress sync error:', e))
-          ));
-        }
-      }
+      await axios.post('/user/sync', dataToSync);
       
       set({ 
         syncStatus: 'synced', 
         lastSync: new Date().toISOString() 
       });
       
+      console.log('Data synced to server');
+      return true;
+      
     } catch (error) {
       console.error('Sync to server error:', error);
       set({ syncStatus: 'error' });
+      return false;
     }
   },
 
@@ -283,6 +313,7 @@ const useAuth = create((set, get) => ({
       const response = await axios.get('/user/data');
       const { favorites, reading, completed, history, readingProgress } = response.data;
       
+      // Merge with local data
       const localFavorites = JSON.parse(localStorage.getItem('favorites') || '[]');
       const mergedFavorites = get().mergeArrays(favorites, localFavorites, 'url');
       localStorage.setItem('favorites', JSON.stringify(mergedFavorites));
@@ -299,6 +330,7 @@ const useAuth = create((set, get) => ({
       const mergedHistory = get().mergeArrays(history, localHistory, 'url');
       localStorage.setItem('history', JSON.stringify(mergedHistory.slice(0, 200)));
       
+      // Merge reading progress
       const localProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
       readingProgress?.forEach(progress => {
         const local = localProgress[progress.mangaUrl];
@@ -319,9 +351,13 @@ const useAuth = create((set, get) => ({
         lastSync: new Date().toISOString()
       });
       
+      console.log('Data synced from server');
+      return true;
+      
     } catch (error) {
       console.error('Sync from server error:', error);
       set({ syncStatus: 'error' });
+      return false;
     }
   },
 
@@ -351,9 +387,21 @@ const useAuth = create((set, get) => ({
       if (get().isAuthenticated && get().syncStatus !== 'syncing') {
         get().syncToServer();
       }
-    }, 60000);
+    }, 60000); // Ogni minuto
     
-    return () => clearInterval(interval);
+    // Sync anche quando la finestra torna in focus
+    const handleFocus = () => {
+      if (get().isAuthenticated) {
+        get().syncToServer();
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
   },
 
   // Update user profile
@@ -362,12 +410,15 @@ const useAuth = create((set, get) => ({
     
     try {
       const response = await axios.put('/user/profile', updates);
-      const updatedUser = response.data.user;
       
-      set({ user: updatedUser, loading: false });
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      if (response.data.success) {
+        const updatedUser = { ...get().user, profile: response.data.profile };
+        set({ user: updatedUser, loading: false });
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        return { success: true, user: updatedUser };
+      }
       
-      return { success: true, user: updatedUser };
+      return { success: false, error: 'Aggiornamento fallito' };
       
     } catch (error) {
       set({ loading: false });
@@ -381,12 +432,52 @@ const useAuth = create((set, get) => ({
   // Change password
   changePassword: async (oldPassword, newPassword) => {
     try {
-      await axios.post('/auth/change-password', { oldPassword, newPassword });
-      return { success: true };
+      const response = await axios.post('/auth/change-password', { 
+        oldPassword, 
+        newPassword 
+      });
+      
+      if (response.data.success) {
+        return { success: true };
+      }
+      
+      return { success: false, error: 'Cambio password fallito' };
+      
     } catch (error) {
       return { 
         success: false, 
         error: error.response?.data?.message || 'Cambio password fallito' 
+      };
+    }
+  },
+
+  // Delete account
+  deleteAccount: async (password) => {
+    try {
+      const response = await axios.delete('/user/account', {
+        data: { password }
+      });
+      
+      if (response.data.success) {
+        // Clear all data
+        localStorage.clear();
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false,
+          error: null,
+          syncStatus: 'idle',
+          lastSync: null
+        });
+        return { success: true };
+      }
+      
+      return { success: false, error: 'Eliminazione fallita' };
+      
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Eliminazione account fallita'
       };
     }
   }
