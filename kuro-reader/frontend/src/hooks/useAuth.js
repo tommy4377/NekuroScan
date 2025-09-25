@@ -4,6 +4,7 @@ import { config } from '../config';
 
 const API_URL = `${config.API_URL}/api`;
 
+// Configurazione axios
 axios.defaults.baseURL = API_URL;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
@@ -33,7 +34,7 @@ const useAuth = create((set, get) => ({
         isAuthenticated: true
       });
       
-      // Verify token is still valid
+      // Verifica validità token
       try {
         const response = await axios.get('/auth/me');
         if (response.data.user) {
@@ -41,7 +42,8 @@ const useAuth = create((set, get) => ({
           localStorage.setItem('user', JSON.stringify(response.data.user));
         }
       } catch (error) {
-        // Token expired, clear auth
+        console.error('Token validation failed:', error);
+        // Token scaduto, pulisci auth
         get().logout();
       }
     }
@@ -50,48 +52,71 @@ const useAuth = create((set, get) => ({
   // Login
   login: async (emailOrUsername, password) => {
     set({ loading: true, error: null });
+    
     try {
+      // Validazione input
+      if (!emailOrUsername || !password) {
+        throw new Error('Email/Username e password sono richiesti');
+      }
+      
       const response = await axios.post('/auth/login', {
-        emailOrUsername,
-        password
+        emailOrUsername: emailOrUsername.trim(),
+        password: password
       });
       
       const { user, token } = response.data;
       
-      // Save to localStorage
+      // Salva in localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       
-      // Set axios header
+      // Configura axios header
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       set({
         user,
         token,
         isAuthenticated: true,
-        loading: false
+        loading: false,
+        error: null
       });
       
-      // Sync library data from server
-      await get().syncFromServer();
+      // Sincronizza dati dal server
+      try {
+        await get().syncFromServer();
+      } catch (syncError) {
+        console.error('Sync error:', syncError);
+      }
       
       return { success: true };
+      
     } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || 'Login fallito';
       set({
-        error: error.response?.data?.message || 'Login fallito',
+        error: errorMessage,
         loading: false
       });
-      return { success: false, error: error.response?.data?.message };
+      return { success: false, error: errorMessage };
     }
   },
 
   // Register
   register: async (username, email, password) => {
     set({ loading: true, error: null });
+    
     try {
+      // Validazione
+      if (!username || !email || !password) {
+        throw new Error('Tutti i campi sono richiesti');
+      }
+      
+      if (password.length < 6) {
+        throw new Error('La password deve essere di almeno 6 caratteri');
+      }
+      
       const response = await axios.post('/auth/register', {
-        username,
-        email,
+        username: username.trim(),
+        email: email.trim().toLowerCase(),
         password
       });
       
@@ -106,32 +131,44 @@ const useAuth = create((set, get) => ({
         user,
         token,
         isAuthenticated: true,
-        loading: false
+        loading: false,
+        error: null
       });
       
       // Sync local data to server
-      await get().syncToServer();
+      try {
+        await get().syncToServer();
+      } catch (syncError) {
+        console.error('Sync error:', syncError);
+      }
       
       return { success: true };
+      
     } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || 'Registrazione fallita';
       set({
-        error: error.response?.data?.message || 'Registrazione fallita',
+        error: errorMessage,
         loading: false
       });
-      return { success: false, error: error.response?.data?.message };
+      return { success: false, error: errorMessage };
     }
   },
 
   // Logout
   logout: () => {
+    // Pulisci localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    
+    // Rimuovi header Authorization
     delete axios.defaults.headers.common['Authorization'];
     
+    // Reset stato
     set({
       user: null,
       token: null,
-      isAuthenticated: false
+      isAuthenticated: false,
+      error: null
     });
   },
 
@@ -144,7 +181,6 @@ const useAuth = create((set, get) => ({
       const response = await axios.put('/user/profile', profileData);
       const updatedUser = response.data.user;
       
-      // Aggiorna stato locale
       localStorage.setItem('user', JSON.stringify(updatedUser));
       set({ user: updatedUser });
       
@@ -155,6 +191,18 @@ const useAuth = create((set, get) => ({
         success: false, 
         error: error.response?.data?.message || 'Errore aggiornamento profilo' 
       };
+    }
+  },
+
+  // Persist local data before logout
+  persistLocalData: async () => {
+    const token = get().token;
+    if (!token) return;
+    
+    try {
+      await get().syncToServer();
+    } catch (error) {
+      console.error('Error persisting data:', error);
     }
   },
 
@@ -172,27 +220,19 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Sync library data to server
+  // Sync to server
   syncToServer: async () => {
     const token = get().token;
     if (!token) return;
     
     try {
-      // Sync user profile data
-      const user = get().user;
-      if (user && user.avatar) {
-        await axios.put('/user/profile', {
-          avatar: user.avatar,
-          bio: user.bio,
-          isPublic: user.isPublic
-        });
-      }
-      
       // Sync favorites
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-      await axios.post('/user/favorites', { favorites });
+      if (favorites.length > 0) {
+        await axios.post('/user/favorites', { favorites });
+      }
       
-      // Sync library (reading, completed, history)
+      // Sync library
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       const completed = JSON.parse(localStorage.getItem('completed') || '[]');
       const history = JSON.parse(localStorage.getItem('history') || '[]');
@@ -206,12 +246,14 @@ const useAuth = create((set, get) => ({
       // Sync reading progress
       const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
       for (const [mangaUrl, progress] of Object.entries(readingProgress)) {
-        await axios.post('/user/progress', {
-          mangaUrl,
-          mangaTitle: progress.chapterTitle || '',
-          chapterIndex: progress.chapterIndex,
-          pageIndex: progress.page || 0
-        });
+        if (progress.chapterIndex !== undefined) {
+          await axios.post('/user/progress', {
+            mangaUrl,
+            mangaTitle: progress.chapterTitle || '',
+            chapterIndex: progress.chapterIndex,
+            pageIndex: progress.page || 0
+          });
+        }
       }
       
     } catch (error) {
@@ -219,54 +261,58 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Sync library data from server
+  // Sync from server
   syncFromServer: async () => {
     const token = get().token;
     if (!token) return;
     
     try {
       const response = await axios.get('/user/data');
-      const { favorites, reading, completed, history, readingProgress, followed } = response.data;
+      const { favorites, reading, completed, history, readingProgress } = response.data;
       
-      // Merge with local data
-      const localFavorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-      const mergedFavorites = [...favorites];
-      localFavorites.forEach(local => {
-        if (!mergedFavorites.find(f => f.url === local.url)) {
-          mergedFavorites.push(local);
-        }
-      });
-      localStorage.setItem('favorites', JSON.stringify(mergedFavorites));
+      // Merge con dati locali
+      if (favorites && favorites.length > 0) {
+        const localFavorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+        const mergedFavorites = [...favorites];
+        localFavorites.forEach(local => {
+          if (!mergedFavorites.find(f => f.url === local.url)) {
+            mergedFavorites.push(local);
+          }
+        });
+        localStorage.setItem('favorites', JSON.stringify(mergedFavorites));
+      }
       
       // Update library
-      if (reading.length > 0) {
+      if (reading && reading.length > 0) {
         localStorage.setItem('reading', JSON.stringify(reading));
       }
-      if (completed.length > 0) {
+      if (completed && completed.length > 0) {
         localStorage.setItem('completed', JSON.stringify(completed));
       }
-      if (history.length > 0) {
+      if (history && history.length > 0) {
         localStorage.setItem('history', JSON.stringify(history));
       }
       
       // Update reading progress
-      const localProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-      readingProgress.forEach(progress => {
-        localProgress[progress.mangaUrl] = {
-          chapterId: progress.mangaUrl,
-          chapterIndex: progress.chapterIndex,
-          page: progress.pageIndex,
-          timestamp: progress.updatedAt
-        };
-      });
-      localStorage.setItem('readingProgress', JSON.stringify(localProgress));
+      if (readingProgress && readingProgress.length > 0) {
+        const localProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+        readingProgress.forEach(progress => {
+          localProgress[progress.mangaUrl] = {
+            chapterId: progress.mangaUrl,
+            chapterIndex: progress.chapterIndex,
+            page: progress.pageIndex,
+            timestamp: progress.updatedAt
+          };
+        });
+        localStorage.setItem('readingProgress', JSON.stringify(localProgress));
+      }
       
     } catch (error) {
       console.error('Sync from server error:', error);
     }
   },
 
-  // Sync favorites to server
+  // Sync favorites
   syncFavorites: async (favorites) => {
     const token = get().token;
     if (!token) return;
@@ -278,13 +324,13 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Auto-sync periodically when logged in
+  // Auto-sync periodically
   startAutoSync: () => {
     const syncInterval = setInterval(() => {
       if (get().isAuthenticated) {
         get().syncToServer();
       }
-    }, 60000); // Sync every minute
+    }, 60000); // Sync ogni minuto
     
     return () => clearInterval(syncInterval);
   }

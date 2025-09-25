@@ -2,13 +2,15 @@ import React, { useEffect, useState } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
   Button, useToast, Skeleton, IconButton, Tabs, TabList, Tab,
-  TabPanels, TabPanel, Badge, Icon as ChakraIcon, useBreakpointValue
+  TabPanels, TabPanel, Badge, Icon as ChakraIcon, useBreakpointValue,
+  Divider
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
   FaFire, FaClock, FaStar, FaBookOpen, FaHeart,
-  FaChevronRight, FaSync, FaTrophy, FaDragon, FaHistory
+  FaChevronRight, FaSync, FaTrophy, FaDragon, FaHistory,
+  FaBook
 } from 'react-icons/fa';
 import { GiDragonHead } from 'react-icons/gi';
 import { BiBook } from 'react-icons/bi';
@@ -25,14 +27,17 @@ function Home() {
   
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
   
-  const [latest, setLatest] = useState([]);  // Ultimi capitoli aggiunti al sito
-  const [recentRead, setRecentRead] = useState([]);  // Ultimi letti dall'utente
-  const [popular, setPopular] = useState([]);
+  // Stati separati per contenuti diversi
+  const [latestChapters, setLatestChapters] = useState([]); // Ultimi capitoli aggiunti
+  const [mostRead, setMostRead] = useState([]); // Manga più letti
   const [topManga, setTopManga] = useState([]);
   const [topManhwa, setTopManhwa] = useState([]);
   const [topManhua, setTopManhua] = useState([]);
   const [topOneshot, setTopOneshot] = useState([]);
+  
+  // Stati utente
   const [continueReading, setContinueReading] = useState([]);
+  const [recentHistory, setRecentHistory] = useState([]);
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -44,8 +49,9 @@ function Home() {
   const loadAllContent = async () => {
     setLoading(true);
     try {
-      const [l, p, m, wh, wu, os] = await Promise.all([
-        statsAPI.getLatestUpdates(includeAdult, 1),  // Ultimi capitoli dal sito
+      // Carica dati dal server
+      const [latest, popular, manga, manhwa, manhua, oneshot] = await Promise.all([
+        statsAPI.getLatestUpdates(includeAdult, 1),
         statsAPI.getMostFavorites(includeAdult, 1),
         statsAPI.getTopByType('manga', includeAdult, 1),
         statsAPI.getTopByType('manhwa', includeAdult, 1),
@@ -53,20 +59,20 @@ function Home() {
         statsAPI.getTopByType('oneshot', includeAdult, 1),
       ]);
       
-      setLatest(l.results || []);
-      setPopular(p.results || []);
-      setTopManga(m.results || []);
-      setTopManhwa(wh.results || []);
-      setTopManhua(wu.results || []);
-      setTopOneshot(os.results || []);
+      // Separa ultimi capitoli con badge dai più letti
+      setLatestChapters(latest.results || []);
+      setMostRead(popular.results || []);
+      setTopManga(manga.results || []);
+      setTopManhwa(manhwa.results || []);
+      setTopManhua(manhua.results || []);
+      setTopOneshot(oneshot.results || []);
       
-      // Carica i manga in lettura dall'utente
+      // Carica dati utente locali
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       setContinueReading(reading.slice(0, 10));
       
-      // Carica la cronologia recente dell'utente
       const history = JSON.parse(localStorage.getItem('history') || '[]');
-      setRecentRead(history.slice(0, 10));
+      setRecentHistory(history.slice(0, 10));
       
     } catch (error) {
       console.error('Error loading home content:', error);
@@ -107,7 +113,8 @@ function Home() {
     }
   };
 
-  const ContentSection = ({ title, icon, items, color = 'purple', section, showLatestBadge = false }) => (
+  // Componente per sezioni generiche SENZA badge capitolo
+  const ContentSection = ({ title, icon, items, color = 'purple', section, showCount = true }) => (
     <VStack align="stretch" spacing={4}>
       <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
         <HStack justify="space-between" mb={4}>
@@ -117,7 +124,9 @@ function Home() {
             </Box>
             <VStack align="start" spacing={0}>
               <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
-              <Text fontSize="xs" color="gray.400">{items.length} disponibili</Text>
+              {showCount && (
+                <Text fontSize="xs" color="gray.400">{items.length} disponibili</Text>
+              )}
             </VStack>
           </HStack>
           <Button
@@ -141,33 +150,16 @@ function Home() {
         ) : items.length > 0 ? (
           <Box overflowX="auto" pb={2}>
             <HStack spacing={{ base: 3, md: 4 }} minW="max-content">
-              {items.map((item, i) => (
+              {items.slice(0, 10).map((item, i) => (
                 <MotionBox
                   key={`${item.url}-${i}`}
                   minW={{ base: '140px', md: '150px' }}
                   maxW={{ base: '140px', md: '150px' }}
-                  position="relative"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(i * 0.03, 0.5) }}
                 >
-                  <MangaCard manga={item} hideSource showLatest={false} />
-                  {showLatestBadge && item.latestChapter && (
-                    <Badge
-                      position="absolute"
-                      bottom={2}
-                      left={2}
-                      right={2}
-                      colorScheme="blue"
-                      fontSize="xs"
-                      textAlign="center"
-                    >
-                      Cap. {item.latestChapter}
-                    </Badge>
-                  )}
-                  {item.isAdult && (
-                    <Badge position="absolute" top={2} right={2} colorScheme="pink" fontSize="xs">18+</Badge>
-                  )}
+                  <MangaCard manga={item} hideSource showChapterBadge={false} />
                 </MotionBox>
               ))}
             </HStack>
@@ -181,9 +173,64 @@ function Home() {
     </VStack>
   );
 
+  // Componente dedicato per ultimi capitoli CON badge
+  const LatestChaptersSection = () => (
+    <VStack align="stretch" spacing={4}>
+      <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
+        <HStack justify="space-between" mb={4}>
+          <HStack spacing={3}>
+            <Box p={2} bg="blue.500" borderRadius="lg">
+              <FaClock color="white" size={20} />
+            </Box>
+            <VStack align="start" spacing={0}>
+              <Heading size={{ base: 'sm', md: 'md' }}>Ultimi Capitoli Aggiunti</Heading>
+              <Text fontSize="xs" color="gray.400">{latestChapters.length} aggiornamenti</Text>
+            </VStack>
+          </HStack>
+          <Button
+            variant="ghost"
+            size="sm"
+            rightIcon={<FaChevronRight />}
+            onClick={() => handleViewAll('latest')}
+            color="blue.400"
+            _hover={{ bg: 'blue.900' }}
+          >
+            Vedi tutti
+          </Button>
+        </HStack>
+
+        {loading ? (
+          <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={4}>
+            {[...Array(10)].map((_, i) => (
+              <Skeleton key={i} height="280px" borderRadius="lg" />
+            ))}
+          </SimpleGrid>
+        ) : latestChapters.length > 0 ? (
+          <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={4}>
+            {latestChapters.slice(0, 10).map((item, i) => (
+              <MotionBox
+                key={`latest-${item.url}-${i}`}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(i * 0.03, 0.5) }}
+              >
+                <MangaCard manga={item} hideSource showChapterBadge={true} />
+              </MotionBox>
+            ))}
+          </SimpleGrid>
+        ) : (
+          <Box textAlign="center" py={8}>
+            <Text color="gray.500">Nessun aggiornamento disponibile</Text>
+          </Box>
+        )}
+      </Box>
+    </VStack>
+  );
+
   return (
     <Container maxW="container.xl" py={{ base: 4, md: 8 }}>
       <VStack spacing={{ base: 6, md: 8 }} align="stretch">
+        {/* Header */}
         <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
           <HStack justify="space-between" flexWrap="wrap" spacing={4}>
             <VStack align="start" spacing={1}>
@@ -199,7 +246,7 @@ function Home() {
                 size="sm"
                 onClick={() => setIncludeAdult(!includeAdult)}
               >
-                {includeAdult ? '🔞 Adult Attivo' : 'Solo Normali'}
+                {includeAdult ? '🔞 Adult ON' : '🔞 Adult OFF'}
               </Button>
               <IconButton
                 icon={<FaSync />}
@@ -213,6 +260,7 @@ function Home() {
           </HStack>
         </Box>
 
+        {/* Sezioni utente */}
         {continueReading.length > 0 && (
           <ContentSection
             title="Continua a leggere"
@@ -223,79 +271,87 @@ function Home() {
           />
         )}
 
-        {recentRead.length > 0 && (
+        {recentHistory.length > 0 && (
           <ContentSection
             title="Letti di recente"
             icon={FaHistory}
-            items={recentRead}
+            items={recentHistory}
             color="blue"
             section="history"
           />
         )}
 
+        {/* Sezione ultimi capitoli con badge */}
+        <LatestChaptersSection />
+
+        <Divider borderColor="gray.700" />
+
+        {/* Sezione più letti SENZA badge */}
+        <ContentSection
+          title="Manga Più Letti"
+          icon={FaFire}
+          items={mostRead}
+          color="pink"
+          section="popular"
+        />
+
+        <Divider borderColor="gray.700" />
+
+        {/* Tabs per categorie */}
         <Box bg="gray.800" borderRadius="xl" p={{ base: 3, md: 4 }}>
           <Tabs colorScheme="purple" variant="soft-rounded">
             <TabList bg="gray.900" p={2} borderRadius="lg" overflowX="auto">
-              <Tab><HStack spacing={2}><FaClock /><Text display={{ base:'none', sm:'block' }}>Ultimi Capitoli</Text></HStack></Tab>
-              <Tab><HStack spacing={2}><FaHeart /><Text display={{ base:'none', sm:'block' }}>Più letti</Text></HStack></Tab>
-              <Tab><HStack spacing={2}><FaTrophy /><Text display={{ base:'none', sm:'block' }}>Top Series</Text></HStack></Tab>
+              <Tab><HStack spacing={2}><FaTrophy /><Text display={{ base:'none', sm:'block' }}>Top Manga</Text></HStack></Tab>
+              <Tab><HStack spacing={2}><BiBook /><Text display={{ base:'none', sm:'block' }}>Top Manhwa</Text></HStack></Tab>
+              <Tab><HStack spacing={2}><FaDragon /><Text display={{ base:'none', sm:'block' }}>Top Manhua</Text></HStack></Tab>
+              <Tab><HStack spacing={2}><FaBook /><Text display={{ base:'none', sm:'block' }}>Top Oneshot</Text></HStack></Tab>
             </TabList>
             <TabPanels>
               <TabPanel px={0} pt={6}>
                 <ContentSection 
-                  title="Ultimi capitoli aggiunti" 
-                  icon={FaClock} 
-                  items={latest} 
-                  color="blue" 
-                  section="latest" 
-                  showLatestBadge 
+                  title="Top Manga" 
+                  icon={GiDragonHead} 
+                  items={topManga} 
+                  color="orange" 
+                  section="manga"
+                  showCount={false}
                 />
               </TabPanel>
               <TabPanel px={0} pt={6}>
                 <ContentSection 
-                  title="I più letti" 
-                  icon={FaHeart} 
-                  items={popular} 
-                  color="pink" 
-                  section="popular" 
+                  title="Top Manhwa" 
+                  icon={BiBook} 
+                  items={topManhwa} 
+                  color="purple" 
+                  section="manhwa"
+                  showCount={false}
                 />
               </TabPanel>
               <TabPanel px={0} pt={6}>
-                <VStack spacing={6} align="stretch">
-                  <ContentSection 
-                    title="Top Manga" 
-                    icon={GiDragonHead} 
-                    items={topManga} 
-                    color="orange" 
-                    section="manga" 
-                  />
-                  <ContentSection 
-                    title="Top Manhwa" 
-                    icon={BiBook} 
-                    items={topManhwa} 
-                    color="purple" 
-                    section="manhwa" 
-                  />
-                  <ContentSection 
-                    title="Top Manhua" 
-                    icon={FaDragon} 
-                    items={topManhua} 
-                    color="red" 
-                    section="manhua" 
-                  />
-                  <ContentSection 
-                    title="Top Oneshot" 
-                    icon={FaBookOpen} 
-                    items={topOneshot} 
-                    color="green" 
-                    section="oneshot" 
-                  />
-                </VStack>
+                <ContentSection 
+                  title="Top Manhua" 
+                  icon={FaDragon} 
+                  items={topManhua} 
+                  color="red" 
+                  section="manhua"
+                  showCount={false}
+                />
+              </TabPanel>
+              <TabPanel px={0} pt={6}>
+                <ContentSection 
+                  title="Top Oneshot" 
+                  icon={FaBookOpen} 
+                  items={topOneshot} 
+                  color="green" 
+                  section="oneshot"
+                  showCount={false}
+                />
               </TabPanel>
             </TabPanels>
           </Tabs>
         </Box>
 
+        {/* Footer Button Mobile */}
         {isMobile && (
           <Button 
             colorScheme="purple" 
