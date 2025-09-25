@@ -76,8 +76,9 @@ function Layout({ children }) {
 
 // Main App Component
 function App() {
-  const { initAuth, startAutoSync } = useAuth();
-  
+  const { initAuth, startAutoSync, user, isAuthenticated, syncToServer } = useAuth();
+  const location = useLocation();
+
   useEffect(() => {
     // Initialize auth
     initAuth();
@@ -87,22 +88,15 @@ function App() {
     
     // PWA Service Worker con auto-update
     if ('serviceWorker' in navigator) {
-      // Registra service worker
       navigator.serviceWorker.register('/sw.js').then(registration => {
         console.log('SW registered');
-        
-        // Check for updates every 30 seconds
         setInterval(() => {
           registration.update();
         }, 30000);
-        
-        // Listen for updates
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
-          
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // New update available
               if (window.confirm('Nuovo aggiornamento disponibile! Vuoi ricaricare?')) {
                 newWorker.postMessage({ type: 'SKIP_WAITING' });
                 window.location.reload();
@@ -113,8 +107,6 @@ function App() {
       }).catch(err => {
         console.error('SW registration failed:', err);
       });
-      
-      // Handle controller change
       let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!refreshing) {
@@ -123,8 +115,6 @@ function App() {
         }
       });
     }
-    
-    // Clear old cache periodically
     setInterval(() => {
       if ('caches' in window) {
         caches.keys().then(names => {
@@ -135,20 +125,15 @@ function App() {
           });
         });
       }
-    }, 60000); // Every minute
-    
+    }, 60000);
     return cleanup;
   }, []);
 
-  // PWA install prompt
   useEffect(() => {
     let deferredPrompt;
-    
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      
-      // Auto-show install prompt after 5 seconds
       setTimeout(() => {
         if (deferredPrompt) {
           deferredPrompt.prompt();
@@ -160,17 +145,14 @@ function App() {
     });
   }, []);
 
-  // Auto save on route change
-useEffect(() => {
-  return () => {
-    // Save data when leaving the app or changing routes
-    if (user && isAuthenticated) {
-      syncToServer();
-    }
-  };
-}, [location.pathname, user, isAuthenticated]);
-
-  
+  // ✅ Auto save on route change
+  useEffect(() => {
+    return () => {
+      if (user && isAuthenticated) {
+        syncToServer();
+      }
+    };
+  }, [location.pathname, user, isAuthenticated, syncToServer]);
 
   const routes = [
     { path: '/', element: <Welcome />, layout: false },
