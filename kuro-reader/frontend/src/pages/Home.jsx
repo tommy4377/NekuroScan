@@ -358,32 +358,7 @@ function Home() {
           />
         )}
 
-        {/* Sezioni principali - Trending e Latest separati */}
-        <VStack spacing={6} align="stretch">
-          {/* Capitoli di tendenza */}
-          {content.trending.length > 0 && (
-            <ContentSection 
-              title="Capitoli di tendenza" 
-              icon={FaFire} 
-              items={content.trending} 
-              color="orange" 
-              viewAllPath="/popular"
-              showLatestChapter={true}
-            />
-          )}
 
-          {/* Ultimi capitoli aggiunti */}
-          {content.latest.length > 0 && (
-            <ContentSection 
-              title="Ultimi capitoli aggiunti" 
-              icon={FaNewspaper} 
-              items={content.latest} 
-              color="blue" 
-              viewAllPath="/latest"
-              showLatestChapter={true}
-            />
-          )}
-        </VStack>
 
         {/* Tabs per contenuti organizzati */}
         <Box bg="gray.800" borderRadius="xl" p={{ base: 3, md: 4 }}>
@@ -427,16 +402,33 @@ function Home() {
             </TabList>
             
             <TabPanels>
-              {/* Tab Aggiornamenti - Ultimi capitoli in alto */}
+              {/* Tab Aggiornamenti - Trending e Latest insieme */}
               <TabPanel px={0} pt={6}>
-                <ContentSection 
-                  title="Ultimi capitoli" 
-                  icon={FaClock} 
-                  items={content.latest} 
-                  color="blue" 
-                  viewAllPath="/latest"
-                  showLatestChapter={true}
-                />
+                <VStack spacing={6} align="stretch">
+                  {/* Capitoli di tendenza */}
+                  {content.trending.length > 0 && (
+                    <ContentSection 
+                      title="Capitoli di tendenza" 
+                      icon={FaFire} 
+                      items={content.trending} 
+                      color="orange" 
+                      viewAllPath="/popular"
+                      showLatestChapter={true}
+                    />
+                  )}
+                  
+                  {/* Ultimi capitoli aggiunti */}
+                  {content.latest.length > 0 && (
+                    <ContentSection 
+                      title="Ultimi capitoli aggiunti" 
+                      icon={FaClock} 
+                      items={content.latest} 
+                      color="blue" 
+                      viewAllPath="/latest"
+                      showLatestChapter={true}
+                    />
+                  )}
+                </VStack>
               </TabPanel>
               
               {/* Tab Popolari */}
