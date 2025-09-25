@@ -1,4 +1,3 @@
-// frontend/src/pages/Home.jsx
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
@@ -11,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   FaFire, FaClock, FaStar, FaBookOpen, FaHeart,
   FaChevronRight, FaSync, FaTrophy, FaDragon, FaArrowRight,
-  FaNewspaper, FaGlobe
+  FaNewspaper
 } from 'react-icons/fa';
 import { GiDragonHead } from 'react-icons/gi';
 import { BiBook } from 'react-icons/bi';
@@ -22,6 +21,23 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 
 const MotionBox = motion(Box);
 
+// Helper per pulire i numeri dei capitoli
+const cleanChapterNumber = (chapter) => {
+  if (!chapter) return '';
+  
+  let clean = chapter
+    .replace(/^(cap\.|capitolo|chapter|ch\.)\s*/i, '')
+    .replace(/^vol\.\s*\d+\s*-\s*/i, '')
+    .trim();
+  
+  const match = clean.match(/^(\d+(?:\.\d+)?)/);
+  if (match) {
+    return match[1];
+  }
+  
+  return clean;
+};
+
 function Home() {
   const navigate = useNavigate();
   const toast = useToast();
@@ -29,9 +45,10 @@ function Home() {
   
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
   
+  // Stati per i contenuti
   const [content, setContent] = useState({
     trending: [],      // Capitoli di tendenza
-    recentChapters: [], // Ultimi capitoli aggiunti
+    latest: [],        // Ultimi capitoli aggiunti
     popular: [],       // I più letti
     topManga: [],
     topManhwa: [],
@@ -45,6 +62,7 @@ function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
+  // Carica tutti i contenuti
   const loadAllContent = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -53,7 +71,7 @@ function Home() {
       // Carica contenuti in parallelo
       const [
         trendingRes,
-        recentChaptersRes,
+        latestRes, 
         popularRes, 
         mangaRes, 
         manhwaRes, 
@@ -61,7 +79,7 @@ function Home() {
         oneshotRes
       ] = await Promise.allSettled([
         apiManager.getTrending(includeAdult),          // Capitoli di tendenza
-        apiManager.getRecentChapters(includeAdult),    // Ultimi capitoli aggiunti  
+        statsAPI.getLatestUpdates(includeAdult, 1),    // Ultimi capitoli aggiunti  
         statsAPI.getMostFavorites(includeAdult, 1),    // I più letti
         statsAPI.getTopByType('manga', includeAdult, 1),
         statsAPI.getTopByType('manhwa', includeAdult, 1),
@@ -72,9 +90,15 @@ function Home() {
       const processResult = (result, fallback = []) => {
         if (result.status === 'fulfilled') {
           if (Array.isArray(result.value)) {
-            return result.value.slice(0, 15);
+            return result.value.slice(0, 15).map(item => ({
+              ...item,
+              latestChapter: cleanChapterNumber(item.latestChapter)
+            }));
           } else if (result.value?.results) {
-            return result.value.results.slice(0, 15);
+            return result.value.results.slice(0, 15).map(item => ({
+              ...item,
+              latestChapter: cleanChapterNumber(item.latestChapter)
+            }));
           }
         }
         return fallback;
@@ -107,7 +131,7 @@ function Home() {
       
       setContent({
         trending: processResult(trendingRes),
-        recentChapters: processResult(recentChaptersRes),
+        latest: processResult(latestRes),
         popular: processResult(popularRes),
         topManga: processResult(mangaRes),
         topManhwa: processResult(manhwaRes),
@@ -142,8 +166,8 @@ function Home() {
     await loadAllContent();
   };
 
-  const navigateToSection = (path, state = {}) => {
-    navigate(path, { state: { ...state, includeAdult } });
+  const navigateToSection = (path) => {
+    navigate(path, { state: { includeAdult } });
   };
 
   const ContentSection = ({ 
@@ -152,7 +176,6 @@ function Home() {
     items, 
     color = 'purple', 
     viewAllPath,
-    viewAllState = {},
     showLatestChapter = false,
     showProgress = false,
     emptyMessage = 'Nessun contenuto disponibile'
@@ -213,7 +236,7 @@ function Home() {
                 variant="ghost"
                 size="sm"
                 rightIcon={<FaChevronRight />}
-                onClick={() => navigateToSection(viewAllPath, viewAllState)}
+                onClick={() => navigateToSection(viewAllPath)}
                 color={`${color}.400`}
                 _hover={{ bg: `${color}.900` }}
               >
@@ -335,12 +358,12 @@ function Home() {
           />
         )}
 
-        {/* Sezioni principali separate */}
+        {/* Sezioni principali - Trending e Latest separati */}
         <VStack spacing={6} align="stretch">
           {/* Capitoli di tendenza */}
           {content.trending.length > 0 && (
             <ContentSection 
-              title="🔥 Capitoli di tendenza" 
+              title="Capitoli di tendenza" 
               icon={FaFire} 
               items={content.trending} 
               color="orange" 
@@ -350,25 +373,13 @@ function Home() {
           )}
 
           {/* Ultimi capitoli aggiunti */}
-          {content.recentChapters.length > 0 && (
+          {content.latest.length > 0 && (
             <ContentSection 
-              title="📰 Ultimi capitoli aggiunti" 
+              title="Ultimi capitoli aggiunti" 
               icon={FaNewspaper} 
-              items={content.recentChapters} 
+              items={content.latest} 
               color="blue" 
               viewAllPath="/latest"
-              showLatestChapter={true}
-            />
-          )}
-
-          {/* I più letti */}
-          {content.popular.length > 0 && (
-            <ContentSection 
-              title="❤️ I più letti del momento" 
-              icon={FaHeart} 
-              items={content.popular} 
-              color="pink" 
-              viewAllPath="/popular"
               showLatestChapter={true}
             />
           )}
@@ -389,67 +400,69 @@ function Home() {
             >
               <Tab>
                 <HStack spacing={2}>
-                  <FaTrophy />
-                  <Text display={{ base: 'none', sm: 'block' }}>Top Series</Text>
+                  <FaHeart />
+                  <Text display={{ base: 'none', sm: 'block' }}>Popolari</Text>
                 </HStack>
               </Tab>
               <Tab>
                 <HStack spacing={2}>
-                  <FaGlobe />
-                  <Text display={{ base: 'none', sm: 'block' }}>Per Tipo</Text>
+                  <FaTrophy />
+                  <Text display={{ base: 'none', sm: 'block' }}>Top Series</Text>
                 </HStack>
               </Tab>
               {content.recommendations.length > 0 && (
                 <Tab>
                   <HStack spacing={2}>
                     <FaStar />
-                    <Text display={{ base: 'none', sm: 'block' }}>Per Te</Text>
+                    <Text display={{ base: 'none', sm: 'block' }}>Per te</Text>
                   </HStack>
                 </Tab>
               )}
             </TabList>
             
             <TabPanels>
+              {/* Tab Popolari */}
+              <TabPanel px={0} pt={6}>
+                <ContentSection 
+                  title="I più letti del momento" 
+                  icon={FaHeart} 
+                  items={content.popular} 
+                  color="pink" 
+                  viewAllPath="/popular"
+                  showLatestChapter={true}
+                />
+              </TabPanel>
+              
               {/* Tab Top Series */}
               <TabPanel px={0} pt={6}>
                 <VStack spacing={6} align="stretch">
                   <ContentSection 
-                    title="🐉 Top Manga" 
+                    title="Top Manga" 
                     icon={GiDragonHead} 
                     items={content.topManga} 
                     color="orange" 
                     viewAllPath="/categories"
-                    viewAllState={{ type: 'manga' }}
                   />
                   <ContentSection 
-                    title="📚 Top Manhwa" 
+                    title="Top Manhwa" 
                     icon={BiBook} 
                     items={content.topManhwa} 
                     color="purple" 
                     viewAllPath="/categories"
-                    viewAllState={{ type: 'manhwa' }}
                   />
-                </VStack>
-              </TabPanel>
-              
-              {/* Tab Per Tipo */}
-              <TabPanel px={0} pt={6}>
-                <VStack spacing={6} align="stretch">
                   <ContentSection 
-                    title="🏮 Top Manhua" 
+                    title="Top Manhua" 
                     icon={FaDragon} 
                     items={content.topManhua} 
                     color="red" 
                     viewAllPath="/categories"
-                    viewAllState={{ type: 'manhua' }}
                   />
                   <ContentSection 
-                    title="📖 Top Oneshot" 
+                    title="Top Oneshot" 
                     icon={FaBookOpen} 
                     items={content.topOneshot} 
                     color="green" 
                     viewAllPath="/categories"
-                    viewAllState={{ type: 'oneshot' }}
                   />
                 </VStack>
               </TabPanel>
@@ -458,7 +471,7 @@ function Home() {
               {content.recommendations.length > 0 && (
                 <TabPanel px={0} pt={6}>
                   <ContentSection 
-                    title="⭐ Consigliati per te" 
+                    title="Consigliati per te" 
                     icon={FaStar} 
                     items={content.recommendations} 
                     color="yellow" 
