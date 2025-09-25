@@ -23,6 +23,7 @@ const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+const Trending = lazy(() => import('./pages/Trending'));
 
 import useAuth from './hooks/useAuth';
 

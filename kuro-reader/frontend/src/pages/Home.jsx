@@ -412,7 +412,7 @@ function Home() {
                       icon={FaFire} 
                       items={content.trending} 
                       color="orange" 
-                      viewAllPath="/popular"
+                      viewAllPath="/trending"
                       showLatestChapter={true}
                     />
                   )}

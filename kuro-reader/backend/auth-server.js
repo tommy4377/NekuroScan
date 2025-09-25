@@ -29,13 +29,13 @@ const prisma = new PrismaClient({
 const PORT = process.env.PORT || 10000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
-// Create uploads directory if not exists
+// Create uploads directory
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Multer configuration for file uploads
+// Multer configuration
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
@@ -47,83 +47,10 @@ const upload = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, GIF and WebP are allowed'));
+      cb(new Error('Invalid file type'));
     }
   }
 });
-
-// Initialize database tables if not exist
-async function initDatabase() {
-  try {
-    console.log('Checking database schema...');
-    
-    // Create tables if they don't exist
-    await prisma.$executeRaw`
-      CREATE TABLE IF NOT EXISTS "user_profile" (
-        "id" SERIAL PRIMARY KEY,
-        "userId" INTEGER UNIQUE NOT NULL,
-        "bio" TEXT,
-        "avatarUrl" TEXT,
-        "bannerUrl" TEXT,
-        "isPublic" BOOLEAN DEFAULT false,
-        "displayName" TEXT,
-        "socialLinks" JSONB,
-        "viewCount" INTEGER DEFAULT 0,
-        "badges" TEXT[] DEFAULT ARRAY[]::TEXT[],
-        "theme" TEXT DEFAULT 'default',
-        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE
-      );
-    `;
-    
-    await prisma.$executeRaw`
-      CREATE TABLE IF NOT EXISTS "user_follows" (
-        "id" SERIAL PRIMARY KEY,
-        "followerId" INTEGER NOT NULL,
-        "followingId" INTEGER NOT NULL,
-        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE("followerId", "followingId"),
-        FOREIGN KEY ("followerId") REFERENCES "user"("id") ON DELETE CASCADE,
-        FOREIGN KEY ("followingId") REFERENCES "user"("id") ON DELETE CASCADE
-      );
-    `;
-    
-    await prisma.$executeRaw`
-      CREATE TABLE IF NOT EXISTS "manga_notifications" (
-        "id" SERIAL PRIMARY KEY,
-        "userId" INTEGER NOT NULL,
-        "mangaUrl" TEXT NOT NULL,
-        "mangaTitle" TEXT NOT NULL,
-        "enabled" BOOLEAN DEFAULT true,
-        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE("userId", "mangaUrl"),
-        FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE
-      );
-    `;
-    
-    await prisma.$executeRaw`
-      CREATE TABLE IF NOT EXISTS "notifications" (
-        "id" SERIAL PRIMARY KEY,
-        "userId" INTEGER NOT NULL,
-        "type" TEXT NOT NULL,
-        "title" TEXT NOT NULL,
-        "message" TEXT NOT NULL,
-        "data" JSONB,
-        "read" BOOLEAN DEFAULT false,
-        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE
-      );
-    `;
-    
-    console.log('Database schema initialized successfully');
-  } catch (error) {
-    console.error('Database initialization error:', error);
-  }
-}
-
-// Initialize database on startup
-initDatabase();
 
 // CORS configuration
 const corsOrigins = process.env.NODE_ENV === 'production' 
@@ -139,8 +66,6 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Serve static files for uploads
 app.use('/uploads', express.static(uploadsDir));
 
 // Middleware per verificare il token
@@ -210,19 +135,39 @@ app.post('/api/auth/register', async (req, res) => {
       }
     });
 
-    // Create initial profile
-    try {
-      await prisma.$executeRaw`
-        INSERT INTO "user_profile" ("userId", "displayName", "isPublic", "avatarUrl", "bio")
-        VALUES (${user.id}, ${username}, false, '', '')
-        ON CONFLICT ("userId") DO NOTHING;
-      `;
-    } catch (e) {
-      console.log('Profile creation error:', e.message);
-    }
+    // Create initial profile with proper displayName
+    await prisma.user_profile.create({
+      data: {
+        userId: user.id,
+        displayName: username, // Use original case username
+        bio: '',
+        avatarUrl: '',
+        bannerUrl: '',
+        isPublic: false,
+        viewCount: 0,
+        badges: []
+      }
+    });
+
+    // Initialize empty favorites and library
+    await prisma.user_favorites.create({
+      data: {
+        userId: user.id,
+        favorites: '[]'
+      }
+    });
+
+    await prisma.user_library.create({
+      data: {
+        userId: user.id,
+        reading: '[]',
+        completed: '[]',
+        history: '[]'
+      }
+    });
 
     const token = jwt.sign(
-      { id: user.id, email: user.email }, 
+      { id: user.id, email: user.email, username: user.username }, 
       JWT_SECRET, 
       { expiresIn: '30d' }
     );
@@ -261,6 +206,11 @@ app.post('/api/auth/login', async (req, res) => {
           { email: normalized },
           { username: normalized }
         ]
+      },
+      include: {
+        profile: true,
+        favorites: true,
+        library: true
       }
     });
     
@@ -273,19 +223,8 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ message: 'Credenziali non valide' });
     }
 
-    // Get profile
-    let profile = null;
-    try {
-      const profileResult = await prisma.$queryRaw`
-        SELECT * FROM "user_profile" WHERE "userId" = ${user.id} LIMIT 1;
-      `;
-      profile = profileResult[0] || null;
-    } catch (e) {
-      console.log('Profile fetch error');
-    }
-
     const token = jwt.sign(
-      { id: user.id, email: user.email }, 
+      { id: user.id, email: user.email, username: user.username }, 
       JWT_SECRET, 
       { expiresIn: '30d' }
     );
@@ -295,7 +234,7 @@ app.post('/api/auth/login', async (req, res) => {
         id: user.id, 
         username: user.username, 
         email: user.email,
-        profile
+        profile: user.profile
       }, 
       token 
     });
@@ -306,26 +245,18 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Get current user with profile
+// Get current user
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ 
-      where: { id: req.user.id }
+      where: { id: req.user.id },
+      include: {
+        profile: true
+      }
     });
     
     if (!user) {
       return res.status(404).json({ message: 'Utente non trovato' });
-    }
-    
-    // Get profile
-    let profile = null;
-    try {
-      const profileResult = await prisma.$queryRaw`
-        SELECT * FROM "user_profile" WHERE "userId" = ${user.id} LIMIT 1;
-      `;
-      profile = profileResult[0] || null;
-    } catch (e) {
-      console.log('Profile fetch error');
     }
     
     res.json({ 
@@ -334,7 +265,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
         username: user.username,
         email: user.email,
         createdAt: user.createdAt,
-        profile
+        profile: user.profile
       }
     });
     
@@ -350,19 +281,31 @@ app.put('/api/user/profile', authenticateToken, upload.fields([
   { name: 'banner', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const { bio, isPublic, displayName, socialLinks, theme } = req.body;
+    const { bio, isPublic, displayName, socialLinks } = req.body;
     const userId = req.user.id;
     
+    // Get existing profile
+    let profile = await prisma.user_profile.findUnique({
+      where: { userId }
+    });
+
     // Process uploaded images
-    let avatarUrl = null;
-    let bannerUrl = null;
+    let avatarUrl = profile?.avatarUrl || '';
+    let bannerUrl = profile?.bannerUrl || '';
     
     if (req.files?.avatar) {
       const avatarFile = req.files.avatar[0];
       const avatarFileName = `avatar_${userId}_${Date.now()}.webp`;
       const avatarPath = path.join(uploadsDir, avatarFileName);
       
-      // Resize and save avatar
+      // Delete old avatar if exists
+      if (profile?.avatarUrl && profile.avatarUrl.includes('/uploads/')) {
+        const oldPath = path.join(__dirname, profile.avatarUrl);
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      }
+      
       await sharp(avatarFile.buffer)
         .resize(300, 300, { fit: 'cover' })
         .webp({ quality: 90 })
@@ -376,7 +319,14 @@ app.put('/api/user/profile', authenticateToken, upload.fields([
       const bannerFileName = `banner_${userId}_${Date.now()}.webp`;
       const bannerPath = path.join(uploadsDir, bannerFileName);
       
-      // Resize and save banner
+      // Delete old banner if exists
+      if (profile?.bannerUrl && profile.bannerUrl.includes('/uploads/')) {
+        const oldPath = path.join(__dirname, profile.bannerUrl);
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      }
+      
       await sharp(bannerFile.buffer)
         .resize(1200, 400, { fit: 'cover' })
         .webp({ quality: 90 })
@@ -385,63 +335,48 @@ app.put('/api/user/profile', authenticateToken, upload.fields([
       bannerUrl = `/uploads/${bannerFileName}`;
     }
     
-    // Check if profile exists
-    const existingProfile = await prisma.$queryRaw`
-      SELECT * FROM "user_profile" WHERE "userId" = ${userId} LIMIT 1;
-    `;
-    
-    if (existingProfile[0]) {
-      // Update existing profile
-      const updateQuery = `
-        UPDATE "user_profile"
-        SET 
-          "bio" = $1,
-          "isPublic" = $2,
-          "displayName" = $3,
-          "theme" = $4,
-          "socialLinks" = $5::jsonb,
-          "updatedAt" = NOW()
-          ${avatarUrl ? ', "avatarUrl" = $6' : ''}
-          ${bannerUrl ? (avatarUrl ? ', "bannerUrl" = $7' : ', "bannerUrl" = $6') : ''}
-        WHERE "userId" = ${userId}
-      `;
-      
-      const params = [
-        bio || '',
-        isPublic === true || isPublic === 'true',
-        displayName || '',
-        theme || 'default',
-        socialLinks ? JSON.stringify(socialLinks) : '{}'
-      ];
-      
-      if (avatarUrl) params.push(avatarUrl);
-      if (bannerUrl) params.push(bannerUrl);
-      
-      await prisma.$executeRawUnsafe(updateQuery, ...params);
-    } else {
-      // Create new profile
-      await prisma.$executeRaw`
-        INSERT INTO "user_profile" 
-        ("userId", "bio", "avatarUrl", "bannerUrl", "isPublic", "displayName", "theme", "socialLinks")
-        VALUES (
-          ${userId},
-          ${bio || ''},
-          ${avatarUrl || ''},
-          ${bannerUrl || ''},
-          ${isPublic === true || isPublic === 'true'},
-          ${displayName || ''},
-          ${theme || 'default'},
-          ${socialLinks ? JSON.stringify(socialLinks) : '{}'}::jsonb
-        );
-      `;
+    // Parse socialLinks if string
+    let parsedSocialLinks = {};
+    if (socialLinks) {
+      try {
+        parsedSocialLinks = typeof socialLinks === 'string' ? JSON.parse(socialLinks) : socialLinks;
+      } catch (e) {
+        parsedSocialLinks = {};
+      }
     }
     
-    // Get updated profile
-    const updatedProfile = await prisma.$queryRaw`
-      SELECT * FROM "user_profile" WHERE "userId" = ${userId} LIMIT 1;
-    `;
+    if (profile) {
+      // Update existing profile
+      profile = await prisma.user_profile.update({
+        where: { userId },
+        data: {
+          bio: bio || profile.bio,
+          isPublic: isPublic === true || isPublic === 'true',
+          displayName: displayName || profile.displayName,
+          avatarUrl,
+          bannerUrl,
+          socialLinks: parsedSocialLinks,
+          updatedAt: new Date()
+        }
+      });
+    } else {
+      // Create new profile
+      profile = await prisma.user_profile.create({
+        data: {
+          userId,
+          bio: bio || '',
+          avatarUrl,
+          bannerUrl,
+          isPublic: isPublic === true || isPublic === 'true',
+          displayName: displayName || req.user.username,
+          socialLinks: parsedSocialLinks,
+          viewCount: 0,
+          badges: []
+        }
+      });
+    }
     
-    res.json({ success: true, profile: updatedProfile[0] });
+    res.json({ success: true, profile });
     
   } catch (error) {
     console.error('Update profile error:', error);
@@ -455,143 +390,62 @@ app.get('/api/profile/:username', async (req, res) => {
     const { username } = req.params;
     
     const user = await prisma.user.findUnique({
-      where: { username: username.toLowerCase() }
+      where: { username: username.toLowerCase() },
+      include: {
+        profile: true,
+        library: true,
+        favorites: true
+      }
     });
     
     if (!user) {
       return res.status(404).json({ message: 'Utente non trovato' });
     }
     
-    // Get profile
-    let profile = null;
-    try {
-      const profileResult = await prisma.$queryRaw`
-        SELECT * FROM "user_profile" WHERE "userId" = ${user.id} LIMIT 1;
-      `;
-      profile = profileResult[0];
-    } catch (e) {
-      console.log('Profile not found');
-    }
-    
-    if (!profile || !profile.isPublic) {
+    if (!user.profile || !user.profile.isPublic) {
       return res.status(403).json({ message: 'Profilo privato' });
     }
     
     // Increment view count
-    await prisma.$executeRaw`
-      UPDATE "user_profile" 
-      SET "viewCount" = "viewCount" + 1 
-      WHERE "userId" = ${user.id};
-    `;
-    
-    // Get library data
-    const library = await prisma.user_library.findUnique({
-      where: { userId: user.id }
+    await prisma.user_profile.update({
+      where: { id: user.profile.id },
+      data: { viewCount: user.profile.viewCount + 1 }
     });
     
-    const favorites = await prisma.user_favorites.findUnique({
-      where: { userId: user.id }
-    });
+    // Parse library data
+    const reading = JSON.parse(user.library?.reading || '[]').slice(0, 12);
+    const completed = JSON.parse(user.library?.completed || '[]').slice(0, 12);
+    const favorites = JSON.parse(user.favorites?.favorites || '[]').slice(0, 12);
     
     // Get follower count
-    const followers = await prisma.$queryRaw`
-      SELECT COUNT(*) as count FROM "user_follows" WHERE "followingId" = ${user.id};
-    `;
-    
-    const reading = JSON.parse(library?.reading || '[]').slice(0, 12);
-    const completed = JSON.parse(library?.completed || '[]').slice(0, 12);
-    const favs = JSON.parse(favorites?.favorites || '[]').slice(0, 12);
+    const followersCount = await prisma.user_follows.count({
+      where: { followingId: user.id }
+    });
     
     res.json({
       username: user.username,
-      displayName: profile.displayName || user.username,
-      bio: profile.bio,
-      avatarUrl: profile.avatarUrl,
-      bannerUrl: profile.bannerUrl,
-      badges: profile.badges || [],
-      theme: profile.theme || 'default',
+      displayName: user.profile.displayName || user.username,
+      bio: user.profile.bio,
+      avatarUrl: user.profile.avatarUrl,
+      bannerUrl: user.profile.bannerUrl,
+      badges: user.profile.badges || [],
       stats: {
         totalRead: reading.length + completed.length,
-        favorites: favs.length,
+        favorites: favorites.length,
         completed: completed.length,
-        views: profile.viewCount || 0,
-        followers: parseInt(followers[0]?.count || 0)
+        views: user.profile.viewCount,
+        followers: followersCount
       },
       reading,
       completed,
-      favorites: favs,
-      socialLinks: profile.socialLinks || {},
+      favorites,
+      socialLinks: user.profile.socialLinks || {},
       joinedAt: user.createdAt
     });
     
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ message: 'Errore recupero profilo' });
-  }
-});
-
-// =================== NOTIFICATION ENDPOINTS ===================
-
-// Toggle manga notifications
-app.post('/api/notifications/manga', authenticateToken, async (req, res) => {
-  try {
-    const { mangaUrl, mangaTitle, enabled } = req.body;
-    const userId = req.user.id;
-    
-    if (enabled) {
-      await prisma.$executeRaw`
-        INSERT INTO "manga_notifications" ("userId", "mangaUrl", "mangaTitle", "enabled")
-        VALUES (${userId}, ${mangaUrl}, ${mangaTitle}, true)
-        ON CONFLICT ("userId", "mangaUrl") 
-        DO UPDATE SET "enabled" = true;
-      `;
-    } else {
-      await prisma.$executeRaw`
-        DELETE FROM "manga_notifications" 
-        WHERE "userId" = ${userId} AND "mangaUrl" = ${mangaUrl};
-      `;
-    }
-    
-    res.json({ success: true, enabled });
-    
-  } catch (error) {
-    console.error('Toggle notification error:', error);
-    res.status(500).json({ message: 'Errore gestione notifiche' });
-  }
-});
-
-// Get user notifications
-app.get('/api/notifications', authenticateToken, async (req, res) => {
-  try {
-    const notifications = await prisma.$queryRaw`
-      SELECT * FROM "notifications" 
-      WHERE "userId" = ${req.user.id}
-      ORDER BY "createdAt" DESC
-      LIMIT 50;
-    `;
-    
-    res.json(notifications);
-    
-  } catch (error) {
-    console.error('Get notifications error:', error);
-    res.status(500).json({ message: 'Errore recupero notifiche' });
-  }
-});
-
-// Mark notification as read
-app.put('/api/notifications/:id/read', authenticateToken, async (req, res) => {
-  try {
-    await prisma.$executeRaw`
-      UPDATE "notifications" 
-      SET "read" = true 
-      WHERE "id" = ${parseInt(req.params.id)} AND "userId" = ${req.user.id};
-    `;
-    
-    res.json({ success: true });
-    
-  } catch (error) {
-    console.error('Mark read error:', error);
-    res.status(500).json({ message: 'Errore aggiornamento notifica' });
   }
 });
 
@@ -620,12 +474,16 @@ app.post('/api/user/sync', authenticateToken, async (req, res) => {
     
     // Update library
     if (reading !== undefined || completed !== undefined || history !== undefined) {
+      const existingLibrary = await prisma.user_library.findUnique({
+        where: { userId }
+      });
+      
       await prisma.user_library.upsert({
         where: { userId },
         update: {
-          reading: reading !== undefined ? JSON.stringify(reading) : undefined,
-          completed: completed !== undefined ? JSON.stringify(completed) : undefined,
-          history: history !== undefined ? JSON.stringify(history) : undefined,
+          reading: reading !== undefined ? JSON.stringify(reading) : existingLibrary?.reading,
+          completed: completed !== undefined ? JSON.stringify(completed) : existingLibrary?.completed,
+          history: history !== undefined ? JSON.stringify(history) : existingLibrary?.history,
           updatedAt: new Date()
         },
         create: {
@@ -638,25 +496,29 @@ app.post('/api/user/sync', authenticateToken, async (req, res) => {
     }
     
     // Update reading progress
-    if (readingProgress) {
+    if (readingProgress && typeof readingProgress === 'object') {
       for (const [mangaUrl, progress] of Object.entries(readingProgress)) {
-        await prisma.reading_progress.upsert({
-          where: {
-            userId_mangaUrl: { userId, mangaUrl }
-          },
-          update: {
-            chapterIndex: progress.chapterIndex || 0,
-            pageIndex: progress.page || progress.pageIndex || 0,
-            updatedAt: new Date()
-          },
-          create: {
-            userId,
-            mangaUrl,
-            mangaTitle: progress.mangaTitle || '',
-            chapterIndex: progress.chapterIndex || 0,
-            pageIndex: progress.page || progress.pageIndex || 0
-          }
-        });
+        if (progress && typeof progress === 'object') {
+          await prisma.reading_progress.upsert({
+            where: {
+              userId_mangaUrl: { userId, mangaUrl }
+            },
+            update: {
+              chapterIndex: progress.chapterIndex || 0,
+              pageIndex: progress.page || progress.pageIndex || 0,
+              totalPages: progress.totalPages || 0,
+              updatedAt: new Date()
+            },
+            create: {
+              userId,
+              mangaUrl,
+              mangaTitle: progress.mangaTitle || progress.title || '',
+              chapterIndex: progress.chapterIndex || 0,
+              pageIndex: progress.page || progress.pageIndex || 0,
+              totalPages: progress.totalPages || 0
+            }
+          });
+        }
       }
     }
     
@@ -671,44 +533,38 @@ app.post('/api/user/sync', authenticateToken, async (req, res) => {
 // Get all user data
 app.get('/api/user/data', authenticateToken, async (req, res) => {
   try {
-    const [userFavorites, readingProgress, library] = await Promise.all([
-      prisma.user_favorites.findUnique({ 
-        where: { userId: req.user.id } 
-      }),
+    const userId = req.user.id;
+    
+    const [userFavorites, readingProgress, library, profile] = await Promise.all([
+      prisma.user_favorites.findUnique({ where: { userId } }),
       prisma.reading_progress.findMany({ 
-        where: { userId: req.user.id },
+        where: { userId },
         orderBy: { updatedAt: 'desc' }
       }),
-      prisma.user_library.findUnique({
-        where: { userId: req.user.id }
-      })
+      prisma.user_library.findUnique({ where: { userId } }),
+      prisma.user_profile.findUnique({ where: { userId } })
     ]);
     
-    // Get profile
-    let profile = null;
-    try {
-      const profileResult = await prisma.$queryRaw`
-        SELECT * FROM "user_profile" WHERE "userId" = ${req.user.id} LIMIT 1;
-      `;
-      profile = profileResult[0] || null;
-    } catch (e) {
-      console.log('Profile fetch error');
-    }
-    
-    // Get notification settings
-    const notifications = await prisma.$queryRaw`
-      SELECT * FROM "manga_notifications" 
-      WHERE "userId" = ${req.user.id} AND "enabled" = true;
-    `;
+    // Convert reading progress to object format
+    const progressObj = {};
+    readingProgress.forEach(p => {
+      progressObj[p.mangaUrl] = {
+        chapterIndex: p.chapterIndex,
+        pageIndex: p.pageIndex,
+        page: p.pageIndex,
+        totalPages: p.totalPages,
+        mangaTitle: p.mangaTitle,
+        timestamp: p.updatedAt
+      };
+    });
     
     res.json({ 
       favorites: userFavorites ? JSON.parse(userFavorites.favorites) : [],
-      readingProgress: readingProgress || [],
+      readingProgress: progressObj,
       reading: library ? JSON.parse(library.reading || '[]') : [],
       completed: library ? JSON.parse(library.completed || '[]') : [],
       history: library ? JSON.parse(library.history || '[]') : [],
-      profile: profile || {},
-      notificationSettings: notifications || []
+      profile: profile || {}
     });
     
   } catch (error) {
@@ -717,7 +573,191 @@ app.get('/api/user/data', authenticateToken, async (req, res) => {
   }
 });
 
-// Other existing endpoints remain the same...
+// Get user stats
+app.get('/api/user/stats', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const [library, favorites, profile, readingProgress] = await Promise.all([
+      prisma.user_library.findUnique({ where: { userId } }),
+      prisma.user_favorites.findUnique({ where: { userId } }),
+      prisma.user_profile.findUnique({ where: { userId } }),
+      prisma.reading_progress.count({ where: { userId } })
+    ]);
+    
+    const reading = JSON.parse(library?.reading || '[]');
+    const completed = JSON.parse(library?.completed || '[]');
+    const favs = JSON.parse(favorites?.favorites || '[]');
+    
+    const followersCount = await prisma.user_follows.count({
+      where: { followingId: userId }
+    });
+    
+    const followingCount = await prisma.user_follows.count({
+      where: { followerId: userId }
+    });
+    
+    res.json({
+      totalManga: reading.length + completed.length,
+      reading: reading.length,
+      completed: completed.length,
+      favorites: favs.length,
+      chaptersRead: readingProgress * 5, // Estimate
+      readingTime: readingProgress * 15, // Estimate minutes
+      profileViews: profile?.viewCount || 0,
+      followers: followersCount,
+      following: followingCount,
+      badges: profile?.badges || []
+    });
+    
+  } catch (error) {
+    console.error('Get stats error:', error);
+    res.status(500).json({ message: 'Errore recupero statistiche' });
+  }
+});
+
+// Follow/Unfollow user
+app.post('/api/user/follow/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const followerId = req.user.id;
+    
+    const userToFollow = await prisma.user.findUnique({
+      where: { username: username.toLowerCase() }
+    });
+    
+    if (!userToFollow) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+    
+    if (userToFollow.id === followerId) {
+      return res.status(400).json({ message: 'Non puoi seguire te stesso' });
+    }
+    
+    const existingFollow = await prisma.user_follows.findFirst({
+      where: {
+        followerId,
+        followingId: userToFollow.id
+      }
+    });
+    
+    if (existingFollow) {
+      // Unfollow
+      await prisma.user_follows.delete({
+        where: { id: existingFollow.id }
+      });
+      res.json({ following: false });
+    } else {
+      // Follow
+      await prisma.user_follows.create({
+        data: {
+          followerId,
+          followingId: userToFollow.id
+        }
+      });
+      res.json({ following: true });
+    }
+    
+  } catch (error) {
+    console.error('Follow error:', error);
+    res.status(500).json({ message: 'Errore operazione follow' });
+  }
+});
+
+// Check follow status
+app.get('/api/user/following/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const followerId = req.user.id;
+    
+    const userToCheck = await prisma.user.findUnique({
+      where: { username: username.toLowerCase() }
+    });
+    
+    if (!userToCheck) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+    
+    const follow = await prisma.user_follows.findFirst({
+      where: {
+        followerId,
+        followingId: userToCheck.id
+      }
+    });
+    
+    res.json({ following: !!follow });
+    
+  } catch (error) {
+    console.error('Check follow error:', error);
+    res.status(500).json({ message: 'Errore controllo follow' });
+  }
+});
+
+// Change password
+app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const userId = req.user.id;
+    
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+    
+    const validPassword = await bcrypt.compare(oldPassword, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Password attuale non corretta' });
+    }
+    
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword }
+    });
+    
+    res.json({ success: true });
+    
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ message: 'Errore cambio password' });
+  }
+});
+
+// Delete account
+app.delete('/api/user/account', authenticateToken, async (req, res) => {
+  try {
+    const { password } = req.body;
+    const userId = req.user.id;
+    
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+    
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Password non corretta' });
+    }
+    
+    // Delete all user data (cascade will handle related records)
+    await prisma.user.delete({
+      where: { id: userId }
+    });
+    
+    res.json({ success: true });
+    
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ message: 'Errore eliminazione account' });
+  }
+});
 
 // Health check
 app.get('/health', (req, res) => {
@@ -725,7 +765,7 @@ app.get('/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     service: 'KuroReader Auth Server',
-    version: '2.1.0'
+    version: '2.2.0'
   });
 });
 

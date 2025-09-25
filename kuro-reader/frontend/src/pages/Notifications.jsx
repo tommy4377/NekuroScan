@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   Container, VStack, HStack, Heading, Text, Box, Badge, Button,
-  IconButton, useToast, Avatar, Divider, Center, Spinner
+  IconButton, useToast, Center, Spinner, Divider, Alert, AlertIcon
 } from '@chakra-ui/react';
-import { FaBell, FaTrash, FaCheck } from 'react-icons/fa';
+import { FaBell, FaTrash, FaCheck, FaBellSlash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
+import axios from 'axios';
+import { config } from '../config';
 
 export default function Notifications() {
   const navigate = useNavigate();
@@ -14,94 +16,81 @@ export default function Notifications() {
   
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [mangaSubscriptions, setMangaSubscriptions] = useState([]);
 
   useEffect(() => {
-    loadNotifications();
-  }, []);
-
-  const loadNotifications = () => {
-    setLoading(true);
-    
-    // Simula notifiche
-    setTimeout(() => {
-      const mockNotifications = [
-        {
-          id: 1,
-          type: 'chapter',
-          title: 'Nuovo capitolo disponibile',
-          message: 'One Piece - Capitolo 1100 è ora disponibile',
-          manga: { title: 'One Piece', url: '/manga/one-piece' },
-          timestamp: new Date().toISOString(),
-          read: false
-        },
-        {
-          id: 2,
-          type: 'follow',
-          title: 'Nuovo follower',
-          message: '@user123 ha iniziato a seguirti',
-          timestamp: new Date(Date.now() - 3600000).toISOString(),
-          read: false
-        },
-        {
-          id: 3,
-          type: 'update',
-          title: 'Aggiornamento sistema',
-          message: 'Nuove funzionalità disponibili in KuroReader',
-          timestamp: new Date(Date.now() - 86400000).toISOString(),
-          read: true
-        }
-      ];
-      
-      setNotifications(mockNotifications);
+    if (user) {
+      loadNotifications();
+      loadSubscriptions();
+    } else {
       setLoading(false);
-    }, 1000);
+    }
+  }, [user]);
+
+  const loadNotifications = async () => {
+    setLoading(true);
+    try {
+      // In futuro questo endpoint recupererà notifiche reali dal server
+      // Per ora mostriamo solo un messaggio informativo
+      setNotifications([]);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const markAsRead = (id) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
+  const loadSubscriptions = async () => {
+    try {
+      const response = await axios.get(`${config.API_URL}/api/user/data`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      // Get reading list as subscriptions
+      const reading = response.data.reading || [];
+      setMangaSubscriptions(reading.slice(0, 10));
+    } catch (error) {
+      console.error('Error loading subscriptions:', error);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(n => ({ ...n, read: true }))
-    );
-    toast({
-      title: 'Tutte le notifiche sono state lette',
-      status: 'success',
-      duration: 2000
-    });
-  };
+  const enableBrowserNotifications = async () => {
+    if (!('Notification' in window)) {
+      toast({
+        title: 'Notifiche non supportate',
+        description: 'Il tuo browser non supporta le notifiche',
+        status: 'error',
+        duration: 3000
+      });
+      return;
+    }
 
-  const deleteNotification = (id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-    toast({
-      title: 'Notifica eliminata',
-      status: 'info',
-      duration: 2000
-    });
-  };
-
-  const clearAll = () => {
-    setNotifications([]);
-    toast({
-      title: 'Tutte le notifiche sono state cancellate',
-      status: 'info',
-      duration: 2000
-    });
-  };
-
-  const getIcon = (type) => {
-    switch(type) {
-      case 'chapter':
-        return '📖';
-      case 'follow':
-        return '👤';
-      case 'update':
-        return '🔔';
-      default:
-        return '📬';
+    try {
+      const permission = await Notification.requestPermission();
+      
+      if (permission === 'granted') {
+        new Notification('Notifiche attivate!', {
+          body: 'Riceverai notifiche per i nuovi capitoli dei tuoi manga preferiti',
+          icon: '/web-app-manifest-192x192.png',
+          badge: '/web-app-manifest-192x192.png'
+        });
+        
+        toast({
+          title: 'Notifiche attivate',
+          description: 'Riceverai aggiornamenti sui nuovi capitoli',
+          status: 'success',
+          duration: 3000
+        });
+      } else if (permission === 'denied') {
+        toast({
+          title: 'Permesso negato',
+          description: 'Abilita le notifiche nelle impostazioni del browser',
+          status: 'warning',
+          duration: 4000
+        });
+      }
+    } catch (error) {
+      console.error('Error requesting notification permission:', error);
     }
   };
 
@@ -125,6 +114,9 @@ export default function Notifications() {
         <VStack spacing={6}>
           <FaBell size={60} color="gray" />
           <Heading size="lg">Accedi per vedere le notifiche</Heading>
+          <Text color="gray.400">
+            Crea un account per ricevere notifiche sui nuovi capitoli
+          </Text>
           <Button colorScheme="purple" onClick={() => navigate('/login')}>
             Accedi
           </Button>
@@ -143,8 +135,6 @@ export default function Notifications() {
     );
   }
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-
   return (
     <Container maxW="container.md" py={8}>
       <VStack spacing={6} align="stretch">
@@ -156,76 +146,91 @@ export default function Notifications() {
             </Box>
             <VStack align="start" spacing={0}>
               <Heading size="lg">Notifiche</Heading>
-              {unreadCount > 0 && (
-                <Badge colorScheme="red">{unreadCount} non lette</Badge>
-              )}
+              <Text fontSize="sm" color="gray.400">
+                Gestisci le tue notifiche
+              </Text>
             </VStack>
           </HStack>
           
-          {notifications.length > 0 && (
-            <HStack>
-              <Button size="sm" onClick={markAllAsRead} leftIcon={<FaCheck />}>
-                Segna tutto come letto
-              </Button>
-              <Button size="sm" variant="ghost" onClick={clearAll} leftIcon={<FaTrash />}>
-                Cancella tutto
-              </Button>
-            </HStack>
-          )}
+          <Button
+            size="sm"
+            colorScheme="purple"
+            onClick={enableBrowserNotifications}
+            leftIcon={<FaBell />}
+          >
+            Attiva notifiche browser
+          </Button>
         </HStack>
 
-        {/* Notifications List */}
-        {notifications.length > 0 ? (
-          <VStack spacing={3} align="stretch">
-            {notifications.map(notif => (
-              <Box
-                key={notif.id}
-                bg={notif.read ? 'gray.800' : 'gray.700'}
-                p={4}
-                borderRadius="lg"
-                cursor="pointer"
-                onClick={() => markAsRead(notif.id)}
-                position="relative"
-                borderLeft="4px solid"
-                borderLeftColor={notif.read ? 'transparent' : 'purple.500'}
-                _hover={{ bg: 'gray.700' }}
-                transition="all 0.2s"
-              >
-                <HStack justify="space-between" align="start">
-                  <HStack align="start" spacing={3}>
-                    <Text fontSize="2xl">{getIcon(notif.type)}</Text>
-                    <VStack align="start" spacing={1}>
-                      <Text fontWeight="bold">{notif.title}</Text>
-                      <Text fontSize="sm" color="gray.300">
-                        {notif.message}
-                      </Text>
-                      <Text fontSize="xs" color="gray.500">
-                        {formatTime(notif.timestamp)}
-                      </Text>
-                    </VStack>
-                  </HStack>
-                  
+        {/* Info Alert */}
+        <Alert status="info" borderRadius="lg">
+          <AlertIcon />
+          <Box>
+            <Text fontWeight="bold">Sistema di notifiche</Text>
+            <Text fontSize="sm">
+              Le notifiche reali per nuovi capitoli saranno disponibili prossimamente. 
+              Per ora puoi attivare le notifiche del browser per essere pronto quando 
+              il sistema sarà completamente operativo.
+            </Text>
+          </Box>
+        </Alert>
+
+        {/* Manga Subscriptions */}
+        {mangaSubscriptions.length > 0 && (
+          <Box bg="gray.800" p={6} borderRadius="lg">
+            <Heading size="md" mb={4}>I tuoi manga seguiti</Heading>
+            <Text fontSize="sm" color="gray.400" mb={4}>
+              Riceverai notifiche quando usciranno nuovi capitoli
+            </Text>
+            <VStack align="stretch" spacing={3}>
+              {mangaSubscriptions.map((manga, i) => (
+                <HStack
+                  key={i}
+                  p={3}
+                  bg="gray.700"
+                  borderRadius="md"
+                  justify="space-between"
+                >
+                  <VStack align="start" spacing={0}>
+                    <Text fontWeight="bold" fontSize="sm" noOfLines={1}>
+                      {manga.title}
+                    </Text>
+                    <Text fontSize="xs" color="gray.400">
+                      Ultimo cap. letto: {manga.lastChapterIndex + 1}
+                    </Text>
+                  </VStack>
                   <IconButton
-                    icon={<FaTrash />}
+                    icon={<FaBellSlash />}
                     size="sm"
                     variant="ghost"
                     colorScheme="red"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteNotification(notif.id);
+                    aria-label="Disattiva notifiche"
+                    onClick={() => {
+                      toast({
+                        title: 'Funzione in arrivo',
+                        description: 'Presto potrai gestire le notifiche per singolo manga',
+                        status: 'info',
+                        duration: 2000
+                      });
                     }}
-                    aria-label="Elimina"
                   />
                 </HStack>
-              </Box>
-            ))}
-          </VStack>
-        ) : (
-          <Center py={12}>
+              ))}
+            </VStack>
+          </Box>
+        )}
+
+        {/* Empty State for notifications */}
+        {notifications.length === 0 && (
+          <Center py={12} bg="gray.800" borderRadius="lg">
             <VStack spacing={4}>
               <FaBell size={60} color="gray" />
               <Text fontSize="lg" color="gray.500">
-                Nessuna notifica
+                Nessuna notifica al momento
+              </Text>
+              <Text fontSize="sm" color="gray.600" textAlign="center" maxW="300px">
+                Quando ci saranno nuovi capitoli dei tuoi manga preferiti, 
+                riceverai una notifica qui
               </Text>
             </VStack>
           </Center>
