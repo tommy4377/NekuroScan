@@ -18,12 +18,12 @@ const Categories = lazy(() => import('./pages/Categories'));
 const Latest = lazy(() => import('./pages/Latest'));
 const Popular = lazy(() => import('./pages/Popular'));
 const TopType = lazy(() => import('./pages/TopType'));
+const Trending = lazy(() => import('./pages/Trending')); // AGGIUNTO
 const Profile = lazy(() => import('./pages/Profile'));
 const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const NotFound = lazy(() => import('./pages/NotFound'));
-const Trending = lazy(() => import('./pages/Trending'));
 
 import useAuth from './hooks/useAuth';
 
@@ -170,6 +170,7 @@ function App() {
     { path: '/manga/:source/:id', element: <MangaDetails /> },
     { path: '/latest', element: <Latest /> },
     { path: '/popular', element: <Popular /> },
+    { path: '/trending', element: <Trending /> }, // AGGIUNTO
     { path: '/top/:type', element: <TopType /> },
     { path: '/profile', element: <ProtectedRoute><Profile /></ProtectedRoute> },
     { path: '/settings', element: <Settings /> },
