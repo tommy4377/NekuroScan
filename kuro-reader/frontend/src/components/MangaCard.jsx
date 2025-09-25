@@ -1,3 +1,4 @@
+// frontend/src/components/MangaCard.jsx
 import React from 'react';
 import { Box, Image, Text, VStack, Badge, Skeleton } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
@@ -21,6 +22,12 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
     
     let chapter = manga.latestChapter;
     if (typeof chapter === 'string') {
+      // Se è già pulito (solo numero)
+      if (/^\d+(?:\.\d+)?$/.test(chapter)) {
+        return chapter;
+      }
+      
+      // Pulisci
       chapter = chapter
         .replace(/^(cap\.|capitolo|chapter|ch\.)\s*/i, '')
         .replace(/^vol\.\s*\d+\s*-\s*/i, '')
@@ -35,6 +42,9 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
   };
 
   const cleanChapter = getCleanChapter();
+  
+  // Mostra sempre il badge se c'è un capitolo O se showLatestChapter è true
+  const shouldShowChapter = cleanChapter && (showLatestChapter || manga.isTrending || manga.isRecent);
 
   return (
     <MotionBox
@@ -98,8 +108,23 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
             </Badge>
           )}
 
-          {/* Latest Chapter Badge - SOLO se showLatestChapter è true */}
-          {showLatestChapter && cleanChapter && (
+          {/* New badge se è recente */}
+          {manga.isRecent && (
+            <Badge
+              position="absolute"
+              top={2}
+              left={2}
+              colorScheme="green"
+              fontSize="xs"
+              px={2}
+              py={1}
+            >
+              NEW
+            </Badge>
+          )}
+
+          {/* Latest Chapter Badge - VISIBILE QUANDO RICHIESTO */}
+          {shouldShowChapter && (
             <Box
               position="absolute"
               bottom={2}
@@ -114,6 +139,7 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
               textAlign="center"
               fontWeight="bold"
               opacity={0.95}
+              boxShadow="lg"
             >
               Capitolo {cleanChapter}
             </Box>

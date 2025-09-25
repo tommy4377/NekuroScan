@@ -2,15 +2,16 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
-  Button, useToast, Skeleton, IconButton, Badge, Icon as ChakraIcon,
-  useBreakpointValue, Center, Divider
+  Button, useToast, Skeleton, IconButton, Tabs, TabList, Tab,
+  TabPanels, TabPanel, Badge, Icon as ChakraIcon, useBreakpointValue,
+  Spinner, Center, Divider
 } from '@chakra-ui/react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
   FaFire, FaClock, FaStar, FaBookOpen, FaHeart,
   FaChevronRight, FaSync, FaTrophy, FaDragon, FaArrowRight,
-  FaNewspaper
+  FaNewspaper, FaGlobe
 } from 'react-icons/fa';
 import { GiDragonHead } from 'react-icons/gi';
 import { BiBook } from 'react-icons/bi';
@@ -152,89 +153,119 @@ function Home() {
     color = 'purple', 
     viewAllPath,
     viewAllState = {},
+    showLatestChapter = false,
+    showProgress = false,
     emptyMessage = 'Nessun contenuto disponibile'
   }) => {
-    if (!items || items.length === 0) {
-      return null; // Non mostrare sezioni vuote
+    if (!items || items.length === 0 && !loading) {
+      return (
+        <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
+          <HStack justify="space-between" mb={4}>
+            <HStack spacing={3}>
+              <Box 
+                p={2} 
+                bg={`${color}.500`} 
+                borderRadius="lg"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                minW="36px"
+                minH="36px"
+              >
+                <ChakraIcon as={icon} color="white" boxSize={5} />
+              </Box>
+              <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
+            </HStack>
+          </HStack>
+          <Center py={8}>
+            <Text color="gray.500">{emptyMessage}</Text>
+          </Center>
+        </Box>
+      );
     }
 
     return (
-      <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
-        <HStack justify="space-between" mb={4}>
-          <HStack spacing={3}>
-            <Box 
-              p={2} 
-              bg={`${color}.500`} 
-              borderRadius="lg"
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-              minW="36px"
-              minH="36px"
-            >
-              <ChakraIcon as={icon} color="white" boxSize={5} />
-            </Box>
-            <VStack align="start" spacing={0}>
-              <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
-              <Text fontSize="xs" color="gray.400">
-                {items.length} disponibili
-              </Text>
-            </VStack>
-          </HStack>
-          {viewAllPath && (
-            <Button
-              variant="ghost"
-              size="sm"
-              rightIcon={<FaChevronRight />}
-              onClick={() => navigateToSection(viewAllPath, viewAllState)}
-              color={`${color}.400`}
-              _hover={{ bg: `${color}.900` }}
-            >
-              Vedi tutti
-            </Button>
-          )}
-        </HStack>
-
-        <Box overflowX="auto" pb={2}>
-          <HStack spacing={{ base: 3, md: 4 }} align="start">
-            {items.map((item, i) => (
-              <MotionBox
-                key={`${item.url}-${i}`}
-                minW={{ base: '140px', md: '160px' }}
-                maxW={{ base: '140px', md: '160px' }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(i * 0.05, 0.5) }}
-                position="relative"
+      <VStack align="stretch" spacing={4}>
+        <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
+          <HStack justify="space-between" mb={4}>
+            <HStack spacing={3}>
+              <Box 
+                p={2} 
+                bg={`${color}.500`} 
+                borderRadius="lg"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                minW="36px"
+                minH="36px"
               >
-                <MangaCard manga={item} hideSource />
-                
-                {/* Progress badge for continue reading */}
-                {item.continueFrom && (
-                  <Box
-                    position="absolute"
-                    bottom="60px"
-                    left={2}
-                    right={2}
-                    bg="green.600"
-                    color="white"
-                    px={2}
-                    py={1}
-                    borderRadius="md"
-                    fontSize="xs"
-                    textAlign="center"
-                    fontWeight="bold"
-                    opacity={0.95}
-                    zIndex={10}
-                  >
-                    {item.continueFrom}
-                  </Box>
-                )}
-              </MotionBox>
-            ))}
+                <ChakraIcon as={icon} color="white" boxSize={5} />
+              </Box>
+              <VStack align="start" spacing={0}>
+                <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
+                <Text fontSize="xs" color="gray.400">
+                  {items.length} disponibili
+                </Text>
+              </VStack>
+            </HStack>
+            {viewAllPath && (
+              <Button
+                variant="ghost"
+                size="sm"
+                rightIcon={<FaChevronRight />}
+                onClick={() => navigateToSection(viewAllPath, viewAllState)}
+                color={`${color}.400`}
+                _hover={{ bg: `${color}.900` }}
+              >
+                Vedi tutti
+              </Button>
+            )}
           </HStack>
+
+          <Box overflowX="auto" pb={2}>
+            <HStack spacing={{ base: 3, md: 4 }} align="start">
+              {items.map((item, i) => (
+                <MotionBox
+                  key={`${item.url}-${i}`}
+                  minW={{ base: '140px', md: '160px' }}
+                  maxW={{ base: '140px', md: '160px' }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i * 0.05, 0.5) }}
+                  position="relative"
+                >
+                  <MangaCard 
+                    manga={item} 
+                    hideSource 
+                    showLatestChapter={showLatestChapter}
+                  />
+                  
+                  {showProgress && item.continueFrom && (
+                    <Box
+                      position="absolute"
+                      bottom="60px"
+                      left={2}
+                      right={2}
+                      bg="green.600"
+                      color="white"
+                      px={2}
+                      py={1}
+                      borderRadius="md"
+                      fontSize="xs"
+                      textAlign="center"
+                      fontWeight="bold"
+                      opacity={0.95}
+                      zIndex={10}
+                    >
+                      {item.continueFrom}
+                    </Box>
+                  )}
+                </MotionBox>
+              ))}
+            </HStack>
+          </Box>
         </Box>
-      </Box>
+      </VStack>
     );
   };
 
@@ -300,116 +331,149 @@ function Home() {
             items={content.continueReading}
             color="green"
             viewAllPath="/library"
+            showProgress={true}
           />
         )}
 
-        {/* SEZIONE 1: Capitoli di tendenza */}
-        {content.trending.length > 0 && (
-          <ContentSection 
-            title="Capitoli di tendenza" 
-            icon={FaFire} 
-            items={content.trending} 
-            color="orange" 
-            viewAllPath="/popular"
-          />
-        )}
-
-        {/* SEZIONE 2: Ultimi capitoli aggiunti */}
-        {content.recentChapters.length > 0 && (
-          <ContentSection 
-            title="Ultimi capitoli aggiunti" 
-            icon={FaNewspaper} 
-            items={content.recentChapters} 
-            color="blue" 
-            viewAllPath="/latest"
-          />
-        )}
-
-        {/* SEZIONE 3: I più letti */}
-        {content.popular.length > 0 && (
-          <ContentSection 
-            title="I più letti del momento" 
-            icon={FaHeart} 
-            items={content.popular} 
-            color="pink" 
-            viewAllPath="/popular"
-          />
-        )}
-
-        <Divider borderColor="gray.700" />
-
-        {/* Top Series per tipo */}
-        <VStack spacing={4} align="stretch">
-          <HStack>
-            <Box p={2} bg="orange.500" borderRadius="lg">
-              <FaTrophy color="white" size="20" />
-            </Box>
-            <Heading size={{ base: 'md', md: 'lg' }}>Top Series</Heading>
-          </HStack>
-          
-          {content.topManga.length > 0 && (
+        {/* Sezioni principali separate */}
+        <VStack spacing={6} align="stretch">
+          {/* Capitoli di tendenza */}
+          {content.trending.length > 0 && (
             <ContentSection 
-              title="Top Manga" 
-              icon={GiDragonHead} 
-              items={content.topManga} 
+              title="🔥 Capitoli di tendenza" 
+              icon={FaFire} 
+              items={content.trending} 
               color="orange" 
-              viewAllPath="/categories"
-              viewAllState={{ type: 'manga' }}
+              viewAllPath="/popular"
+              showLatestChapter={true}
             />
           )}
-          
-          {content.topManhwa.length > 0 && (
+
+          {/* Ultimi capitoli aggiunti */}
+          {content.recentChapters.length > 0 && (
             <ContentSection 
-              title="Top Manhwa" 
-              icon={BiBook} 
-              items={content.topManhwa} 
-              color="purple" 
-              viewAllPath="/categories"
-              viewAllState={{ type: 'manhwa' }}
+              title="📰 Ultimi capitoli aggiunti" 
+              icon={FaNewspaper} 
+              items={content.recentChapters} 
+              color="blue" 
+              viewAllPath="/latest"
+              showLatestChapter={true}
             />
           )}
-          
-          {content.topManhua.length > 0 && (
+
+          {/* I più letti */}
+          {content.popular.length > 0 && (
             <ContentSection 
-              title="Top Manhua" 
-              icon={FaDragon} 
-              items={content.topManhua} 
-              color="red" 
-              viewAllPath="/categories"
-              viewAllState={{ type: 'manhua' }}
-            />
-          )}
-          
-          {content.topOneshot.length > 0 && (
-            <ContentSection 
-              title="Top Oneshot" 
-              icon={FaBookOpen} 
-              items={content.topOneshot} 
-              color="green" 
-              viewAllPath="/categories"
-              viewAllState={{ type: 'oneshot' }}
+              title="❤️ I più letti del momento" 
+              icon={FaHeart} 
+              items={content.popular} 
+              color="pink" 
+              viewAllPath="/popular"
+              showLatestChapter={true}
             />
           )}
         </VStack>
 
-        {/* Consigliati per te */}
-        {content.recommendations.length > 0 && (
-          <>
-            <Divider borderColor="gray.700" />
-            <ContentSection 
-              title="Consigliati per te" 
-              icon={FaStar} 
-              items={content.recommendations} 
-              color="yellow" 
-              emptyMessage="Aggiungi preferiti per ricevere consigli personalizzati"
-            />
-          </>
-        )}
+        {/* Tabs per contenuti organizzati */}
+        <Box bg="gray.800" borderRadius="xl" p={{ base: 3, md: 4 }}>
+          <Tabs colorScheme="purple" variant="soft-rounded">
+            <TabList 
+              bg="gray.900" 
+              p={2} 
+              borderRadius="lg" 
+              overflowX="auto"
+              css={{
+                '&::-webkit-scrollbar': { display: 'none' },
+                scrollbarWidth: 'none'
+              }}
+            >
+              <Tab>
+                <HStack spacing={2}>
+                  <FaTrophy />
+                  <Text display={{ base: 'none', sm: 'block' }}>Top Series</Text>
+                </HStack>
+              </Tab>
+              <Tab>
+                <HStack spacing={2}>
+                  <FaGlobe />
+                  <Text display={{ base: 'none', sm: 'block' }}>Per Tipo</Text>
+                </HStack>
+              </Tab>
+              {content.recommendations.length > 0 && (
+                <Tab>
+                  <HStack spacing={2}>
+                    <FaStar />
+                    <Text display={{ base: 'none', sm: 'block' }}>Per Te</Text>
+                  </HStack>
+                </Tab>
+              )}
+            </TabList>
+            
+            <TabPanels>
+              {/* Tab Top Series */}
+              <TabPanel px={0} pt={6}>
+                <VStack spacing={6} align="stretch">
+                  <ContentSection 
+                    title="🐉 Top Manga" 
+                    icon={GiDragonHead} 
+                    items={content.topManga} 
+                    color="orange" 
+                    viewAllPath="/categories"
+                    viewAllState={{ type: 'manga' }}
+                  />
+                  <ContentSection 
+                    title="📚 Top Manhwa" 
+                    icon={BiBook} 
+                    items={content.topManhwa} 
+                    color="purple" 
+                    viewAllPath="/categories"
+                    viewAllState={{ type: 'manhwa' }}
+                  />
+                </VStack>
+              </TabPanel>
+              
+              {/* Tab Per Tipo */}
+              <TabPanel px={0} pt={6}>
+                <VStack spacing={6} align="stretch">
+                  <ContentSection 
+                    title="🏮 Top Manhua" 
+                    icon={FaDragon} 
+                    items={content.topManhua} 
+                    color="red" 
+                    viewAllPath="/categories"
+                    viewAllState={{ type: 'manhua' }}
+                  />
+                  <ContentSection 
+                    title="📖 Top Oneshot" 
+                    icon={FaBookOpen} 
+                    items={content.topOneshot} 
+                    color="green" 
+                    viewAllPath="/categories"
+                    viewAllState={{ type: 'oneshot' }}
+                  />
+                </VStack>
+              </TabPanel>
+              
+              {/* Tab Consigliati */}
+              {content.recommendations.length > 0 && (
+                <TabPanel px={0} pt={6}>
+                  <ContentSection 
+                    title="⭐ Consigliati per te" 
+                    icon={FaStar} 
+                    items={content.recommendations} 
+                    color="yellow" 
+                    emptyMessage="Aggiungi preferiti per ricevere consigli personalizzati"
+                  />
+                </TabPanel>
+              )}
+            </TabPanels>
+          </Tabs>
+        </Box>
 
         {/* CTA per esplorare */}
         <Box bg="gray.800" p={6} borderRadius="xl">
           <VStack spacing={4}>
-            <Heading size="md">Esplora per categoria</Heading>
+            <Heading size="md">Esplora tutte le categorie</Heading>
             <Text color="gray.400" textAlign="center">
               Scopri nuovi manga in base ai tuoi gusti
             </Text>
@@ -420,7 +484,7 @@ function Home() {
               size="lg"
               w={{ base: '100%', md: 'auto' }}
             >
-              Scopri tutte le categorie
+              Esplora categorie
             </Button>
           </VStack>
         </Box>
