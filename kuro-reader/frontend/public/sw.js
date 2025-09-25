@@ -1,60 +1,61 @@
-// public/sw.js
-const CACHE_NAME = 'kuroreader-v2';
+// Service Worker per notifiche push
+self.addEventListener('push', function(event) {
+  if (event.data) {
+    const data = event.data.json();
+    const options = {
+      body: data.body,
+      icon: data.icon || '/web-app-manifest-192x192.png',
+      badge: data.badge || '/web-app-manifest-192x192.png',
+      vibrate: data.vibrate || [200, 100, 200],
+      data: data.data || {},
+      actions: data.actions || [
+        { action: 'open', title: 'Leggi ora' },
+        { action: 'close', title: 'Chiudi' }
+      ]
+    };
+    
+    event.waitUntil(
+      self.registration.showNotification(data.title || 'KuroReader', options)
+    );
+  }
+});
+
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  
+  if (event.action === 'open') {
+    event.waitUntil(
+      clients.openWindow(event.notification.data.url || '/')
+    );
+  }
+});
+
+// Cache per offline
+const CACHE_NAME = 'kuroreader-v1';
 const urlsToCache = [
   '/',
-  '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/web-app-manifest-192x192.png',
+  '/web-app-manifest-512x512.png'
 ];
 
-// Install
-self.addEventListener('install', (event) => {
-  self.skipWaiting(); // Force update immediately
-  
+self.addEventListener('install', function(event) {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(urlsToCache);
-    })
+    caches.open(CACHE_NAME)
+      .then(function(cache) {
+        return cache.addAll(urlsToCache);
+      })
   );
 });
 
-// Activate
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => {
-      return self.clients.claim();
-    })
-  );
-});
-
-// Fetch with network-first strategy
-self.addEventListener('fetch', (event) => {
+self.addEventListener('fetch', function(event) {
   event.respondWith(
-    fetch(event.request).then((response) => {
-      // Clone the response
-      const responseToCache = response.clone();
-      
-      caches.open(CACHE_NAME).then((cache) => {
-        cache.put(event.request, responseToCache);
-      });
-      
-      return response;
-    }).catch(() => {
-      return caches.match(event.request);
-    })
+    caches.match(event.request)
+      .then(function(response) {
+        if (response) {
+          return response;
+        }
+        return fetch(event.request);
+      })
   );
-});
-
-// Listen for skip waiting
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
 });

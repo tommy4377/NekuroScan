@@ -34,11 +34,15 @@ import {
   FaList,
   FaTh,
   FaRedo,
-  FaCheckCircle
+  FaCheckCircle,
+  FaBell,
+  FaBellSlash
 } from 'react-icons/fa';
 import apiManager from '../api';
 import { motion } from 'framer-motion';
 import useAuth from '../hooks/useAuth';
+import axios from 'axios';
+import { config } from '../config';
 
 const MotionBox = motion(Box);
 
@@ -47,18 +51,20 @@ function MangaDetails() {
   const [manga, setManga] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
   const [viewMode, setViewMode] = useState('list');
   const [readingProgress, setReadingProgress] = useState(null);
   const [completedChapters, setCompletedChapters] = useState([]);
   const toast = useToast();
   const navigate = useNavigate();
-  const { user, syncFavorites } = useAuth(); // syncFavorites now exists in useAuth
+  const { user, syncFavorites } = useAuth();
 
   useEffect(() => {
     loadManga();
     checkFavorite();
     loadReadingProgress();
-  }, [source, id]);
+    checkIfFollowing();
+  }, [source, id, user]);
 
   const loadManga = async () => {
     try {
@@ -133,13 +139,91 @@ function MangaDetails() {
     }
   };
 
+  const checkIfFollowing = async () => {
+    if (!user) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${config.API_URL}/api/manga/followed`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const mangaUrl = atob(id);
+      setIsFollowing(response.data.followed.some(f => f.mangaUrl === mangaUrl));
+    } catch (error) {
+      console.error('Error checking follow status:', error);
+    }
+  };
+
+  const toggleFollowManga = async () => {
+    if (!user) {
+      toast({
+        title: 'Devi effettuare il login',
+        description: 'Accedi per attivare le notifiche',
+        status: 'warning',
+        duration: 3000,
+      });
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (isFollowing) {
+        // Unfollow
+        await axios.delete(`${config.API_URL}/api/manga/follow/${encodeURIComponent(manga.url)}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        setIsFollowing(false);
+        toast({
+          title: 'Notifiche disattivate',
+          description: 'Non riceverai più notifiche per questo manga',
+          status: 'info',
+          duration: 2000,
+        });
+      } else {
+        // Follow
+        await axios.post(`${config.API_URL}/api/manga/follow`, {
+          mangaUrl: manga.url,
+          mangaTitle: manga.title,
+          source: manga.source || source,
+          lastChapter: manga.chapters?.length || 0
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        setIsFollowing(true);
+        toast({
+          title: 'Notifiche attivate',
+          description: 'Riceverai notifiche quando escono nuovi capitoli',
+          status: 'success',
+          duration: 3000,
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+      toast({
+        title: 'Errore',
+        description: 'Impossibile gestire le notifiche',
+        status: 'error',
+        duration: 2000,
+      });
+    }
+  };
+
   const toggleFavorite = async () => {
     const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    let updated;
     
     if (isFavorite) {
-      updated = favorites.filter(f => f.url !== manga.url);
+      const updated = favorites.filter(f => f.url !== manga.url);
+      localStorage.setItem('favorites', JSON.stringify(updated));
       setIsFavorite(false);
+      
+      // Sync con server se loggato
+      if (user) {
+        await syncFavorites(updated);
+      }
       
       toast({
         title: 'Rimosso dai preferiti',
@@ -156,21 +240,20 @@ function MangaDetails() {
         addedAt: new Date().toISOString()
       };
       
-      updated = [mangaToSave, ...favorites];
+      favorites.unshift(mangaToSave);
+      localStorage.setItem('favorites', JSON.stringify(favorites));
       setIsFavorite(true);
+      
+      // Sync con server se loggato
+      if (user) {
+        await syncFavorites(favorites);
+      }
       
       toast({
         title: 'Aggiunto ai preferiti',
         status: 'success',
         duration: 2000,
       });
-    }
-    
-    localStorage.setItem('favorites', JSON.stringify(updated));
-    
-    // Sync con server se loggato - FIX: syncFavorites ora esiste
-    if (user) {
-      await syncFavorites(updated);
     }
   };
 
@@ -195,7 +278,6 @@ function MangaDetails() {
       chapterTitle: chapter.title,
       totalChapters: manga.chapters.length,
       page: 0,
-      pageIndex: 0, // FIX: Add consistent pageIndex
       timestamp: new Date().toISOString()
     };
     localStorage.setItem('readingProgress', JSON.stringify(progress));
@@ -459,6 +541,15 @@ function MangaDetails() {
                   variant={isFavorite ? 'solid' : 'outline'}
                   onClick={toggleFavorite}
                   aria-label="Preferiti"
+                />
+                
+                <IconButton
+                  icon={isFollowing ? <FaBell /> : <FaBellSlash />}
+                  colorScheme={isFollowing ? 'green' : 'gray'}
+                  variant={isFollowing ? 'solid' : 'outline'}
+                  onClick={toggleFollowManga}
+                  aria-label="Notifiche"
+                  title={isFollowing ? 'Notifiche attive' : 'Attiva notifiche'}
                 />
                 
                 <IconButton

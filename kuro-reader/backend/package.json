@@ -1,15 +1,11 @@
 {
   "name": "kuro-auth-backend",
-  "version": "2.0.1",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "start": "node auth-server.js",
-    "dev": "nodemon auth-server.js",
-    "build": "npx prisma generate && npx prisma db push --accept-data-loss",
-    "migrate": "npx prisma migrate deploy",
-    "migrate:dev": "npx prisma migrate dev",
-    "db:push": "npx prisma db push",
-    "postinstall": "npx prisma generate"
+    "build": "npx prisma generate",
+    "migrate": "npx prisma migrate deploy"
   },
   "dependencies": {
     "@prisma/client": "^5.7.1",
@@ -17,10 +13,9 @@
     "cors": "^2.8.5",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
-    "dotenv": "^16.3.1"
+    "web-push": "^3.6.6"
   },
   "devDependencies": {
-    "prisma": "^5.7.1",
-    "nodemon": "^3.0.2"
+    "prisma": "^5.7.1"
   }
 }

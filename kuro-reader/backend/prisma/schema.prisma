@@ -12,76 +12,69 @@ model user {
   username  String   @unique
   email     String   @unique
   password  String
+  avatar    String?  @db.Text
+  bio       String?
+  isPublic  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  profile   user_profile?
-  favorites user_favorites?
-  reading   reading_progress[]
-  library   user_library?
-  follows   user_follows[]     @relation("follower")
-  followers user_follows[]     @relation("following")
-}
-
-model user_profile {
-  id            Int      @id @default(autoincrement())
-  userId        Int      @unique
-  user          user     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bio           String?  @db.Text
-  avatarUrl     String?  @db.Text
-  bannerUrl     String?  @db.Text
-  isPublic      Boolean  @default(false)
-  displayName   String?
-  socialLinks   Json?
-  viewCount     Int      @default(0)
-  badges        String[] @default([])
-  theme         String?  @default("default")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-model user_follows {
-  id          Int      @id @default(autoincrement())
-  followerId  Int
-  followingId Int
-  follower    user     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
-  following   user     @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  
-  @@unique([followerId, followingId])
-  @@index([followerId])
-  @@index([followingId])
+  favorites     user_favorites?
+  reading       reading_progress[]
+  library       user_library?
+  notifications notification_subscription[]
+  followed      followed_manga[]
 }
 
 model user_favorites {
   id        Int      @id @default(autoincrement())
   userId    Int      @unique
-  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      user     @relation(fields: [userId], references: [id])
   favorites String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model user_library {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      user     @relation(fields: [userId], references: [id])
+  reading   String?  @db.Text
+  completed String?  @db.Text
+  history   String?  @db.Text
   updatedAt DateTime @updatedAt
 }
 
 model reading_progress {
   id           Int      @id @default(autoincrement())
   userId       Int
-  user         user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         user     @relation(fields: [userId], references: [id])
   mangaUrl     String
   mangaTitle   String
   chapterIndex Int
   pageIndex    Int      @default(0)
-  totalPages   Int      @default(0)
   updatedAt    DateTime @updatedAt
 
   @@unique([userId, mangaUrl])
-  @@index([userId])
 }
 
-model user_library {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @unique
-  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reading   String?  @db.Text
-  completed String?  @db.Text
-  history   String?  @db.Text
-  updatedAt DateTime @updatedAt
+model notification_subscription {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         user     @relation(fields: [userId], references: [id])
+  endpoint     String   @unique
+  p256dh       String
+  auth         String
+  createdAt    DateTime @default(now())
+}
+
+model followed_manga {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  user           user     @relation(fields: [userId], references: [id])
+  mangaUrl       String
+  mangaTitle     String
+  lastChapter    Int      @default(0)
+  source         String
+  createdAt      DateTime @default(now())
+  
+  @@unique([userId, mangaUrl])
 }
