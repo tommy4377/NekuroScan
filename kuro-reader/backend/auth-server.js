@@ -699,7 +699,7 @@ app.get('/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Auth server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Uploads directory: ${uploadsDir}`);
+  console.log('Using Supabase Storage for uploads');
 });
 
 // Graceful shutdown
@@ -712,5 +712,6 @@ const gracefulShutdown = async () => {
 process.on('SIGTERM', gracefulShutdown);
 
 process.on('SIGINT', gracefulShutdown);
+
 
 
