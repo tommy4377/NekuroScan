@@ -93,6 +93,56 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// AGGIUNGI QUESTE FUNZIONI DOPO IL MIDDLEWARE authenticateToken
+
+// =================== SUPABASE STORAGE HELPERS ===================
+
+async function uploadImageToSupabase(buffer, fileName, bucket = 'profile-images') {
+  try {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, buffer, {
+        contentType: 'image/webp',
+        upsert: true
+      });
+
+    if (error) {
+      console.error('Supabase upload error:', error);
+      throw error;
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(fileName);
+
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error('Upload to Supabase failed:', error);
+    throw error;
+  }
+}
+
+async function deleteImageFromSupabase(url, bucket = 'profile-images') {
+  try {
+    if (!url || !url.includes('supabase')) return;
+    
+    // Extract filename from URL
+    const urlParts = url.split('/');
+    const fileName = urlParts.slice(-2).join('/'); // Include folder/filename
+    
+    const { error } = await supabase.storage
+      .from(bucket)
+      .remove([fileName]);
+
+    if (error) {
+      console.error('Supabase delete error:', error);
+    }
+  } catch (error) {
+    console.error('Delete from Supabase failed:', error);
+  }
+}
+
 // =================== AUTH ENDPOINTS ===================
 
 // Register
@@ -282,7 +332,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
   }
 });
 
-// Update profile - FIXED per immagini persistenti e displayName
+// Update profile - SOSTITUISCI COMPLETAMENTE IL TUO ENDPOINT ESISTENTE
 app.put('/api/user/profile', authenticateToken, upload.fields([
   { name: 'avatar', maxCount: 1 },
   { name: 'banner', maxCount: 1 }
@@ -314,57 +364,42 @@ app.put('/api/user/profile', authenticateToken, upload.fields([
       }
     }
 
-    // Process uploaded images con path assoluti
+    // Process avatar upload to Supabase
     if (req.files?.avatar) {
       const avatarFile = req.files.avatar[0];
-      const avatarFileName = `avatar_${userId}_${Date.now()}.webp`;
-      const avatarPath = path.join(uploadsDir, avatarFileName);
+      const avatarFileName = `avatars/avatar_${userId}_${Date.now()}.webp`;
       
       // Delete old avatar if exists
-      if (profile?.avatarUrl && profile.avatarUrl.includes('/uploads/')) {
-        const oldFileName = profile.avatarUrl.split('/uploads/')[1];
-        const oldPath = path.join(uploadsDir, oldFileName);
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
+      if (profile?.avatarUrl) {
+        await deleteImageFromSupabase(profile.avatarUrl);
       }
       
-      await sharp(avatarFile.buffer)
+      // Process and upload to Supabase
+      const processedAvatar = await sharp(avatarFile.buffer)
         .resize(300, 300, { fit: 'cover' })
         .webp({ quality: 90 })
-        .toFile(avatarPath);
+        .toBuffer();
       
-      // Save with full URL in production
-      const baseUrl = process.env.NODE_ENV === 'production' 
-        ? 'https://kuro-auth-backend.onrender.com'
-        : `http://localhost:${PORT}`;
-      updateData.avatarUrl = `${baseUrl}/uploads/${avatarFileName}`;
+      updateData.avatarUrl = await uploadImageToSupabase(processedAvatar, avatarFileName);
     }
     
+    // Process banner upload to Supabase
     if (req.files?.banner) {
       const bannerFile = req.files.banner[0];
-      const bannerFileName = `banner_${userId}_${Date.now()}.webp`;
-      const bannerPath = path.join(uploadsDir, bannerFileName);
+      const bannerFileName = `banners/banner_${userId}_${Date.now()}.webp`;
       
       // Delete old banner if exists
-      if (profile?.bannerUrl && profile.bannerUrl.includes('/uploads/')) {
-        const oldFileName = profile.bannerUrl.split('/uploads/')[1];
-        const oldPath = path.join(uploadsDir, oldFileName);
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
+      if (profile?.bannerUrl) {
+        await deleteImageFromSupabase(profile.bannerUrl);
       }
       
-      await sharp(bannerFile.buffer)
+      // Process and upload to Supabase
+      const processedBanner = await sharp(bannerFile.buffer)
         .resize(1200, 400, { fit: 'cover' })
         .webp({ quality: 90 })
-        .toFile(bannerPath);
+        .toBuffer();
       
-      // Save with full URL in production
-      const baseUrl = process.env.NODE_ENV === 'production' 
-        ? 'https://kuro-auth-backend.onrender.com'
-        : `http://localhost:${PORT}`;
-      updateData.bannerUrl = `${baseUrl}/uploads/${bannerFileName}`;
+      updateData.bannerUrl = await uploadImageToSupabase(processedBanner, bannerFileName);
     }
     
     if (profile) {
@@ -677,4 +712,5 @@ const gracefulShutdown = async () => {
 process.on('SIGTERM', gracefulShutdown);
 
 process.on('SIGINT', gracefulShutdown);
+
 
