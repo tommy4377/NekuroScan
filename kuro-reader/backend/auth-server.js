@@ -4,11 +4,11 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import multer from 'multer';
 import sharp from 'sharp';
 import path from 'path';
-import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 dotenv.config();
@@ -17,25 +17,33 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// Configurazione Prisma - RIMANE UGUALE
 const prisma = new PrismaClient({
-  datasources: { 
-    db: { 
-      url: process.env.DATABASE_URL 
-    } 
-  },
   log: ['error', 'warn']
 });
+
+// NUOVO: Configurazione Supabase client per storage
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      persistSession: false
+    }
+  }
+);
 
 const PORT = process.env.PORT || 10000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
-// Create uploads directory
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+// RIMUOVI QUESTE RIGHE (non servono più):
+// const uploadsDir = path.join(__dirname, 'uploads');
+// if (!fs.existsSync(uploadsDir)) {
+//   fs.mkdirSync(uploadsDir, { recursive: true });
+// }
 
-// Multer configuration
+// Multer configuration - RIMANE UGUALE
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
@@ -52,7 +60,7 @@ const upload = multer({
   }
 });
 
-// CORS configuration
+// CORS configuration - RIMANE UGUALE
 const corsOrigins = process.env.NODE_ENV === 'production' 
   ? ['https://kuroreader.onrender.com']
   : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'];
@@ -670,4 +678,5 @@ const gracefulShutdown = async () => {
 };
 
 process.on('SIGTERM', gracefulShutdown);
+
 process.on('SIGINT', gracefulShutdown);
