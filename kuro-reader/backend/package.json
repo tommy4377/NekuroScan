@@ -1,6 +1,6 @@
 {
   "name": "kuro-auth-backend",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
   "scripts": {
     "start": "node auth-server.js",
@@ -8,8 +8,8 @@
     "migrate": "node migrate.js",
     "repair": "node repair-data.js",
     "setup": "npm run migrate && npm run repair",
-    "build": "npx prisma generate",
-    "migrate:deploy": "npx prisma migrate deploy",
+    "build": "npx prisma generate && npx prisma db push",
+    "migrate:deploy": "npx prisma db push",
     "migrate:dev": "npx prisma migrate dev",
     "db:push": "npx prisma db push",
     "db:seed": "npx prisma db seed"
