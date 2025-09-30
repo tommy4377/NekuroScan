@@ -3,7 +3,7 @@
   "version": "2.1.0",
   "type": "module",
   "scripts": {
-    "start": "node auth-server.js",
+    "start": "npx prisma db push --accept-data-loss && node auth-server.js",
     "dev": "nodemon auth-server.js",
     "migrate": "node migrate.js",
     "repair": "node repair-data.js",
