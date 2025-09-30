@@ -53,7 +53,7 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
         transformStyle: 'preserve-3d'
       }}
     >
-      // ✅ SPACING UNIFORME (sostituisci VStack esistente linea ~60-90)
+      
 <VStack
   bg="gray.800"
   borderRadius="lg"
