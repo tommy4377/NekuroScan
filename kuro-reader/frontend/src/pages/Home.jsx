@@ -1,16 +1,15 @@
+// ✅ HOME.JSX - VERSIONE 3.1 OTTIMIZZATA
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
   Button, useToast, Skeleton, IconButton, Tabs, TabList, Tab,
-  TabPanels, TabPanel, Badge, Icon as ChakraIcon, useBreakpointValue,
-  Spinner, Center, Divider
+  TabPanels, TabPanel, Badge, Icon as ChakraIcon, Center, Divider
 } from '@chakra-ui/react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
   FaFire, FaClock, FaStar, FaBookOpen, FaHeart,
-  FaChevronRight, FaSync, FaTrophy, FaDragon, FaArrowRight,
-  FaNewspaper
+  FaChevronRight, FaSync, FaTrophy, FaDragon, FaArrowRight
 } from 'react-icons/fa';
 import { GiDragonHead } from 'react-icons/gi';
 import { BiBook } from 'react-icons/bi';
@@ -18,38 +17,31 @@ import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { spacing, getColorScheme, transition } from '../styles/spacing';
 
 const MotionBox = motion(Box);
 
-// Helper per pulire i numeri dei capitoli
+// ✅ UTILITY: Pulisce numero capitolo
 const cleanChapterNumber = (chapter) => {
   if (!chapter) return '';
-  
-  let clean = chapter
+  return chapter
     .replace(/^(cap\.|capitolo|chapter|ch\.)\s*/i, '')
     .replace(/^vol\.\s*\d+\s*-\s*/i, '')
+    .replace(/^0+/, '')
     .trim();
-  
-  const match = clean.match(/^(\d+(?:\.\d+)?)/);
-  if (match) {
-    return match[1];
-  }
-  
-  return clean;
 };
 
 function Home() {
   const navigate = useNavigate();
   const toast = useToast();
-  const isMobile = useBreakpointValue({ base: true, md: false });
   
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
   
-  // Stati per i contenuti
+  // ✅ STATE UNIFICATO
   const [content, setContent] = useState({
-    trending: [],      // Capitoli di tendenza
-    latest: [],        // Ultimi capitoli aggiunti (corretti)
-    popular: [],       // I più letti
+    trending: [],
+    latest: [],
+    popular: [],
     topManga: [],
     topManhwa: [],
     topManhua: [],
@@ -60,15 +52,12 @@ function Home() {
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
 
-  // Carica tutti i contenuti
+  // ✅ CARICA TUTTI I CONTENUTI
   const loadAllContent = useCallback(async () => {
     setLoading(true);
-    setError(null);
     
     try {
-      // Carica contenuti in parallelo
       const [
         trendingRes,
         latestRes, 
@@ -78,40 +67,38 @@ function Home() {
         manhuaRes, 
         oneshotRes
       ] = await Promise.allSettled([
-        apiManager.getTrending(includeAdult),          // Capitoli di tendenza
-        apiManager.getRecentChapters(includeAdult),    // Ultimi capitoli aggiunti (API corretta)
-        statsAPI.getMostFavorites(includeAdult, 1),    // I più letti
+        apiManager.getTrending(includeAdult),
+        apiManager.getRecentChapters(includeAdult),
+        statsAPI.getMostFavorites(includeAdult, 1),
         statsAPI.getTopByType('manga', includeAdult, 1),
         statsAPI.getTopByType('manhwa', includeAdult, 1),
         statsAPI.getTopByType('manhua', includeAdult, 1),
         statsAPI.getTopByType('oneshot', includeAdult, 1)
       ]);
       
+      // ✅ PROCESS RESULTS
       const processResult = (result, fallback = []) => {
         if (result.status === 'fulfilled') {
-          if (Array.isArray(result.value)) {
-            return result.value.slice(0, 15).map(item => ({
-              ...item,
-              latestChapter: cleanChapterNumber(item.latestChapter)
-            }));
-          } else if (result.value?.results) {
-            return result.value.results.slice(0, 15).map(item => ({
-              ...item,
-              latestChapter: cleanChapterNumber(item.latestChapter)
-            }));
-          }
+          const data = Array.isArray(result.value) 
+            ? result.value 
+            : result.value?.results || [];
+          
+          return data.slice(0, 15).map(item => ({
+            ...item,
+            latestChapter: cleanChapterNumber(item.latestChapter)
+          }));
         }
         return fallback;
       };
       
-      // Continue reading
+      // ✅ CONTINUE READING
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       const readingWithProgress = reading.slice(0, 10).map(item => ({
         ...item,
         continueFrom: item.lastChapterIndex ? `Cap. ${item.lastChapterIndex + 1}` : null
       }));
       
-      // Recommendations
+      // ✅ RECOMMENDATIONS
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
       let recommendations = [];
       if (favorites.length > 0) {
@@ -143,13 +130,11 @@ function Home() {
       
     } catch (error) {
       console.error('Error loading home content:', error);
-      setError('Alcuni contenuti potrebbero non essere disponibili');
       toast({
         title: 'Errore caricamento',
         description: 'Alcuni contenuti potrebbero non essere disponibili',
         status: 'warning',
-        duration: 3000,
-        isClosable: true
+        duration: 3000
       });
     } finally {
       setLoading(false);
@@ -170,6 +155,7 @@ function Home() {
     navigate(path, { state: { includeAdult } });
   };
 
+  // ✅ COMPONENTE SEZIONE UNIFORME
   const ContentSection = ({ 
     title, 
     icon, 
@@ -180,9 +166,9 @@ function Home() {
     showProgress = false,
     emptyMessage = 'Nessun contenuto disponibile'
   }) => {
-    if (!items || items.length === 0 && !loading) {
+    if (!items || (items.length === 0 && !loading)) {
       return (
-        <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
+        <Box bg="gray.800" p={spacing.card.p} borderRadius={spacing.card.borderRadius}>
           <HStack justify="space-between" mb={4}>
             <HStack spacing={3}>
               <Box 
@@ -197,7 +183,7 @@ function Home() {
               >
                 <ChakraIcon as={icon} color="white" boxSize={5} />
               </Box>
-              <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
+              <Heading size={spacing.heading.md}>{title}</Heading>
             </HStack>
           </HStack>
           <Center py={8}>
@@ -209,7 +195,7 @@ function Home() {
 
     return (
       <VStack align="stretch" spacing={4}>
-        <Box bg="gray.800" p={{ base: 3, md: 4 }} borderRadius="lg">
+        <Box bg="gray.800" p={spacing.card.p} borderRadius={spacing.card.borderRadius}>
           <HStack justify="space-between" mb={4}>
             <HStack spacing={3}>
               <Box 
@@ -225,7 +211,7 @@ function Home() {
                 <ChakraIcon as={icon} color="white" boxSize={5} />
               </Box>
               <VStack align="start" spacing={0}>
-                <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
+                <Heading size={spacing.heading.md}>{title}</Heading>
                 <Text fontSize="xs" color="gray.400">
                   {items.length} disponibili
                 </Text>
@@ -246,7 +232,7 @@ function Home() {
           </HStack>
 
           <Box overflowX="auto" pb={2}>
-            <HStack spacing={{ base: 3, md: 4 }} align="start">
+            <HStack spacing={spacing.grid.spacing} align="start">
               {items.map((item, i) => (
                 <MotionBox
                   key={`${item.url}-${i}`}
@@ -292,12 +278,13 @@ function Home() {
     );
   };
 
+  // ✅ LOADING STATE
   if (loading) {
     return (
-      <Container maxW="container.xl" py={{ base: 4, md: 8 }}>
+      <Container maxW={spacing.container.maxW} py={spacing.container.py}>
         <VStack spacing={8}>
           <Skeleton height="150px" borderRadius="xl" />
-          <SimpleGrid columns={{ base: 2, md: 5 }} spacing={4} w="100%">
+          <SimpleGrid columns={spacing.grid.columns} spacing={spacing.grid.spacing} w="100%">
             {[...Array(10)].map((_, i) => (
               <Skeleton key={i} height="280px" borderRadius="lg" />
             ))}
@@ -308,14 +295,15 @@ function Home() {
   }
 
   return (
-    <Container maxW="container.xl" py={{ base: 4, md: 8 }}>
-      <VStack spacing={{ base: 6, md: 8 }} align="stretch">
-        {/* Header */}
-        <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
+    <Container maxW={spacing.container.maxW} py={spacing.container.py}>
+      <VStack spacing={spacing.section.spacing} align="stretch">
+        
+        {/* ========= HEADER ========= */}
+        <Box bg="gray.800" p={spacing.card.p} borderRadius={spacing.card.borderRadius}>
           <HStack justify="space-between" flexWrap="wrap" spacing={4}>
             <VStack align="start" spacing={1}>
               <Heading 
-                size={{ base: 'lg', md: 'xl' }} 
+                size={spacing.heading.xl}
                 bgGradient="linear(to-r, purple.400, pink.400)" 
                 bgClip="text"
               >
@@ -325,11 +313,11 @@ function Home() {
                 Scopri i tuoi manga preferiti
               </Text>
             </VStack>
-            <HStack>
+            <HStack spacing={spacing.button.spacing}>
               <Button
                 variant={includeAdult ? 'solid' : 'outline'}
                 colorScheme="pink"
-                size="sm"
+                size={spacing.button.size}
                 onClick={() => setIncludeAdult(!includeAdult)}
               >
                 {includeAdult ? '🔞 Adult ON' : '🔞 Adult OFF'}
@@ -341,12 +329,13 @@ function Home() {
                 isLoading={refreshing}
                 variant="ghost"
                 colorScheme="purple"
+                size={spacing.button.sizeIcon}
               />
             </HStack>
           </HStack>
         </Box>
 
-        {/* Continua a leggere */}
+        {/* ========= CONTINUA A LEGGERE ========= */}
         {content.continueReading.length > 0 && (
           <ContentSection
             title="Continua a leggere"
@@ -358,10 +347,8 @@ function Home() {
           />
         )}
 
-
-
-        {/* Tabs per contenuti organizzati */}
-        <Box bg="gray.800" borderRadius="xl" p={{ base: 3, md: 4 }}>
+        {/* ========= TABS CONTENUTI ========= */}
+        <Box bg="gray.800" borderRadius={spacing.card.borderRadius} p={spacing.card.p}>
           <Tabs colorScheme="purple" variant="soft-rounded">
             <TabList 
               bg="gray.900" 
@@ -402,10 +389,9 @@ function Home() {
             </TabList>
             
             <TabPanels>
-              {/* Tab Aggiornamenti - Trending e Latest insieme */}
+              {/* TAB AGGIORNAMENTI */}
               <TabPanel px={0} pt={6}>
                 <VStack spacing={6} align="stretch">
-                  {/* Capitoli di tendenza */}
                   {content.trending.length > 0 && (
                     <ContentSection 
                       title="Capitoli di tendenza" 
@@ -417,7 +403,6 @@ function Home() {
                     />
                   )}
                   
-                  {/* Ultimi capitoli aggiunti */}
                   {content.latest.length > 0 && (
                     <ContentSection 
                       title="Ultimi capitoli aggiunti" 
@@ -431,7 +416,7 @@ function Home() {
                 </VStack>
               </TabPanel>
               
-              {/* Tab Popolari */}
+              {/* TAB POPOLARI */}
               <TabPanel px={0} pt={6}>
                 <ContentSection 
                   title="I più letti" 
@@ -442,7 +427,7 @@ function Home() {
                 />
               </TabPanel>
               
-              {/* Tab Top Series */}
+              {/* TAB TOP SERIES */}
               <TabPanel px={0} pt={6}>
                 <VStack spacing={6} align="stretch">
                   <ContentSection 
@@ -476,7 +461,7 @@ function Home() {
                 </VStack>
               </TabPanel>
               
-              {/* Tab Consigliati */}
+              {/* TAB CONSIGLIATI */}
               {content.recommendations.length > 0 && (
                 <TabPanel px={0} pt={6}>
                   <ContentSection 
@@ -492,10 +477,10 @@ function Home() {
           </Tabs>
         </Box>
 
-        {/* CTA per esplorare */}
-        <Box bg="gray.800" p={6} borderRadius="xl">
+        {/* ========= CTA ESPLORA ========= */}
+        <Box bg="gray.800" p={6} borderRadius={spacing.card.borderRadius}>
           <VStack spacing={4}>
-            <Heading size="md">Esplora per categoria</Heading>
+            <Heading size={spacing.heading.md}>Esplora per categoria</Heading>
             <Button 
               colorScheme="purple" 
               onClick={() => navigate('/categories')} 

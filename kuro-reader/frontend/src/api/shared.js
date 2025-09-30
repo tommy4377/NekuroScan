@@ -1,78 +1,67 @@
-// ✅ VERSIONE DEFINITIVA - FIX COMPLETO PER NUMERI CAPITOLI
+// ✅ VERSIONE DEFINITIVA - SEMPLIFICATA E PIÙ ROBUSTA
 export function normalizeChapterLabel(text, url) {
-  if (!text) return null;
+  if (!text && !url) return null;
   
-  // Rimuovi spazi extra
-  let t = text.replace(/\s+/g, ' ').trim();
+  // Pulisci testo base
+  let t = (text || '').replace(/\s+/g, ' ').trim();
   
-  // Rimuovi date
-  t = t.replace(/\s+\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}.*$/, '');
-  t = t.replace(/\s+\d{4}[\/-]\d{1,2}[\/-]\d{1,2}.*$/, '');
+  // Rimuovi date comuni
+  t = t.replace(/\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/g, '');
   
-  // Rimuovi prefissi comuni
-  t = t.replace(/^(vol\.\s*\d+\s*-\s*)?/i, '');
-  t = t.replace(/^(capitolo|cap\.|ch\.|chapter)\s*/i, '');
+  // Rimuovi prefissi
+  t = t.replace(/^(vol\.\s*\d+\s*[:-]\s*)?/i, '');
+  t = t.replace(/^(capitolo|cap\.|ch\.|chapter|volume|vol\.)\s*/i, '');
   
-  // ✅ Pattern migliorati per evitare concatenazioni
+  // ✅ Pattern SEMPLIFICATI (in ordine di priorità)
   const patterns = [
-    /^(\d+(?:\.\d+)?)\s*$/,           // Solo numero: "123" o "123.5"
-    /^(\d+(?:\.\d+)?)\s*[:-]/,        // Numero seguito da : o -
-    /capitolo[:\s]+(\d+(?:\.\d+)?)/i, // Chapter: 123
-    /cap[:\s]+(\d+(?:\.\d+)?)/i,      // Cap: 123
-    /#(\d+(?:\.\d+)?)/,               // #123
+    /^\s*(\d+(?:\.\d+)?)\s*$/,              // Solo numero: "123" o "123.5"
+    /^\s*(\d+(?:\.\d+)?)\s*[:\-–—]/,       // Numero + separatore
+    /capitolo\s*[:\s]*(\d+(?:\.\d+)?)/i,   // "Capitolo 123"
+    /cap\s*[:\s]*(\d+(?:\.\d+)?)/i,        // "Cap 123"
+    /ch\s*[:\s]*(\d+(?:\.\d+)?)/i,         // "Ch 123"
+    /#\s*(\d+(?:\.\d+)?)/,                 // "#123"
+    /(\d+(?:\.\d+)?)/                      // Fallback: primo numero trovato
   ];
   
   for (const pattern of patterns) {
     const match = t.match(pattern);
     if (match && match[1]) {
-      let num = match[1];
+      let numStr = match[1];
       
-      // ✅ FIX: Gestisci zeri iniziali con logica corretta
-      // "0176" diventa "176", "03" diventa "3", "001" diventa "1"
-      if (num.startsWith('0') && num.length > 1) {
-        const withoutZeros = num.replace(/^0+/, '');
-        if (withoutZeros && parseFloat(withoutZeros) < 10000) {
-          num = withoutZeros;
-        } else if (!withoutZeros) {
-          num = '0'; // Se tutti zeri, resta 0
-        }
+      // ✅ FIX ZERI INIZIALI (es. "0176" → "176", ma "1.5" resta "1.5")
+      if (numStr.startsWith('0') && !numStr.includes('.') && numStr.length > 1) {
+        numStr = numStr.replace(/^0+/, '') || '0';
       }
       
-      const parsedNum = parseFloat(num);
+      const num = parseFloat(numStr);
       
-      // Validazione: numero valido tra 0 e 9999
-      if (!isNaN(parsedNum) && parsedNum >= 0 && parsedNum < 10000) {
-        return parsedNum;
+      // ✅ Validazione range
+      if (!isNaN(num) && num >= 0 && num < 10000) {
+        return num;
       }
     }
   }
   
-  // ✅ Prova dall'URL come fallback
+  // ✅ Fallback: estrai dall'URL
   if (url) {
     const urlPatterns = [
       /\/capitolo-(\d+(?:\.\d+)?)/i,
       /\/chapter-(\d+(?:\.\d+)?)/i,
       /\/cap-(\d+(?:\.\d+)?)/i,
-      /\/read\/[^\/]+\/[^\/]+\/(\d+)/i,
+      /\/(\d+)(?:\/|$)/  // Ultimo numero nell'URL
     ];
     
     for (const pattern of urlPatterns) {
       const match = url.match(pattern);
       if (match && match[1]) {
-        let num = match[1];
-        
-        if (num.startsWith('0') && num.length > 1) {
-          const withoutZeros = num.replace(/^0+/, '');
-          if (withoutZeros) num = withoutZeros;
-        }
-        
-        const parsedNum = parseFloat(num);
-        if (!isNaN(parsedNum) && parsedNum >= 0 && parsedNum < 10000) {
-          return parsedNum;
+        const num = parseFloat(match[1].replace(/^0+/, '') || '0');
+        if (!isNaN(num) && num >= 0 && num < 10000) {
+          return num;
         }
       }
     }
   }
   
+  console.warn('⚠️ Could not extract chapter number from:', text, url);
   return null;
 }

@@ -53,23 +53,25 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
         transformStyle: 'preserve-3d'
       }}
     >
-      <VStack
-        bg="gray.800"
-        borderRadius="lg"
-        overflow="hidden"
-        spacing={0}
-        height="100%"
-        transition="all 0.3s"
-        position="relative"
-        _hover={{ 
-          bg: 'gray.700',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
-        }}
-        style={{
-          transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
-          transformStyle: 'preserve-3d'
-        }}
-      >
+      // ✅ SPACING UNIFORME (sostituisci VStack esistente linea ~60-90)
+<VStack
+  bg="gray.800"
+  borderRadius="lg"
+  overflow="hidden"
+  spacing={0}
+  height="100%"
+  transition="all 0.3s"
+  position="relative"
+  _hover={{ 
+    bg: 'gray.700',
+    boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+    transform: 'translateY(-4px)' // ✅ Hover consistente
+  }}
+  style={{
+    transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
+    transformStyle: 'preserve-3d'
+  }}
+>
         <Box position="relative" width="100%" paddingBottom="140%">
           {!imageLoaded && (
             <Skeleton 

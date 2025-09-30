@@ -1,56 +1,21 @@
+// ✅ MANGADETAILS.JSX - VERSIONE 3.1 OTTIMIZZATA
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  Container,
-  Heading,
-  Text,
-  Image,
-  VStack,
-  HStack,
-  Button,
-  Badge,
-  SimpleGrid,
-  Skeleton,
-  useToast,
-  Flex,
-  IconButton,
-  Wrap,
-  WrapItem,
-  Divider,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
-  Progress,
-  Tooltip,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem
+  Box, Container, Heading, Text, Image, VStack, HStack, Button, Badge,
+  SimpleGrid, Skeleton, useToast, Flex, IconButton, Wrap, WrapItem,
+  Divider, Progress, Tooltip, Menu, MenuButton, MenuList, MenuItem
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  FaBookmark,
-  FaPlay,
-  FaShare,
-  FaHeart,
-  FaList,
-  FaTh,
-  FaRedo,
-  FaCheckCircle,
-  FaBell,
-  FaBellSlash,
-  FaPlus,
-  FaCheck,
-  FaBan,
-  FaEllipsisV
+  FaBookmark, FaPlay, FaShare, FaHeart, FaList, FaTh, FaRedo,
+  FaCheckCircle, FaBell, FaBellSlash, FaPlus, FaCheck, FaBan, FaEllipsisV
 } from 'react-icons/fa';
-import apiManager from '../api';
 import { motion } from 'framer-motion';
+import apiManager from '../api';
 import useAuth from '../hooks/useAuth';
 import axios from 'axios';
 import { config } from '../config';
+import { spacing, getColorScheme, transition } from '../styles/spacing';
 
 const MotionBox = motion(Box);
 
@@ -63,7 +28,7 @@ function MangaDetails() {
   const [viewMode, setViewMode] = useState('list');
   const [readingProgress, setReadingProgress] = useState(null);
   const [completedChapters, setCompletedChapters] = useState([]);
-  const [currentStatus, setCurrentStatus] = useState(null); // 'reading', 'completed', 'dropped', null
+  const [currentStatus, setCurrentStatus] = useState(null);
   const toast = useToast();
   const navigate = useNavigate();
   const { user, syncFavorites, syncToServer } = useAuth();
@@ -81,6 +46,7 @@ function MangaDetails() {
     }
   }, [manga, user]);
 
+  // ✅ CARICA MANGA
   const loadManga = async () => {
     try {
       setLoading(true);
@@ -91,9 +57,11 @@ function MangaDetails() {
         throw new Error('Manga non trovato');
       }
       
-      setManga(details);
+      // ✅ LOG CAPITOLI CARICATI
+      console.log('✅ Chapters loaded:', details.chapters?.length || 0);
+      console.log('✅ First 5 chapters:', details.chapters?.slice(0, 5));
       
-      // Aggiungi alla cronologia
+      setManga(details);
       addToHistory(details);
       
     } catch (error) {
@@ -102,7 +70,7 @@ function MangaDetails() {
         title: 'Errore',
         description: 'Impossibile caricare i dettagli del manga',
         status: 'error',
-        duration: 3000,
+        duration: 3000
       });
       navigate('/home');
     } finally {
@@ -178,7 +146,6 @@ function MangaDetails() {
     if (mangaProgress) {
       setReadingProgress(mangaProgress);
       
-      // Carica capitoli completati
       const completed = [];
       for (let i = 0; i < mangaProgress.chapterIndex; i++) {
         completed.push(i);
@@ -187,6 +154,7 @@ function MangaDetails() {
     }
   };
 
+  // ✅ TOGGLE FAVORITE
   const toggleFavorite = async () => {
     const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
     let updated;
@@ -198,7 +166,7 @@ function MangaDetails() {
       toast({
         title: 'Rimosso dai preferiti',
         status: 'info',
-        duration: 2000,
+        duration: 2000
       });
     } else {
       const mangaToSave = {
@@ -217,26 +185,25 @@ function MangaDetails() {
       toast({
         title: 'Aggiunto ai preferiti',
         status: 'success',
-        duration: 2000,
+        duration: 2000
       });
     }
     
-    // Save locally
     localStorage.setItem('favorites', JSON.stringify(updated));
     
-    // Sync with server immediately
     if (user && syncFavorites) {
       await syncFavorites(updated);
     }
   };
 
+  // ✅ TOGGLE NOTIFICATIONS
   const toggleNotifications = async () => {
     if (!user) {
       toast({
         title: 'Accedi per attivare le notifiche',
         description: 'Crea un account per ricevere notifiche sui nuovi capitoli',
         status: 'warning',
-        duration: 3000,
+        duration: 3000
       });
       navigate('/login');
       return;
@@ -260,7 +227,6 @@ function MangaDetails() {
       if (response.data.success) {
         setNotificationsEnabled(newStatus);
         
-        // Request browser notification permission if enabling
         if (newStatus && 'Notification' in window) {
           const permission = await Notification.requestPermission();
           if (permission === 'granted') {
@@ -276,7 +242,7 @@ function MangaDetails() {
         toast({
           title: newStatus ? 'Notifiche attivate' : 'Notifiche disattivate',
           status: 'success',
-          duration: 2000,
+          duration: 2000
         });
       }
     } catch (error) {
@@ -285,17 +251,18 @@ function MangaDetails() {
         title: 'Errore',
         description: 'Impossibile aggiornare le notifiche',
         status: 'error',
-        duration: 2000,
+        duration: 2000
       });
     }
   };
 
+  // ✅ INIZIA LETTURA
   const startReading = (chapterIndex = 0) => {
     if (!manga?.chapters?.[chapterIndex]) {
       toast({
         title: 'Capitolo non disponibile',
         status: 'error',
-        duration: 2000,
+        duration: 2000
       });
       return;
     }
@@ -303,7 +270,6 @@ function MangaDetails() {
     const chapter = manga.chapters[chapterIndex];
     const chapterId = btoa(chapter.url);
     
-    // Salva progresso dettagliato
     const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
     progress[manga.url] = {
       chapterId: chapter.url,
@@ -316,10 +282,8 @@ function MangaDetails() {
     };
     localStorage.setItem('readingProgress', JSON.stringify(progress));
     
-    // Aggiorna lista "reading"
     updateReadingList(chapterIndex, chapter);
     
-    // Naviga al reader
     navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
   };
 
@@ -346,10 +310,8 @@ function MangaDetails() {
       reading.unshift(readingItem);
     }
     
-    // Save locally
     localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
     
-    // Sync with server immediately if logged in
     if (user) {
       const { syncReading } = useAuth.getState();
       if (syncReading) {
@@ -366,106 +328,102 @@ function MangaDetails() {
     }
   };
 
+  // ✅ SPOSTA TRA LISTE
   const moveToList = async (targetList) => {
-  if (!manga) return;
-  
-  // Remove from all lists
-  const lists = ['reading', 'completed', 'dropped'];
-  lists.forEach(list => {
-    const items = JSON.parse(localStorage.getItem(list) || '[]');
-    const filtered = items.filter(item => item.url !== manga.url);
-    localStorage.setItem(list, JSON.stringify(filtered));
-  });
-  
-  // Add to target list
-  if (targetList) {
-    const targetItems = JSON.parse(localStorage.getItem(targetList) || '[]');
-    const exists = targetItems.find(item => item.url === manga.url);
+    if (!manga) return;
     
-    if (!exists) {
-      const newItem = {
-        url: manga.url,
-        title: manga.title,
-        cover: manga.coverUrl,
-        type: manga.type,
-        source: manga.source || source,
-        addedAt: new Date().toISOString()
-      };
+    const lists = ['reading', 'completed', 'dropped'];
+    lists.forEach(list => {
+      const items = JSON.parse(localStorage.getItem(list) || '[]');
+      const filtered = items.filter(item => item.url !== manga.url);
+      localStorage.setItem(list, JSON.stringify(filtered));
+    });
+    
+    if (targetList) {
+      const targetItems = JSON.parse(localStorage.getItem(targetList) || '[]');
+      const exists = targetItems.find(item => item.url === manga.url);
       
-      if (targetList === 'completed') {
-        newItem.completedAt = new Date().toISOString();
-        newItem.progress = 100;
-        
-        // ✅ NUOVO: Segna tutti i capitoli come letti
-        const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-        readingProgress[manga.url] = {
-          chapterId: manga.chapters[manga.chapters.length - 1]?.url,
-          chapterIndex: manga.chapters.length - 1,
-          chapterTitle: manga.chapters[manga.chapters.length - 1]?.title || '',
-          totalChapters: manga.chapters.length,
-          page: 0,
-          pageIndex: 0,
-          timestamp: new Date().toISOString()
+      if (!exists) {
+        const newItem = {
+          url: manga.url,
+          title: manga.title,
+          cover: manga.coverUrl,
+          type: manga.type,
+          source: manga.source || source,
+          addedAt: new Date().toISOString()
         };
-        localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
         
-        // ✅ Segna tutti i capitoli come completati
-        const completedChapters = JSON.parse(localStorage.getItem('completedChapters') || '{}');
-        if (!completedChapters[manga.url]) {
-          completedChapters[manga.url] = [];
-        }
-        // Aggiungi tutti gli indici dei capitoli
-        for (let i = 0; i < manga.chapters.length; i++) {
-          if (!completedChapters[manga.url].includes(i)) {
-            completedChapters[manga.url].push(i);
+        if (targetList === 'completed') {
+          newItem.completedAt = new Date().toISOString();
+          newItem.progress = 100;
+          
+          const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+          readingProgress[manga.url] = {
+            chapterId: manga.chapters[manga.chapters.length - 1]?.url,
+            chapterIndex: manga.chapters.length - 1,
+            chapterTitle: manga.chapters[manga.chapters.length - 1]?.title || '',
+            totalChapters: manga.chapters.length,
+            page: 0,
+            pageIndex: 0,
+            timestamp: new Date().toISOString()
+          };
+          localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
+          
+          const completedChapters = JSON.parse(localStorage.getItem('completedChapters') || '{}');
+          if (!completedChapters[manga.url]) {
+            completedChapters[manga.url] = [];
           }
+          for (let i = 0; i < manga.chapters.length; i++) {
+            if (!completedChapters[manga.url].includes(i)) {
+              completedChapters[manga.url].push(i);
+            }
+          }
+          localStorage.setItem('completedChapters', JSON.stringify(completedChapters));
+          
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Manga completato! 🎉', {
+              body: `Hai completato "${manga.title}"! Tutti i ${manga.chapters.length} capitoli sono stati segnati come letti.`,
+              icon: manga.coverUrl,
+              badge: '/web-app-manifest-192x192.png',
+              tag: 'manga-completed',
+              vibrate: [200, 100, 200]
+            });
+          }
+          
+        } else if (targetList === 'dropped') {
+          newItem.droppedAt = new Date().toISOString();
+        } else if (targetList === 'reading') {
+          newItem.lastRead = new Date().toISOString();
+          newItem.progress = readingProgress ? 
+            Math.round((readingProgress.chapterIndex / manga.chapters.length) * 100) : 0;
         }
-        localStorage.setItem('completedChapters', JSON.stringify(completedChapters));
         
-        // ✅ NOTIFICA (se supportato)
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('Manga completato! 🎉', {
-            body: `Hai completato "${manga.title}"! Tutti i ${manga.chapters.length} capitoli sono stati segnati come letti.`,
-            icon: manga.coverUrl,
-            badge: '/web-app-manifest-192x192.png',
-            tag: 'manga-completed',
-            vibrate: [200, 100, 200]
-          });
-        }
-        
-      } else if (targetList === 'dropped') {
-        newItem.droppedAt = new Date().toISOString();
-      } else if (targetList === 'reading') {
-        newItem.lastRead = new Date().toISOString();
-        newItem.progress = readingProgress ? 
-          Math.round((readingProgress.chapterIndex / manga.chapters.length) * 100) : 0;
+        targetItems.unshift(newItem);
+        localStorage.setItem(targetList, JSON.stringify(targetItems));
       }
-      
-      targetItems.unshift(newItem);
-      localStorage.setItem(targetList, JSON.stringify(targetItems));
     }
-  }
-  
-  setCurrentStatus(targetList);
-  
-  if (user && syncToServer) {
-    await syncToServer();
-  }
-  
-  const messages = {
-    completed: '✅ Manga segnato come completato! Tutti i capitoli sono stati segnati come letti.',
-    dropped: '❌ Manga segnato come droppato',
-    reading: '📖 Manga aggiunto a "In lettura"',
-    null: 'ℹ️ Manga rimosso dalle liste'
+    
+    setCurrentStatus(targetList);
+    
+    if (user && syncToServer) {
+      await syncToServer();
+    }
+    
+    const messages = {
+      completed: '✅ Manga segnato come completato! Tutti i capitoli sono stati segnati come letti.',
+      dropped: '❌ Manga segnato come droppato',
+      reading: '📖 Manga aggiunto a "In lettura"',
+      null: 'ℹ️ Manga rimosso dalle liste'
+    };
+    
+    toast({
+      title: messages[targetList] || 'Aggiornato',
+      status: targetList === 'completed' ? 'success' : 'info',
+      duration: 3000
+    });
   };
-  
-  toast({
-    title: messages[targetList] || 'Aggiornato',
-    status: targetList === 'completed' ? 'success' : 'info',
-    duration: 3000,
-  });
-};
 
+  // ✅ CONDIVIDI
   const shareContent = async () => {
     const shareData = {
       title: manga.title,
@@ -482,7 +440,7 @@ function MangaDetails() {
           title: 'Link copiato!',
           description: 'Il link è stato copiato negli appunti',
           status: 'success',
-          duration: 2000,
+          duration: 2000
         });
       }
     } catch (error) {
@@ -491,14 +449,14 @@ function MangaDetails() {
         toast({
           title: 'Link copiato!',
           status: 'success',
-          duration: 2000,
+          duration: 2000
         });
       } catch (err) {
         toast({
           title: 'Errore',
           description: 'Impossibile condividere',
           status: 'error',
-          duration: 2000,
+          duration: 2000
         });
       }
     }
@@ -508,9 +466,10 @@ function MangaDetails() {
     return completedChapters.includes(chapterIndex);
   };
 
+  // ✅ LOADING STATE
   if (loading) {
     return (
-      <Container maxW="container.xl" py={8}>
+      <Container maxW={spacing.container.maxW} py={spacing.container.py}>
         <VStack spacing={8}>
           <Skeleton height="400px" width="100%" />
           <Skeleton height="200px" width="100%" />
@@ -520,9 +479,10 @@ function MangaDetails() {
     );
   }
 
+  // ✅ NOT FOUND STATE
   if (!manga) {
     return (
-      <Container maxW="container.xl" py={8}>
+      <Container maxW={spacing.container.maxW} py={spacing.container.py}>
         <VStack spacing={8}>
           <Text fontSize="xl">Manga non trovato</Text>
           <Button colorScheme="purple" onClick={() => navigate('/home')}>
@@ -538,9 +498,10 @@ function MangaDetails() {
     : 0;
 
   return (
-    <Container maxW="container.xl" py={8}>
-      <VStack spacing={8} align="stretch">
-        {/* Header */}
+    <Container maxW={spacing.container.maxW} py={spacing.container.py}>
+      <VStack spacing={spacing.section.spacing} align="stretch">
+        
+        {/* ========= HEADER ========= */}
         <MotionBox
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -549,10 +510,10 @@ function MangaDetails() {
             direction={{ base: 'column', md: 'row' }}
             gap={8}
             bg="gray.800"
-            borderRadius="xl"
-            p={6}
+            borderRadius={spacing.card.borderRadius}
+            p={spacing.card.p}
           >
-            {/* Cover */}
+            {/* COVER */}
             <Box flex="0 0 auto">
               <Image
                 src={manga.coverUrl || 'https://via.placeholder.com/300x450'}
@@ -573,9 +534,9 @@ function MangaDetails() {
               )}
             </Box>
 
-            {/* Info */}
+            {/* INFO */}
             <VStack align="stretch" flex={1} spacing={4}>
-              <Heading size="xl">{manga.title}</Heading>
+              <Heading size={spacing.heading.xl}>{manga.title}</Heading>
               
               {manga.alternativeTitles?.length > 0 && (
                 <Text color="gray.400" fontSize="sm">
@@ -628,14 +589,15 @@ function MangaDetails() {
                 </Wrap>
               )}
 
-              {/* Actions */}
-              <HStack spacing={3} pt={4} flexWrap="wrap">
+              {/* ========= ACTIONS ========= */}
+              <HStack spacing={spacing.button.spacing} pt={4} flexWrap="wrap">
                 {readingProgress && readingProgress.chapterIndex > 0 ? (
                   <>
                     <Button
                       colorScheme="green"
                       leftIcon={<FaPlay />}
                       onClick={continueReading}
+                      size={spacing.button.size}
                     >
                       Continua Cap. {readingProgress.chapterIndex + 1}
                     </Button>
@@ -645,6 +607,7 @@ function MangaDetails() {
                         variant="outline"
                         onClick={() => startReading(0)}
                         aria-label="Ricomincia"
+                        size={spacing.button.sizeIcon}
                       />
                     </Tooltip>
                   </>
@@ -653,6 +616,7 @@ function MangaDetails() {
                     colorScheme="purple"
                     leftIcon={<FaPlay />}
                     onClick={() => startReading(0)}
+                    size={spacing.button.size}
                   >
                     Inizia a leggere
                   </Button>
@@ -665,6 +629,7 @@ function MangaDetails() {
                   onClick={toggleFavorite}
                   aria-label="Preferiti"
                   title={isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                  size={spacing.button.sizeIcon}
                 />
                 
                 <IconButton
@@ -674,6 +639,7 @@ function MangaDetails() {
                   onClick={toggleNotifications}
                   aria-label="Notifiche"
                   title={notificationsEnabled ? 'Disattiva notifiche' : 'Attiva notifiche'}
+                  size={spacing.button.sizeIcon}
                 />
                 
                 <IconButton
@@ -681,15 +647,17 @@ function MangaDetails() {
                   variant="outline"
                   aria-label="Condividi"
                   onClick={shareContent}
+                  size={spacing.button.sizeIcon}
                 />
                 
-                {/* Menu gestione liste */}
+                {/* MENU GESTIONE LISTE */}
                 <Menu>
                   <MenuButton
                     as={IconButton}
                     icon={<FaEllipsisV />}
                     variant="outline"
                     aria-label="Altre opzioni"
+                    size={spacing.button.sizeIcon}
                   />
                   <MenuList bg="gray.800" borderColor="gray.700">
                     {currentStatus !== 'reading' && (
@@ -732,24 +700,24 @@ function MangaDetails() {
           </Flex>
         </MotionBox>
 
-        {/* Description */}
+        {/* ========= TRAMA ========= */}
         {manga.plot && (
-          <Box bg="gray.800" p={6} borderRadius="xl">
-            <Heading size="md" mb={4}>Trama</Heading>
+          <Box bg="gray.800" p={spacing.card.p} borderRadius={spacing.card.borderRadius}>
+            <Heading size={spacing.heading.md} mb={4}>Trama</Heading>
             <Text color="gray.300" lineHeight="tall" whiteSpace="pre-wrap">
               {manga.plot.replace(/^trama:?\s*/i, '').trim()}
             </Text>
           </Box>
         )}
 
-        {/* Chapters */}
-        <Box bg="gray.800" p={6} borderRadius="xl">
+        {/* ========= CAPITOLI ========= */}
+        <Box bg="gray.800" p={spacing.card.p} borderRadius={spacing.card.borderRadius}>
           <HStack justify="space-between" mb={4}>
-            <Heading size="md">
+            <Heading size={spacing.heading.md}>
               Capitoli ({manga.chapters?.length || 0})
             </Heading>
             
-            <HStack>
+            <HStack spacing={spacing.button.spacing}>
               <IconButton
                 icon={<FaList />}
                 size="sm"

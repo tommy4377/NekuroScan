@@ -132,150 +132,85 @@ export class MangaWorldAdultAPI {
       const plotText = plotDiv?.textContent?.trim() || '';
       const plot = plotText.replace(/^TRAMA:?\s*/i, '').trim();
       
-      // ✅ CAPITOLI CON STESSA LOGICA DI mangaWorld.js
-      const chapters = [];
-      const processedUrls = new Set();
+      // ✅ ESTRAZIONE CAPITOLI MIGLIORATA (mangaWorld.js)
+const chapters = [];
+const processedUrls = new Set();
+const processedNumbers = new Set(); // ✅ Traccia numeri già usati
 
-      const chapterContainer = doc.querySelector('.chapters-wrapper, #chapterList, .chapters');
+const candidates = [
+  '.chapters-wrapper a[href*="/read/"]',
+  '.chapter-list a[href*="/read/"]',
+  '.chapters a[href*="/read/"]',
+  '.volume-chapters a[href*="/read/"]',
+  '#chapterList a[href*="/read/"]',
+  'a[href*="/read/"]'
+];
 
-      if (chapterContainer) {
-        const chapterDivs = chapterContainer.querySelectorAll('.chapter');
-        
-        if (chapterDivs.length > 0) {
-          chapterDivs.forEach((chDiv, index) => {
-            const link = chDiv.querySelector('a[href*="/read/"]');
-            if (link) {
-              const href = link.getAttribute('href');
-              const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
-              
-              if (!processedUrls.has(fullUrl)) {
-                processedUrls.add(fullUrl);
-                
-                let chapterText = link.textContent?.trim() || '';
-                let chapterNumber = normalizeChapterLabel(chapterText, href);
-                
-                if (chapterNumber === null) {
-                  chapterNumber = index + 1;
-                }
-                
-                chapters.push({
-                  url: fullUrl,
-                  chapterNumber: chapterNumber,
-                  title: `Capitolo ${chapterNumber}`,
-                  dateAdd: ''
-                });
-              }
-            }
-          });
-        } else {
-          const directLinks = chapterContainer.querySelectorAll('a[href*="/read/"]');
-          directLinks.forEach((link, index) => {
-            const href = link.getAttribute('href');
-            if (!href) return;
-            
-            const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
-            
-            if (!processedUrls.has(fullUrl)) {
-              processedUrls.add(fullUrl);
-              
-              let chapterText = link.textContent?.trim() || '';
-              let chapterNumber = normalizeChapterLabel(chapterText, href);
-              
-              if (chapterNumber === null) {
-                chapterNumber = index + 1;
-              }
-              
-              chapters.push({
-                url: fullUrl,
-                chapterNumber: chapterNumber,
-                title: `Capitolo ${chapterNumber}`,
-                dateAdd: ''
-              });
-            }
-          });
-        }
-      }
+let links = [];
+for (const sel of candidates) {
+  const l = [...doc.querySelectorAll(sel)];
+  if (l.length) { 
+    links = l;
+    console.log(`✅ Found ${l.length} chapters with selector: ${sel}`);
+    break; 
+  }
+}
 
-      // Fallback
-      if (chapters.length === 0) {
-        const allLinks = doc.querySelectorAll('a[href*="/read/"]');
-        const filteredLinks = Array.from(allLinks).filter(link => {
-          const parent = link.closest('.chapters-wrapper, .chapters, .volume-chapters, #chapterList');
-          return parent !== null;
-        });
-        
-        filteredLinks.forEach((link, index) => {
-          const href = link.getAttribute('href');
-          if (!href) return;
-          
-          const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
-          
-          if (!processedUrls.has(fullUrl)) {
-            processedUrls.add(fullUrl);
-            
-            let chapterText = link.textContent?.trim() || '';
-            let chapterNumber = normalizeChapterLabel(chapterText, href);
-            
-            if (chapterNumber === null) {
-              chapterNumber = index + 1;
-            }
-            
-            chapters.push({
-              url: fullUrl,
-              chapterNumber: chapterNumber,
-              title: `Capitolo ${chapterNumber}`,
-              dateAdd: ''
-            });
-          }
-        });
-      }
+links.forEach((a) => {
+  const href = a.getAttribute('href');
+  const full = href?.startsWith('http') ? href : `${this.baseUrl}${href?.replace(/^\//, '')}`;
+  
+  // ✅ Skip duplicati per URL
+  if (processedUrls.has(full)) return;
+  processedUrls.add(full);
+  
+  const raw = a.textContent?.trim() || '';
+  const chapterNumber = normalizeChapterLabel(raw, href);
+  
+  // ✅ Validazione: salta capitoli invalidi O duplicati per numero
+  if (chapterNumber === null || chapterNumber === undefined || isNaN(chapterNumber)) {
+    console.warn('⚠️ Skipping invalid chapter:', raw, href);
+    return;
+  }
+  
+  if (processedNumbers.has(chapterNumber)) {
+    console.warn(`⚠️ Skipping duplicate chapter number: ${chapterNumber}`);
+    return;
+  }
+  
+  processedNumbers.add(chapterNumber);
+  
+  chapters.push({
+    url: full,
+    chapterNumber: chapterNumber,
+    title: `Capitolo ${chapterNumber}`,
+    dateAdd: ''
+  });
+});
 
-      // ✅ RIMUOVI DUPLICATI
-      const uniqueChapters = [];
-      const seenNumbers = new Set();
-      
-      chapters.forEach(chapter => {
-        if (chapter.chapterNumber === null || chapter.chapterNumber === undefined || isNaN(chapter.chapterNumber)) {
-          console.warn('⚠️ Skipping invalid chapter:', chapter);
-          return;
-        }
-        
-        if (!seenNumbers.has(chapter.chapterNumber)) {
-          seenNumbers.add(chapter.chapterNumber);
-          uniqueChapters.push(chapter);
-        } else {
-          console.log(`🗑️ Duplicate removed: Chapter ${chapter.chapterNumber}`);
-        }
-      });
+// ✅ ORDINA solo per numero, NON rinumerare
+chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
 
-      // ✅ ORDINA E RINUMERA
-      uniqueChapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
-      
-      const finalChapters = uniqueChapters.map((ch, index) => ({
-        ...ch,
-        chapterNumber: index + 1,
-        title: `Capitolo ${index + 1}`
-      }));
-      
-      console.log(`✅ Total chapters found: ${finalChapters.length}`);
-      
-      return {
-        url,
-        title,
-        coverUrl,
-        alternativeTitles: info.alternativeTitles,
-        authors: info.authors,
-        artists: info.artists,
-        genres: info.genres,
-        status: info.status,
-        type: info.type,
-        year: info.year,
-        plot,
-        chapters: finalChapters,
-        chaptersNumber: finalChapters.length,
-        source: 'mangaWorldAdult',
-        isAdult: true
-      };
+console.log(`✅ Total chapters extracted: ${chapters.length}`);
+
+// ✅ NO RINUMERAZIONE - mantieni i numeri originali!
+return {
+  url,
+  title,
+  coverUrl,
+  alternativeTitles: info.alternativeTitles,
+  authors: info.authors,
+  artists: info.artists,
+  genres: info.genres,
+  status: info.status,
+  type: info.type,
+  year: info.year,
+  plot,
+  chapters: chapters, // ✅ Usa direttamente l'array ordinato
+  chaptersNumber: chapters.length,
+  source: 'mangaWorldAdult',
+  isAdult: true
+};
     } catch (error) {
       console.error('Get manga error:', error);
       return null;
