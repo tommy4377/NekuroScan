@@ -1,21 +1,17 @@
+// ✅ PROFILE.JSX v3.2 - COMPLETO E OTTIMIZZATO
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Container, VStack, HStack, Heading, Text, Avatar, Box, Button, Input,
-  FormControl, FormLabel, SimpleGrid, Divider, useToast, InputGroup,
-  InputRightElement, IconButton, Switch, Badge, Tabs, TabList, Tab,
-  TabPanels, TabPanel, useClipboard, Image, Stack, Textarea, Modal,
-  ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
-  ModalCloseButton, Progress, Stat, StatLabel, StatNumber,
-  Wrap, WrapItem, Tooltip, useDisclosure, Alert, AlertIcon,
-  Skeleton, SkeletonCircle, SkeletonText, Flex, Center, Spinner,
-  Menu, MenuButton, MenuList, MenuItem, AvatarBadge
+  FormControl, FormLabel, SimpleGrid, useToast, Switch, Badge, Tabs, TabList, 
+  Tab, TabPanels, TabPanel, useClipboard, Image, Textarea, Progress, Stat, 
+  StatLabel, StatNumber, Wrap, WrapItem, Tooltip, Center, Spinner, Flex,
+  IconButton, Menu, MenuButton, MenuList, MenuItem, AvatarBadge, Divider
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon, EditIcon, CheckIcon, CopyIcon, CloseIcon } from '@chakra-ui/icons';
 import { 
-  FaCamera, FaSave, FaShare, FaLock, FaGlobe, FaTrash,
-  FaTrophy, FaBookOpen, FaHeart, FaEye, FaUserPlus,
-  FaTwitter, FaDiscord, FaInstagram, FaGithub, FaTiktok,
-  FaImage, FaUserFriends, FaCrown, FaBook
+  FaCamera, FaSave, FaShare, FaLock, FaGlobe, FaTrophy, FaBookOpen, 
+  FaHeart, FaEye, FaUserPlus, FaTwitter, FaDiscord, FaInstagram, FaImage, 
+  FaUserFriends, FaBan
 } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -34,7 +30,7 @@ export default function Profile() {
   const fileRef = useRef();
   const bannerRef = useRef();
   
-  // States
+  // ========= STATES =========
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -62,6 +58,7 @@ export default function Profile() {
   const [libraryData, setLibraryData] = useState({
     reading: [],
     completed: [],
+    dropped: [],
     favorites: []
   });
   
@@ -77,6 +74,7 @@ export default function Profile() {
   const profileUrl = user ? `${window.location.origin}/user/${user.username}` : '';
   const { hasCopied, onCopy } = useClipboard(profileUrl);
 
+  // ========= EFFECTS =========
   useEffect(() => {
     if (user) {
       loadUserData();
@@ -90,45 +88,55 @@ export default function Profile() {
     }
   }, [profileData.isPublic, user]);
 
-  // frontend/src/pages/Profile.jsx
-// 🔁 Sostituisci l'INTERA funzione esistente con questa versione (include `dropped`)
-
-const loadUserData = async () => {
-  if (!user) return;
-  
-  try {
-    const response = await axios.get(`${config.API_URL}/api/user/data`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    });
+  // ========= LOAD DATA =========
+  const loadUserData = async () => {
+    if (!user) return;
     
-    const { profile, reading, completed, favorites, dropped } = response.data; // ✅ AGGIUNTO dropped
-    
-    setProfileData({
-      username: user.username,
-      email: user.email,
-      displayName: profile?.displayName || user.username,
-      bio: profile?.bio || '',
-      avatarUrl: profile?.avatarUrl || '',
-      bannerUrl: profile?.bannerUrl || '',
-      isPublic: profile?.isPublic || false,
-      socialLinks: profile?.socialLinks || {}
-    });
-    
-    setLibraryData({
-      reading: reading || [],
-      completed: completed || [],
-      dropped: dropped || [], // ✅ AGGIUNTO
-      favorites: favorites || []
-    });
-    
-    localStorage.setItem('profilePublic', profile?.isPublic ? 'true' : 'false');
-    
-  } catch (error) {
-    console.error('Error loading user data:', error);
-  } finally {
-    setLoadingStats(false);
-  }
-};
+    try {
+      const response = await axios.get(`${config.API_URL}/api/user/data`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      const { profile, reading, completed, favorites, dropped, history } = response.data;
+      
+      // ✅ UPDATE PROFILE
+      setProfileData({
+        username: user.username,
+        email: user.email,
+        displayName: profile?.displayName || user.username,
+        bio: profile?.bio || '',
+        avatarUrl: profile?.avatarUrl || '',
+        bannerUrl: profile?.bannerUrl || '',
+        isPublic: profile?.isPublic || false,
+        socialLinks: profile?.socialLinks || { twitter: '', discord: '', instagram: '' }
+      });
+      
+      // ✅ UPDATE LIBRARY
+      setLibraryData({
+        reading: reading || [],
+        completed: completed || [],
+        dropped: dropped || [],
+        favorites: favorites || []
+      });
+      
+      // ✅ SYNC TO LOCALSTORAGE
+      localStorage.setItem('reading', JSON.stringify(reading || []));
+      localStorage.setItem('completed', JSON.stringify(completed || []));
+      localStorage.setItem('dropped', JSON.stringify(dropped || []));
+      localStorage.setItem('favorites', JSON.stringify(favorites || []));
+      localStorage.setItem('profilePublic', profile?.isPublic ? 'true' : 'false');
+      
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      toast({
+        title: 'Errore caricamento dati',
+        status: 'error',
+        duration: 3000
+      });
+    } finally {
+      setLoadingStats(false);
+    }
+  };
 
   const loadFriends = async () => {
     try {
@@ -166,6 +174,7 @@ const loadUserData = async () => {
     }
   };
 
+  // ========= FILE UPLOAD =========
   const handleFileUpload = async (e, type) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -231,6 +240,7 @@ const loadUserData = async () => {
     }
   };
 
+  // ========= SAVE PROFILE =========
   const saveProfile = async () => {
     setLoading(true);
     
@@ -284,6 +294,7 @@ const loadUserData = async () => {
     }
   };
 
+  // ========= SHARE PROFILE =========
   const shareProfile = () => {
     if (!profileData.isPublic) {
       toast({
@@ -310,6 +321,7 @@ const loadUserData = async () => {
     }
   };
 
+  // ========= LOADING STATE =========
   if (!user || loadingStats) {
     return (
       <Container maxW="container.xl" py={8}>
@@ -326,8 +338,10 @@ const loadUserData = async () => {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={8} align="stretch">
-        {/* Banner & Avatar */}
+        
+        {/* ========= BANNER & AVATAR ========= */}
         <Box position="relative" borderRadius="xl" overflow="hidden">
+          {/* Banner */}
           <Box
             h={{ base: '150px', md: '250px' }}
             bg={profileData.bannerUrl ? `url(${profileData.bannerUrl})` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}
@@ -337,7 +351,7 @@ const loadUserData = async () => {
           >
             {isEditing && (
               <IconButton
-                icon={uploadingBanner ? <Spinner /> : <FaImage />}
+                icon={uploadingBanner ? <Spinner size="sm" /> : <FaImage />}
                 position="absolute"
                 top={4}
                 right={4}
@@ -356,6 +370,7 @@ const loadUserData = async () => {
             />
           </Box>
           
+          {/* Profile Content */}
           <Box bg="gray.800" px={{ base: 4, md: 8 }} pb={6}>
             <Flex
               direction={{ base: 'column', md: 'row' }}
@@ -363,6 +378,7 @@ const loadUserData = async () => {
               position="relative"
               mt="-50px"
             >
+              {/* Avatar */}
               <Box position="relative">
                 <Avatar
                   size="2xl"
@@ -400,7 +416,7 @@ const loadUserData = async () => {
                 />
               </Box>
               
-              
+              {/* Info */}
               <VStack
                 align={{ base: 'center', md: 'start' }}
                 flex={1}
@@ -418,6 +434,7 @@ const loadUserData = async () => {
                         size="lg"
                         fontWeight="bold"
                         maxW="300px"
+                        bg="gray.700"
                       />
                     ) : (
                       <Heading size="lg">{profileData.displayName}</Heading>
@@ -425,22 +442,15 @@ const loadUserData = async () => {
                     <HStack>
                       <Text color="gray.400">@{profileData.username}</Text>
                       <Badge colorScheme={profileData.isPublic ? 'green' : 'gray'}>
-                        {profileData.isPublic ? (
-                          <HStack spacing={1}>
-                            <FaGlobe size="10" />
-                            <Text>Pubblico</Text>
-                          </HStack>
-                        ) : (
-                          <HStack spacing={1}>
-                            <FaLock size="10" />
-                            <Text>Privato</Text>
-                          </HStack>
-                        )}
+                        <HStack spacing={1}>
+                          {profileData.isPublic ? <FaGlobe size="10" /> : <FaLock size="10" />}
+                          <Text>{profileData.isPublic ? 'Pubblico' : 'Privato'}</Text>
+                        </HStack>
                       </Badge>
                     </HStack>
                   </VStack>
                   
-                  <HStack>
+                  <HStack spacing={2}>
                     {isEditing ? (
                       <>
                         <Button
@@ -448,6 +458,7 @@ const loadUserData = async () => {
                           leftIcon={<CheckIcon />}
                           onClick={saveProfile}
                           isLoading={loading}
+                          size={{ base: 'sm', md: 'md' }}
                         >
                           Salva
                         </Button>
@@ -458,6 +469,7 @@ const loadUserData = async () => {
                             setIsEditing(false);
                             loadUserData();
                           }}
+                          size={{ base: 'sm', md: 'md' }}
                         >
                           Annulla
                         </Button>
@@ -467,6 +479,7 @@ const loadUserData = async () => {
                         <Button
                           leftIcon={<EditIcon />}
                           onClick={() => setIsEditing(true)}
+                          size={{ base: 'sm', md: 'md' }}
                         >
                           Modifica
                         </Button>
@@ -475,6 +488,7 @@ const loadUserData = async () => {
                           variant="outline"
                           onClick={shareProfile}
                           isDisabled={!profileData.isPublic}
+                          size={{ base: 'sm', md: 'md' }}
                         >
                           Condividi
                         </Button>
@@ -483,6 +497,7 @@ const loadUserData = async () => {
                   </HStack>
                 </HStack>
                 
+                {/* Bio */}
                 {isEditing ? (
                   <Textarea
                     value={profileData.bio}
@@ -491,6 +506,7 @@ const loadUserData = async () => {
                     maxLength={500}
                     rows={3}
                     width="100%"
+                    bg="gray.700"
                   />
                 ) : (
                   profileData.bio && (
@@ -500,6 +516,7 @@ const loadUserData = async () => {
                   )
                 )}
                 
+                {/* Social Links */}
                 {isEditing ? (
                   <VStack align="start" width="100%" spacing={2}>
                     <Text fontSize="sm" fontWeight="bold">Link Social</Text>
@@ -507,6 +524,7 @@ const loadUserData = async () => {
                       <Input
                         placeholder="Twitter username"
                         size="sm"
+                        bg="gray.700"
                         value={profileData.socialLinks.twitter || ''}
                         onChange={(e) => setProfileData({
                           ...profileData,
@@ -516,6 +534,7 @@ const loadUserData = async () => {
                       <Input
                         placeholder="Discord username"
                         size="sm"
+                        bg="gray.700"
                         value={profileData.socialLinks.discord || ''}
                         onChange={(e) => setProfileData({
                           ...profileData,
@@ -525,6 +544,7 @@ const loadUserData = async () => {
                       <Input
                         placeholder="Instagram username"
                         size="sm"
+                        bg="gray.700"
                         value={profileData.socialLinks.instagram || ''}
                         onChange={(e) => setProfileData({
                           ...profileData,
@@ -534,7 +554,7 @@ const loadUserData = async () => {
                     </SimpleGrid>
                   </VStack>
                 ) : (
-                  profileData.socialLinks && Object.keys(profileData.socialLinks).length > 0 && (
+                  profileData.socialLinks && Object.values(profileData.socialLinks).some(v => v) && (
                     <HStack spacing={2}>
                       {profileData.socialLinks.twitter && (
                         <IconButton
@@ -544,6 +564,7 @@ const loadUserData = async () => {
                           as="a"
                           href={`https://twitter.com/${profileData.socialLinks.twitter.replace('@', '')}`}
                           target="_blank"
+                          aria-label="Twitter"
                         />
                       )}
                       {profileData.socialLinks.discord && (
@@ -561,6 +582,7 @@ const loadUserData = async () => {
                                 duration: 2000
                               });
                             }}
+                            aria-label="Discord"
                           />
                         </Tooltip>
                       )}
@@ -572,12 +594,14 @@ const loadUserData = async () => {
                           as="a"
                           href={`https://instagram.com/${profileData.socialLinks.instagram.replace('@', '')}`}
                           target="_blank"
+                          aria-label="Instagram"
                         />
                       )}
                     </HStack>
                   )
                 )}
                 
+                {/* Public Toggle */}
                 {isEditing && (
                   <FormControl display="flex" alignItems="center">
                     <FormLabel mb="0">Profilo pubblico</FormLabel>
@@ -593,9 +617,9 @@ const loadUserData = async () => {
           </Box>
         </Box>
 
-        {/* Stats semplificati */}
+        {/* ========= STATS ========= */}
         <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
-          <Stat p={4} bg="gray.800" borderRadius="lg">
+          <Stat p={4} bg="gray.800" borderRadius="lg" borderLeft="4px solid" borderLeftColor="purple.500">
             <HStack spacing={3}>
               <Box p={2} bg="purple.500" borderRadius="lg">
                 <FaBookOpen color="white" size="16" />
@@ -607,7 +631,7 @@ const loadUserData = async () => {
             </HStack>
           </Stat>
           
-          <Stat p={4} bg="gray.800" borderRadius="lg">
+          <Stat p={4} bg="gray.800" borderRadius="lg" borderLeft="4px solid" borderLeftColor="pink.500">
             <HStack spacing={3}>
               <Box p={2} bg="pink.500" borderRadius="lg">
                 <FaHeart color="white" size="16" />
@@ -619,7 +643,7 @@ const loadUserData = async () => {
             </HStack>
           </Stat>
           
-          <Stat p={4} bg="gray.800" borderRadius="lg">
+          <Stat p={4} bg="gray.800" borderRadius="lg" borderLeft="4px solid" borderLeftColor="green.500">
             <HStack spacing={3}>
               <Box p={2} bg="green.500" borderRadius="lg">
                 <FaTrophy color="white" size="16" />
@@ -631,7 +655,7 @@ const loadUserData = async () => {
             </HStack>
           </Stat>
           
-          <Stat p={4} bg="gray.800" borderRadius="lg">
+          <Stat p={4} bg="gray.800" borderRadius="lg" borderLeft="4px solid" borderLeftColor="blue.500">
             <HStack spacing={3}>
               <Box p={2} bg="blue.500" borderRadius="lg">
                 <FaUserFriends color="white" size="16" />
@@ -646,24 +670,21 @@ const loadUserData = async () => {
           </Stat>
         </SimpleGrid>
 
-        {/* Share Section */}
+        {/* ========= SHARE SECTION ========= */}
         {profileData.isPublic && !isEditing && qrCode && (
           <Box p={6} bg="gray.800" borderRadius="xl">
             <Heading size="md" mb={4}>Condividi profilo</Heading>
             <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
               <Box>
                 <Text fontSize="sm" mb={2}>Link pubblico</Text>
-                <InputGroup>
-                  <Input value={profileUrl} isReadOnly />
-                  <InputRightElement>
-                    <IconButton
-                      icon={<CopyIcon />}
-                      size="sm"
-                      onClick={onCopy}
-                      aria-label="Copia"
-                    />
-                  </InputRightElement>
-                </InputGroup>
+                <HStack>
+                  <Input value={profileUrl} isReadOnly bg="gray.700" />
+                  <IconButton
+                    icon={<CopyIcon />}
+                    onClick={onCopy}
+                    aria-label="Copia"
+                  />
+                </HStack>
                 {hasCopied && (
                   <Text fontSize="xs" color="green.400" mt={1}>
                     Link copiato!
@@ -678,7 +699,7 @@ const loadUserData = async () => {
           </Box>
         )}
 
-        {/* Tabs */}
+        {/* ========= TABS ========= */}
         <Tabs colorScheme="purple" variant="enclosed" index={activeTab} onChange={setActiveTab}>
           <TabList>
             <Tab>La mia Libreria</Tab>
@@ -686,14 +707,15 @@ const loadUserData = async () => {
           </TabList>
 
           <TabPanels>
-            {/* Library Tab */}
+            {/* ========= LIBRARY TAB ========= */}
             <TabPanel>
               <VStack spacing={6} align="stretch">
-                {/* Reading */}
+                
+                {/* IN LETTURA */}
                 <Box>
                   <HStack justify="space-between" mb={3}>
                     <Heading size="md">In lettura ({libraryData.reading.length})</Heading>
-                    {libraryData.reading.length > 12 && (
+                    {libraryData.reading.length > 10 && (
                       <Button size="sm" variant="ghost" onClick={() => navigate('/library')}>
                         Vedi tutti
                       </Button>
@@ -713,17 +735,83 @@ const loadUserData = async () => {
                       ))}
                     </SimpleGrid>
                   ) : (
-                    <Center py={8} bg="gray.800" borderRadius="lg">
+                    <Center py={8} bg="gray.700" borderRadius="lg">
                       <Text color="gray.500">Nessun manga in lettura</Text>
                     </Center>
                   )}
                 </Box>
 
-                {/* Favorites */}
+                <Divider />
+
+                {/* COMPLETATI */}
+                <Box>
+                  <HStack justify="space-between" mb={3}>
+                    <Heading size="md">Completati ({libraryData.completed.length})</Heading>
+                    {libraryData.completed.length > 10 && (
+                      <Button size="sm" variant="ghost" onClick={() => navigate('/library')}>
+                        Vedi tutti
+                      </Button>
+                    )}
+                  </HStack>
+                  {libraryData.completed.length > 0 ? (
+                    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
+                      {libraryData.completed.slice(0, 10).map((manga, i) => (
+                        <MotionBox
+                          key={i}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                        >
+                          <MangaCard manga={manga} />
+                        </MotionBox>
+                      ))}
+                    </SimpleGrid>
+                  ) : (
+                    <Center py={8} bg="gray.700" borderRadius="lg">
+                      <Text color="gray.500">Nessun manga completato</Text>
+                    </Center>
+                  )}
+                </Box>
+
+                <Divider />
+
+                {/* DROPPATI */}
+                <Box>
+                  <HStack justify="space-between" mb={3}>
+                    <Heading size="md">Droppati ({libraryData.dropped.length})</Heading>
+                    {libraryData.dropped.length > 10 && (
+                      <Button size="sm" variant="ghost" onClick={() => navigate('/library')}>
+                        Vedi tutti
+                      </Button>
+                    )}
+                  </HStack>
+                  {libraryData.dropped.length > 0 ? (
+                    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
+                      {libraryData.dropped.slice(0, 10).map((manga, i) => (
+                        <MotionBox
+                          key={i}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                        >
+                          <MangaCard manga={manga} />
+                        </MotionBox>
+                      ))}
+                    </SimpleGrid>
+                  ) : (
+                    <Center py={8} bg="gray.700" borderRadius="lg">
+                      <Text color="gray.500">Nessun manga droppato</Text>
+                    </Center>
+                  )}
+                </Box>
+
+                <Divider />
+
+                {/* PREFERITI */}
                 <Box>
                   <HStack justify="space-between" mb={3}>
                     <Heading size="md">Preferiti ({libraryData.favorites.length})</Heading>
-                    {libraryData.favorites.length > 12 && (
+                    {libraryData.favorites.length > 10 && (
                       <Button size="sm" variant="ghost" onClick={() => navigate('/library')}>
                         Vedi tutti
                       </Button>
@@ -743,7 +831,7 @@ const loadUserData = async () => {
                       ))}
                     </SimpleGrid>
                   ) : (
-                    <Center py={8} bg="gray.800" borderRadius="lg">
+                    <Center py={8} bg="gray.700" borderRadius="lg">
                       <Text color="gray.500">Nessun preferito</Text>
                     </Center>
                   )}
@@ -751,7 +839,7 @@ const loadUserData = async () => {
               </VStack>
             </TabPanel>
 
-            {/* Friends Tab */}
+            {/* ========= FRIENDS TAB ========= */}
             <TabPanel>
               <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
                 {/* Followers */}
@@ -765,10 +853,10 @@ const loadUserData = async () => {
                         <HStack
                           key={follower.id}
                           p={3}
-                          bg="gray.800"
-                          borderRadius="md"
+                          bg="gray.700"
+                          borderRadius="lg"
                           cursor="pointer"
-                          _hover={{ bg: 'gray.700' }}
+                          _hover={{ bg: 'gray.600' }}
                           onClick={() => navigate(`/user/${follower.username}`)}
                         >
                           <Avatar size="sm" name={follower.displayName} src={follower.avatarUrl} />
@@ -779,7 +867,7 @@ const loadUserData = async () => {
                         </HStack>
                       ))
                     ) : (
-                      <Center py={8} bg="gray.800" borderRadius="lg">
+                      <Center py={8} bg="gray.700" borderRadius="lg">
                         <Text color="gray.500" fontSize="sm">Nessun follower</Text>
                       </Center>
                     )}
@@ -797,10 +885,10 @@ const loadUserData = async () => {
                         <HStack
                           key={following.id}
                           p={3}
-                          bg="gray.800"
-                          borderRadius="md"
+                          bg="gray.700"
+                          borderRadius="lg"
                           cursor="pointer"
-                          _hover={{ bg: 'gray.700' }}
+                          _hover={{ bg: 'gray.600' }}
                           onClick={() => navigate(`/user/${following.username}`)}
                         >
                           <Avatar size="sm" name={following.displayName} src={following.avatarUrl} />
@@ -811,7 +899,7 @@ const loadUserData = async () => {
                         </HStack>
                       ))
                     ) : (
-                      <Center py={8} bg="gray.800" borderRadius="lg">
+                      <Center py={8} bg="gray.700" borderRadius="lg">
                         <Text color="gray.500" fontSize="sm">Non segui nessuno</Text>
                       </Center>
                     )}

@@ -1,21 +1,21 @@
+// ✅ USEAUTH.JS v3.2 - HOOK AUTH COMPLETO
 import { create } from 'zustand';
 import axios from 'axios';
 import { config } from '../config';
 
 const API_URL = `${config.API_URL}/api`;
 
-// Axios setup
+// ✅ AXIOS SETUP
 axios.defaults.baseURL = API_URL;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
-// Set token if exists
 const savedToken = localStorage.getItem('token');
 if (savedToken) {
   axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
 }
 
 const useAuth = create((set, get) => ({
-  // State
+  // ========= STATE =========
   user: JSON.parse(localStorage.getItem('user') || 'null'),
   token: localStorage.getItem('token'),
   isAuthenticated: !!localStorage.getItem('token'),
@@ -24,7 +24,7 @@ const useAuth = create((set, get) => ({
   syncStatus: 'idle',
   lastSync: null,
 
-  // Initialize - LOAD DATA FROM SERVER
+  // ========= INIT AUTH =========
   initAuth: async () => {
     const token = localStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user') || 'null');
@@ -34,14 +34,12 @@ const useAuth = create((set, get) => ({
       set({ user, token, isAuthenticated: true });
       
       try {
-        // Get fresh user data from server
         const response = await axios.get('/auth/me');
         if (response.data.user) {
           const updatedUser = response.data.user;
           set({ user: updatedUser });
           localStorage.setItem('user', JSON.stringify(updatedUser));
           
-          // Load all user data from server
           await get().syncFromServer();
         }
       } catch (error) {
@@ -53,7 +51,7 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Login
+  // ========= LOGIN =========
   login: async (emailOrUsername, password) => {
     set({ loading: true, error: null });
     
@@ -77,7 +75,6 @@ const useAuth = create((set, get) => ({
         error: null
       });
       
-      // Load user data from server after login
       await get().syncFromServer();
       
       return { success: true, user };
@@ -89,7 +86,7 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Register
+  // ========= REGISTER =========
   register: async (username, email, password) => {
     set({ loading: true, error: null });
     
@@ -123,13 +120,16 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Logout
+  // ========= LOGOUT =========
   logout: async () => {
     const state = get();
     
-    // Save data before logout
     if (state.isAuthenticated) {
-      await get().syncToServer();
+      try {
+        await get().syncToServer();
+      } catch (error) {
+        console.error('Sync before logout failed:', error);
+      }
     }
     
     localStorage.removeItem('token');
@@ -146,39 +146,41 @@ const useAuth = create((set, get) => ({
     });
   },
 
-syncToServer: async () => {
-  const token = get().token;
-  if (!token) return false;
-  
-  set({ syncStatus: 'syncing' });
-  
-  try {
-    const dataToSync = {
-      favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
-      reading: JSON.parse(localStorage.getItem('reading') || '[]'),
-      completed: JSON.parse(localStorage.getItem('completed') || '[]'),
-      history: JSON.parse(localStorage.getItem('history') || '[]'),
-      readingProgress: JSON.parse(localStorage.getItem('readingProgress') || '{}')
-    };
+  // ========= SYNC TO SERVER =========
+  syncToServer: async () => {
+    const token = get().token;
+    if (!token) return false;
     
-    await axios.post('/user/sync', dataToSync);
+    set({ syncStatus: 'syncing' });
     
-    set({ 
-      syncStatus: 'synced', 
-      lastSync: new Date().toISOString() 
-    });
-    
-    console.log('✅ Data synced to server');
-    return true;
-    
-  } catch (error) {
-    console.error('❌ Sync to server error:', error);
-    set({ syncStatus: 'error' });
-    return false;
-  }
-},
+    try {
+      const dataToSync = {
+        favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
+        reading: JSON.parse(localStorage.getItem('reading') || '[]'),
+        completed: JSON.parse(localStorage.getItem('completed') || '[]'),
+        dropped: JSON.parse(localStorage.getItem('dropped') || '[]'),
+        history: JSON.parse(localStorage.getItem('history') || '[]'),
+        readingProgress: JSON.parse(localStorage.getItem('readingProgress') || '{}')
+      };
+      
+      await axios.post('/user/sync', dataToSync);
+      
+      set({ 
+        syncStatus: 'synced', 
+        lastSync: new Date().toISOString() 
+      });
+      
+      console.log('✅ Data synced to server');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Sync to server error:', error);
+      set({ syncStatus: 'error' });
+      return false;
+    }
+  },
 
-  // Sync FROM server - LOAD ALL DATA
+  // ========= SYNC FROM SERVER =========
   syncFromServer: async () => {
     const token = get().token;
     if (!token) return false;
@@ -191,23 +193,22 @@ syncToServer: async () => {
         favorites = [], 
         reading = [], 
         completed = [], 
+        dropped = [],
         history = [], 
         readingProgress = {},
         profile = {}
       } = response.data;
       
-      // Save to localStorage
       localStorage.setItem('favorites', JSON.stringify(favorites));
       localStorage.setItem('reading', JSON.stringify(reading));
       localStorage.setItem('completed', JSON.stringify(completed));
+      localStorage.setItem('dropped', JSON.stringify(dropped));
       localStorage.setItem('history', JSON.stringify(history));
       localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
       
-      // Save profile data
       if (profile) {
         localStorage.setItem('profilePublic', profile.isPublic ? 'true' : 'false');
         
-        // Update user with profile data
         const currentUser = get().user;
         if (currentUser) {
           const updatedUser = { ...currentUser, profile };
@@ -231,23 +232,20 @@ syncToServer: async () => {
     }
   },
 
-  // Auto sync
+  // ========= AUTO SYNC =========
   startAutoSync: () => {
-    // Sync every 30 seconds if authenticated
     const interval = setInterval(() => {
       if (get().isAuthenticated && get().syncStatus !== 'syncing') {
         get().syncToServer();
       }
-    }, 30000);
+    }, 30000); // Ogni 30 secondi
     
-    // Sync when window gets focus
     const handleFocus = () => {
       if (get().isAuthenticated) {
         get().syncToServer();
       }
     };
     
-    // Sync before page unload
     const handleBeforeUnload = () => {
       if (get().isAuthenticated) {
         get().syncToServer();
@@ -264,7 +262,7 @@ syncToServer: async () => {
     };
   },
 
-  // Update profile
+  // ========= UPDATE PROFILE =========
   updateProfile: async (updates) => {
     set({ loading: true });
     
@@ -289,23 +287,22 @@ syncToServer: async () => {
     }
   },
 
+  // ========= SYNC SHORTCUTS =========
   syncFavorites: async (favorites) => {
     const token = get().token;
     if (!token) {
-      // Save only locally if not logged in
       localStorage.setItem('favorites', JSON.stringify(favorites));
       return false;
     }
     
     try {
-      // Save locally first
       localStorage.setItem('favorites', JSON.stringify(favorites));
       
-      // Then sync to server IMMEDIATELY
       await axios.post('/user/sync', { 
         favorites,
         reading: JSON.parse(localStorage.getItem('reading') || '[]'),
         completed: JSON.parse(localStorage.getItem('completed') || '[]'),
+        dropped: JSON.parse(localStorage.getItem('dropped') || '[]'),
         history: JSON.parse(localStorage.getItem('history') || '[]'),
         readingProgress: JSON.parse(localStorage.getItem('readingProgress') || '{}')
       });
@@ -332,6 +329,7 @@ syncToServer: async () => {
         reading,
         favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
         completed: JSON.parse(localStorage.getItem('completed') || '[]'),
+        dropped: JSON.parse(localStorage.getItem('dropped') || '[]'),
         history: JSON.parse(localStorage.getItem('history') || '[]'),
         readingProgress: JSON.parse(localStorage.getItem('readingProgress') || '{}')
       });
@@ -341,6 +339,13 @@ syncToServer: async () => {
     } catch (error) {
       console.error('❌ Failed to sync reading list:', error);
       return false;
+    }
+  },
+
+  // ========= PERSIST LOCAL DATA =========
+  persistLocalData: async () => {
+    if (get().isAuthenticated) {
+      await get().syncToServer();
     }
   }
 }));

@@ -1,9 +1,9 @@
-// ✅ MANGADETAILS.JSX - VERSIONE 3.1 OTTIMIZZATA
+// ✅ MANGADETAILS.JSX v3.3 - COMPLETO E OTTIMIZZATO
 import React, { useState, useEffect } from 'react';
 import {
   Box, Container, Heading, Text, Image, VStack, HStack, Button, Badge,
   SimpleGrid, Skeleton, useToast, Flex, IconButton, Wrap, WrapItem,
-  Divider, Progress, Tooltip, Menu, MenuButton, MenuList, MenuItem
+  Progress, Tooltip, Menu, MenuButton, MenuList, MenuItem
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -15,7 +15,6 @@ import apiManager from '../api';
 import useAuth from '../hooks/useAuth';
 import axios from 'axios';
 import { config } from '../config';
-import { spacing, getColorScheme, transition } from '../styles/spacing';
 
 const MotionBox = motion(Box);
 
@@ -46,7 +45,7 @@ function MangaDetails() {
     }
   }, [manga, user]);
 
-  // ✅ CARICA MANGA
+  // ========= LOAD MANGA =========
   const loadManga = async () => {
     try {
       setLoading(true);
@@ -57,9 +56,7 @@ function MangaDetails() {
         throw new Error('Manga non trovato');
       }
       
-      // ✅ LOG CAPITOLI CARICATI
       console.log('✅ Chapters loaded:', details.chapters?.length || 0);
-      console.log('✅ First 5 chapters:', details.chapters?.slice(0, 5));
       
       setManga(details);
       addToHistory(details);
@@ -154,7 +151,7 @@ function MangaDetails() {
     }
   };
 
-  // ✅ TOGGLE FAVORITE
+  // ========= TOGGLE FAVORITE =========
   const toggleFavorite = async () => {
     const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
     let updated;
@@ -183,7 +180,7 @@ function MangaDetails() {
       setIsFavorite(true);
       
       toast({
-        title: 'Aggiunto ai preferiti',
+        title: '❤️ Aggiunto ai preferiti',
         status: 'success',
         duration: 2000
       });
@@ -196,7 +193,7 @@ function MangaDetails() {
     }
   };
 
-  // ✅ TOGGLE NOTIFICATIONS
+  // ========= TOGGLE NOTIFICATIONS =========
   const toggleNotifications = async () => {
     if (!user) {
       toast({
@@ -230,7 +227,7 @@ function MangaDetails() {
         if (newStatus && 'Notification' in window) {
           const permission = await Notification.requestPermission();
           if (permission === 'granted') {
-            new Notification('Notifiche attivate', {
+            new Notification('🔔 Notifiche attivate', {
               body: `Riceverai notifiche per nuovi capitoli di ${manga.title}`,
               icon: manga.coverUrl,
               badge: '/web-app-manifest-192x192.png',
@@ -240,7 +237,7 @@ function MangaDetails() {
         }
         
         toast({
-          title: newStatus ? 'Notifiche attivate' : 'Notifiche disattivate',
+          title: newStatus ? '🔔 Notifiche attivate' : '🔕 Notifiche disattivate',
           status: 'success',
           duration: 2000
         });
@@ -256,7 +253,7 @@ function MangaDetails() {
     }
   };
 
-  // ✅ INIZIA LETTURA
+  // ========= START READING =========
   const startReading = (chapterIndex = 0) => {
     if (!manga?.chapters?.[chapterIndex]) {
       toast({
@@ -328,7 +325,7 @@ function MangaDetails() {
     }
   };
 
-  // ✅ SPOSTA TRA LISTE
+  // ========= MOVE TO LIST =========
   const moveToList = async (targetList) => {
     if (!manga) return;
     
@@ -381,7 +378,7 @@ function MangaDetails() {
           localStorage.setItem('completedChapters', JSON.stringify(completedChapters));
           
           if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('Manga completato! 🎉', {
+            new Notification('🎉 Manga completato!', {
               body: `Hai completato "${manga.title}"! Tutti i ${manga.chapters.length} capitoli sono stati segnati come letti.`,
               icon: manga.coverUrl,
               badge: '/web-app-manifest-192x192.png',
@@ -410,10 +407,10 @@ function MangaDetails() {
     }
     
     const messages = {
-      completed: '✅ Manga segnato come completato! Tutti i capitoli sono stati segnati come letti.',
-      dropped: '❌ Manga segnato come droppato',
-      reading: '📖 Manga aggiunto a "In lettura"',
-      null: 'ℹ️ Manga rimosso dalle liste'
+      completed: '✅ Manga completato! Tutti i capitoli segnati come letti.',
+      dropped: '❌ Manga droppato',
+      reading: '📖 Aggiunto a "In lettura"',
+      null: 'ℹ️ Rimosso dalle liste'
     };
     
     toast({
@@ -423,7 +420,7 @@ function MangaDetails() {
     });
   };
 
-  // ✅ CONDIVIDI
+  // ========= SHARE =========
   const shareContent = async () => {
     const shareData = {
       title: manga.title,
@@ -437,7 +434,7 @@ function MangaDetails() {
       } else {
         await navigator.clipboard.writeText(window.location.href);
         toast({
-          title: 'Link copiato!',
+          title: '📋 Link copiato!',
           description: 'Il link è stato copiato negli appunti',
           status: 'success',
           duration: 2000
@@ -447,17 +444,12 @@ function MangaDetails() {
       try {
         await navigator.clipboard.writeText(window.location.href);
         toast({
-          title: 'Link copiato!',
+          title: '📋 Link copiato!',
           status: 'success',
           duration: 2000
         });
       } catch (err) {
-        toast({
-          title: 'Errore',
-          description: 'Impossibile condividere',
-          status: 'error',
-          duration: 2000
-        });
+        console.error('Share error:', err);
       }
     }
   };
@@ -466,23 +458,23 @@ function MangaDetails() {
     return completedChapters.includes(chapterIndex);
   };
 
-  // ✅ LOADING STATE
+  // ========= LOADING STATE =========
   if (loading) {
     return (
-      <Container maxW={spacing.container.maxW} py={spacing.container.py}>
+      <Container maxW="container.xl" py={8}>
         <VStack spacing={8}>
-          <Skeleton height="400px" width="100%" />
-          <Skeleton height="200px" width="100%" />
-          <Skeleton height="300px" width="100%" />
+          <Skeleton height="400px" width="100%" borderRadius="xl" />
+          <Skeleton height="200px" width="100%" borderRadius="xl" />
+          <Skeleton height="300px" width="100%" borderRadius="xl" />
         </VStack>
       </Container>
     );
   }
 
-  // ✅ NOT FOUND STATE
+  // ========= NOT FOUND STATE =========
   if (!manga) {
     return (
-      <Container maxW={spacing.container.maxW} py={spacing.container.py}>
+      <Container maxW="container.xl" py={8}>
         <VStack spacing={8}>
           <Text fontSize="xl">Manga non trovato</Text>
           <Button colorScheme="purple" onClick={() => navigate('/home')}>
@@ -498,8 +490,8 @@ function MangaDetails() {
     : 0;
 
   return (
-    <Container maxW={spacing.container.maxW} py={spacing.container.py}>
-      <VStack spacing={spacing.section.spacing} align="stretch">
+    <Container maxW="container.xl" py={8}>
+      <VStack spacing={8} align="stretch">
         
         {/* ========= HEADER ========= */}
         <MotionBox
@@ -510,8 +502,11 @@ function MangaDetails() {
             direction={{ base: 'column', md: 'row' }}
             gap={8}
             bg="gray.800"
-            borderRadius={spacing.card.borderRadius}
-            p={spacing.card.p}
+            borderRadius="xl"
+            p={{ base: 4, md: 6 }}
+            border="1px solid"
+            borderColor="gray.700"
+            boxShadow="xl"
           >
             {/* COVER */}
             <Box flex="0 0 auto">
@@ -522,21 +517,28 @@ function MangaDetails() {
                 width={{ base: '100%', md: '250px' }}
                 height={{ base: 'auto', md: '350px' }}
                 objectFit="cover"
-                boxShadow="xl"
+                boxShadow="2xl"
+                border="2px solid"
+                borderColor="gray.700"
               />
               {readProgress > 0 && (
                 <Box mt={3}>
-                  <Text fontSize="sm" color="gray.400" mb={1}>
+                  <Text fontSize="sm" color="gray.400" mb={1} fontWeight="medium">
                     Progresso: {readProgress}%
                   </Text>
-                  <Progress value={readProgress} colorScheme="purple" size="sm" />
+                  <Progress 
+                    value={readProgress} 
+                    colorScheme="purple" 
+                    size="sm" 
+                    borderRadius="full"
+                  />
                 </Box>
               )}
             </Box>
 
             {/* INFO */}
             <VStack align="stretch" flex={1} spacing={4}>
-              <Heading size={spacing.heading.xl}>{manga.title}</Heading>
+              <Heading size={{ base: 'lg', md: 'xl' }}>{manga.title}</Heading>
               
               {manga.alternativeTitles?.length > 0 && (
                 <Text color="gray.400" fontSize="sm">
@@ -545,12 +547,22 @@ function MangaDetails() {
               )}
 
               <HStack spacing={2} wrap="wrap">
-                <Badge colorScheme="purple">{manga.type || 'MANGA'}</Badge>
-                <Badge colorScheme="green">{manga.status || 'In corso'}</Badge>
-                {manga.year && <Badge>{manga.year}</Badge>}
-                <Badge colorScheme="blue">{manga.chapters?.length || 0} capitoli</Badge>
+                <Badge colorScheme="purple" px={2} py={1} borderRadius="md">
+                  {manga.type || 'MANGA'}
+                </Badge>
+                <Badge colorScheme="green" px={2} py={1} borderRadius="md">
+                  {manga.status || 'In corso'}
+                </Badge>
+                {manga.year && (
+                  <Badge px={2} py={1} borderRadius="md">{manga.year}</Badge>
+                )}
+                <Badge colorScheme="blue" px={2} py={1} borderRadius="md">
+                  {manga.chapters?.length || 0} capitoli
+                </Badge>
                 {manga.source === 'mangaWorldAdult' && (
-                  <Badge colorScheme="pink">🔞 Adult</Badge>
+                  <Badge colorScheme="pink" px={2} py={1} borderRadius="md">
+                    🔞 Adult
+                  </Badge>
                 )}
                 {currentStatus && (
                   <Badge 
@@ -558,6 +570,9 @@ function MangaDetails() {
                       currentStatus === 'completed' ? 'green' : 
                       currentStatus === 'dropped' ? 'red' : 'purple'
                     }
+                    px={2}
+                    py={1}
+                    borderRadius="md"
                   >
                     {currentStatus === 'completed' ? '✓ Completato' : 
                      currentStatus === 'dropped' ? '✗ Droppato' : '📖 In lettura'}
@@ -566,7 +581,7 @@ function MangaDetails() {
               </HStack>
 
               {manga.authors?.length > 0 && (
-                <Text>
+                <Text fontSize={{ base: 'sm', md: 'md' }}>
                   <Text as="span" fontWeight="bold">Autore: </Text>
                   {manga.authors.join(', ')}
                 </Text>
@@ -580,6 +595,10 @@ function MangaDetails() {
                         variant="outline" 
                         colorScheme="purple"
                         cursor="pointer"
+                        px={3}
+                        py={1}
+                        borderRadius="full"
+                        _hover={{ bg: 'purple.900' }}
                         onClick={() => navigate(`/categories?genre=${genre.genre || genre}`)}
                       >
                         {genre.genre || genre}
@@ -590,14 +609,17 @@ function MangaDetails() {
               )}
 
               {/* ========= ACTIONS ========= */}
-              <HStack spacing={spacing.button.spacing} pt={4} flexWrap="wrap">
+              <HStack spacing={2} pt={4} flexWrap="wrap">
                 {readingProgress && readingProgress.chapterIndex > 0 ? (
                   <>
                     <Button
                       colorScheme="green"
                       leftIcon={<FaPlay />}
                       onClick={continueReading}
-                      size={spacing.button.size}
+                      size={{ base: 'sm', md: 'md' }}
+                      boxShadow="lg"
+                      _hover={{ transform: 'translateY(-2px)', boxShadow: 'xl' }}
+                      transition="all 0.2s"
                     >
                       Continua Cap. {readingProgress.chapterIndex + 1}
                     </Button>
@@ -607,7 +629,7 @@ function MangaDetails() {
                         variant="outline"
                         onClick={() => startReading(0)}
                         aria-label="Ricomincia"
-                        size={spacing.button.sizeIcon}
+                        size={{ base: 'sm', md: 'md' }}
                       />
                     </Tooltip>
                   </>
@@ -616,54 +638,64 @@ function MangaDetails() {
                     colorScheme="purple"
                     leftIcon={<FaPlay />}
                     onClick={() => startReading(0)}
-                    size={spacing.button.size}
+                    size={{ base: 'sm', md: 'md' }}
+                    boxShadow="lg"
+                    _hover={{ transform: 'translateY(-2px)', boxShadow: 'xl' }}
+                    transition="all 0.2s"
                   >
                     Inizia a leggere
                   </Button>
                 )}
                 
-                <IconButton
-                  icon={isFavorite ? <FaHeart /> : <FaBookmark />}
-                  colorScheme={isFavorite ? 'pink' : 'gray'}
-                  variant={isFavorite ? 'solid' : 'outline'}
-                  onClick={toggleFavorite}
-                  aria-label="Preferiti"
-                  title={isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
-                  size={spacing.button.sizeIcon}
-                />
+                <Tooltip label={isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}>
+                  <IconButton
+                    icon={isFavorite ? <FaHeart /> : <FaBookmark />}
+                    colorScheme={isFavorite ? 'pink' : 'gray'}
+                    variant={isFavorite ? 'solid' : 'outline'}
+                    onClick={toggleFavorite}
+                    aria-label="Preferiti"
+                    size={{ base: 'sm', md: 'md' }}
+                  />
+                </Tooltip>
                 
-                <IconButton
-                  icon={notificationsEnabled ? <FaBell /> : <FaBellSlash />}
-                  colorScheme={notificationsEnabled ? 'green' : 'gray'}
-                  variant={notificationsEnabled ? 'solid' : 'outline'}
-                  onClick={toggleNotifications}
-                  aria-label="Notifiche"
-                  title={notificationsEnabled ? 'Disattiva notifiche' : 'Attiva notifiche'}
-                  size={spacing.button.sizeIcon}
-                />
+                <Tooltip label={notificationsEnabled ? 'Disattiva notifiche' : 'Attiva notifiche'}>
+                  <IconButton
+                    icon={notificationsEnabled ? <FaBell /> : <FaBellSlash />}
+                    colorScheme={notificationsEnabled ? 'green' : 'gray'}
+                    variant={notificationsEnabled ? 'solid' : 'outline'}
+                    onClick={toggleNotifications}
+                    aria-label="Notifiche"
+                    size={{ base: 'sm', md: 'md' }}
+                  />
+                </Tooltip>
                 
-                <IconButton
-                  icon={<FaShare />}
-                  variant="outline"
-                  aria-label="Condividi"
-                  onClick={shareContent}
-                  size={spacing.button.sizeIcon}
-                />
+                <Tooltip label="Condividi">
+                  <IconButton
+                    icon={<FaShare />}
+                    variant="outline"
+                    aria-label="Condividi"
+                    onClick={shareContent}
+                    size={{ base: 'sm', md: 'md' }}
+                  />
+                </Tooltip>
                 
                 {/* MENU GESTIONE LISTE */}
                 <Menu>
-                  <MenuButton
-                    as={IconButton}
-                    icon={<FaEllipsisV />}
-                    variant="outline"
-                    aria-label="Altre opzioni"
-                    size={spacing.button.sizeIcon}
-                  />
+                  <Tooltip label="Gestisci liste">
+                    <MenuButton
+                      as={IconButton}
+                      icon={<FaEllipsisV />}
+                      variant="outline"
+                      aria-label="Altre opzioni"
+                      size={{ base: 'sm', md: 'md' }}
+                    />
+                  </Tooltip>
                   <MenuList bg="gray.800" borderColor="gray.700">
                     {currentStatus !== 'reading' && (
                       <MenuItem 
                         icon={<FaPlus />}
                         onClick={() => moveToList('reading')}
+                        _hover={{ bg: 'gray.700' }}
                       >
                         Aggiungi a "In lettura"
                       </MenuItem>
@@ -672,6 +704,7 @@ function MangaDetails() {
                       <MenuItem 
                         icon={<FaCheck />}
                         onClick={() => moveToList('completed')}
+                        _hover={{ bg: 'gray.700' }}
                       >
                         Segna come completato
                       </MenuItem>
@@ -680,6 +713,7 @@ function MangaDetails() {
                       <MenuItem 
                         icon={<FaBan />}
                         onClick={() => moveToList('dropped')}
+                        _hover={{ bg: 'gray.700' }}
                       >
                         Segna come droppato
                       </MenuItem>
@@ -689,6 +723,7 @@ function MangaDetails() {
                         icon={<FaCheckCircle />}
                         onClick={() => moveToList(null)}
                         color="red.400"
+                        _hover={{ bg: 'gray.700' }}
                       >
                         Rimuovi da tutte le liste
                       </MenuItem>
@@ -702,8 +737,14 @@ function MangaDetails() {
 
         {/* ========= TRAMA ========= */}
         {manga.plot && (
-          <Box bg="gray.800" p={spacing.card.p} borderRadius={spacing.card.borderRadius}>
-            <Heading size={spacing.heading.md} mb={4}>Trama</Heading>
+          <Box 
+            bg="gray.800" 
+            p={{ base: 4, md: 6 }} 
+            borderRadius="xl"
+            border="1px solid"
+            borderColor="gray.700"
+          >
+            <Heading size={{ base: 'sm', md: 'md' }} mb={4}>Trama</Heading>
             <Text color="gray.300" lineHeight="tall" whiteSpace="pre-wrap">
               {manga.plot.replace(/^trama:?\s*/i, '').trim()}
             </Text>
@@ -711,27 +752,39 @@ function MangaDetails() {
         )}
 
         {/* ========= CAPITOLI ========= */}
-        <Box bg="gray.800" p={spacing.card.p} borderRadius={spacing.card.borderRadius}>
+        <Box 
+          bg="gray.800" 
+          p={{ base: 4, md: 6 }} 
+          borderRadius="xl"
+          border="1px solid"
+          borderColor="gray.700"
+        >
           <HStack justify="space-between" mb={4}>
-            <Heading size={spacing.heading.md}>
+            <Heading size={{ base: 'sm', md: 'md' }}>
               Capitoli ({manga.chapters?.length || 0})
             </Heading>
             
-            <HStack spacing={spacing.button.spacing}>
-              <IconButton
-                icon={<FaList />}
-                size="sm"
-                variant={viewMode === 'list' ? 'solid' : 'ghost'}
-                onClick={() => setViewMode('list')}
-                aria-label="Vista lista"
-              />
-              <IconButton
-                icon={<FaTh />}
-                size="sm"
-                variant={viewMode === 'grid' ? 'solid' : 'ghost'}
-                onClick={() => setViewMode('grid')}
-                aria-label="Vista griglia"
-              />
+            <HStack spacing={2}>
+              <Tooltip label="Vista lista">
+                <IconButton
+                  icon={<FaList />}
+                  size="sm"
+                  variant={viewMode === 'list' ? 'solid' : 'ghost'}
+                  colorScheme="purple"
+                  onClick={() => setViewMode('list')}
+                  aria-label="Vista lista"
+                />
+              </Tooltip>
+              <Tooltip label="Vista griglia">
+                <IconButton
+                  icon={<FaTh />}
+                  size="sm"
+                  variant={viewMode === 'grid' ? 'solid' : 'ghost'}
+                  colorScheme="purple"
+                  onClick={() => setViewMode('grid')}
+                  aria-label="Vista griglia"
+                />
+              </Tooltip>
             </HStack>
           </HStack>
 
@@ -740,28 +793,52 @@ function MangaDetails() {
               Nessun capitolo disponibile
             </Text>
           ) : viewMode === 'list' ? (
-            <VStack align="stretch" spacing={2} maxH="600px" overflowY="auto">
+            <VStack 
+              align="stretch" 
+              spacing={2} 
+              maxH="600px" 
+              overflowY="auto"
+              css={{
+                '&::-webkit-scrollbar': { width: '8px' },
+                '&::-webkit-scrollbar-track': { background: 'transparent' },
+                '&::-webkit-scrollbar-thumb': { 
+                  background: 'var(--chakra-colors-purple-500)', 
+                  borderRadius: '4px' 
+                }
+              }}
+            >
               {manga.chapters.map((chapter, i) => (
                 <HStack
                   key={i}
                   p={3}
-                  bg={isChapterRead(i) ? 'gray.700' : 'gray.700'}
-                  borderRadius="md"
+                  bg="gray.700"
+                  borderRadius="lg"
                   cursor="pointer"
-                  _hover={{ bg: 'gray.600' }}
+                  _hover={{ 
+                    bg: 'gray.600', 
+                    transform: 'translateX(4px)',
+                    borderLeft: '4px solid',
+                    borderLeftColor: 'purple.500'
+                  }}
+                  transition="all 0.2s"
                   onClick={() => startReading(i)}
                   justify="space-between"
-                  position="relative"
-                  opacity={isChapterRead(i) ? 0.7 : 1}
+                  opacity={isChapterRead(i) ? 0.6 : 1}
+                  border="1px solid"
+                  borderColor={readingProgress?.chapterIndex === i ? 'purple.500' : 'transparent'}
                 >
-                  <HStack>
+                  <HStack spacing={3}>
                     {isChapterRead(i) && (
                       <FaCheckCircle color="green" />
                     )}
                     {readingProgress?.chapterIndex === i && (
-                      <Badge colorScheme="purple" size="sm">Attuale</Badge>
+                      <Badge colorScheme="purple" size="sm" borderRadius="md">
+                        Attuale
+                      </Badge>
                     )}
-                    <Text>{chapter.title}</Text>
+                    <Text fontWeight="medium">
+                      Capitolo {chapter.chapterNumber || (i + 1)}
+                    </Text>
                   </HStack>
                   {chapter.dateAdd && (
                     <Text fontSize="sm" color="gray.400">
@@ -772,19 +849,39 @@ function MangaDetails() {
               ))}
             </VStack>
           ) : (
-            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3} maxH="600px" overflowY="auto">
+            <SimpleGrid 
+              columns={{ base: 2, md: 4 }} 
+              spacing={3} 
+              maxH="600px" 
+              overflowY="auto"
+              css={{
+                '&::-webkit-scrollbar': { width: '8px' },
+                '&::-webkit-scrollbar-track': { background: 'transparent' },
+                '&::-webkit-scrollbar-thumb': { 
+                  background: 'var(--chakra-colors-purple-500)', 
+                  borderRadius: '4px' 
+                }
+              }}
+            >
               {manga.chapters.map((chapter, i) => (
                 <Box
                   key={i}
                   p={4}
-                  bg={isChapterRead(i) ? 'gray.700' : 'gray.700'}
-                  borderRadius="md"
+                  bg="gray.700"
+                  borderRadius="lg"
                   cursor="pointer"
-                  _hover={{ bg: 'gray.600' }}
+                  _hover={{ 
+                    bg: 'gray.600', 
+                    transform: 'translateY(-4px)',
+                    boxShadow: 'lg'
+                  }}
+                  transition="all 0.2s"
                   onClick={() => startReading(i)}
                   textAlign="center"
                   position="relative"
-                  opacity={isChapterRead(i) ? 0.7 : 1}
+                  opacity={isChapterRead(i) ? 0.6 : 1}
+                  border="2px solid"
+                  borderColor={readingProgress?.chapterIndex === i ? 'purple.500' : 'transparent'}
                 >
                   {isChapterRead(i) && (
                     <Box position="absolute" top={2} right={2}>
@@ -798,12 +895,13 @@ function MangaDetails() {
                       left={2} 
                       colorScheme="purple" 
                       size="sm"
+                      borderRadius="md"
                     >
                       Attuale
                     </Badge>
                   )}
-                  <Text fontSize="sm" noOfLines={2}>
-                    {chapter.title}
+                  <Text fontSize="sm" fontWeight="bold">
+                    Capitolo {chapter.chapterNumber || (i + 1)}
                   </Text>
                 </Box>
               ))}

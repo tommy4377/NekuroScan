@@ -1,4 +1,4 @@
-// backend/auth-server.js
+// ✅ AUTH-SERVER.JS v3.2 - SERVER AUTH COMPLETO
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
@@ -18,10 +18,12 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// ========= PRISMA SETUP =========
 const prisma = new PrismaClient({
   log: ['error', 'warn']
 });
 
+// ========= SUPABASE SETUP =========
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -35,11 +37,12 @@ const supabase = createClient(
 const PORT = process.env.PORT || 10000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
+// ========= MULTER SETUP =========
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: {
-    fileSize: 5 * 1024 * 1024
+    fileSize: 5 * 1024 * 1024 // 5MB
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -51,6 +54,7 @@ const upload = multer({
   }
 });
 
+// ========= CORS SETUP =========
 const corsOrigins = process.env.NODE_ENV === 'production' 
   ? ['https://kuroreader.onrender.com']
   : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'];
@@ -65,6 +69,7 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// ========= AUTH MIDDLEWARE =========
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -82,8 +87,7 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// =================== SUPABASE STORAGE ===================
-
+// ========= SUPABASE STORAGE FUNCTIONS =========
 async function uploadImageToSupabase(buffer, fileName, bucket = 'profile-images') {
   try {
     const { data, error } = await supabase.storage
@@ -125,8 +129,9 @@ async function deleteImageFromSupabase(url, bucket = 'profile-images') {
   }
 }
 
-// =================== AUTH ENDPOINTS ===================
+// ========= AUTH ROUTES =========
 
+// REGISTER
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -198,6 +203,7 @@ app.post('/api/auth/register', async (req, res) => {
         userId: user.id,
         reading: '[]',
         completed: '[]',
+        dropped: '[]',
         history: '[]'
       }
     });
@@ -225,6 +231,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+// LOGIN
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { emailOrUsername, password } = req.body;
@@ -280,7 +287,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// FIX: Get current user CON PROFILE
+// GET CURRENT USER
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ 
@@ -310,6 +317,9 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
   }
 });
 
+// ========= PROFILE ROUTES =========
+
+// UPDATE PROFILE
 app.put('/api/user/profile', authenticateToken, upload.fields([
   { name: 'avatar', maxCount: 1 },
   { name: 'banner', maxCount: 1 }
@@ -339,6 +349,7 @@ app.put('/api/user/profile', authenticateToken, upload.fields([
       }
     }
 
+    // AVATAR UPLOAD
     if (req.files?.avatar) {
       const avatarFile = req.files.avatar[0];
       const avatarFileName = `avatars/avatar_${userId}_${Date.now()}.webp`;
@@ -355,6 +366,7 @@ app.put('/api/user/profile', authenticateToken, upload.fields([
       updateData.avatarUrl = await uploadImageToSupabase(processedAvatar, avatarFileName);
     }
     
+    // BANNER UPLOAD
     if (req.files?.banner) {
       const bannerFile = req.files.banner[0];
       const bannerFileName = `banners/banner_${userId}_${Date.now()}.webp`;
@@ -395,6 +407,7 @@ app.put('/api/user/profile', authenticateToken, upload.fields([
   }
 });
 
+// GET PUBLIC PROFILE
 app.get('/api/profile/:username', async (req, res) => {
   try {
     const { username } = req.params;
@@ -423,6 +436,7 @@ app.get('/api/profile/:username', async (req, res) => {
     
     const reading = JSON.parse(user.library?.reading || '[]').slice(0, 12);
     const completed = JSON.parse(user.library?.completed || '[]').slice(0, 12);
+    const dropped = JSON.parse(user.library?.dropped || '[]').slice(0, 12);
     const favorites = JSON.parse(user.favorites?.favorites || '[]').slice(0, 12);
     
     const followersCount = await prisma.user_follows.count({
@@ -444,12 +458,14 @@ app.get('/api/profile/:username', async (req, res) => {
         totalRead: reading.length + completed.length,
         favorites: favorites.length,
         completed: completed.length,
+        dropped: dropped.length,
         views: user.profile.viewCount,
         followers: followersCount,
         following: followingCount
       },
       reading,
       completed,
+      dropped,
       favorites,
       socialLinks: user.profile.socialLinks || {},
       joinedAt: user.createdAt
@@ -461,184 +477,15 @@ app.get('/api/profile/:username', async (req, res) => {
   }
 });
 
-// =================== FOLLOW SYSTEM (NUOVO) ===================
+// ========= DATA SYNC ROUTES =========
 
-// Check if following
-app.get('/api/user/following/:username', authenticateToken, async (req, res) => {
-  try {
-    const { username } = req.params;
-    const followerId = req.user.id;
-    
-    const userToCheck = await prisma.user.findUnique({
-      where: { username: username.toLowerCase() }
-    });
-    
-    if (!userToCheck) {
-      return res.status(404).json({ message: 'Utente non trovato' });
-    }
-    
-    const follow = await prisma.user_follows.findUnique({
-      where: {
-        followerId_followingId: {
-          followerId,
-          followingId: userToCheck.id
-        }
-      }
-    });
-    
-    res.json({ following: !!follow });
-    
-  } catch (error) {
-    console.error('Check following error:', error);
-    res.status(500).json({ message: 'Errore verifica follow' });
-  }
-});
-
-// Toggle follow
-app.post('/api/user/follow/:username', authenticateToken, async (req, res) => {
-  try {
-    const { username } = req.params;
-    const followerId = req.user.id;
-    
-    const userToFollow = await prisma.user.findUnique({
-      where: { username: username.toLowerCase() }
-    });
-    
-    if (!userToFollow) {
-      return res.status(404).json({ message: 'Utente non trovato' });
-    }
-    
-    if (userToFollow.id === followerId) {
-      return res.status(400).json({ message: 'Non puoi seguire te stesso' });
-    }
-    
-    const existingFollow = await prisma.user_follows.findUnique({
-      where: {
-        followerId_followingId: {
-          followerId,
-          followingId: userToFollow.id
-        }
-      }
-    });
-    
-    if (existingFollow) {
-      // Unfollow
-      await prisma.user_follows.delete({
-        where: {
-          followerId_followingId: {
-            followerId,
-            followingId: userToFollow.id
-          }
-        }
-      });
-      
-      res.json({ success: true, following: false });
-    } else {
-      // Follow
-      await prisma.user_follows.create({
-        data: {
-          followerId,
-          followingId: userToFollow.id
-        }
-      });
-      
-      res.json({ success: true, following: true });
-    }
-    
-  } catch (error) {
-    console.error('Toggle follow error:', error);
-    res.status(500).json({ message: 'Errore gestione follow' });
-  }
-});
-
-// Get followers list
-app.get('/api/user/followers', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    
-    const followers = await prisma.user_follows.findMany({
-      where: { followingId: userId },
-      include: {
-        follower: {
-          include: {
-            profile: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-    
-    const followersList = followers.map(f => ({
-      id: f.follower.id,
-      username: f.follower.username,
-      displayName: f.follower.profile?.displayName || f.follower.username,
-      avatarUrl: f.follower.profile?.avatarUrl || '',
-      followedAt: f.createdAt
-    }));
-    
-    res.json({ followers: followersList });
-    
-  } catch (error) {
-    console.error('Get followers error:', error);
-    res.status(500).json({ message: 'Errore recupero followers' });
-  }
-});
-
-// Get following list
-app.get('/api/user/following', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    
-    const following = await prisma.user_follows.findMany({
-      where: { followerId: userId },
-      include: {
-        following: {
-          include: {
-            profile: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-    
-    const followingList = following.map(f => ({
-      id: f.following.id,
-      username: f.following.username,
-      displayName: f.following.profile?.displayName || f.following.username,
-      avatarUrl: f.following.profile?.avatarUrl || '',
-      followedAt: f.createdAt
-    }));
-    
-    res.json({ following: followingList });
-    
-  } catch (error) {
-    console.error('Get following error:', error);
-    res.status(500).json({ message: 'Errore recupero following' });
-  }
-});
-
-// =================== NOTIFICATIONS ===================
-
-app.post('/api/notifications/manga', authenticateToken, async (req, res) => {
-  try {
-    const { mangaUrl, mangaTitle, enabled } = req.body;
-    const userId = req.user.id;
-    
-    res.json({ success: true, enabled });
-    
-  } catch (error) {
-    console.error('Toggle notification error:', error);
-    res.status(500).json({ message: 'Errore gestione notifiche' });
-  }
-});
-
-// =================== DATA SYNC ===================
-
+// SYNC DATA TO SERVER
 app.post('/api/user/sync', authenticateToken, async (req, res) => {
   try {
     const { favorites, reading, completed, dropped, history, readingProgress } = req.body;
     const userId = req.user.id;
     
+    // SYNC FAVORITES
     if (favorites !== undefined) {
       await prisma.user_favorites.upsert({
         where: { userId },
@@ -653,6 +500,7 @@ app.post('/api/user/sync', authenticateToken, async (req, res) => {
       });
     }
     
+    // SYNC LIBRARY
     const existingLibrary = await prisma.user_library.findUnique({
       where: { userId }
     });
@@ -681,6 +529,7 @@ app.post('/api/user/sync', authenticateToken, async (req, res) => {
       });
     }
     
+    // SYNC READING PROGRESS
     if (readingProgress && typeof readingProgress === 'object') {
       for (const [mangaUrl, progress] of Object.entries(readingProgress)) {
         if (progress && typeof progress === 'object') {
@@ -715,6 +564,7 @@ app.post('/api/user/sync', authenticateToken, async (req, res) => {
   }
 });
 
+// GET USER DATA
 app.get('/api/user/data', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -758,6 +608,7 @@ app.get('/api/user/data', authenticateToken, async (req, res) => {
   }
 });
 
+// GET USER STATS
 app.get('/api/user/stats', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -771,6 +622,7 @@ app.get('/api/user/stats', authenticateToken, async (req, res) => {
     
     const reading = JSON.parse(library?.reading || '[]');
     const completed = JSON.parse(library?.completed || '[]');
+    const dropped = JSON.parse(library?.dropped || '[]');
     const favs = JSON.parse(favorites?.favorites || '[]');
     
     const followersCount = await prisma.user_follows.count({
@@ -785,6 +637,7 @@ app.get('/api/user/stats', authenticateToken, async (req, res) => {
       totalManga: reading.length + completed.length,
       reading: reading.length,
       completed: completed.length,
+      dropped: dropped.length,
       favorites: favs.length,
       chaptersRead: readingProgress * 5,
       readingTime: readingProgress * 15,
@@ -800,23 +653,194 @@ app.get('/api/user/stats', authenticateToken, async (req, res) => {
   }
 });
 
+// ========= FOLLOW SYSTEM =========
+
+// CHECK IF FOLLOWING
+app.get('/api/user/following/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const followerId = req.user.id;
+    
+    const userToCheck = await prisma.user.findUnique({
+      where: { username: username.toLowerCase() }
+    });
+    
+    if (!userToCheck) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+    
+    const follow = await prisma.user_follows.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId,
+          followingId: userToCheck.id
+        }
+      }
+    });
+    
+    res.json({ following: !!follow });
+    
+  } catch (error) {
+    console.error('Check following error:', error);
+    res.status(500).json({ message: 'Errore verifica follow' });
+  }
+});
+
+// TOGGLE FOLLOW
+app.post('/api/user/follow/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const followerId = req.user.id;
+    
+    const userToFollow = await prisma.user.findUnique({
+      where: { username: username.toLowerCase() }
+    });
+    
+    if (!userToFollow) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+    
+    if (userToFollow.id === followerId) {
+      return res.status(400).json({ message: 'Non puoi seguire te stesso' });
+    }
+    
+    const existingFollow = await prisma.user_follows.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId,
+          followingId: userToFollow.id
+        }
+      }
+    });
+    
+    if (existingFollow) {
+      await prisma.user_follows.delete({
+        where: {
+          followerId_followingId: {
+            followerId,
+            followingId: userToFollow.id
+          }
+        }
+      });
+      
+      res.json({ success: true, following: false });
+    } else {
+      await prisma.user_follows.create({
+        data: {
+          followerId,
+          followingId: userToFollow.id
+        }
+      });
+      
+      res.json({ success: true, following: true });
+    }
+    
+  } catch (error) {
+    console.error('Toggle follow error:', error);
+    res.status(500).json({ message: 'Errore gestione follow' });
+  }
+});
+
+// GET FOLLOWERS
+app.get('/api/user/followers', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const followers = await prisma.user_follows.findMany({
+      where: { followingId: userId },
+      include: {
+        follower: {
+          include: {
+            profile: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    const followersList = followers.map(f => ({
+      id: f.follower.id,
+      username: f.follower.username,
+      displayName: f.follower.profile?.displayName || f.follower.username,
+      avatarUrl: f.follower.profile?.avatarUrl || '',
+      followedAt: f.createdAt
+    }));
+    
+    res.json({ followers: followersList });
+    
+  } catch (error) {
+    console.error('Get followers error:', error);
+    res.status(500).json({ message: 'Errore recupero followers' });
+  }
+});
+
+// GET FOLLOWING
+app.get('/api/user/following', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const following = await prisma.user_follows.findMany({
+      where: { followerId: userId },
+      include: {
+        following: {
+          include: {
+            profile: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    const followingList = following.map(f => ({
+      id: f.following.id,
+      username: f.following.username,
+      displayName: f.following.profile?.displayName || f.following.username,
+      avatarUrl: f.following.profile?.avatarUrl || '',
+      followedAt: f.createdAt
+    }));
+    
+    res.json({ following: followingList });
+    
+  } catch (error) {
+    console.error('Get following error:', error);
+    res.status(500).json({ message: 'Errore recupero following' });
+  }
+});
+
+// ========= NOTIFICATIONS =========
+app.post('/api/notifications/manga', authenticateToken, async (req, res) => {
+  try {
+    const { mangaUrl, mangaTitle, enabled } = req.body;
+    const userId = req.user.id;
+    
+    res.json({ success: true, enabled });
+    
+  } catch (error) {
+    console.error('Toggle notification error:', error);
+    res.status(500).json({ message: 'Errore gestione notifiche' });
+  }
+});
+
+// ========= HEALTH CHECK =========
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
     service: 'NeKuro Scan Auth Server',
-    version: '2.4.0'
+    version: '3.2.0'
   });
 });
 
+// ========= START SERVER =========
 app.listen(PORT, () => {
-  console.log(`Auth server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log('Using Supabase Storage for uploads');
+  console.log(`✅ Auth server running on port ${PORT}`);
+  console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log('✅ Using Supabase Storage for uploads');
 });
 
+// ========= GRACEFUL SHUTDOWN =========
 const gracefulShutdown = async () => {
-  console.log('Starting graceful shutdown...');
+  console.log('🔄 Starting graceful shutdown...');
   await prisma.$disconnect();
   process.exit(0);
 };

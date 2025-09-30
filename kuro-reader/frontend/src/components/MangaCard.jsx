@@ -56,16 +56,19 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
       
 <VStack
   bg="gray.800"
-  borderRadius="lg"
+  borderRadius="xl"  // ✅ più arrotondato
   overflow="hidden"
   spacing={0}
   height="100%"
-  transition="all 0.3s"
+  transition="all 0.3s ease"
   position="relative"
+  border="1px solid"
+  borderColor="transparent"  // ✅ aggiungi border
   _hover={{ 
     bg: 'gray.700',
-    boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-    transform: 'translateY(-4px)' // ✅ Hover consistente
+    borderColor: 'purple.500',  // ✅ border colorato on hover
+    boxShadow: '0 20px 40px rgba(128, 90, 213, 0.3)',  // ✅ shadow colorata
+    transform: 'translateY(-8px)'  // ✅ solleva di più
   }}
   style={{
     transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,

@@ -61,6 +61,8 @@ function ReaderPage() {
   
   const chapterIndex = parseInt(searchParams.get('chapter') || '0');
 
+  const [loadingMore, setLoadingMore] = useState(false);
+
   // Swipe gesture for page navigation
   useSwipeGesture(
     () => changePage(1),  // swipe left = next
@@ -666,14 +668,45 @@ function ReaderPage() {
             '&::-webkit-scrollbar-thumb': { background: '#4a4a4a', borderRadius: '4px' },
             '&::-webkit-scrollbar-thumb:hover': { background: '#6a6a6a' },
           }}
-          onScroll={(e) => {
-            const container = e.target;
-            const scrollPercentage = (container.scrollTop / (container.scrollHeight - container.clientHeight)) * 100;
-            const estimatedPage = Math.floor((scrollPercentage / 100) * chapter.pages.length);
-            if (estimatedPage !== currentPage && estimatedPage >= 0 && estimatedPage < chapter.pages.length) {
-              setCurrentPage(estimatedPage);
-            }
-          }}
+          // ✅ FIX: Scroll webtoon con auto next chapter
+onScroll={(e) => {
+  const container = e.target;
+  const scrollPercentage = (container.scrollTop / (container.scrollHeight - container.clientHeight)) * 100;
+  const estimatedPage = Math.floor((scrollPercentage / 100) * chapter.pages.length);
+  
+  if (estimatedPage !== currentPage && estimatedPage >= 0 && estimatedPage < chapter.pages.length) {
+    setCurrentPage(estimatedPage);
+  }
+  
+  // ✅ NUOVO: Quando arrivi alla fine, vai al capitolo successivo
+  if (scrollPercentage >= 98 && !loadingMore) {
+    setLoadingMore(true);
+    
+    // Aspetta 1 secondo prima di cambiare capitolo
+    setTimeout(() => {
+      if (chapterIndex < manga?.chapters?.length - 1) {
+        toast({
+          title: 'Capitolo completato!',
+          description: 'Passaggio al capitolo successivo...',
+          status: 'success',
+          duration: 2000,
+        });
+        
+        setTimeout(() => {
+          navigateChapter(1);
+        }, 1000);
+      } else {
+        toast({
+          title: 'Manga completato!',
+          description: 'Hai raggiunto l\'ultimo capitolo',
+          status: 'success',
+          duration: 3000,
+        });
+        setLoadingMore(false);
+      }
+    }, 1000);
+  }
+}}
         >
           <VStack spacing={0} width="100%">
             {chapter.pages.map((page, i) => (

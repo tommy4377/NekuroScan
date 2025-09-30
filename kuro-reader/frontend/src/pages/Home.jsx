@@ -1,9 +1,9 @@
-// ✅ HOME.JSX - VERSIONE 3.1 OTTIMIZZATA
+// ✅ HOME.JSX v3.3 - COMPLETO E OTTIMIZZATO
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
   Button, useToast, Skeleton, IconButton, Tabs, TabList, Tab,
-  TabPanels, TabPanel, Badge, Icon as ChakraIcon, Center, Divider
+  TabPanels, TabPanel, Badge, Icon, Center
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -17,11 +17,10 @@ import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { spacing, getColorScheme, transition } from '../styles/spacing';
 
 const MotionBox = motion(Box);
 
-// ✅ UTILITY: Pulisce numero capitolo
+// ✅ PULISCE NUMERO CAPITOLO
 const cleanChapterNumber = (chapter) => {
   if (!chapter) return '';
   return chapter
@@ -37,7 +36,7 @@ function Home() {
   
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
   
-  // ✅ STATE UNIFICATO
+  // ========= STATE =========
   const [content, setContent] = useState({
     trending: [],
     latest: [],
@@ -53,11 +52,12 @@ function Home() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ✅ CARICA TUTTI I CONTENUTI
+  // ========= LOAD CONTENT =========
   const loadAllContent = useCallback(async () => {
     setLoading(true);
     
     try {
+      // Carica tutto in parallelo
       const [
         trendingRes,
         latestRes, 
@@ -76,7 +76,7 @@ function Home() {
         statsAPI.getTopByType('oneshot', includeAdult, 1)
       ]);
       
-      // ✅ PROCESS RESULTS
+      // Processa risultati
       const processResult = (result, fallback = []) => {
         if (result.status === 'fulfilled') {
           const data = Array.isArray(result.value) 
@@ -91,14 +91,14 @@ function Home() {
         return fallback;
       };
       
-      // ✅ CONTINUE READING
+      // Continua a leggere
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       const readingWithProgress = reading.slice(0, 10).map(item => ({
         ...item,
         continueFrom: item.lastChapterIndex ? `Cap. ${item.lastChapterIndex + 1}` : null
       }));
       
-      // ✅ RECOMMENDATIONS
+      // Raccomandazioni
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
       let recommendations = [];
       if (favorites.length > 0) {
@@ -155,7 +155,7 @@ function Home() {
     navigate(path, { state: { includeAdult } });
   };
 
-  // ✅ COMPONENTE SEZIONE UNIFORME
+  // ========= SEZIONE CONTENUTI =========
   const ContentSection = ({ 
     title, 
     icon, 
@@ -168,22 +168,24 @@ function Home() {
   }) => {
     if (!items || (items.length === 0 && !loading)) {
       return (
-        <Box bg="gray.800" p={spacing.card.p} borderRadius={spacing.card.borderRadius}>
+        <Box 
+          bg="gray.800" 
+          p={{ base: 4, md: 6 }} 
+          borderRadius="xl"
+          border="1px solid"
+          borderColor="gray.700"
+        >
           <HStack justify="space-between" mb={4}>
             <HStack spacing={3}>
               <Box 
                 p={2} 
                 bg={`${color}.500`} 
                 borderRadius="lg"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                minW="36px"
-                minH="36px"
+                boxShadow="lg"
               >
-                <ChakraIcon as={icon} color="white" boxSize={5} />
+                <Icon as={icon} color="white" boxSize={5} />
               </Box>
-              <Heading size={spacing.heading.md}>{title}</Heading>
+              <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
             </HStack>
           </HStack>
           <Center py={8}>
@@ -195,23 +197,27 @@ function Home() {
 
     return (
       <VStack align="stretch" spacing={4}>
-        <Box bg="gray.800" p={spacing.card.p} borderRadius={spacing.card.borderRadius}>
+        <Box 
+          bg="gray.800" 
+          p={{ base: 4, md: 6 }} 
+          borderRadius="xl"
+          border="1px solid"
+          borderColor="gray.700"
+          transition="all 0.3s"
+          _hover={{ borderColor: `${color}.500` }}
+        >
           <HStack justify="space-between" mb={4}>
             <HStack spacing={3}>
               <Box 
                 p={2} 
                 bg={`${color}.500`} 
                 borderRadius="lg"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                minW="36px"
-                minH="36px"
+                boxShadow="lg"
               >
-                <ChakraIcon as={icon} color="white" boxSize={5} />
+                <Icon as={icon} color="white" boxSize={5} />
               </Box>
               <VStack align="start" spacing={0}>
-                <Heading size={spacing.heading.md}>{title}</Heading>
+                <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
                 <Text fontSize="xs" color="gray.400">
                   {items.length} disponibili
                 </Text>
@@ -231,8 +237,20 @@ function Home() {
             )}
           </HStack>
 
-          <Box overflowX="auto" pb={2}>
-            <HStack spacing={spacing.grid.spacing} align="start">
+          {/* Scroll orizzontale */}
+          <Box 
+            overflowX="auto" 
+            pb={2}
+            css={{
+              '&::-webkit-scrollbar': { height: '8px' },
+              '&::-webkit-scrollbar-track': { background: 'transparent' },
+              '&::-webkit-scrollbar-thumb': { 
+                background: `var(--chakra-colors-${color}-500)`, 
+                borderRadius: '4px' 
+              }
+            }}
+          >
+            <HStack spacing={4} align="start">
               {items.map((item, i) => (
                 <MotionBox
                   key={`${item.url}-${i}`}
@@ -265,6 +283,7 @@ function Home() {
                       fontWeight="bold"
                       opacity={0.95}
                       zIndex={10}
+                      boxShadow="lg"
                     >
                       {item.continueFrom}
                     </Box>
@@ -278,13 +297,13 @@ function Home() {
     );
   };
 
-  // ✅ LOADING STATE
+  // ========= LOADING STATE =========
   if (loading) {
     return (
-      <Container maxW={spacing.container.maxW} py={spacing.container.py}>
+      <Container maxW="container.xl" py={8}>
         <VStack spacing={8}>
           <Skeleton height="150px" borderRadius="xl" />
-          <SimpleGrid columns={spacing.grid.columns} spacing={spacing.grid.spacing} w="100%">
+          <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} w="100%">
             {[...Array(10)].map((_, i) => (
               <Skeleton key={i} height="280px" borderRadius="lg" />
             ))}
@@ -295,30 +314,38 @@ function Home() {
   }
 
   return (
-    <Container maxW={spacing.container.maxW} py={spacing.container.py}>
-      <VStack spacing={spacing.section.spacing} align="stretch">
+    <Container maxW="container.xl" py={8}>
+      <VStack spacing={8} align="stretch">
         
         {/* ========= HEADER ========= */}
-        <Box bg="gray.800" p={spacing.card.p} borderRadius={spacing.card.borderRadius}>
+        <Box 
+          bg="gray.800" 
+          p={{ base: 4, md: 6 }} 
+          borderRadius="xl"
+          border="1px solid"
+          borderColor="gray.700"
+          boxShadow="xl"
+        >
           <HStack justify="space-between" flexWrap="wrap" spacing={4}>
             <VStack align="start" spacing={1}>
               <Heading 
-                size={spacing.heading.xl}
+                size={{ base: 'lg', md: 'xl' }}
                 bgGradient="linear(to-r, purple.400, pink.400)" 
                 bgClip="text"
               >
                 Benvenuto su NeKuro Scan
               </Heading>
-              <Text color="gray.400">
+              <Text color="gray.400" fontSize={{ base: 'sm', md: 'md' }}>
                 Scopri i tuoi manga preferiti
               </Text>
             </VStack>
-            <HStack spacing={spacing.button.spacing}>
+            <HStack spacing={3}>
               <Button
                 variant={includeAdult ? 'solid' : 'outline'}
                 colorScheme="pink"
-                size={spacing.button.size}
+                size={{ base: 'sm', md: 'md' }}
                 onClick={() => setIncludeAdult(!includeAdult)}
+                boxShadow={includeAdult ? 'lg' : 'none'}
               >
                 {includeAdult ? '🔞 Adult ON' : '🔞 Adult OFF'}
               </Button>
@@ -329,7 +356,7 @@ function Home() {
                 isLoading={refreshing}
                 variant="ghost"
                 colorScheme="purple"
-                size={spacing.button.sizeIcon}
+                size={{ base: 'sm', md: 'md' }}
               />
             </HStack>
           </HStack>
@@ -348,7 +375,13 @@ function Home() {
         )}
 
         {/* ========= TABS CONTENUTI ========= */}
-        <Box bg="gray.800" borderRadius={spacing.card.borderRadius} p={spacing.card.p}>
+        <Box 
+          bg="gray.800" 
+          borderRadius="xl" 
+          p={{ base: 3, md: 4 }}
+          border="1px solid"
+          borderColor="gray.700"
+        >
           <Tabs colorScheme="purple" variant="soft-rounded">
             <TabList 
               bg="gray.900" 
@@ -478,15 +511,25 @@ function Home() {
         </Box>
 
         {/* ========= CTA ESPLORA ========= */}
-        <Box bg="gray.800" p={6} borderRadius={spacing.card.borderRadius}>
+        <Box 
+          bg="gray.800" 
+          p={6} 
+          borderRadius="xl"
+          border="1px solid"
+          borderColor="gray.700"
+          textAlign="center"
+        >
           <VStack spacing={4}>
-            <Heading size={spacing.heading.md}>Esplora per categoria</Heading>
+            <Heading size={{ base: 'sm', md: 'md' }}>Esplora per categoria</Heading>
             <Button 
               colorScheme="purple" 
               onClick={() => navigate('/categories')} 
               rightIcon={<FaArrowRight />}
-              size="lg"
+              size={{ base: 'md', md: 'lg' }}
               w={{ base: '100%', md: 'auto' }}
+              boxShadow="lg"
+              _hover={{ transform: 'translateY(-2px)', boxShadow: 'xl' }}
+              transition="all 0.2s"
             >
               Scopri tutte le categorie
             </Button>
