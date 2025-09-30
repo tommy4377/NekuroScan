@@ -146,40 +146,37 @@ const useAuth = create((set, get) => ({
     });
   },
 
-  // Sync TO server - SAVE ALL DATA
-  syncToServer: async () => {
-    const token = get().token;
-    if (!token) return false;
+syncToServer: async () => {
+  const token = get().token;
+  if (!token) return false;
+  
+  set({ syncStatus: 'syncing' });
+  
+  try {
+    const dataToSync = {
+      favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
+      reading: JSON.parse(localStorage.getItem('reading') || '[]'),
+      completed: JSON.parse(localStorage.getItem('completed') || '[]'),
+      history: JSON.parse(localStorage.getItem('history') || '[]'),
+      readingProgress: JSON.parse(localStorage.getItem('readingProgress') || '{}')
+    };
     
-    set({ syncStatus: 'syncing' });
+    await axios.post('/user/sync', dataToSync);
     
-    try {
-      // Collect all local data
-      const dataToSync = {
-        favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
-        reading: JSON.parse(localStorage.getItem('reading') || '[]'),
-        completed: JSON.parse(localStorage.getItem('completed') || '[]'),
-        history: JSON.parse(localStorage.getItem('history') || '[]'),
-        readingProgress: JSON.parse(localStorage.getItem('readingProgress') || '{}')
-      };
-      
-      // Send to server
-      await axios.post('/user/sync', dataToSync);
-      
-      set({ 
-        syncStatus: 'synced', 
-        lastSync: new Date().toISOString() 
-      });
-      
-      console.log('✅ Data synced to server');
-      return true;
-      
-    } catch (error) {
-      console.error('❌ Sync to server error:', error);
-      set({ syncStatus: 'error' });
-      return false;
-    }
-  },
+    set({ 
+      syncStatus: 'synced', 
+      lastSync: new Date().toISOString() 
+    });
+    
+    console.log('✅ Data synced to server');
+    return true;
+    
+  } catch (error) {
+    console.error('❌ Sync to server error:', error);
+    set({ syncStatus: 'error' });
+    return false;
+  }
+},
 
   // Sync FROM server - LOAD ALL DATA
   syncFromServer: async () => {
@@ -292,17 +289,27 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // Sync favorites specifically
   syncFavorites: async (favorites) => {
     const token = get().token;
-    if (!token) return;
+    if (!token) {
+      // Save only locally if not logged in
+      localStorage.setItem('favorites', JSON.stringify(favorites));
+      return false;
+    }
     
     try {
       // Save locally first
       localStorage.setItem('favorites', JSON.stringify(favorites));
       
-      // Then sync to server
-      await axios.post('/user/sync', { favorites });
+      // Then sync to server IMMEDIATELY
+      await axios.post('/user/sync', { 
+        favorites,
+        reading: JSON.parse(localStorage.getItem('reading') || '[]'),
+        completed: JSON.parse(localStorage.getItem('completed') || '[]'),
+        history: JSON.parse(localStorage.getItem('history') || '[]'),
+        readingProgress: JSON.parse(localStorage.getItem('readingProgress') || '{}')
+      });
+      
       console.log('✅ Favorites synced');
       return true;
     } catch (error) {
@@ -310,18 +317,25 @@ const useAuth = create((set, get) => ({
       return false;
     }
   },
-
-  // Sync reading list specifically  
+  
   syncReading: async (reading) => {
     const token = get().token;
-    if (!token) return;
+    if (!token) {
+      localStorage.setItem('reading', JSON.stringify(reading));
+      return false;
+    }
     
     try {
-      // Save locally first
       localStorage.setItem('reading', JSON.stringify(reading));
       
-      // Then sync to server
-      await axios.post('/user/sync', { reading });
+      await axios.post('/user/sync', { 
+        reading,
+        favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
+        completed: JSON.parse(localStorage.getItem('completed') || '[]'),
+        history: JSON.parse(localStorage.getItem('history') || '[]'),
+        readingProgress: JSON.parse(localStorage.getItem('readingProgress') || '{}')
+      });
+      
       console.log('✅ Reading list synced');
       return true;
     } catch (error) {

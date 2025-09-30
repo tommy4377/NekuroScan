@@ -37,8 +37,11 @@ function Navigation() {
 
   // Avatar con fallback
   const avatarSrc = useMemo(() => {
+    if (user?.profile?.avatarUrl) {
+      return user.profile.avatarUrl;
+    }
     const local = localStorage.getItem('userAvatar');
-    return user?.avatar || local || undefined;
+    return local || undefined;
   }, [user]);
 
   // Notifiche non lette
