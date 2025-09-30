@@ -1,4 +1,4 @@
-// NUOVA VERSIONE MIGLIORATA
+// ✅ VERSIONE DEFINITIVA - FIX COMPLETO PER NUMERI CAPITOLI
 export function normalizeChapterLabel(text, url) {
   if (!text) return null;
   
@@ -13,12 +13,12 @@ export function normalizeChapterLabel(text, url) {
   t = t.replace(/^(vol\.\s*\d+\s*-\s*)?/i, '');
   t = t.replace(/^(capitolo|cap\.|ch\.|chapter)\s*/i, '');
   
-  // Pattern per estrarre numeri
+  // ✅ Pattern migliorati per evitare concatenazioni
   const patterns = [
-    /^(\d+(?:\.\d+)?)/,           // 123 o 123.5
-    /chapter[:\s]+(\d+(?:\.\d+)?)/i,  // Chapter: 123
+    /^(\d+(?:\.\d+)?)\s*$/,           // Solo numero: "123" o "123.5"
+    /^(\d+(?:\.\d+)?)\s*[:-]/,        // Numero seguito da : o -
+    /capitolo[:\s]+(\d+(?:\.\d+)?)/i, // Chapter: 123
     /cap[:\s]+(\d+(?:\.\d+)?)/i,      // Cap: 123
-    /(\d+(?:\.\d+)?)\s*$/,            // 123 alla fine
     /#(\d+(?:\.\d+)?)/,               // #123
   ];
   
@@ -27,42 +27,47 @@ export function normalizeChapterLabel(text, url) {
     if (match && match[1]) {
       let num = match[1];
       
-      // FIX: Gestisci numeri come 0176, 0177, ecc
-      if (num.startsWith('0') && num.length >= 3) {
-        // Se inizia con 0 e ha 3+ cifre, rimuovi lo zero iniziale
-        num = num.replace(/^0+/, '');
-        // Se diventa vuoto, usa 0
-        if (!num) num = '0';
+      // ✅ FIX: Gestisci zeri iniziali con logica corretta
+      // "0176" diventa "176", "03" diventa "3", "001" diventa "1"
+      if (num.startsWith('0') && num.length > 1) {
+        const withoutZeros = num.replace(/^0+/, '');
+        if (withoutZeros && parseFloat(withoutZeros) < 10000) {
+          num = withoutZeros;
+        } else if (!withoutZeros) {
+          num = '0'; // Se tutti zeri, resta 0
+        }
       }
       
       const parsedNum = parseFloat(num);
       
-      // Validazione: se il numero è troppo grande, probabilmente è un errore
-      if (parsedNum > 0 && parsedNum < 10000) {
+      // Validazione: numero valido tra 0 e 9999
+      if (!isNaN(parsedNum) && parsedNum >= 0 && parsedNum < 10000) {
         return parsedNum;
       }
     }
   }
   
-  // Prova dall'URL come fallback
+  // ✅ Prova dall'URL come fallback
   if (url) {
     const urlPatterns = [
       /\/capitolo-(\d+(?:\.\d+)?)/i,
       /\/chapter-(\d+(?:\.\d+)?)/i,
-      /\/(\d+(?:\.\d+)?)\/?$/,
-      /cap(?:itolo)?[_-](\d+(?:\.\d+)?)/i,
+      /\/cap-(\d+(?:\.\d+)?)/i,
+      /\/read\/[^\/]+\/[^\/]+\/(\d+)/i,
     ];
     
     for (const pattern of urlPatterns) {
       const match = url.match(pattern);
       if (match && match[1]) {
         let num = match[1];
-        if (num.startsWith('0') && num.length >= 3) {
-          num = num.replace(/^0+/, '');
-          if (!num) num = '0';
+        
+        if (num.startsWith('0') && num.length > 1) {
+          const withoutZeros = num.replace(/^0+/, '');
+          if (withoutZeros) num = withoutZeros;
         }
+        
         const parsedNum = parseFloat(num);
-        if (parsedNum >= 0 && parsedNum < 10000) {
+        if (!isNaN(parsedNum) && parsedNum >= 0 && parsedNum < 10000) {
           return parsedNum;
         }
       }

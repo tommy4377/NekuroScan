@@ -90,41 +90,45 @@ export default function Profile() {
     }
   }, [profileData.isPublic, user]);
 
-  const loadUserData = async () => {
-    if (!user) return;
+  // frontend/src/pages/Profile.jsx
+// 🔁 Sostituisci l'INTERA funzione esistente con questa versione (include `dropped`)
+
+const loadUserData = async () => {
+  if (!user) return;
+  
+  try {
+    const response = await axios.get(`${config.API_URL}/api/user/data`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    });
     
-    try {
-      const response = await axios.get(`${config.API_URL}/api/user/data`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      
-      const { profile, reading, completed, favorites } = response.data;
-      
-      setProfileData({
-        username: user.username,
-        email: user.email,
-        displayName: profile?.displayName || user.username,
-        bio: profile?.bio || '',
-        avatarUrl: profile?.avatarUrl || '',
-        bannerUrl: profile?.bannerUrl || '',
-        isPublic: profile?.isPublic || false,
-        socialLinks: profile?.socialLinks || {}
-      });
-      
-      setLibraryData({
-        reading: reading || [],
-        completed: completed || [],
-        favorites: favorites || []
-      });
-      
-      localStorage.setItem('profilePublic', profile?.isPublic ? 'true' : 'false');
-      
-    } catch (error) {
-      console.error('Error loading user data:', error);
-    } finally {
-      setLoadingStats(false);
-    }
-  };
+    const { profile, reading, completed, favorites, dropped } = response.data; // ✅ AGGIUNTO dropped
+    
+    setProfileData({
+      username: user.username,
+      email: user.email,
+      displayName: profile?.displayName || user.username,
+      bio: profile?.bio || '',
+      avatarUrl: profile?.avatarUrl || '',
+      bannerUrl: profile?.bannerUrl || '',
+      isPublic: profile?.isPublic || false,
+      socialLinks: profile?.socialLinks || {}
+    });
+    
+    setLibraryData({
+      reading: reading || [],
+      completed: completed || [],
+      dropped: dropped || [], // ✅ AGGIUNTO
+      favorites: favorites || []
+    });
+    
+    localStorage.setItem('profilePublic', profile?.isPublic ? 'true' : 'false');
+    
+  } catch (error) {
+    console.error('Error loading user data:', error);
+  } finally {
+    setLoadingStats(false);
+  }
+};
 
   const loadFriends = async () => {
     try {
@@ -395,6 +399,7 @@ export default function Profile() {
                   style={{ display: 'none' }}
                 />
               </Box>
+              
               
               <VStack
                 align={{ base: 'center', md: 'start' }}

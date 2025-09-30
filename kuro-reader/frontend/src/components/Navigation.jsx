@@ -1,3 +1,4 @@
+// frontend/src/components/Navigation.jsx
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box, Flex, HStack, IconButton, Button, Input, InputGroup, InputLeftElement,
@@ -6,12 +7,13 @@ import {
   DrawerContent, DrawerCloseButton, VStack, Divider, useBreakpointValue,
   Badge, Tooltip, useToast
 } from '@chakra-ui/react';
-import { HamburgerIcon, CloseIcon, SearchIcon, BellIcon } from '@chakra-ui/icons';
+import { HamburgerIcon, CloseIcon, SearchIcon } from '@chakra-ui/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaBook, FaUser, FaBookmark, FaSignInAlt, FaSignOutAlt, FaCog, FaShare } from 'react-icons/fa';
 import { BiCategoryAlt } from 'react-icons/bi';
-import { MdPublic, MdLock } from 'react-icons/md';
+import { MdPublic } from 'react-icons/md';
 import useAuth from '../hooks/useAuth';
+import NotificationCenter from './NotificationCenter';
 
 function Navigation() {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -25,30 +27,19 @@ function Navigation() {
   const isMobile = useBreakpointValue({ base: true, md: false });
   const logoSize = useBreakpointValue({ base: '32px', md: '40px' });
   
-  // Non mostrare nel reader
   if (location.pathname.includes('/read/')) return null;
 
-  // Effetto scroll per ombra navbar
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Avatar con fallback
   const avatarSrc = useMemo(() => {
-    if (user?.profile?.avatarUrl) {
-      return user.profile.avatarUrl;
-    }
+    if (user?.profile?.avatarUrl) return user.profile.avatarUrl;
     const local = localStorage.getItem('userAvatar');
     return local || undefined;
   }, [user]);
-
-  // Notifiche non lette
-  const unreadCount = useMemo(() => {
-    const updates = JSON.parse(localStorage.getItem('mangaUpdates') || '[]');
-    return updates.filter(u => !u.read).length;
-  }, [location]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -59,10 +50,9 @@ function Navigation() {
     }
   };
 
-  // FIX: async logout
   const doLogout = async () => {
-    if (user) {
-      await persistLocalData(); // FIX: await added
+    if (user && persistLocalData) {
+      await persistLocalData();
     }
     logout();
     navigate('/');
@@ -71,17 +61,9 @@ function Navigation() {
   const shareProfile = () => {
     const profileUrl = `${window.location.origin}/user/${user?.username}`;
     navigator.clipboard.writeText(profileUrl).then(() => {
-      toast({
-        title: 'Link copiato!',
-        status: 'success',
-        duration: 2000,
-      });
+      toast({ title: 'Link copiato!', status: 'success', duration: 2000 });
     }).catch(() => {
-      toast({
-        title: 'Errore nella copia',
-        status: 'error',
-        duration: 2000,
-      });
+      toast({ title: 'Errore nella copia', status: 'error', duration: 2000 });
     });
   };
 
@@ -104,9 +86,7 @@ function Navigation() {
       >
         <Container maxW="container.xl">
           <Flex h="60px" alignItems="center" justifyContent="space-between">
-            {/* Left Section */}
             <HStack spacing={{ base: 2, md: 4 }}>
-              {/* Mobile Menu */}
               <IconButton
                 size="md"
                 icon={isOpen ? <CloseIcon /> : <HamburgerIcon />}
@@ -117,7 +97,6 @@ function Navigation() {
                 colorScheme="purple"
               />
               
-              {/* Logo & Title */}
               <Link to="/home">
                 <HStack spacing={2} _hover={{ opacity: 0.8 }} transition="all 0.2s">
                   <Image 
@@ -130,14 +109,12 @@ function Navigation() {
                     fontWeight="bold"
                     bgGradient="linear(to-r, purple.400, pink.400)"
                     bgClip="text"
-                    display={{ base: 'block', md: 'block' }}
                   >
                     NeKuro Scan
                   </Text>
                 </HStack>
               </Link>
 
-              {/* Desktop Nav */}
               <HStack spacing={2} display={{ base: 'none', md: 'flex' }}>
                 <Link to="/library">
                   <Button variant="ghost" leftIcon={<FaBook />} size="sm">
@@ -152,13 +129,7 @@ function Navigation() {
               </HStack>
             </HStack>
 
-            {/* Center - Search */}
-            <Box 
-              display={{ base: 'none', md: 'block' }} 
-              flex={1} 
-              maxW="400px" 
-              mx={4}
-            >
+            <Box display={{ base: 'none', md: 'block' }} flex={1} maxW="400px" mx={4}>
               <form onSubmit={handleSearch}>
                 <InputGroup size="sm">
                   <InputLeftElement pointerEvents="none">
@@ -179,9 +150,7 @@ function Navigation() {
               </form>
             </Box>
 
-            {/* Right Section */}
             <HStack spacing={2}>
-              {/* Mobile Search */}
               <IconButton
                 icon={<SearchIcon />}
                 variant="ghost"
@@ -192,46 +161,13 @@ function Navigation() {
                 colorScheme="purple"
               />
               
-              {/* Notifications */}
               {user && (
-                <Box position="relative">
-                  <IconButton
-                    icon={<BellIcon />}
-                    variant="ghost"
-                    aria-label="Notifiche"
-                    size="sm"
-                    onClick={() => navigate('/notifications')}
-                  />
-                  {unreadCount > 0 && (
-                    <Badge
-                      position="absolute"
-                      top={0}
-                      right={0}
-                      colorScheme="red"
-                      borderRadius="full"
-                      fontSize="xs"
-                      minW="18px"
-                      h="18px"
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="center"
-                    >
-                      {unreadCount}
-                    </Badge>
-                  )}
-                </Box>
+                <NotificationCenter />
               )}
               
-              {/* User Menu */}
               {user ? (
                 <Menu>
-                  <MenuButton
-                    as={Button}
-                    rounded="full"
-                    variant="link"
-                    cursor="pointer"
-                    minW={0}
-                  >
+                  <MenuButton as={Button} rounded="full" variant="link" cursor="pointer" minW={0}>
                     <Avatar
                       size="sm"
                       name={user.username}
@@ -290,7 +226,6 @@ function Navigation() {
         </Container>
       </Box>
 
-      {/* Mobile Drawer */}
       <Drawer isOpen={isOpen} placement="left" onClose={onClose} size="xs">
         <DrawerOverlay />
         <DrawerContent bg="gray.900">
@@ -311,7 +246,6 @@ function Navigation() {
 
           <DrawerBody pt={4}>
             <VStack spacing={4} align="stretch">
-              {/* Mobile Search */}
               <form onSubmit={handleSearch}>
                 <InputGroup>
                   <InputLeftElement pointerEvents="none">
@@ -330,7 +264,6 @@ function Navigation() {
               
               <Divider borderColor="gray.700" />
               
-              {/* Navigation Links */}
               <VStack align="stretch" spacing={2}>
                 <Link to="/library" onClick={onClose}>
                   <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaBook />} w="100%">
@@ -352,7 +285,6 @@ function Navigation() {
               
               <Divider borderColor="gray.700" />
               
-              {/* User Section */}
               {user ? (
                 <VStack align="stretch" spacing={3}>
                   <HStack p={3} bg="gray.800" borderRadius="lg">

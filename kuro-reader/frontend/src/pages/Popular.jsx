@@ -1,14 +1,16 @@
+// frontend/src/pages/Popular.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
+  Box, Container, Heading, Text, VStack, HStack,
   Button, useToast, Skeleton, Badge, IconButton,
-  Select, Switch, Tabs, TabList, Tab, TabPanels, TabPanel, Center
+  Tabs, TabList, Tab, TabPanels, TabPanel, Center
 } from '@chakra-ui/react';
 import { FaHeart, FaArrowUp, FaFire, FaStar, FaTrophy, FaPlus } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import VirtualGrid from '../components/VirtualGrid';
 
 const MotionBox = motion(Box);
 
@@ -33,22 +35,24 @@ function Popular() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  
   const toast = useToast();
 
   const tabKeys = ['mostRead', 'topRated', 'trending'];
   const currentKey = tabKeys[activeTab];
 
-  // Monitor scroll
   useEffect(() => {
-    const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 500);
-    };
+    const handleScroll = () => setShowScrollTop(window.scrollY > 500);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Load data function
+  const preCacheImages = useCallback((items) => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      const urls = items.map(i => i.cover || i.coverUrl).filter(Boolean);
+      navigator.serviceWorker.controller.postMessage({ type: 'CACHE_URLS', urls });
+    }
+  }, []);
+
   const loadData = useCallback(async (type, pageNum, reset = false) => {
     if (loading && !reset) return;
     if (!hasMore[type] && !reset) return;
@@ -64,45 +68,34 @@ function Popular() {
     setLoading(true);
     
     try {
-      console.log(`Loading ${type} page ${pageNum}...`);
       let result;
-      
       switch(type) {
         case 'mostRead':
           result = await statsAPI.getMostFavorites(includeAdult, pageNum);
           break;
         case 'topRated':
-          result = await statsAPI.searchAdvanced({
-            sort: 'score',
-            page: pageNum,
-            includeAdult
-          });
+          result = await statsAPI.searchAdvanced({ sort: 'score', page: pageNum, includeAdult });
           break;
         case 'trending':
-          result = await statsAPI.searchAdvanced({
-            sort: 'newest',
-            page: pageNum,
-            includeAdult
-          });
+          result = await statsAPI.searchAdvanced({ sort: 'newest', page: pageNum, includeAdult });
           break;
         default:
           result = await statsAPI.getMostFavorites(includeAdult, pageNum);
       }
       
       if (result && result.results) {
-        setLists(prev => ({
-          ...prev,
-          [type]: reset || pageNum === 1 
+        setLists(prev => {
+          const merged = reset || pageNum === 1 
             ? result.results 
             : [...prev[type], ...result.results.filter(item => 
                 !prev[type].some(existing => existing.url === item.url)
-              )]
-        }));
+              )];
+          preCacheImages(merged);
+          return { ...prev, [type]: merged };
+        });
         
         setPages(prev => ({ ...prev, [type]: pageNum }));
         setHasMore(prev => ({ ...prev, [type]: result.hasMore && result.results.length > 0 }));
-        
-        console.log(`Loaded ${result.results.length} items for ${type}. Has more: ${result.hasMore}`);
       }
     } catch (error) {
       console.error(`Error loading ${type}:`, error);
@@ -117,9 +110,8 @@ function Popular() {
       setLoading(false);
       setInitialLoading(false);
     }
-  }, [includeAdult, hasMore, toast, loading]);
+  }, [includeAdult, hasMore, toast, loading, preCacheImages]);
 
-  // Initial load for active tab
   useEffect(() => {
     loadData(currentKey, 1, true);
   }, [currentKey, includeAdult]);
@@ -130,47 +122,24 @@ function Popular() {
     }
   };
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  const renderContent = () => {
-    const currentList = lists[currentKey];
-    
-    if (initialLoading) {
+  const renderGrid = (items) => {
+    if (items.length > 30) {
       return (
-        <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-          {[...Array(20)].map((_, i) => (
-            <Skeleton key={i} height="320px" borderRadius="lg" />
-          ))}
-        </SimpleGrid>
-      );
-    }
-    
-    if (currentList.length === 0) {
-      return (
-        <Center py={12}>
-          <Text fontSize="lg" color="gray.500">
-            Nessun manga trovato
-          </Text>
-        </Center>
-      );
-    }
-    
-    return (
-      <>
-        <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-          {currentList.map((item, i) => (
+        <VirtualGrid
+          items={items}
+          minWidth={160}
+          gap={16}
+          renderItem={(item, i) => (
             <MotionBox
               key={`${item.url}-${i}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(i * 0.03, 0.5) }}
+              transition={{ delay: Math.min(i * 0.01, 0.3) }}
               position="relative"
             >
               <MangaCard manga={item} hideSource />
-              
-              {/* Rank Badge for top 3 */}
               {i < 3 && pages[currentKey] === 1 && (
                 <Badge
                   position="absolute"
@@ -186,10 +155,70 @@ function Popular() {
                 </Badge>
               )}
             </MotionBox>
+          )}
+        />
+      );
+    }
+
+    return (
+      <HStack spacing={4} wrap="wrap">
+        {items.map((item, i) => (
+          <MotionBox
+            key={`${item.url}-${i}`}
+            flex="1 0 160px"
+            maxW="200px"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: Math.min(i * 0.03, 0.5) }}
+            position="relative"
+          >
+            <MangaCard manga={item} hideSource />
+            {i < 3 && pages[currentKey] === 1 && (
+              <Badge
+                position="absolute"
+                top={2}
+                left={2}
+                colorScheme={i === 0 ? 'yellow' : i === 1 ? 'gray' : 'orange'}
+                fontSize="sm"
+                px={2}
+                py={1}
+                zIndex={10}
+              >
+                #{i + 1}
+              </Badge>
+            )}
+          </MotionBox>
+        ))}
+      </HStack>
+    );
+  };
+
+  const renderContent = () => {
+    const currentList = lists[currentKey];
+    
+    if (initialLoading) {
+      return (
+        <HStack spacing={4} wrap="wrap">
+          {[...Array(20)].map((_, i) => (
+            <Skeleton key={i} height="320px" borderRadius="lg" flex="1 0 160px" />
           ))}
-        </SimpleGrid>
-        
-        {/* Load More Button */}
+        </HStack>
+      );
+    }
+    
+    if (currentList.length === 0) {
+      return (
+        <Center py={12}>
+          <Text fontSize="lg" color="gray.500">
+            Nessun manga trovato
+          </Text>
+        </Center>
+      );
+    }
+    
+    return (
+      <>
+        {renderGrid(currentList)}
         {hasMore[currentKey] && (
           <Center py={6}>
             <Button
@@ -206,7 +235,6 @@ function Popular() {
             </Button>
           </Center>
         )}
-        
         {!hasMore[currentKey] && currentList.length > 0 && (
           <Center py={4}>
             <Text color="gray.500">Fine dei risultati</Text>
@@ -219,7 +247,6 @@ function Popular() {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
-        {/* Header */}
         <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
           <HStack justify="space-between" flexWrap="wrap" spacing={4}>
             <HStack spacing={3}>
@@ -248,20 +275,17 @@ function Popular() {
               </VStack>
             </HStack>
             
-            <HStack>
-              <Text fontSize="sm" display={{ base: 'none', md: 'block' }}>
-                Adult:
-              </Text>
-              <Switch
-                colorScheme="pink"
-                isChecked={includeAdult}
-                onChange={(e) => setIncludeAdult(e.target.checked)}
-              />
-            </HStack>
+            <Button
+              variant={includeAdult ? 'solid' : 'outline'}
+              colorScheme="pink"
+              size="sm"
+              onClick={() => setIncludeAdult(!includeAdult)}
+            >
+              {includeAdult ? '🔞 Adult ON' : '🔞 Adult OFF'}
+            </Button>
           </HStack>
         </Box>
 
-        {/* Tabs */}
         <Tabs 
           colorScheme="purple" 
           variant="soft-rounded"
@@ -302,7 +326,6 @@ function Popular() {
           </TabPanels>
         </Tabs>
 
-        {/* Scroll to top */}
         {showScrollTop && (
           <IconButton
             icon={<FaArrowUp />}

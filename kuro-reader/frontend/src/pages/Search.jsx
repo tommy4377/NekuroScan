@@ -1,6 +1,7 @@
+// frontend/src/pages/Search.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Box, Container, Input, InputGroup, InputLeftElement, SimpleGrid,
+  Box, Container, Input, InputGroup, InputLeftElement,
   Heading, Text, VStack, HStack, Button, Skeleton, Badge, useToast,
   ButtonGroup, Center, Spinner
 } from '@chakra-ui/react';
@@ -11,6 +12,7 @@ import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import { motion } from 'framer-motion';
 import debounce from 'lodash.debounce';
+import VirtualGrid from '../components/VirtualGrid';
 
 const MotionBox = motion(Box);
 
@@ -20,10 +22,7 @@ function Search() {
   const toast = useToast();
 
   const [query, setQuery] = useState('');
-  const [searchMode, setSearchMode] = useState(() => {
-    const saved = localStorage.getItem('searchMode');
-    return saved || 'all';
-  });
+  const [searchMode, setSearchMode] = useState(() => localStorage.getItem('searchMode') || 'all');
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [results, setResults] = useState([]);
@@ -37,7 +36,13 @@ function Search() {
     triggerOnce: false
   });
 
-  // Debounced search function
+  const preCacheImages = useCallback((items) => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      const urls = items.map(i => i.cover || i.coverUrl).filter(Boolean);
+      navigator.serviceWorker.controller.postMessage({ type: 'CACHE_URLS', urls });
+    }
+  }, []);
+
   const debouncedSearch = useCallback(
     debounce(async (searchQuery, mode, pageNum = 1, append = false) => {
       if (!searchQuery?.trim() || loadingRef.current) { 
@@ -74,13 +79,14 @@ function Search() {
           setResults(prev => {
             const existingUrls = new Set(prev.map(m => m.url));
             const newItems = data.filter(m => !existingUrls.has(m.url));
+            preCacheImages(newItems);
             return [...prev, ...newItems];
           });
         } else {
+          preCacheImages(data);
           setResults(data);
         }
         
-        // Simula paginazione - se ha risultati, potrebbe averne altri
         setHasMore(data.length >= 20);
         setPage(pageNum);
         
@@ -93,10 +99,7 @@ function Search() {
         }
       } catch (e) {
         console.error('Search error:', e);
-        toast({ 
-          title: 'Errore nella ricerca', 
-          status: 'error' 
-        });
+        toast({ title: 'Errore nella ricerca', status: 'error' });
         setResults(append ? results : []);
         setHasMore(false);
       } finally {
@@ -105,7 +108,7 @@ function Search() {
         loadingRef.current = false;
       }
     }, 500),
-    []
+    [preCacheImages, toast, results]
   );
 
   useEffect(() => {
@@ -121,9 +124,8 @@ function Search() {
     return () => {
       debouncedSearch.cancel();
     };
-  }, [searchParams, searchMode]);
+  }, [searchParams, searchMode, debouncedSearch]);
 
-  // Auto load more on scroll
   useEffect(() => {
     if (inView && hasMore && !loadingRef.current && results.length > 0 && query) {
       loadMore();
@@ -146,8 +148,6 @@ function Search() {
   const handleInputChange = (e) => {
     const value = e.target.value;
     setQuery(value);
-    
-    // Auto search while typing with debounce
     if (value.length >= 3) {
       setPage(1);
       debouncedSearch(value, searchMode, 1, false);
@@ -166,13 +166,8 @@ function Search() {
     }
   };
 
-  const getResultsStats = () => {
-    const normal = results.filter(r => !r.isAdult).length;
-    const adult = results.filter(r => r.isAdult).length;
-    return { normal, adult };
-  };
-
-  const stats = getResultsStats();
+  const normalCount = results.filter(r => !r.isAdult).length;
+  const adultCount = results.filter(r => r.isAdult).length;
 
   return (
     <Container maxW="container.xl" py={8}>
@@ -244,38 +239,57 @@ function Search() {
               </Text>
               {!loading && results.length > 0 && searchMode === 'all' && (
                 <HStack spacing={2}>
-                  {stats.normal > 0 && (
-                    <Badge colorScheme="blue">{stats.normal} Normali</Badge>
+                  {normalCount > 0 && (
+                    <Badge colorScheme="blue">{normalCount} Normali</Badge>
                   )}
-                  {stats.adult > 0 && (
-                    <Badge colorScheme="pink">{stats.adult} Adult</Badge>
+                  {adultCount > 0 && (
+                    <Badge colorScheme="pink">{adultCount} Adult</Badge>
                   )}
                 </HStack>
               )}
             </HStack>
 
             {loading && results.length === 0 ? (
-              <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
+              <HStack spacing={4} wrap="wrap">
                 {[...Array(10)].map((_, i) => (
-                  <Skeleton key={i} height="280px" borderRadius="lg" />
+                  <Skeleton key={i} height="280px" borderRadius="lg" flex="1 0 160px" />
                 ))}
-              </SimpleGrid>
+              </HStack>
             ) : (
               <>
-                <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-                  {results.map((item, i) => (
-                    <MotionBox 
-                      key={`${item.url}-${i}`} 
-                      initial={{ opacity: 0, y: 20 }} 
-                      animate={{ opacity: 1, y: 0 }} 
-                      transition={{ delay: Math.min(i * 0.05, 1) }}
-                    >
-                      <MangaCard manga={item} hideSource />
-                    </MotionBox>
-                  ))}
-                </SimpleGrid>
+                {results.length > 40 ? (
+                  <VirtualGrid
+                    items={results}
+                    minWidth={160}
+                    gap={16}
+                    renderItem={(item, i) => (
+                      <MotionBox 
+                        key={`${item.url}-${i}`} 
+                        initial={{ opacity: 0, y: 20 }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        transition={{ delay: Math.min(i * 0.01, 0.3) }}
+                      >
+                        <MangaCard manga={item} hideSource />
+                      </MotionBox>
+                    )}
+                  />
+                ) : (
+                  <HStack spacing={4} wrap="wrap">
+                    {results.map((item, i) => (
+                      <MotionBox 
+                        key={`${item.url}-${i}`} 
+                        flex="1 0 160px"
+                        maxW="200px"
+                        initial={{ opacity: 0, y: 20 }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        transition={{ delay: Math.min(i * 0.05, 1) }}
+                      >
+                        <MangaCard manga={item} hideSource />
+                      </MotionBox>
+                    ))}
+                  </HStack>
+                )}
                 
-                {/* Load More Trigger */}
                 {hasMore && query && (
                   <Center ref={loadMoreRef} py={4}>
                     {loadingMore ? (

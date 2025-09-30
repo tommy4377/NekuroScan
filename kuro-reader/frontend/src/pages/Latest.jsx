@@ -1,6 +1,7 @@
+// frontend/src/pages/Latest.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
+  Box, Container, Heading, Text, VStack, HStack,
   Button, useToast, Skeleton, Badge, IconButton, Switch, Center
 } from '@chakra-ui/react';
 import { FaClock, FaArrowUp, FaPlus } from 'react-icons/fa';
@@ -8,6 +9,7 @@ import { motion } from 'framer-motion';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import VirtualGrid from '../components/VirtualGrid';
 
 const MotionBox = motion(Box);
 
@@ -22,7 +24,6 @@ function Latest() {
   
   const toast = useToast();
 
-  // Monitor scroll for button
   useEffect(() => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 500);
@@ -31,19 +32,15 @@ function Latest() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Fixed chapter number helper
   const fixChapterNumber = (chapter) => {
     if (!chapter) return '';
-    
     let clean = chapter
       .replace(/^(cap\.|capitolo|chapter|ch\.)\s*/i, '')
       .replace(/^vol\.\s*\d+\s*-\s*/i, '')
       .trim();
-    
     const match = clean.match(/^(\d+(?:\.\d+)?)/);
     if (match) {
       let num = match[1];
-      
       if (parseInt(num) >= 10 && num.length > 2) {
         num = num.slice(0, -2);
       }
@@ -53,14 +50,11 @@ function Latest() {
           num = num.replace(/^0/, '');
         }
       }
-      
       return num;
     }
-    
     return clean;
   };
 
-  // Load data function
   const loadData = useCallback(async (pageNum, reset = false) => {
     if (loading) return;
     if (!reset && !hasMore) return;
@@ -76,9 +70,7 @@ function Latest() {
     setLoading(true);
     
     try {
-      console.log(`Loading page ${pageNum}...`);
       const result = await statsAPI.getLatestUpdates(includeAdult, pageNum);
-      
       if (result && result.results) {
         const cleanedResults = result.results.map(item => ({
           ...item,
@@ -110,9 +102,8 @@ function Latest() {
       setLoading(false);
       setInitialLoading(false);
     }
-  }, [includeAdult, hasMore, toast]);
+  }, [includeAdult, hasMore, toast, loading]);
 
-  // Initial load
   useEffect(() => {
     loadData(1, true);
   }, [includeAdult]);
@@ -145,7 +136,6 @@ function Latest() {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
-        {/* Header */}
         <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
           <HStack justify="space-between" flexWrap="wrap" spacing={4}>
             <HStack spacing={3}>
@@ -187,27 +177,30 @@ function Latest() {
           </HStack>
         </Box>
 
-        {/* Content Grid */}
         {list.length > 0 ? (
           <>
-            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-              {list.map((item, i) => (
-                <MotionBox
-                  key={`${item.url}-${i}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(i * 0.03, 0.5) }}
-                >
-                  <MangaCard 
-                    manga={item} 
-                    hideSource 
-                    showLatestChapter={true}
-                  />
-                </MotionBox>
-              ))}
-            </SimpleGrid>
+            <Box>
+              <VirtualGrid
+                items={list}
+                minWidth={160}
+                gap={16}
+                renderItem={(item, i) => (
+                  <MotionBox
+                    key={`${item.url}-${i}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i * 0.03, 0.5) }}
+                  >
+                    <MangaCard 
+                      manga={item} 
+                      hideSource 
+                      showLatestChapter={true}
+                    />
+                  </MotionBox>
+                )}
+              />
+            </Box>
 
-            {/* Load More Button */}
             {hasMore && (
               <Center py={6}>
                 <Button
@@ -239,7 +232,6 @@ function Latest() {
           </Center>
         )}
 
-        {/* Scroll to top */}
         {showScrollTop && (
           <IconButton
             icon={<FaArrowUp />}

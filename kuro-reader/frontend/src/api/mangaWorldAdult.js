@@ -132,7 +132,7 @@ export class MangaWorldAdultAPI {
       const plotText = plotDiv?.textContent?.trim() || '';
       const plot = plotText.replace(/^TRAMA:?\s*/i, '').trim();
       
-      // CAPITOLI
+      // ✅ CAPITOLI CON STESSA LOGICA DI mangaWorld.js
       const chapters = [];
       const processedUrls = new Set();
 
@@ -196,7 +196,7 @@ export class MangaWorldAdultAPI {
         }
       }
 
-      // Fallback se non trova capitoli nel container
+      // Fallback
       if (chapters.length === 0) {
         const allLinks = doc.querySelectorAll('a[href*="/read/"]');
         const filteredLinks = Array.from(allLinks).filter(link => {
@@ -230,23 +230,34 @@ export class MangaWorldAdultAPI {
         });
       }
 
-      // RIMUOVI DUPLICATI basandoti sul numero capitolo
+      // ✅ RIMUOVI DUPLICATI
       const uniqueChapters = [];
       const seenNumbers = new Set();
       
       chapters.forEach(chapter => {
+        if (chapter.chapterNumber === null || chapter.chapterNumber === undefined || isNaN(chapter.chapterNumber)) {
+          console.warn('⚠️ Skipping invalid chapter:', chapter);
+          return;
+        }
+        
         if (!seenNumbers.has(chapter.chapterNumber)) {
           seenNumbers.add(chapter.chapterNumber);
           uniqueChapters.push(chapter);
         } else {
-          console.log(`Duplicate removed: Chapter ${chapter.chapterNumber}`);
+          console.log(`🗑️ Duplicate removed: Chapter ${chapter.chapterNumber}`);
         }
       });
 
-      // Ordina dal più basso al più alto
+      // ✅ ORDINA E RINUMERA
       uniqueChapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
       
-      console.log(`Total chapters found: ${uniqueChapters.length}`);
+      const finalChapters = uniqueChapters.map((ch, index) => ({
+        ...ch,
+        chapterNumber: index + 1,
+        title: `Capitolo ${index + 1}`
+      }));
+      
+      console.log(`✅ Total chapters found: ${finalChapters.length}`);
       
       return {
         url,
@@ -260,8 +271,8 @@ export class MangaWorldAdultAPI {
         type: info.type,
         year: info.year,
         plot,
-        chapters: uniqueChapters,
-        chaptersNumber: uniqueChapters.length,
+        chapters: finalChapters,
+        chaptersNumber: finalChapters.length,
         source: 'mangaWorldAdult',
         isAdult: true
       };
@@ -299,7 +310,6 @@ export class MangaWorldAdultAPI {
         return false;
       };
       
-      // Strategia 1: Cerca le immagini delle pagine
       const imageSelectors = [
         '#page img:not([src*="loading"])',
         '.page img:not([src*="loading"])',
@@ -339,7 +349,7 @@ export class MangaWorldAdultAPI {
           });
           
           if (foundPages && pages.length > 0) {
-            console.log(`Found ${pages.length} pages using selector: ${selector}`);
+            console.log(`✅ Found ${pages.length} pages using selector: ${selector}`);
             break;
           }
         }
@@ -377,13 +387,12 @@ export class MangaWorldAdultAPI {
         }
       }
       
-      // Strategia 2: Cerca negli script - FIX CORRETTO
+      // Cerca negli script
       if (pages.length === 0) {
         const scripts = doc.querySelectorAll('script');
         scripts.forEach(script => {
           const content = script.textContent || script.innerHTML || '';
           
-          // Pattern corretti per array di immagini
           const arrayPatterns = [
   /pages\s*=\s*\[([\s\S]*?)\]/,
   /images\s*=\s*\[([\s\S]*?)\]/,
@@ -405,7 +414,6 @@ export class MangaWorldAdultAPI {
             }
           }
           
-          // Pattern per URL singoli se non in array
           if (pages.length === 0) {
             const singleUrlPattern = /["'](https?:\/\/[^"']+\/[^"']*\.(?:jpg|jpeg|png|gif|webp))["']/gi;
             let match;
@@ -418,7 +426,7 @@ export class MangaWorldAdultAPI {
         });
       }
       
-      // Strategia 3: Controlla se c'è un iframe o embed
+      // Controlla iframe
       if (pages.length === 0) {
         const iframes = doc.querySelectorAll('iframe[src*="read"], iframe[src*="chapter"], embed');
         for (const iframe of iframes) {
@@ -442,10 +450,10 @@ export class MangaWorldAdultAPI {
         }
       }
       
-      console.log(`Total pages found: ${pages.length}`);
+      console.log(`✅ Total pages found: ${pages.length}`);
       
       if (pages.length === 0) {
-        console.error('No pages found! HTML snippet:', doc.body?.innerHTML?.substring(0, 1000));
+        console.error('❌ No pages found! HTML snippet:', doc.body?.innerHTML?.substring(0, 1000));
       }
       
       return {

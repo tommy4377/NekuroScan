@@ -1,14 +1,13 @@
 import React, { useEffect, lazy, Suspense } from 'react';
 import { ChakraProvider, Box, Spinner, Center } from '@chakra-ui/react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { theme } from './styles/theme';
 
-// Components
 import Navigation from './components/Navigation';
 import Library from './components/Library';
 import ErrorBoundary from './components/ErrorBoundary';
 
-// Pages - Lazy load
 const Home = lazy(() => import('./pages/Home'));
 const Search = lazy(() => import('./pages/Search'));
 const MangaDetails = lazy(() => import('./pages/MangaDetails'));
@@ -28,16 +27,20 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 
 import useAuth from './hooks/useAuth';
 
-// Loading component
 function LoadingScreen() {
   return (
     <Center minH="100vh" bg="gray.900">
-      <Spinner size="xl" color="purple.500" thickness="4px" />
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.3 }}
+      >
+        <Spinner size="xl" color="purple.500" thickness="4px" />
+      </motion.div>
     </Center>
   );
 }
 
-// Scroll to top (deve stare sotto Router)
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -48,7 +51,6 @@ function ScrollToTop() {
   return null;
 }
 
-// Protected Route (sotto Router)
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
@@ -58,7 +60,6 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-// Layout wrapper (sotto Router)
 function Layout({ children }) {
   const location = useLocation();
   const isReaderPage = location.pathname.includes('/read/');
@@ -70,90 +71,14 @@ function Layout({ children }) {
   );
 }
 
-// Tutta la logica che usa useLocation va qui, SOTTO il Router
-function AppContent() {
-  const { initAuth, startAutoSync, user, isAuthenticated, syncToServer } = useAuth();
+function AnimatedRoutes() {
   const location = useLocation();
-
-  useEffect(() => {
-    // Initialize auth
-    initAuth();
-    // Start auto sync
-    const cleanup = startAutoSync();
-
-    // PWA Service Worker con auto-update
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').then(registration => {
-        setInterval(() => registration.update(), 30000);
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (!newWorker) return;
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              if (window.confirm('Nuovo aggiornamento disponibile! Vuoi ricaricare?')) {
-                newWorker.postMessage({ type: 'SKIP_WAITING' });
-                window.location.reload();
-              }
-            }
-          });
-        });
-      }).catch(err => {
-        console.error('SW registration failed:', err);
-      });
-
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!refreshing) {
-          window.location.reload();
-          refreshing = true;
-        }
-      });
-    }
-
-    // Pulisci cache vecchie periodicamente
-    const cacheInterval = setInterval(() => {
-      if ('caches' in window) {
-        caches.keys().then(names => {
-          names.forEach(name => {
-            if (name !== 'NeKuro Scan-v2') caches.delete(name);
-          });
-        });
-      }
-    }, 60000);
-
-    return () => {
-      clearInterval(cacheInterval);
-      cleanup && cleanup();
-    };
-  }, []);
-
-  // PWA install prompt
-  useEffect(() => {
-    let deferredPrompt;
-    const handler = (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      setTimeout(() => {
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
-          deferredPrompt.userChoice.finally(() => {
-            deferredPrompt = null;
-          });
-        }
-      }, 5000);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  // Salvataggio “al cambio rotta”: cleanup dell’effetto
-  useEffect(() => {
-    return () => {
-      if (user && isAuthenticated) {
-        try { syncToServer(); } catch {}
-      }
-    };
-  }, [location.pathname, user, isAuthenticated, syncToServer]);
+  
+  const pageVariants = {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -20 }
+  };
 
   const routes = [
     { path: '/', element: <Welcome />, layout: false },
@@ -177,24 +102,126 @@ function AppContent() {
   ];
 
   return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        {routes.map(({ path, element, layout = true }) => (
+          <Route
+            key={path}
+            path={path}
+            element={
+              <motion.div
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={{ duration: 0.3 }}
+              >
+                {layout ? <Layout>{element}</Layout> : element}
+              </motion.div>
+            }
+          />
+        ))}
+      </Routes>
+    </AnimatePresence>
+  );
+}
+
+function AppContent() {
+  const { initAuth, startAutoSync, user, isAuthenticated, syncToServer } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    initAuth();
+    const cleanup = startAutoSync();
+
+    // PWA Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then(registration => {
+        setInterval(() => registration.update(), 30000);
+        
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (!newWorker) return;
+          
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              if (window.confirm('Nuovo aggiornamento disponibile! Vuoi ricaricare?')) {
+                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                window.location.reload();
+              }
+            }
+          });
+        });
+      });
+
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          window.location.reload();
+          refreshing = true;
+        }
+      });
+    }
+
+    // Push Notifications
+    if ('Notification' in window && Notification.permission === 'default') {
+      setTimeout(() => {
+        Notification.requestPermission();
+      }, 10000);
+    }
+
+    const cacheInterval = setInterval(() => {
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => {
+            if (name !== 'NeKuro Scan-v2') caches.delete(name);
+          });
+        });
+      }
+    }, 60000);
+
+    return () => {
+      clearInterval(cacheInterval);
+      cleanup && cleanup();
+    };
+  }, []);
+
+  useEffect(() => {
+    let deferredPrompt;
+    const handler = (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      setTimeout(() => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.finally(() => {
+            deferredPrompt = null;
+          });
+        }
+      }, 5000);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (user && isAuthenticated) {
+        try { syncToServer(); } catch {}
+      }
+    };
+  }, [location.pathname, user, isAuthenticated, syncToServer]);
+
+  return (
     <>
       <ScrollToTop />
       <Suspense fallback={<LoadingScreen />}>
-        <Routes>
-          {routes.map(({ path, element, layout = true }) => (
-            <Route
-              key={path}
-              path={path}
-              element={layout ? <Layout>{element}</Layout> : element}
-            />
-          ))}
-        </Routes>
+        <AnimatedRoutes />
       </Suspense>
     </>
   );
 }
 
-// Main App Component: qui NON si usa useLocation
 function App() {
   return (
     <ChakraProvider theme={theme}>

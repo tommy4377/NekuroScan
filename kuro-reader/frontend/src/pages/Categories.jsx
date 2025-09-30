@@ -1,3 +1,4 @@
+// frontend/src/pages/Categories.jsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
@@ -11,6 +12,7 @@ import { motion } from 'framer-motion';
 import { FaPlus } from 'react-icons/fa';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
+import VirtualGrid from '../components/VirtualGrid';
 
 const MotionBox = motion(Box);
 
@@ -18,7 +20,6 @@ function Categories() {
   const location = useLocation();
   const toast = useToast();
 
-  // State
   const [categories, setCategories] = useState(null);
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [selectedType, setSelectedType] = useState(null);
@@ -458,20 +459,24 @@ function Categories() {
               </SimpleGrid>
             ) : filteredManga.length > 0 ? (
               <>
-                <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-                  {filteredManga.map((manga, i) => (
-                    <MotionBox
-                      key={`${manga.url}-${i}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(i * 0.02, 0.5) }}
-                    >
-                      <MangaCard manga={manga} hideSource />
-                    </MotionBox>
-                  ))}
-                </SimpleGrid>
+                <Box>
+                  <VirtualGrid
+                    items={filteredManga}
+                    minWidth={160}
+                    gap={16}
+                    renderItem={(manga, i) => (
+                      <MotionBox
+                        key={`${manga.url}-${i}`}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: Math.min(i * 0.02, 0.5) }}
+                      >
+                        <MangaCard manga={manga} hideSource />
+                      </MotionBox>
+                    )}
+                  />
+                </Box>
 
-                {/* SEMPRE MOSTRA IL PULSANTE SE CI SONO RISULTATI */}
                 <Center py={6}>
                   <Button
                     onClick={loadMoreData}

@@ -367,68 +367,104 @@ function MangaDetails() {
   };
 
   const moveToList = async (targetList) => {
-    if (!manga) return;
+  if (!manga) return;
+  
+  // Remove from all lists
+  const lists = ['reading', 'completed', 'dropped'];
+  lists.forEach(list => {
+    const items = JSON.parse(localStorage.getItem(list) || '[]');
+    const filtered = items.filter(item => item.url !== manga.url);
+    localStorage.setItem(list, JSON.stringify(filtered));
+  });
+  
+  // Add to target list
+  if (targetList) {
+    const targetItems = JSON.parse(localStorage.getItem(targetList) || '[]');
+    const exists = targetItems.find(item => item.url === manga.url);
     
-    // Remove from all lists
-    const lists = ['reading', 'completed', 'dropped'];
-    lists.forEach(list => {
-      const items = JSON.parse(localStorage.getItem(list) || '[]');
-      const filtered = items.filter(item => item.url !== manga.url);
-      localStorage.setItem(list, JSON.stringify(filtered));
-    });
-    
-    // Add to target list
-    if (targetList) {
-      const targetItems = JSON.parse(localStorage.getItem(targetList) || '[]');
-      const exists = targetItems.find(item => item.url === manga.url);
+    if (!exists) {
+      const newItem = {
+        url: manga.url,
+        title: manga.title,
+        cover: manga.coverUrl,
+        type: manga.type,
+        source: manga.source || source,
+        addedAt: new Date().toISOString()
+      };
       
-      if (!exists) {
-        const newItem = {
-          url: manga.url,
-          title: manga.title,
-          cover: manga.coverUrl,
-          type: manga.type,
-          source: manga.source || source,
-          addedAt: new Date().toISOString()
-        };
+      if (targetList === 'completed') {
+        newItem.completedAt = new Date().toISOString();
+        newItem.progress = 100;
         
-        if (targetList === 'completed') {
-          newItem.completedAt = new Date().toISOString();
-          newItem.progress = 100;
-        } else if (targetList === 'dropped') {
-          newItem.droppedAt = new Date().toISOString();
-        } else if (targetList === 'reading') {
-          newItem.lastRead = new Date().toISOString();
-          newItem.progress = readingProgress ? 
-            Math.round((readingProgress.chapterIndex / manga.chapters.length) * 100) : 0;
+        // ✅ NUOVO: Segna tutti i capitoli come letti
+        const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+        readingProgress[manga.url] = {
+          chapterId: manga.chapters[manga.chapters.length - 1]?.url,
+          chapterIndex: manga.chapters.length - 1,
+          chapterTitle: manga.chapters[manga.chapters.length - 1]?.title || '',
+          totalChapters: manga.chapters.length,
+          page: 0,
+          pageIndex: 0,
+          timestamp: new Date().toISOString()
+        };
+        localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
+        
+        // ✅ Segna tutti i capitoli come completati
+        const completedChapters = JSON.parse(localStorage.getItem('completedChapters') || '{}');
+        if (!completedChapters[manga.url]) {
+          completedChapters[manga.url] = [];
+        }
+        // Aggiungi tutti gli indici dei capitoli
+        for (let i = 0; i < manga.chapters.length; i++) {
+          if (!completedChapters[manga.url].includes(i)) {
+            completedChapters[manga.url].push(i);
+          }
+        }
+        localStorage.setItem('completedChapters', JSON.stringify(completedChapters));
+        
+        // ✅ NOTIFICA (se supportato)
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('Manga completato! 🎉', {
+            body: `Hai completato "${manga.title}"! Tutti i ${manga.chapters.length} capitoli sono stati segnati come letti.`,
+            icon: manga.coverUrl,
+            badge: '/web-app-manifest-192x192.png',
+            tag: 'manga-completed',
+            vibrate: [200, 100, 200]
+          });
         }
         
-        targetItems.unshift(newItem);
-        localStorage.setItem(targetList, JSON.stringify(targetItems));
+      } else if (targetList === 'dropped') {
+        newItem.droppedAt = new Date().toISOString();
+      } else if (targetList === 'reading') {
+        newItem.lastRead = new Date().toISOString();
+        newItem.progress = readingProgress ? 
+          Math.round((readingProgress.chapterIndex / manga.chapters.length) * 100) : 0;
       }
+      
+      targetItems.unshift(newItem);
+      localStorage.setItem(targetList, JSON.stringify(targetItems));
     }
-    
-    // Update current status
-    setCurrentStatus(targetList);
-    
-    // Sync with server if logged in
-    if (user && syncToServer) {
-      await syncToServer();
-    }
-    
-    const messages = {
-      completed: '✅ Manga segnato come completato!',
-      dropped: '❌ Manga segnato come droppato',
-      reading: '📖 Manga aggiunto a "In lettura"',
-      null: 'ℹ️ Manga rimosso dalle liste'
-    };
-    
-    toast({
-      title: messages[targetList] || 'Aggiornato',
-      status: targetList === 'completed' ? 'success' : 'info',
-      duration: 3000,
-    });
+  }
+  
+  setCurrentStatus(targetList);
+  
+  if (user && syncToServer) {
+    await syncToServer();
+  }
+  
+  const messages = {
+    completed: '✅ Manga segnato come completato! Tutti i capitoli sono stati segnati come letti.',
+    dropped: '❌ Manga segnato come droppato',
+    reading: '📖 Manga aggiunto a "In lettura"',
+    null: 'ℹ️ Manga rimosso dalle liste'
   };
+  
+  toast({
+    title: messages[targetList] || 'Aggiornato',
+    status: targetList === 'completed' ? 'success' : 'info',
+    duration: 3000,
+  });
+};
 
   const shareContent = async () => {
     const shareData = {

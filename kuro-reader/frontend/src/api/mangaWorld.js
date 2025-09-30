@@ -105,7 +105,7 @@ export class MangaWorldAPI {
 
       const plot = doc.querySelector('#noidungm, .comic-description, .description')?.textContent?.trim() || '';
 
-      // Capitoli
+      // ✅ ESTRAZIONE CAPITOLI MIGLIORATA
       const chapters = [];
       const processedUrls = new Set();
       
@@ -123,7 +123,7 @@ export class MangaWorldAPI {
         const l = [...doc.querySelectorAll(sel)];
         if (l.length) { 
           links = l; 
-          console.log(`Found ${l.length} chapters with selector: ${sel}`);
+          console.log(`✅ Found ${l.length} chapters with selector: ${sel}`);
           break; 
         }
       }
@@ -138,7 +138,7 @@ export class MangaWorldAPI {
         const raw = a.textContent?.trim() || '';
         const chapterNumber = normalizeChapterLabel(raw, href);
         
-        if (chapterNumber !== null) {
+        if (chapterNumber !== null && chapterNumber !== undefined) {
           chapters.push({
             url: full,
             chapterNumber: chapterNumber,
@@ -148,29 +148,45 @@ export class MangaWorldAPI {
         }
       });
 
-      // Se non riesce a estrarre numeri, usa indici
+      // ✅ Se non estrae numeri, usa indici sequenziali
       if (chapters.length > 0 && chapters.every(ch => ch.chapterNumber === null)) {
+        console.warn('⚠️ No valid chapter numbers found, using sequential indices');
         chapters.forEach((ch, i) => {
           ch.chapterNumber = i + 1;
           ch.title = `Capitolo ${i + 1}`;
         });
       }
 
-      // RIMUOVI DUPLICATI basandoti sul numero capitolo
+      // ✅ RIMUOVI DUPLICATI basandoti sul numero capitolo
       const uniqueChapters = [];
       const seenNumbers = new Set();
       
       chapters.forEach(chapter => {
+        // Salta capitoli con numero invalido
+        if (chapter.chapterNumber === null || chapter.chapterNumber === undefined || isNaN(chapter.chapterNumber)) {
+          console.warn('⚠️ Skipping invalid chapter:', chapter);
+          return;
+        }
+        
         if (!seenNumbers.has(chapter.chapterNumber)) {
           seenNumbers.add(chapter.chapterNumber);
           uniqueChapters.push(chapter);
         } else {
-          console.log(`Duplicate removed: Chapter ${chapter.chapterNumber}`);
+          console.log(`🗑️ Duplicate removed: Chapter ${chapter.chapterNumber}`);
         }
       });
 
-      // ORDINA ASCENDENTE (1, 2, 3...)
+      // ✅ ORDINA ASCENDENTE (1, 2, 3...)
       uniqueChapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
+
+      // ✅ RINUMERA SEQUENZIALMENTE per sicurezza (opzionale ma raccomandato)
+      const finalChapters = uniqueChapters.map((ch, index) => ({
+        ...ch,
+        chapterNumber: index + 1,
+        title: `Capitolo ${index + 1}`
+      }));
+
+      console.log(`✅ Total chapters after cleanup: ${finalChapters.length}`);
 
       return {
         url,
@@ -184,8 +200,8 @@ export class MangaWorldAPI {
         type: info.type,
         year: info.year,
         plot,
-        chapters: uniqueChapters,
-        chaptersNumber: uniqueChapters.length,
+        chapters: finalChapters,
+        chaptersNumber: finalChapters.length,
         source: 'mangaWorld',
         isAdult: false
       };

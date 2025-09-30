@@ -1,7 +1,8 @@
+// frontend/src/pages/TopType.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
+  Box, Container, Heading, Text, VStack, HStack,
   Button, useToast, Skeleton, Badge, IconButton, Center
 } from '@chakra-ui/react';
 import { FaTrophy, FaArrowUp, FaPlus } from 'react-icons/fa';
@@ -9,6 +10,7 @@ import { motion } from 'framer-motion';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import VirtualGrid from '../components/VirtualGrid';
 
 const MotionBox = motion(Box);
 
@@ -23,13 +25,19 @@ function TopType() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const toast = useToast();
 
-  // Monitor scroll
   useEffect(() => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 500);
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const preCacheImages = useCallback((items) => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      const urls = items.map(i => i.cover || i.coverUrl).filter(Boolean);
+      navigator.serviceWorker.controller.postMessage({ type: 'CACHE_URLS', urls });
+    }
   }, []);
 
   const loadData = useCallback(async (pageNum, reset = false) => {
@@ -52,10 +60,12 @@ function TopType() {
       if (result && result.results) {
         setList(prev => {
           if (reset || pageNum === 1) {
+            preCacheImages(result.results);
             return result.results;
           }
           const existingUrls = new Set(prev.map(item => item.url));
           const newItems = result.results.filter(item => !existingUrls.has(item.url));
+          preCacheImages(newItems);
           return [...prev, ...newItems];
         });
         
@@ -75,7 +85,7 @@ function TopType() {
       setLoading(false);
       setInitialLoading(false);
     }
-  }, [type, includeAdult, hasMore, toast, loading]);
+  }, [type, includeAdult, hasMore, toast, loading, preCacheImages]);
 
   useEffect(() => {
     loadData(1, true);
@@ -96,11 +106,11 @@ function TopType() {
       <Container maxW="container.xl" py={8}>
         <VStack spacing={6} align="stretch">
           <Skeleton height="100px" borderRadius="xl" />
-          <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
+          <HStack spacing={4} wrap="wrap">
             {[...Array(20)].map((_, i) => (
-              <Skeleton key={i} height="320px" borderRadius="lg" />
+              <Skeleton key={i} height="320px" borderRadius="lg" flex="1 0 160px" />
             ))}
-          </SimpleGrid>
+          </HStack>
         </VStack>
       </Container>
     );
@@ -111,7 +121,6 @@ function TopType() {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
-        {/* Header */}
         <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
           <HStack justify="space-between" flexWrap="wrap" spacing={4}>
             <HStack spacing={3}>
@@ -147,40 +156,71 @@ function TopType() {
           </HStack>
         </Box>
 
-        {/* Content */}
         {list.length > 0 ? (
           <>
-            <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-              {list.map((item, i) => (
-                <MotionBox
-                  key={`${item.url}-${i}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(i * 0.03, 0.5) }}
-                  position="relative"
-                >
-                  <MangaCard manga={item} hideSource />
-                  
-                  {/* Rank Badge for top 10 */}
-                  {i < 10 && page === 1 && (
-                    <Badge
-                      position="absolute"
-                      top={2}
-                      left={2}
-                      colorScheme={i < 3 ? 'yellow' : 'purple'}
-                      fontSize="sm"
-                      px={2}
-                      py={1}
-                      zIndex={10}
-                    >
-                      #{i + 1}
-                    </Badge>
-                  )}
-                </MotionBox>
-              ))}
-            </SimpleGrid>
+            {list.length > 30 ? (
+              <VirtualGrid
+                items={list}
+                minWidth={160}
+                gap={16}
+                renderItem={(item, i) => (
+                  <MotionBox
+                    key={`${item.url}-${i}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i * 0.01, 0.3) }}
+                    position="relative"
+                  >
+                    <MangaCard manga={item} hideSource />
+                    {i < 10 && page === 1 && (
+                      <Badge
+                        position="absolute"
+                        top={2}
+                        left={2}
+                        colorScheme={i < 3 ? 'yellow' : 'purple'}
+                        fontSize="sm"
+                        px={2}
+                        py={1}
+                        zIndex={10}
+                      >
+                        #{i + 1}
+                      </Badge>
+                    )}
+                  </MotionBox>
+                )}
+              />
+            ) : (
+              <HStack spacing={4} wrap="wrap">
+                {list.map((item, i) => (
+                  <MotionBox
+                    key={`${item.url}-${i}`}
+                    flex="1 0 160px"
+                    maxW="200px"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i * 0.03, 0.5) }}
+                    position="relative"
+                  >
+                    <MangaCard manga={item} hideSource />
+                    {i < 10 && page === 1 && (
+                      <Badge
+                        position="absolute"
+                        top={2}
+                        left={2}
+                        colorScheme={i < 3 ? 'yellow' : 'purple'}
+                        fontSize="sm"
+                        px={2}
+                        py={1}
+                        zIndex={10}
+                      >
+                        #{i + 1}
+                      </Badge>
+                    )}
+                  </MotionBox>
+                ))}
+              </HStack>
+            )}
 
-            {/* Load More Button */}
             {hasMore && (
               <Center py={6}>
                 <Button
@@ -212,7 +252,6 @@ function TopType() {
           </Center>
         )}
 
-        {/* Scroll to top */}
         {showScrollTop && (
           <IconButton
             icon={<FaArrowUp />}

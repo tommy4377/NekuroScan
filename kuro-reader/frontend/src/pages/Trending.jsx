@@ -1,6 +1,7 @@
+// frontend/src/pages/Trending.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
+  Box, Container, Heading, Text, VStack, HStack,
   Button, useToast, Skeleton, Badge, IconButton, Switch, Center,
   Tabs, TabList, Tab, TabPanels, TabPanel
 } from '@chakra-ui/react';
@@ -10,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import VirtualGrid from '../components/VirtualGrid';
 
 const MotionBox = motion(Box);
 
@@ -32,20 +34,22 @@ function Trending() {
   });
   
   const toast = useToast();
-
   const tabKeys = ['trending', 'recentChapters', 'weeklyTop'];
   const currentKey = tabKeys[activeTab];
 
-  // Monitor scroll
   useEffect(() => {
-    const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 500);
-    };
+    const handleScroll = () => setShowScrollTop(window.scrollY > 500);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Load data function
+  const preCacheImages = useCallback((items) => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      const urls = items.map(i => i.cover || i.coverUrl).filter(Boolean);
+      navigator.serviceWorker.controller.postMessage({ type: 'CACHE_URLS', urls });
+    }
+  }, []);
+
   const loadData = useCallback(async (type) => {
     if (loading) return;
     
@@ -53,9 +57,7 @@ function Trending() {
     setLoading(true);
     
     try {
-      console.log(`Loading ${type}...`);
       let result = [];
-      
       switch(type) {
         case 'trending':
           result = await apiManager.getTrending(includeAdult);
@@ -67,12 +69,11 @@ function Trending() {
           result = await apiManager.getWeeklyReleases();
           break;
       }
-      
       if (result && result.length > 0) {
-        setLists(prev => ({
-          ...prev,
-          [type]: result
-        }));
+        preCacheImages(result);
+        setLists(prev => ({ ...prev, [type]: result }));
+      } else {
+        setLists(prev => ({ ...prev, [type]: [] }));
       }
     } catch (error) {
       console.error(`Error loading ${type}:`, error);
@@ -86,29 +87,18 @@ function Trending() {
       setLoading(false);
       setInitialLoading(false);
     }
-  }, [includeAdult, toast, loading]);
+  }, [includeAdult, toast, loading, preCacheImages]);
 
-  // Initial load for active tab
   useEffect(() => {
     loadData(currentKey);
   }, [currentKey, includeAdult]);
 
   const handleShowMore = () => {
-    setShowAllItems(prev => ({
-      ...prev,
-      [currentKey]: true
-    }));
+    setShowAllItems(prev => ({ ...prev, [currentKey]: true }));
   };
 
   const handleShowLess = () => {
-    setShowAllItems(prev => ({
-      ...prev,
-      [currentKey]: false
-    }));
-    scrollToTop();
-  };
-
-  const scrollToTop = () => {
+    setShowAllItems(prev => ({ ...prev, [currentKey]: false }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -121,49 +111,22 @@ function Trending() {
     });
   };
 
-  const renderContent = () => {
-    const currentList = lists[currentKey];
-    const showAll = showAllItems[currentKey];
-    const itemsToShow = showAll ? currentList : currentList.slice(0, 20);
-    
-    if (initialLoading) {
+  const renderGrid = (items) => {
+    if (items.length > 30) {
       return (
-        <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-          {[...Array(20)].map((_, i) => (
-            <Skeleton key={i} height="320px" borderRadius="lg" />
-          ))}
-        </SimpleGrid>
-      );
-    }
-    
-    if (currentList.length === 0) {
-      return (
-        <Center py={12}>
-          <Text fontSize="lg" color="gray.500">
-            Nessun contenuto disponibile
-          </Text>
-        </Center>
-      );
-    }
-    
-    return (
-      <>
-        <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-          {itemsToShow.map((item, i) => (
+        <VirtualGrid
+          items={items}
+          minWidth={160}
+          gap={16}
+          renderItem={(item, i) => (
             <MotionBox
               key={`${item.url}-${i}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(i * 0.03, 0.5) }}
+              transition={{ delay: Math.min(i * 0.01, 0.3) }}
               position="relative"
             >
-              <MangaCard 
-                manga={item} 
-                hideSource 
-                showLatestChapter={true}
-              />
-              
-              {/* Trending Badge for top 3 */}
+              <MangaCard manga={item} hideSource showLatestChapter={true} />
               {currentKey === 'trending' && i < 3 && (
                 <Badge
                   position="absolute"
@@ -179,10 +142,73 @@ function Trending() {
                 </Badge>
               )}
             </MotionBox>
+          )}
+        />
+      );
+    }
+
+    return (
+      <HStack spacing={4} wrap="wrap">
+        {items.map((item, i) => (
+          <MotionBox
+            key={`${item.url}-${i}`}
+            flex="1 0 160px"
+            maxW="200px"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: Math.min(i * 0.03, 0.5) }}
+            position="relative"
+          >
+            <MangaCard manga={item} hideSource showLatestChapter={true} />
+            {currentKey === 'trending' && i < 3 && (
+              <Badge
+                position="absolute"
+                top={2}
+                left={2}
+                colorScheme="orange"
+                fontSize="xs"
+                px={2}
+                py={1}
+                zIndex={10}
+              >
+                🔥 HOT
+              </Badge>
+            )}
+          </MotionBox>
+        ))}
+      </HStack>
+    );
+  };
+
+  const renderContent = () => {
+    const currentList = lists[currentKey];
+    const showAll = showAllItems[currentKey];
+    const itemsToShow = showAll ? currentList : currentList.slice(0, 20);
+    
+    if (initialLoading) {
+      return (
+        <HStack spacing={4} wrap="wrap">
+          {[...Array(20)].map((_, i) => (
+            <Skeleton key={i} height="320px" borderRadius="lg" flex="1 0 160px" />
           ))}
-        </SimpleGrid>
+        </HStack>
+      );
+    }
+    
+    if (currentList.length === 0) {
+      return (
+        <Center py={12}>
+          <Text fontSize="lg" color="gray.500">
+            Nessun contenuto disponibile
+          </Text>
+        </Center>
+      );
+    }
+    
+    return (
+      <>
+        {renderGrid(itemsToShow)}
         
-        {/* Load More / Show Less Button */}
         {currentList.length > 20 && (
           <Center py={6}>
             {!showAll ? (
@@ -218,7 +244,6 @@ function Trending() {
           </Center>
         )}
         
-        {/* If less than 20 items, show explore button */}
         {currentList.length <= 20 && currentList.length > 0 && (
           <Center py={6}>
             <VStack spacing={3}>
@@ -242,7 +267,6 @@ function Trending() {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
-        {/* Header */}
         <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
           <HStack justify="space-between" flexWrap="wrap" spacing={4}>
             <HStack spacing={3}>
@@ -284,17 +308,12 @@ function Trending() {
           </HStack>
         </Box>
 
-        {/* Tabs */}
         <Tabs 
           colorScheme="purple" 
           variant="soft-rounded"
           onChange={(index) => {
             setActiveTab(index);
-            setShowAllItems({
-              trending: false,
-              recentChapters: false,
-              weeklyTop: false
-            });
+            setShowAllItems({ trending: false, recentChapters: false, weeklyTop: false });
           }}
           defaultIndex={0}
         >
@@ -332,7 +351,6 @@ function Trending() {
           </TabPanels>
         </Tabs>
 
-        {/* Scroll to top */}
         {showScrollTop && (
           <IconButton
             icon={<FaArrowUp />}
@@ -342,7 +360,7 @@ function Trending() {
             colorScheme="purple"
             borderRadius="full"
             size="lg"
-            onClick={scrollToTop}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             boxShadow="xl"
             aria-label="Torna su"
             zIndex={100}

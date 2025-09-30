@@ -1,5 +1,4 @@
-// frontend/src/components/MangaCard.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, Image, Text, VStack, Badge, Skeleton } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -8,7 +7,8 @@ const MotionBox = motion(Box);
 
 function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
   const navigate = useNavigate();
-  const [imageLoaded, setImageLoaded] = React.useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [rotation, setRotation] = useState({ x: 0, y: 0 });
   
   const handleClick = () => {
     const mangaId = btoa(manga.url);
@@ -16,44 +16,42 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
     navigate(`/manga/${source}/${mangaId}`);
   };
 
-  // Clean chapter number
-  const getCleanChapter = () => {
-    if (!manga.latestChapter) return null;
+  const handleMouseMove = (e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
     
-    let chapter = manga.latestChapter;
-    if (typeof chapter === 'string') {
-      // Se è già pulito (solo numero)
-      if (/^\d+(?:\.\d+)?$/.test(chapter)) {
-        return chapter;
-      }
-      
-      // Pulisci
-      chapter = chapter
-        .replace(/^(cap\.|capitolo|chapter|ch\.)\s*/i, '')
-        .replace(/^vol\.\s*\d+\s*-\s*/i, '')
-        .trim();
-      
-      const match = chapter.match(/^(\d+(?:\.\d+)?)/);
-      if (match) {
-        return match[1];
-      }
-    }
-    return chapter;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    
+    const rotateX = (y - centerY) / 10;
+    const rotateY = (centerX - x) / 10;
+    
+    setRotation({ x: rotateX, y: rotateY });
   };
 
-  const cleanChapter = getCleanChapter();
-  
-  // Mostra sempre il badge se c'è un capitolo O se showLatestChapter è true
+  const handleMouseLeave = () => {
+    setRotation({ x: 0, y: 0 });
+  };
+
+  const cleanChapter = manga.latestChapter?.toString().replace(/^(cap\.|capitolo|chapter|ch\.)\s*/i, '').trim();
   const shouldShowChapter = cleanChapter && (showLatestChapter || manga.isTrending || manga.isRecent);
 
   return (
     <MotionBox
-      whileHover={{ y: -5, scale: 1.02 }}
+      whileHover={{ scale: 1.05, zIndex: 10 }}
       whileTap={{ scale: 0.98 }}
       transition={{ duration: 0.2 }}
       cursor="pointer"
       onClick={handleClick}
       height="100%"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{
+        perspective: '1000px',
+        transformStyle: 'preserve-3d'
+      }}
     >
       <VStack
         bg="gray.800"
@@ -62,13 +60,16 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
         spacing={0}
         height="100%"
         transition="all 0.3s"
+        position="relative"
         _hover={{ 
           bg: 'gray.700',
-          boxShadow: 'xl'
+          boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
         }}
-        position="relative"
+        style={{
+          transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
+          transformStyle: 'preserve-3d'
+        }}
       >
-        {/* Image Container */}
         <Box position="relative" width="100%" paddingBottom="140%">
           {!imageLoaded && (
             <Skeleton 
@@ -91,9 +92,11 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
             loading="lazy"
             onLoad={() => setImageLoaded(true)}
             fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280' viewBox='0 0 200 280'%3E%3Crect width='200' height='280' fill='%234A5568'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23A0AEC0' font-family='sans-serif' font-size='16'%3ENo Image%3C/text%3E%3C/svg%3E"
+            style={{
+              transform: 'translateZ(20px)'
+            }}
           />
           
-          {/* Adult Badge */}
           {manga.isAdult && (
             <Badge 
               position="absolute" 
@@ -103,12 +106,12 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
               fontSize="xs"
               px={2}
               py={1}
+              style={{ transform: 'translateZ(30px)' }}
             >
               18+
             </Badge>
           )}
 
-          {/* New badge se è recente */}
           {manga.isRecent && (
             <Badge
               position="absolute"
@@ -118,12 +121,12 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
               fontSize="xs"
               px={2}
               py={1}
+              style={{ transform: 'translateZ(30px)' }}
             >
               NEW
             </Badge>
           )}
 
-          {/* Latest Chapter Badge - VISIBILE QUANDO RICHIESTO */}
           {shouldShowChapter && (
             <Box
               position="absolute"
@@ -140,14 +143,21 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
               fontWeight="bold"
               opacity={0.95}
               boxShadow="lg"
+              style={{ transform: 'translateZ(25px)' }}
             >
               Capitolo {cleanChapter}
             </Box>
           )}
         </Box>
         
-        {/* Title Section */}
-        <VStack p={3} spacing={1} align="stretch" flex={1} width="100%">
+        <VStack 
+          p={3} 
+          spacing={1} 
+          align="stretch" 
+          flex={1} 
+          width="100%"
+          style={{ transform: 'translateZ(15px)' }}
+        >
           <Text
             fontSize="sm"
             fontWeight="bold"
