@@ -1,4 +1,4 @@
-// ✅ AUTH-SERVER.JS v3.2 - SERVER AUTH COMPLETO
+// ✅ AUTH-SERVER.JS v3.5 - ROBUSTO CON ERROR HANDLING E RETRY
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
@@ -18,21 +18,62 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// ========= PRISMA SETUP =========
-const prisma = new PrismaClient({
-  log: ['error', 'warn']
-});
+// ========= CONFIG VALIDATION =========
+const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
+const missingVars = requiredEnvVars.filter(v => !process.env[v]);
 
-// ========= SUPABASE SETUP =========
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  {
-    auth: {
-      persistSession: false
-    }
+if (missingVars.length > 0) {
+  console.error('❌ Missing required environment variables:', missingVars);
+  console.log('⚠️  Running in LIMITED MODE - Only basic features available');
+}
+
+// ========= PRISMA SETUP WITH RETRY =========
+let prisma = null;
+let dbConnected = false;
+
+async function connectDatabase() {
+  try {
+    prisma = new PrismaClient({
+      log: ['error', 'warn'],
+      errorFormat: 'minimal'
+    });
+    
+    // Test connection
+    await prisma.$connect();
+    await prisma.$queryRaw`SELECT 1`;
+    
+    dbConnected = true;
+    console.log('✅ Database connected successfully');
+    return true;
+  } catch (error) {
+    dbConnected = false;
+    console.error('❌ Database connection failed:', error.message);
+    
+    // Retry dopo 5 secondi
+    setTimeout(() => {
+      console.log('🔄 Retrying database connection...');
+      connectDatabase();
+    }, 5000);
+    
+    return false;
   }
-);
+}
+
+// Initial connection attempt
+connectDatabase();
+
+// ========= SUPABASE SETUP (OPTIONAL) =========
+let supabase = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false } }
+  );
+  console.log('✅ Supabase storage configured');
+} else {
+  console.log('⚠️  Supabase storage not configured - uploads disabled');
+}
 
 const PORT = process.env.PORT || 10000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
@@ -41,9 +82,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB
-  },
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (allowedTypes.includes(file.mimetype)) {
@@ -56,11 +95,17 @@ const upload = multer({
 
 // ========= CORS SETUP =========
 const corsOrigins = process.env.NODE_ENV === 'production' 
-  ? ['https://kuroreader.onrender.com']
+  ? ['https://kuroreader.onrender.com', 'https://nekuroscan.com']
   : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'];
 
 app.use(cors({
-  origin: corsOrigins,
+  origin: (origin, callback) => {
+    if (!origin || corsOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all in development
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -68,6 +113,17 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ========= DATABASE CHECK MIDDLEWARE =========
+const requireDatabase = (req, res, next) => {
+  if (!dbConnected || !prisma) {
+    return res.status(503).json({ 
+      message: 'Database temporaneamente non disponibile',
+      retryAfter: 5 
+    });
+  }
+  next();
+};
 
 // ========= AUTH MIDDLEWARE =========
 const authenticateToken = (req, res, next) => {
@@ -89,6 +145,11 @@ const authenticateToken = (req, res, next) => {
 
 // ========= SUPABASE STORAGE FUNCTIONS =========
 async function uploadImageToSupabase(buffer, fileName, bucket = 'profile-images') {
+  if (!supabase) {
+    console.warn('Supabase not configured, skipping upload');
+    return null;
+  }
+  
   try {
     const { data, error } = await supabase.storage
       .from(bucket)
@@ -106,14 +167,14 @@ async function uploadImageToSupabase(buffer, fileName, bucket = 'profile-images'
     return urlData.publicUrl;
   } catch (error) {
     console.error('Upload to Supabase failed:', error);
-    throw error;
+    return null;
   }
 }
 
 async function deleteImageFromSupabase(url, bucket = 'profile-images') {
+  if (!supabase || !url || !url.includes('supabase')) return;
+  
   try {
-    if (!url || !url.includes('supabase')) return;
-    
     const urlParts = url.split('/');
     const fileName = urlParts.slice(-2).join('/');
     
@@ -129,10 +190,36 @@ async function deleteImageFromSupabase(url, bucket = 'profile-images') {
   }
 }
 
+// ========= HEALTH CHECK =========
+app.get('/health', async (req, res) => {
+  const health = {
+    status: dbConnected ? 'healthy' : 'degraded',
+    timestamp: new Date().toISOString(),
+    service: 'NeKuro Scan Auth Server',
+    version: '3.5.0',
+    database: dbConnected ? 'connected' : 'disconnected',
+    storage: supabase ? 'configured' : 'disabled'
+  };
+  
+  if (dbConnected) {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      health.database = 'healthy';
+    } catch (error) {
+      health.database = 'unhealthy';
+      health.status = 'degraded';
+      dbConnected = false;
+      connectDatabase(); // Try reconnect
+    }
+  }
+  
+  res.status(health.status === 'healthy' ? 200 : 503).json(health);
+});
+
 // ========= AUTH ROUTES =========
 
 // REGISTER
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', requireDatabase, async (req, res) => {
   try {
     const { username, email, password } = req.body;
     
@@ -170,42 +257,47 @@ app.post('/api/auth/register', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    const user = await prisma.user.create({
-      data: { 
-        username: normalizedUsername, 
-        email: normalizedEmail, 
-        password: hashedPassword 
-      }
-    });
+    // Transaction for creating user with related data
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: { 
+          username: normalizedUsername, 
+          email: normalizedEmail, 
+          password: hashedPassword 
+        }
+      });
 
-    await prisma.user_profile.create({
-      data: {
-        userId: user.id,
-        displayName: username,
-        bio: '',
-        avatarUrl: '',
-        bannerUrl: '',
-        isPublic: false,
-        viewCount: 0,
-        badges: []
-      }
-    });
+      await tx.user_profile.create({
+        data: {
+          userId: newUser.id,
+          displayName: username,
+          bio: '',
+          avatarUrl: '',
+          bannerUrl: '',
+          isPublic: false,
+          viewCount: 0,
+          badges: []
+        }
+      });
 
-    await prisma.user_favorites.create({
-      data: {
-        userId: user.id,
-        favorites: '[]'
-      }
-    });
+      await tx.user_favorites.create({
+        data: {
+          userId: newUser.id,
+          favorites: '[]'
+        }
+      });
 
-    await prisma.user_library.create({
-      data: {
-        userId: user.id,
-        reading: '[]',
-        completed: '[]',
-        dropped: '[]',
-        history: '[]'
-      }
+      await tx.user_library.create({
+        data: {
+          userId: newUser.id,
+          reading: '[]',
+          completed: '[]',
+          dropped: '[]',
+          history: '[]'
+        }
+      });
+      
+      return newUser;
     });
 
     const token = jwt.sign(
@@ -226,13 +318,14 @@ app.post('/api/auth/register', async (req, res) => {
   } catch (error) {
     console.error('Register error:', error);
     res.status(500).json({ 
-      message: 'Errore durante la registrazione'
+      message: 'Errore durante la registrazione',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
 // LOGIN
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', requireDatabase, async (req, res) => {
   try {
     const { emailOrUsername, password } = req.body;
     
@@ -250,9 +343,7 @@ app.post('/api/auth/login', async (req, res) => {
         ]
       },
       include: {
-        profile: true,
-        favorites: true,
-        library: true
+        profile: true
       }
     });
     
@@ -283,12 +374,15 @@ app.post('/api/auth/login', async (req, res) => {
     
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Errore durante il login' });
+    res.status(500).json({ 
+      message: 'Errore durante il login',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
 // GET CURRENT USER
-app.get('/api/auth/me', authenticateToken, async (req, res) => {
+app.get('/api/auth/me', authenticateToken, requireDatabase, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ 
       where: { id: req.user.id },
@@ -313,14 +407,17 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
     
   } catch (error) {
     console.error('Get user error:', error);
-    res.status(500).json({ message: 'Errore nel recupero utente' });
+    res.status(500).json({ 
+      message: 'Errore nel recupero utente',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
 // ========= PROFILE ROUTES =========
 
 // UPDATE PROFILE
-app.put('/api/user/profile', authenticateToken, upload.fields([
+app.put('/api/user/profile', authenticateToken, requireDatabase, upload.fields([
   { name: 'avatar', maxCount: 1 },
   { name: 'banner', maxCount: 1 }
 ]), async (req, res) => {
@@ -349,8 +446,8 @@ app.put('/api/user/profile', authenticateToken, upload.fields([
       }
     }
 
-    // AVATAR UPLOAD
-    if (req.files?.avatar) {
+    // AVATAR UPLOAD (if Supabase configured)
+    if (req.files?.avatar && supabase) {
       const avatarFile = req.files.avatar[0];
       const avatarFileName = `avatars/avatar_${userId}_${Date.now()}.webp`;
       
@@ -363,11 +460,14 @@ app.put('/api/user/profile', authenticateToken, upload.fields([
         .webp({ quality: 90 })
         .toBuffer();
       
-      updateData.avatarUrl = await uploadImageToSupabase(processedAvatar, avatarFileName);
+      const avatarUrl = await uploadImageToSupabase(processedAvatar, avatarFileName);
+      if (avatarUrl) {
+        updateData.avatarUrl = avatarUrl;
+      }
     }
     
-    // BANNER UPLOAD
-    if (req.files?.banner) {
+    // BANNER UPLOAD (if Supabase configured)
+    if (req.files?.banner && supabase) {
       const bannerFile = req.files.banner[0];
       const bannerFileName = `banners/banner_${userId}_${Date.now()}.webp`;
       
@@ -380,7 +480,10 @@ app.put('/api/user/profile', authenticateToken, upload.fields([
         .webp({ quality: 90 })
         .toBuffer();
       
-      updateData.bannerUrl = await uploadImageToSupabase(processedBanner, bannerFileName);
+      const bannerUrl = await uploadImageToSupabase(processedBanner, bannerFileName);
+      if (bannerUrl) {
+        updateData.bannerUrl = bannerUrl;
+      }
     }
     
     if (profile) {
@@ -403,12 +506,19 @@ app.put('/api/user/profile', authenticateToken, upload.fields([
     
   } catch (error) {
     console.error('Update profile error:', error);
-    res.status(500).json({ message: 'Errore aggiornamento profilo' });
+    res.status(500).json({ 
+      message: 'Errore aggiornamento profilo',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
 // GET PUBLIC PROFILE
 app.get('/api/profile/:username', async (req, res) => {
+  if (!dbConnected) {
+    return res.status(503).json({ message: 'Servizio temporaneamente non disponibile' });
+  }
+  
   try {
     const { username } = req.params;
     
@@ -473,99 +583,108 @@ app.get('/api/profile/:username', async (req, res) => {
     
   } catch (error) {
     console.error('Get profile error:', error);
-    res.status(500).json({ message: 'Errore recupero profilo' });
+    res.status(500).json({ 
+      message: 'Errore recupero profilo',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
 // ========= DATA SYNC ROUTES =========
 
 // SYNC DATA TO SERVER
-app.post('/api/user/sync', authenticateToken, async (req, res) => {
+app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) => {
   try {
     const { favorites, reading, completed, dropped, history, readingProgress } = req.body;
     const userId = req.user.id;
     
-    // SYNC FAVORITES
-    if (favorites !== undefined) {
-      await prisma.user_favorites.upsert({
-        where: { userId },
-        update: { 
-          favorites: JSON.stringify(favorites),
-          updatedAt: new Date()
-        },
-        create: { 
-          userId, 
-          favorites: JSON.stringify(favorites) 
-        }
+    // Use transaction for consistency
+    await prisma.$transaction(async (tx) => {
+      // SYNC FAVORITES
+      if (favorites !== undefined) {
+        await tx.user_favorites.upsert({
+          where: { userId },
+          update: { 
+            favorites: JSON.stringify(favorites),
+            updatedAt: new Date()
+          },
+          create: { 
+            userId, 
+            favorites: JSON.stringify(favorites) 
+          }
+        });
+      }
+      
+      // SYNC LIBRARY
+      const existingLibrary = await tx.user_library.findUnique({
+        where: { userId }
       });
-    }
-    
-    // SYNC LIBRARY
-    const existingLibrary = await prisma.user_library.findUnique({
-      where: { userId }
-    });
-    
-    const updateLibraryData = {};
-    if (reading !== undefined) updateLibraryData.reading = JSON.stringify(reading);
-    if (completed !== undefined) updateLibraryData.completed = JSON.stringify(completed);
-    if (dropped !== undefined) updateLibraryData.dropped = JSON.stringify(dropped);
-    if (history !== undefined) updateLibraryData.history = JSON.stringify(history);
-    updateLibraryData.updatedAt = new Date();
-    
-    if (existingLibrary) {
-      await prisma.user_library.update({
-        where: { userId },
-        data: updateLibraryData
-      });
-    } else {
-      await prisma.user_library.create({
-        data: {
-          userId,
-          reading: JSON.stringify(reading || []),
-          completed: JSON.stringify(completed || []),
-          dropped: JSON.stringify(dropped || []),
-          history: JSON.stringify(history || []),
-        }
-      });
-    }
-    
-    // SYNC READING PROGRESS
-    if (readingProgress && typeof readingProgress === 'object') {
-      for (const [mangaUrl, progress] of Object.entries(readingProgress)) {
-        if (progress && typeof progress === 'object') {
-          await prisma.reading_progress.upsert({
-            where: {
-              userId_mangaUrl: { userId, mangaUrl }
-            },
-            update: {
-              chapterIndex: progress.chapterIndex || 0,
-              pageIndex: progress.page || progress.pageIndex || 0,
-              totalPages: progress.totalPages || 0,
-              updatedAt: new Date()
-            },
-            create: {
-              userId,
-              mangaUrl,
-              mangaTitle: progress.mangaTitle || progress.title || '',
-              chapterIndex: progress.chapterIndex || 0,
-              pageIndex: progress.page || progress.pageIndex || 0,
-              totalPages: progress.totalPages || 0
-            }
-          });
+      
+      const updateLibraryData = {};
+      if (reading !== undefined) updateLibraryData.reading = JSON.stringify(reading);
+      if (completed !== undefined) updateLibraryData.completed = JSON.stringify(completed);
+      if (dropped !== undefined) updateLibraryData.dropped = JSON.stringify(dropped);
+      if (history !== undefined) updateLibraryData.history = JSON.stringify(history);
+      updateLibraryData.updatedAt = new Date();
+      
+      if (existingLibrary) {
+        await tx.user_library.update({
+          where: { userId },
+          data: updateLibraryData
+        });
+      } else {
+        await tx.user_library.create({
+          data: {
+            userId,
+            reading: JSON.stringify(reading || []),
+            completed: JSON.stringify(completed || []),
+            dropped: JSON.stringify(dropped || []),
+            history: JSON.stringify(history || []),
+          }
+        });
+      }
+      
+      // SYNC READING PROGRESS
+      if (readingProgress && typeof readingProgress === 'object') {
+        for (const [mangaUrl, progress] of Object.entries(readingProgress)) {
+          if (progress && typeof progress === 'object') {
+            await tx.reading_progress.upsert({
+              where: {
+                userId_mangaUrl: { userId, mangaUrl }
+              },
+              update: {
+                chapterIndex: progress.chapterIndex || 0,
+                pageIndex: progress.page || progress.pageIndex || 0,
+                totalPages: progress.totalPages || 0,
+                updatedAt: new Date()
+              },
+              create: {
+                userId,
+                mangaUrl,
+                mangaTitle: progress.mangaTitle || progress.title || '',
+                chapterIndex: progress.chapterIndex || 0,
+                pageIndex: progress.page || progress.pageIndex || 0,
+                totalPages: progress.totalPages || 0
+              }
+            });
+          }
         }
       }
-    }
+    });
     
     res.json({ success: true, message: 'Dati sincronizzati' });
     
   } catch (error) {
     console.error('Sync error:', error);
-    res.status(500).json({ message: 'Errore sincronizzazione', error: error.message });
+    res.status(500).json({ 
+      message: 'Errore sincronizzazione', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
 // GET USER DATA
-app.get('/api/user/data', authenticateToken, async (req, res) => {
+app.get('/api/user/data', authenticateToken, requireDatabase, async (req, res) => {
   try {
     const userId = req.user.id;
     
@@ -604,145 +723,15 @@ app.get('/api/user/data', authenticateToken, async (req, res) => {
     
   } catch (error) {
     console.error('Get user data error:', error);
-    res.status(500).json({ message: 'Errore nel recupero dati utente' });
-  }
-});
-
-// GET USER STATS
-app.get('/api/user/stats', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    
-    const [library, favorites, profile, readingProgress] = await Promise.all([
-      prisma.user_library.findUnique({ where: { userId } }),
-      prisma.user_favorites.findUnique({ where: { userId } }),
-      prisma.user_profile.findUnique({ where: { userId } }),
-      prisma.reading_progress.count({ where: { userId } })
-    ]);
-    
-    const reading = JSON.parse(library?.reading || '[]');
-    const completed = JSON.parse(library?.completed || '[]');
-    const dropped = JSON.parse(library?.dropped || '[]');
-    const favs = JSON.parse(favorites?.favorites || '[]');
-    
-    const followersCount = await prisma.user_follows.count({
-      where: { followingId: userId }
+    res.status(500).json({ 
+      message: 'Errore nel recupero dati utente',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
-    
-    const followingCount = await prisma.user_follows.count({
-      where: { followerId: userId }
-    });
-    
-    res.json({
-      totalManga: reading.length + completed.length,
-      reading: reading.length,
-      completed: completed.length,
-      dropped: dropped.length,
-      favorites: favs.length,
-      chaptersRead: readingProgress * 5,
-      readingTime: readingProgress * 15,
-      profileViews: profile?.viewCount || 0,
-      followers: followersCount,
-      following: followingCount,
-      badges: profile?.badges || []
-    });
-    
-  } catch (error) {
-    console.error('Get stats error:', error);
-    res.status(500).json({ message: 'Errore recupero statistiche' });
-  }
-});
-
-// ========= FOLLOW SYSTEM =========
-
-// CHECK IF FOLLOWING
-app.get('/api/user/following/:username', authenticateToken, async (req, res) => {
-  try {
-    const { username } = req.params;
-    const followerId = req.user.id;
-    
-    const userToCheck = await prisma.user.findUnique({
-      where: { username: username.toLowerCase() }
-    });
-    
-    if (!userToCheck) {
-      return res.status(404).json({ message: 'Utente non trovato' });
-    }
-    
-    const follow = await prisma.user_follows.findUnique({
-      where: {
-        followerId_followingId: {
-          followerId,
-          followingId: userToCheck.id
-        }
-      }
-    });
-    
-    res.json({ following: !!follow });
-    
-  } catch (error) {
-    console.error('Check following error:', error);
-    res.status(500).json({ message: 'Errore verifica follow' });
-  }
-});
-
-// TOGGLE FOLLOW
-app.post('/api/user/follow/:username', authenticateToken, async (req, res) => {
-  try {
-    const { username } = req.params;
-    const followerId = req.user.id;
-    
-    const userToFollow = await prisma.user.findUnique({
-      where: { username: username.toLowerCase() }
-    });
-    
-    if (!userToFollow) {
-      return res.status(404).json({ message: 'Utente non trovato' });
-    }
-    
-    if (userToFollow.id === followerId) {
-      return res.status(400).json({ message: 'Non puoi seguire te stesso' });
-    }
-    
-    const existingFollow = await prisma.user_follows.findUnique({
-      where: {
-        followerId_followingId: {
-          followerId,
-          followingId: userToFollow.id
-        }
-      }
-    });
-    
-    if (existingFollow) {
-      await prisma.user_follows.delete({
-        where: {
-          followerId_followingId: {
-            followerId,
-            followingId: userToFollow.id
-          }
-        }
-      });
-      
-      res.json({ success: true, following: false });
-    } else {
-      await prisma.user_follows.create({
-        data: {
-          followerId,
-          followingId: userToFollow.id
-        }
-      });
-      
-      res.json({ success: true, following: true });
-    }
-    
-  } catch (error) {
-    console.error('Toggle follow error:', error);
-    res.status(500).json({ message: 'Errore gestione follow' });
   }
 });
 
 // GET FOLLOWERS
-app.get('/api/user/followers', authenticateToken, async (req, res) => {
+app.get('/api/user/followers', authenticateToken, requireDatabase, async (req, res) => {
   try {
     const userId = req.user.id;
     
@@ -770,12 +759,15 @@ app.get('/api/user/followers', authenticateToken, async (req, res) => {
     
   } catch (error) {
     console.error('Get followers error:', error);
-    res.status(500).json({ message: 'Errore recupero followers' });
+    res.status(500).json({ 
+      message: 'Errore recupero followers',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
 // GET FOLLOWING
-app.get('/api/user/following', authenticateToken, async (req, res) => {
+app.get('/api/user/following', authenticateToken, requireDatabase, async (req, res) => {
   try {
     const userId = req.user.id;
     
@@ -803,47 +795,59 @@ app.get('/api/user/following', authenticateToken, async (req, res) => {
     
   } catch (error) {
     console.error('Get following error:', error);
-    res.status(500).json({ message: 'Errore recupero following' });
+    res.status(500).json({ 
+      message: 'Errore recupero following',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// ========= NOTIFICATIONS =========
+// ========= NOTIFICATIONS (STUB) =========
 app.post('/api/notifications/manga', authenticateToken, async (req, res) => {
-  try {
-    const { mangaUrl, mangaTitle, enabled } = req.body;
-    const userId = req.user.id;
-    
-    res.json({ success: true, enabled });
-    
-  } catch (error) {
-    console.error('Toggle notification error:', error);
-    res.status(500).json({ message: 'Errore gestione notifiche' });
-  }
+  const { mangaUrl, mangaTitle, enabled } = req.body;
+  // Stub for now - notifications handled client-side
+  res.json({ success: true, enabled });
 });
 
-// ========= HEALTH CHECK =========
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    service: 'NeKuro Scan Auth Server',
-    version: '3.2.0'
+// ========= ERROR HANDLER =========
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ 
+    message: 'Errore interno del server',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
 
 // ========= START SERVER =========
 app.listen(PORT, () => {
-  console.log(`✅ Auth server running on port ${PORT}`);
-  console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log('✅ Using Supabase Storage for uploads');
+  console.log(`
+  ╔════════════════════════════════════════╗
+  ║     NeKuro Scan Auth Server v3.5      ║
+  ╠════════════════════════════════════════╣
+  ║ Port: ${PORT.toString().padEnd(33)}║
+  ║ Environment: ${(process.env.NODE_ENV || 'development').padEnd(26)}║
+  ║ Database: ${dbConnected ? '✅ Connected'.padEnd(29) : '❌ Disconnected'.padEnd(29)}║
+  ║ Storage: ${supabase ? '✅ Configured'.padEnd(30) : '⚠️  Disabled'.padEnd(30)}║
+  ╚════════════════════════════════════════╝
+  `);
+  
+  if (!dbConnected) {
+    console.log('⚠️  Server running in DEGRADED mode - Database offline');
+    console.log('🔄 Attempting to reconnect...');
+  }
 });
 
 // ========= GRACEFUL SHUTDOWN =========
-const gracefulShutdown = async () => {
-  console.log('🔄 Starting graceful shutdown...');
-  await prisma.$disconnect();
+const gracefulShutdown = async (signal) => {
+  console.log(`\n🔄 ${signal} received, starting graceful shutdown...`);
+  
+  if (prisma) {
+    await prisma.$disconnect();
+    console.log('✅ Database disconnected');
+  }
+  
   process.exit(0);
 };
 
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
