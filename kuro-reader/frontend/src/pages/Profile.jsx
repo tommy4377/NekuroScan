@@ -1,17 +1,18 @@
-// ✅ PROFILE.JSX v3.2 - COMPLETO E OTTIMIZZATO
+// ✅ PROFILE.JSX v3.5 - ROBUSTO CON ERROR HANDLING COMPLETO
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Container, VStack, HStack, Heading, Text, Avatar, Box, Button, Input,
   FormControl, FormLabel, SimpleGrid, useToast, Switch, Badge, Tabs, TabList, 
   Tab, TabPanels, TabPanel, useClipboard, Image, Textarea, Progress, Stat, 
   StatLabel, StatNumber, Wrap, WrapItem, Tooltip, Center, Spinner, Flex,
-  IconButton, Menu, MenuButton, MenuList, MenuItem, AvatarBadge, Divider
+  IconButton, Menu, MenuButton, MenuList, MenuItem, AvatarBadge, Divider,
+  Alert, AlertIcon, AlertTitle, AlertDescription
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon, EditIcon, CheckIcon, CopyIcon, CloseIcon } from '@chakra-ui/icons';
 import { 
   FaCamera, FaSave, FaShare, FaLock, FaGlobe, FaTrophy, FaBookOpen, 
   FaHeart, FaEye, FaUserPlus, FaTwitter, FaDiscord, FaInstagram, FaImage, 
-  FaUserFriends, FaBan
+  FaUserFriends, FaBan, FaExclamationTriangle
 } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -37,12 +38,14 @@ export default function Profile() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
+  const [dataError, setDataError] = useState(null);
+  const [friendsError, setFriendsError] = useState(null);
   
-  // Profile data
+  // Profile data with defaults
   const [profileData, setProfileData] = useState({
-    username: '',
-    email: '',
-    displayName: '',
+    username: user?.username || '',
+    email: user?.email || '',
+    displayName: user?.username || '',
     bio: '',
     avatarUrl: '',
     bannerUrl: '',
@@ -54,7 +57,7 @@ export default function Profile() {
     }
   });
   
-  // Library data
+  // Library data with defaults
   const [libraryData, setLibraryData] = useState({
     reading: [],
     completed: [],
@@ -62,7 +65,7 @@ export default function Profile() {
     favorites: []
   });
   
-  // Friends data
+  // Friends data with defaults
   const [friends, setFriends] = useState({
     followers: [],
     following: []
@@ -76,11 +79,21 @@ export default function Profile() {
 
   // ========= EFFECTS =========
   useEffect(() => {
-    if (user) {
-      loadUserData();
-      loadFriends();
+    if (!user) {
+      // Redirect to login if not authenticated
+      toast({
+        title: 'Non autenticato',
+        description: 'Effettua il login per vedere il tuo profilo',
+        status: 'warning',
+        duration: 3000
+      });
+      navigate('/login');
+      return;
     }
-  }, [user]);
+    
+    loadUserData();
+    loadFriends();
+  }, [user, navigate]);
 
   useEffect(() => {
     if (profileData.isPublic && user) {
@@ -88,22 +101,42 @@ export default function Profile() {
     }
   }, [profileData.isPublic, user]);
 
-  // ========= LOAD DATA =========
+  // Event listener for library updates
+  useEffect(() => {
+    const handler = () => {
+      console.log('📡 Library updated event received');
+      if (user) {
+        loadUserData();
+      }
+    };
+    
+    window.addEventListener('library-updated', handler);
+    return () => window.removeEventListener('library-updated', handler);
+  }, [user]);
+
+  // ========= LOAD DATA WITH ERROR HANDLING =========
   const loadUserData = async () => {
     if (!user) return;
     
+    setDataError(null);
+    
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Token mancante');
+      }
+
       const response = await axios.get(`${config.API_URL}/api/user/data`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
       
-      const { profile, reading, completed, favorites, dropped, history } = response.data;
+      const { profile, reading, completed, favorites, dropped } = response.data;
       
-      // ✅ UPDATE PROFILE
+      // Update profile data
       setProfileData({
-        username: user.username,
-        email: user.email,
-        displayName: profile?.displayName || user.username,
+        username: user.username || '',
+        email: user.email || '',
+        displayName: profile?.displayName || user.username || '',
         bio: profile?.bio || '',
         avatarUrl: profile?.avatarUrl || '',
         bannerUrl: profile?.bannerUrl || '',
@@ -111,7 +144,7 @@ export default function Profile() {
         socialLinks: profile?.socialLinks || { twitter: '', discord: '', instagram: '' }
       });
       
-      // ✅ UPDATE LIBRARY
+      // Update library data
       setLibraryData({
         reading: reading || [],
         completed: completed || [],
@@ -119,34 +152,54 @@ export default function Profile() {
         favorites: favorites || []
       });
       
-      // ✅ SYNC TO LOCALSTORAGE
-      localStorage.setItem('reading', JSON.stringify(reading || []));
-      localStorage.setItem('completed', JSON.stringify(completed || []));
-      localStorage.setItem('dropped', JSON.stringify(dropped || []));
-      localStorage.setItem('favorites', JSON.stringify(favorites || []));
-      localStorage.setItem('profilePublic', profile?.isPublic ? 'true' : 'false');
+      // Sync to localStorage
+      try {
+        localStorage.setItem('reading', JSON.stringify(reading || []));
+        localStorage.setItem('completed', JSON.stringify(completed || []));
+        localStorage.setItem('dropped', JSON.stringify(dropped || []));
+        localStorage.setItem('favorites', JSON.stringify(favorites || []));
+        localStorage.setItem('profilePublic', profile?.isPublic ? 'true' : 'false');
+      } catch (e) {
+        console.error('Error saving to localStorage:', e);
+      }
       
     } catch (error) {
       console.error('Error loading user data:', error);
-      toast({
-        title: 'Errore caricamento dati',
-        status: 'error',
-        duration: 3000
-      });
+      
+      // Try to load from localStorage as fallback
+      try {
+        setLibraryData({
+          reading: JSON.parse(localStorage.getItem('reading') || '[]'),
+          completed: JSON.parse(localStorage.getItem('completed') || '[]'),
+          dropped: JSON.parse(localStorage.getItem('dropped') || '[]'),
+          favorites: JSON.parse(localStorage.getItem('favorites') || '[]')
+        });
+        
+        setDataError('Caricamento parziale dai dati locali');
+      } catch (e) {
+        setDataError('Impossibile caricare i dati');
+      }
     } finally {
       setLoadingStats(false);
     }
   };
 
   const loadFriends = async () => {
+    if (!user) return;
+    
+    setFriendsError(null);
+    
     try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
       const [followersRes, followingRes] = await Promise.all([
         axios.get(`${config.API_URL}/api/user/followers`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        }),
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: { followers: [] } })),
         axios.get(`${config.API_URL}/api/user/following`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        })
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: { following: [] } }))
       ]);
       
       setFriends({
@@ -155,6 +208,7 @@ export default function Profile() {
       });
     } catch (error) {
       console.error('Error loading friends:', error);
+      setFriendsError('Impossibile caricare gli amici');
     }
   };
 
@@ -174,7 +228,7 @@ export default function Profile() {
     }
   };
 
-  // ========= FILE UPLOAD =========
+  // ========= FILE UPLOAD WITH ERROR HANDLING =========
   const handleFileUpload = async (e, type) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -200,12 +254,15 @@ export default function Profile() {
       formData.append('displayName', profileData.displayName);
       formData.append('socialLinks', JSON.stringify(profileData.socialLinks));
 
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Token mancante');
+
       const response = await axios.put(
         `${config.API_URL}/api/user/profile`,
         formData,
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'multipart/form-data'
           }
         }
@@ -237,26 +294,35 @@ export default function Profile() {
       });
     } finally {
       setUploading(false);
+      // Reset file input
+      if (type === 'avatar' && fileRef.current) {
+        fileRef.current.value = '';
+      } else if (type === 'banner' && bannerRef.current) {
+        bannerRef.current.value = '';
+      }
     }
   };
 
-  // ========= SAVE PROFILE =========
+  // ========= SAVE PROFILE WITH ERROR HANDLING =========
   const saveProfile = async () => {
     setLoading(true);
     
     try {
       const formData = new FormData();
-      formData.append('bio', profileData.bio);
+      formData.append('bio', profileData.bio || '');
       formData.append('isPublic', profileData.isPublic);
-      formData.append('displayName', profileData.displayName);
-      formData.append('socialLinks', JSON.stringify(profileData.socialLinks));
+      formData.append('displayName', profileData.displayName || user.username);
+      formData.append('socialLinks', JSON.stringify(profileData.socialLinks || {}));
+
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Token mancante');
 
       const response = await axios.put(
         `${config.API_URL}/api/user/profile`,
         formData,
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'multipart/form-data'
           }
         }
@@ -279,13 +345,13 @@ export default function Profile() {
           await generateQRCode();
         }
         
-        await syncToServer();
+        await syncToServer({ refreshAfter: false, reason: 'profile-update' });
       }
     } catch (error) {
       console.error('Save profile error:', error);
       toast({
         title: 'Errore salvataggio',
-        description: error.response?.data?.message || 'Impossibile salvare il profilo',
+        description: error.response?.data?.message || error.message || 'Impossibile salvare il profilo',
         status: 'error',
         duration: 3000
       });
@@ -322,7 +388,20 @@ export default function Profile() {
   };
 
   // ========= LOADING STATE =========
-  if (!user || loadingStats) {
+  if (!user) {
+    return (
+      <Container maxW="container.xl" py={8}>
+        <Center minH="50vh">
+          <VStack spacing={4}>
+            <Spinner size="xl" color="purple.500" />
+            <Text>Reindirizzamento al login...</Text>
+          </VStack>
+        </Center>
+      </Container>
+    );
+  }
+
+  if (loadingStats) {
     return (
       <Container maxW="container.xl" py={8}>
         <Center minH="50vh">
@@ -338,6 +417,22 @@ export default function Profile() {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={8} align="stretch">
+        
+        {/* ========= ERROR ALERT ========= */}
+        {dataError && (
+          <Alert status="warning" borderRadius="lg">
+            <AlertIcon />
+            <Box>
+              <AlertTitle>Attenzione</AlertTitle>
+              <AlertDescription>
+                {dataError}. Alcune funzionalità potrebbero non essere disponibili.
+              </AlertDescription>
+            </Box>
+            <Button size="sm" ml="auto" onClick={loadUserData}>
+              Riprova
+            </Button>
+          </Alert>
+        )}
         
         {/* ========= BANNER & AVATAR ========= */}
         <Box position="relative" borderRadius="xl" overflow="hidden">
@@ -359,6 +454,7 @@ export default function Profile() {
                 onClick={() => bannerRef.current?.click()}
                 aria-label="Change banner"
                 isLoading={uploadingBanner}
+                isDisabled={uploadingBanner}
               />
             )}
             <input
@@ -405,6 +501,7 @@ export default function Profile() {
                     right={0}
                     onClick={() => fileRef.current?.click()}
                     aria-label="Change avatar"
+                    isDisabled={uploadingAvatar}
                   />
                 )}
                 <input
@@ -435,12 +532,13 @@ export default function Profile() {
                         fontWeight="bold"
                         maxW="300px"
                         bg="gray.700"
+                        placeholder="Nome visualizzato"
                       />
                     ) : (
-                      <Heading size="lg">{profileData.displayName}</Heading>
+                      <Heading size="lg">{profileData.displayName || user.username}</Heading>
                     )}
                     <HStack>
-                      <Text color="gray.400">@{profileData.username}</Text>
+                      <Text color="gray.400">@{profileData.username || user.username}</Text>
                       <Badge colorScheme={profileData.isPublic ? 'green' : 'gray'}>
                         <HStack spacing={1}>
                           {profileData.isPublic ? <FaGlobe size="10" /> : <FaLock size="10" />}
@@ -525,30 +623,30 @@ export default function Profile() {
                         placeholder="Twitter username"
                         size="sm"
                         bg="gray.700"
-                        value={profileData.socialLinks.twitter || ''}
+                        value={profileData.socialLinks?.twitter || ''}
                         onChange={(e) => setProfileData({
                           ...profileData,
-                          socialLinks: { ...profileData.socialLinks, twitter: e.target.value }
+                          socialLinks: { ...(profileData.socialLinks || {}), twitter: e.target.value }
                         })}
                       />
                       <Input
                         placeholder="Discord username"
                         size="sm"
                         bg="gray.700"
-                        value={profileData.socialLinks.discord || ''}
+                        value={profileData.socialLinks?.discord || ''}
                         onChange={(e) => setProfileData({
                           ...profileData,
-                          socialLinks: { ...profileData.socialLinks, discord: e.target.value }
+                          socialLinks: { ...(profileData.socialLinks || {}), discord: e.target.value }
                         })}
                       />
                       <Input
                         placeholder="Instagram username"
                         size="sm"
                         bg="gray.700"
-                        value={profileData.socialLinks.instagram || ''}
+                        value={profileData.socialLinks?.instagram || ''}
                         onChange={(e) => setProfileData({
                           ...profileData,
-                          socialLinks: { ...profileData.socialLinks, instagram: e.target.value }
+                          socialLinks: { ...(profileData.socialLinks || {}), instagram: e.target.value }
                         })}
                       />
                     </SimpleGrid>
@@ -725,7 +823,7 @@ export default function Profile() {
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                       {libraryData.reading.slice(0, 10).map((manga, i) => (
                         <MotionBox
-                          key={i}
+                          key={`reading-${manga.url || i}`}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.05 }}
@@ -736,7 +834,10 @@ export default function Profile() {
                     </SimpleGrid>
                   ) : (
                     <Center py={8} bg="gray.700" borderRadius="lg">
-                      <Text color="gray.500">Nessun manga in lettura</Text>
+                      <VStack spacing={2}>
+                        <FaBookOpen size={32} color="gray" />
+                        <Text color="gray.500">Nessun manga in lettura</Text>
+                      </VStack>
                     </Center>
                   )}
                 </Box>
@@ -757,7 +858,7 @@ export default function Profile() {
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                       {libraryData.completed.slice(0, 10).map((manga, i) => (
                         <MotionBox
-                          key={i}
+                          key={`completed-${manga.url || i}`}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.05 }}
@@ -768,7 +869,10 @@ export default function Profile() {
                     </SimpleGrid>
                   ) : (
                     <Center py={8} bg="gray.700" borderRadius="lg">
-                      <Text color="gray.500">Nessun manga completato</Text>
+                      <VStack spacing={2}>
+                        <FaTrophy size={32} color="gray" />
+                        <Text color="gray.500">Nessun manga completato</Text>
+                      </VStack>
                     </Center>
                   )}
                 </Box>
@@ -789,7 +893,7 @@ export default function Profile() {
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                       {libraryData.dropped.slice(0, 10).map((manga, i) => (
                         <MotionBox
-                          key={i}
+                          key={`dropped-${manga.url || i}`}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.05 }}
@@ -800,7 +904,10 @@ export default function Profile() {
                     </SimpleGrid>
                   ) : (
                     <Center py={8} bg="gray.700" borderRadius="lg">
-                      <Text color="gray.500">Nessun manga droppato</Text>
+                      <VStack spacing={2}>
+                        <FaBan size={32} color="gray" />
+                        <Text color="gray.500">Nessun manga droppato</Text>
+                      </VStack>
                     </Center>
                   )}
                 </Box>
@@ -821,7 +928,7 @@ export default function Profile() {
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                       {libraryData.favorites.slice(0, 10).map((manga, i) => (
                         <MotionBox
-                          key={i}
+                          key={`fav-${manga.url || i}`}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.05 }}
@@ -832,7 +939,10 @@ export default function Profile() {
                     </SimpleGrid>
                   ) : (
                     <Center py={8} bg="gray.700" borderRadius="lg">
-                      <Text color="gray.500">Nessun preferito</Text>
+                      <VStack spacing={2}>
+                        <FaHeart size={32} color="gray" />
+                        <Text color="gray.500">Nessun preferito</Text>
+                      </VStack>
                     </Center>
                   )}
                 </Box>
@@ -841,71 +951,87 @@ export default function Profile() {
 
             {/* ========= FRIENDS TAB ========= */}
             <TabPanel>
-              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-                {/* Followers */}
-                <Box>
-                  <Heading size="md" mb={4}>
-                    Followers ({friends.followers.length})
-                  </Heading>
-                  <VStack align="stretch" spacing={2} maxH="400px" overflowY="auto">
-                    {friends.followers.length > 0 ? (
-                      friends.followers.map((follower) => (
-                        <HStack
-                          key={follower.id}
-                          p={3}
-                          bg="gray.700"
-                          borderRadius="lg"
-                          cursor="pointer"
-                          _hover={{ bg: 'gray.600' }}
-                          onClick={() => navigate(`/user/${follower.username}`)}
-                        >
-                          <Avatar size="sm" name={follower.displayName} src={follower.avatarUrl} />
-                          <VStack align="start" spacing={0} flex={1}>
-                            <Text fontSize="sm" fontWeight="bold">{follower.displayName}</Text>
-                            <Text fontSize="xs" color="gray.400">@{follower.username}</Text>
+              {friendsError ? (
+                <Alert status="warning" borderRadius="lg">
+                  <AlertIcon />
+                  <AlertTitle>Errore caricamento amici</AlertTitle>
+                  <Button size="sm" ml="auto" onClick={loadFriends}>
+                    Riprova
+                  </Button>
+                </Alert>
+              ) : (
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                  {/* Followers */}
+                  <Box>
+                    <Heading size="md" mb={4}>
+                      Followers ({friends.followers.length})
+                    </Heading>
+                    <VStack align="stretch" spacing={2} maxH="400px" overflowY="auto">
+                      {friends.followers.length > 0 ? (
+                        friends.followers.map((follower) => (
+                          <HStack
+                            key={`follower-${follower.id}`}
+                            p={3}
+                            bg="gray.700"
+                            borderRadius="lg"
+                            cursor="pointer"
+                            _hover={{ bg: 'gray.600' }}
+                            onClick={() => navigate(`/user/${follower.username}`)}
+                          >
+                            <Avatar size="sm" name={follower.displayName} src={follower.avatarUrl} />
+                            <VStack align="start" spacing={0} flex={1}>
+                              <Text fontSize="sm" fontWeight="bold">{follower.displayName}</Text>
+                              <Text fontSize="xs" color="gray.400">@{follower.username}</Text>
+                            </VStack>
+                          </HStack>
+                        ))
+                      ) : (
+                        <Center py={8} bg="gray.700" borderRadius="lg">
+                          <VStack spacing={2}>
+                            <FaUserFriends size={24} color="gray" />
+                            <Text color="gray.500" fontSize="sm">Nessun follower</Text>
                           </VStack>
-                        </HStack>
-                      ))
-                    ) : (
-                      <Center py={8} bg="gray.700" borderRadius="lg">
-                        <Text color="gray.500" fontSize="sm">Nessun follower</Text>
-                      </Center>
-                    )}
-                  </VStack>
-                </Box>
+                        </Center>
+                      )}
+                    </VStack>
+                  </Box>
 
-                {/* Following */}
-                <Box>
-                  <Heading size="md" mb={4}>
-                    Seguiti ({friends.following.length})
-                  </Heading>
-                  <VStack align="stretch" spacing={2} maxH="400px" overflowY="auto">
-                    {friends.following.length > 0 ? (
-                      friends.following.map((following) => (
-                        <HStack
-                          key={following.id}
-                          p={3}
-                          bg="gray.700"
-                          borderRadius="lg"
-                          cursor="pointer"
-                          _hover={{ bg: 'gray.600' }}
-                          onClick={() => navigate(`/user/${following.username}`)}
-                        >
-                          <Avatar size="sm" name={following.displayName} src={following.avatarUrl} />
-                          <VStack align="start" spacing={0} flex={1}>
-                            <Text fontSize="sm" fontWeight="bold">{following.displayName}</Text>
-                            <Text fontSize="xs" color="gray.400">@{following.username}</Text>
+                  {/* Following */}
+                  <Box>
+                    <Heading size="md" mb={4}>
+                      Seguiti ({friends.following.length})
+                    </Heading>
+                    <VStack align="stretch" spacing={2} maxH="400px" overflowY="auto">
+                      {friends.following.length > 0 ? (
+                        friends.following.map((following) => (
+                          <HStack
+                            key={`following-${following.id}`}
+                            p={3}
+                            bg="gray.700"
+                            borderRadius="lg"
+                            cursor="pointer"
+                            _hover={{ bg: 'gray.600' }}
+                            onClick={() => navigate(`/user/${following.username}`)}
+                          >
+                            <Avatar size="sm" name={following.displayName} src={following.avatarUrl} />
+                            <VStack align="start" spacing={0} flex={1}>
+                              <Text fontSize="sm" fontWeight="bold">{following.displayName}</Text>
+                              <Text fontSize="xs" color="gray.400">@{following.username}</Text>
+                            </VStack>
+                          </HStack>
+                        ))
+                      ) : (
+                        <Center py={8} bg="gray.700" borderRadius="lg">
+                          <VStack spacing={2}>
+                            <FaUserFriends size={24} color="gray" />
+                            <Text color="gray.500" fontSize="sm">Non segui nessuno</Text>
                           </VStack>
-                        </HStack>
-                      ))
-                    ) : (
-                      <Center py={8} bg="gray.700" borderRadius="lg">
-                        <Text color="gray.500" fontSize="sm">Non segui nessuno</Text>
-                      </Center>
-                    )}
-                  </VStack>
-                </Box>
-              </SimpleGrid>
+                        </Center>
+                      )}
+                    </VStack>
+                  </Box>
+                </SimpleGrid>
+              )}
             </TabPanel>
           </TabPanels>
         </Tabs>
