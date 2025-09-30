@@ -1,11 +1,6 @@
 import { config } from '../config';
 import { normalizeChapterLabel } from './shared';
 
-// frontend/src/api/mangaWorld.js
-// SOSTITUISCI l'intero metodo getMangaFromUrl con questo
-
-import { config } from '../config';
-
 export class MangaWorldAPI {
   constructor() {
     this.baseUrl = 'https://www.mangaworld.cx/';

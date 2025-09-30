@@ -4,7 +4,6 @@ import { normalizeChapterLabel } from './shared';
 // frontend/src/api/mangaWorldAdult.js
 // SOSTITUISCI l'intero metodo getMangaFromUrl con questo
 
-import { config } from '../config';
 
 export class MangaWorldAdultAPI {
   constructor() {
