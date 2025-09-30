@@ -1,14 +1,15 @@
-// ✅ MANGADETAILS.JSX v3.3 - COMPLETO E OTTIMIZZATO
+// ✅ MANGADETAILS.JSX v3.5 - COMPLETO CON TUTTI I FIX E MIGLIORAMENTI
 import React, { useState, useEffect } from 'react';
 import {
   Box, Container, Heading, Text, Image, VStack, HStack, Button, Badge,
   SimpleGrid, Skeleton, useToast, Flex, IconButton, Wrap, WrapItem,
-  Progress, Tooltip, Menu, MenuButton, MenuList, MenuItem
+  Progress, Tooltip, Menu, MenuButton, MenuList, MenuItem, Divider
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   FaBookmark, FaPlay, FaShare, FaHeart, FaList, FaTh, FaRedo,
-  FaCheckCircle, FaBell, FaBellSlash, FaPlus, FaCheck, FaBan, FaEllipsisV
+  FaCheckCircle, FaBell, FaBellSlash, FaPlus, FaCheck, FaBan, FaEllipsisV,
+  FaClock, FaEye, FaBook
 } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import apiManager from '../api';
@@ -24,14 +25,17 @@ function MangaDetails() {
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [viewMode, setViewMode] = useState('list');
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('chaptersViewMode') || 'list');
   const [readingProgress, setReadingProgress] = useState(null);
   const [completedChapters, setCompletedChapters] = useState([]);
   const [currentStatus, setCurrentStatus] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  
   const toast = useToast();
   const navigate = useNavigate();
-  const { user, syncFavorites, syncToServer } = useAuth();
+  const { user, syncFavorites, syncToServer, syncReading } = useAuth();
 
+  // ========= EFFECTS =========
   useEffect(() => {
     loadManga();
     checkFavorite();
@@ -45,6 +49,11 @@ function MangaDetails() {
     }
   }, [manga, user]);
 
+  useEffect(() => {
+    // Save view mode preference
+    localStorage.setItem('chaptersViewMode', viewMode);
+  }, [viewMode]);
+
   // ========= LOAD MANGA =========
   const loadManga = async () => {
     try {
@@ -56,18 +65,20 @@ function MangaDetails() {
         throw new Error('Manga non trovato');
       }
       
-      console.log('✅ Chapters loaded:', details.chapters?.length || 0);
+      console.log('✅ Manga loaded:', details.title);
+      console.log('✅ Chapters:', details.chapters?.length || 0);
       
       setManga(details);
       addToHistory(details);
       
     } catch (error) {
-      console.error('Error loading manga:', error);
+      console.error('❌ Error loading manga:', error);
       toast({
-        title: 'Errore',
-        description: 'Impossibile caricare i dettagli del manga',
+        title: 'Errore caricamento',
+        description: error.message || 'Impossibile caricare i dettagli del manga',
         status: 'error',
-        duration: 3000
+        duration: 3000,
+        isClosable: true
       });
       navigate('/home');
     } finally {
@@ -76,46 +87,66 @@ function MangaDetails() {
   };
 
   const addToHistory = (mangaDetails) => {
-    const history = JSON.parse(localStorage.getItem('history') || '[]');
-    const existingIndex = history.findIndex(h => h.url === mangaDetails.url);
-    
-    const historyItem = {
-      url: mangaDetails.url,
-      title: mangaDetails.title,
-      cover: mangaDetails.coverUrl,
-      type: mangaDetails.type,
-      source: mangaDetails.source || source,
-      lastVisited: new Date().toISOString()
-    };
-    
-    if (existingIndex !== -1) {
-      history.splice(existingIndex, 1);
+    try {
+      const history = JSON.parse(localStorage.getItem('history') || '[]');
+      const existingIndex = history.findIndex(h => h.url === mangaDetails.url);
+      
+      const historyItem = {
+        url: mangaDetails.url,
+        title: mangaDetails.title,
+        cover: mangaDetails.coverUrl,
+        type: mangaDetails.type,
+        source: mangaDetails.source || source,
+        lastVisited: new Date().toISOString()
+      };
+      
+      if (existingIndex !== -1) {
+        history.splice(existingIndex, 1);
+      }
+      
+      history.unshift(historyItem);
+      localStorage.setItem('history', JSON.stringify(history.slice(0, 100)));
+      
+      console.log('✅ Added to history:', mangaDetails.title);
+    } catch (error) {
+      console.error('❌ Error adding to history:', error);
     }
-    
-    history.unshift(historyItem);
-    localStorage.setItem('history', JSON.stringify(history.slice(0, 100)));
   };
 
   const checkFavorite = () => {
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    const mangaUrl = atob(id);
-    setIsFavorite(favorites.some(f => f.url === mangaUrl));
+    try {
+      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+      const mangaUrl = atob(id);
+      const isFav = favorites.some(f => f.url === mangaUrl);
+      setIsFavorite(isFav);
+      console.log('✅ Favorite status:', isFav);
+    } catch (error) {
+      console.error('❌ Error checking favorite:', error);
+    }
   };
 
   const checkCurrentStatus = () => {
-    const mangaUrl = atob(id);
-    const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-    const completed = JSON.parse(localStorage.getItem('completed') || '[]');
-    const dropped = JSON.parse(localStorage.getItem('dropped') || '[]');
-    
-    if (completed.some(m => m.url === mangaUrl)) {
-      setCurrentStatus('completed');
-    } else if (dropped.some(m => m.url === mangaUrl)) {
-      setCurrentStatus('dropped');
-    } else if (reading.some(m => m.url === mangaUrl)) {
-      setCurrentStatus('reading');
-    } else {
-      setCurrentStatus(null);
+    try {
+      const mangaUrl = atob(id);
+      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+      const completed = JSON.parse(localStorage.getItem('completed') || '[]');
+      const dropped = JSON.parse(localStorage.getItem('dropped') || '[]');
+      
+      if (completed.some(m => m.url === mangaUrl)) {
+        setCurrentStatus('completed');
+        console.log('✅ Status: Completato');
+      } else if (dropped.some(m => m.url === mangaUrl)) {
+        setCurrentStatus('dropped');
+        console.log('✅ Status: Droppato');
+      } else if (reading.some(m => m.url === mangaUrl)) {
+        setCurrentStatus('reading');
+        console.log('✅ Status: In lettura');
+      } else {
+        setCurrentStatus(null);
+        console.log('✅ Status: Nessuno');
+      }
+    } catch (error) {
+      console.error('❌ Error checking status:', error);
     }
   };
 
@@ -130,66 +161,99 @@ function MangaDetails() {
       const notificationSettings = response.data.notificationSettings || [];
       const isEnabled = notificationSettings.some(n => n.mangaUrl === manga.url);
       setNotificationsEnabled(isEnabled);
+      console.log('✅ Notifications enabled:', isEnabled);
     } catch (error) {
-      console.error('Error checking notification status:', error);
+      console.error('❌ Error checking notifications:', error);
     }
   };
 
   const loadReadingProgress = () => {
-    const mangaUrl = atob(id);
-    const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-    const mangaProgress = progress[mangaUrl];
-    
-    if (mangaProgress) {
-      setReadingProgress(mangaProgress);
+    try {
+      const mangaUrl = atob(id);
+      const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+      const mangaProgress = progress[mangaUrl];
       
-      const completed = [];
-      for (let i = 0; i < mangaProgress.chapterIndex; i++) {
-        completed.push(i);
+      if (mangaProgress) {
+        setReadingProgress(mangaProgress);
+        
+        // Load completed chapters
+        const completedChaps = JSON.parse(localStorage.getItem('completedChapters') || '{}');
+        if (completedChaps[mangaUrl]) {
+          setCompletedChapters(completedChaps[mangaUrl]);
+        } else {
+          // Mark all chapters before current as completed
+          const completed = [];
+          for (let i = 0; i < mangaProgress.chapterIndex; i++) {
+            completed.push(i);
+          }
+          setCompletedChapters(completed);
+        }
+        
+        console.log('✅ Reading progress loaded:', mangaProgress);
       }
-      setCompletedChapters(completed);
+    } catch (error) {
+      console.error('❌ Error loading progress:', error);
     }
   };
 
   // ========= TOGGLE FAVORITE =========
   const toggleFavorite = async () => {
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    let updated;
-    
-    if (isFavorite) {
-      updated = favorites.filter(f => f.url !== manga.url);
-      setIsFavorite(false);
+    try {
+      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+      let updated;
       
+      if (isFavorite) {
+        updated = favorites.filter(f => f.url !== manga.url);
+        setIsFavorite(false);
+        
+        toast({
+          title: 'Rimosso dai preferiti',
+          status: 'info',
+          duration: 2000
+        });
+        
+        console.log('✅ Removed from favorites');
+      } else {
+        const mangaToSave = {
+          url: manga.url,
+          title: manga.title,
+          cover: manga.coverUrl,
+          type: manga.type,
+          source: manga.source || source,
+          genres: manga.genres || [],
+          addedAt: new Date().toISOString()
+        };
+        
+        updated = [mangaToSave, ...favorites];
+        setIsFavorite(true);
+        
+        toast({
+          title: '❤️ Aggiunto ai preferiti',
+          status: 'success',
+          duration: 2000
+        });
+        
+        console.log('✅ Added to favorites');
+      }
+      
+      localStorage.setItem('favorites', JSON.stringify(updated));
+      
+      // Sync to server
+      if (user && syncFavorites) {
+        await syncFavorites(updated);
+      }
+      
+      // ✅ DISPATCH EVENT
+      window.dispatchEvent(new CustomEvent('library-updated'));
+      
+    } catch (error) {
+      console.error('❌ Error toggling favorite:', error);
       toast({
-        title: 'Rimosso dai preferiti',
-        status: 'info',
+        title: 'Errore',
+        description: 'Impossibile aggiornare i preferiti',
+        status: 'error',
         duration: 2000
       });
-    } else {
-      const mangaToSave = {
-        url: manga.url,
-        title: manga.title,
-        cover: manga.coverUrl,
-        type: manga.type,
-        source: manga.source || source,
-        genres: manga.genres || [],
-        addedAt: new Date().toISOString()
-      };
-      
-      updated = [mangaToSave, ...favorites];
-      setIsFavorite(true);
-      
-      toast({
-        title: '❤️ Aggiunto ai preferiti',
-        status: 'success',
-        duration: 2000
-      });
-    }
-    
-    localStorage.setItem('favorites', JSON.stringify(updated));
-    
-    if (user && syncFavorites) {
-      await syncFavorites(updated);
     }
   };
 
@@ -224,6 +288,7 @@ function MangaDetails() {
       if (response.data.success) {
         setNotificationsEnabled(newStatus);
         
+        // Request notification permission
         if (newStatus && 'Notification' in window) {
           const permission = await Notification.requestPermission();
           if (permission === 'granted') {
@@ -241,9 +306,11 @@ function MangaDetails() {
           status: 'success',
           duration: 2000
         });
+        
+        console.log('✅ Notifications toggled:', newStatus);
       }
     } catch (error) {
-      console.error('Error toggling notifications:', error);
+      console.error('❌ Error toggling notifications:', error);
       toast({
         title: 'Errore',
         description: 'Impossibile aggiornare le notifiche',
@@ -264,56 +331,81 @@ function MangaDetails() {
       return;
     }
     
-    const chapter = manga.chapters[chapterIndex];
-    const chapterId = btoa(chapter.url);
-    
-    const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-    progress[manga.url] = {
-      chapterId: chapter.url,
-      chapterIndex: chapterIndex,
-      chapterTitle: chapter.title,
-      totalChapters: manga.chapters.length,
-      page: 0,
-      pageIndex: 0,
-      timestamp: new Date().toISOString()
-    };
-    localStorage.setItem('readingProgress', JSON.stringify(progress));
-    
-    updateReadingList(chapterIndex, chapter);
-    
-    navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
+    try {
+      const chapter = manga.chapters[chapterIndex];
+      const chapterId = btoa(chapter.url);
+      
+      // Save progress
+      const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+      progress[manga.url] = {
+        chapterId: chapter.url,
+        chapterIndex: chapterIndex,
+        chapterTitle: chapter.title,
+        totalChapters: manga.chapters.length,
+        page: 0,
+        pageIndex: 0,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem('readingProgress', JSON.stringify(progress));
+      
+      // Update reading list
+      updateReadingList(chapterIndex, chapter);
+      
+      // ✅ DISPATCH EVENT
+      window.dispatchEvent(new CustomEvent('library-updated'));
+      
+      console.log('✅ Starting chapter:', chapterIndex + 1);
+      
+      // Navigate to reader
+      navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
+      
+    } catch (error) {
+      console.error('❌ Error starting reading:', error);
+      toast({
+        title: 'Errore',
+        description: 'Impossibile avviare la lettura',
+        status: 'error',
+        duration: 2000
+      });
+    }
   };
 
+  // ✅ FIX: FORMULA PROGRESS CORRETTA (BASE 0)
   const updateReadingList = async (chapterIndex, chapter) => {
-    const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-    const existingIndex = reading.findIndex(r => r.url === manga.url);
-    
-    const readingItem = {
-      url: manga.url,
-      title: manga.title,
-      cover: manga.coverUrl,
-      type: manga.type,
-      source: manga.source || source,
-      lastChapterIndex: chapterIndex,
-      lastChapterTitle: chapter.title,
-      totalChapters: manga.chapters.length,
-      progress: Math.round((chapterIndex / manga.chapters.length) * 100),
-      lastRead: new Date().toISOString()
-    };
-    
-    if (existingIndex !== -1) {
-      reading[existingIndex] = readingItem;
-    } else {
-      reading.unshift(readingItem);
-    }
-    
-    localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
-    
-    if (user) {
-      const { syncReading } = useAuth.getState();
-      if (syncReading) {
+    try {
+      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+      const existingIndex = reading.findIndex(r => r.url === manga.url);
+      
+      const readingItem = {
+        url: manga.url,
+        title: manga.title,
+        cover: manga.coverUrl,
+        type: manga.type,
+        source: manga.source || source,
+        lastChapterIndex: chapterIndex,
+        lastChapterTitle: chapter.title,
+        totalChapters: manga.chapters.length,
+        progress: Math.round(((chapterIndex + 1) / manga.chapters.length) * 100), // ✅ BASE 0 FIX
+        lastRead: new Date().toISOString()
+      };
+      
+      if (existingIndex !== -1) {
+        reading[existingIndex] = readingItem;
+      } else {
+        reading.unshift(readingItem);
+      }
+      
+      localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
+      
+      // Sync to server
+      if (user && syncReading) {
         await syncReading(reading.slice(0, 100));
       }
+      
+      console.log('✅ Reading list updated, progress:', readingItem.progress + '%');
+      
+    } catch (error) {
+      console.error('❌ Error updating reading list:', error);
     }
   };
 
@@ -325,99 +417,139 @@ function MangaDetails() {
     }
   };
 
-  // ========= MOVE TO LIST =========
+  // ========= MOVE TO LIST (✅ CON SYNC + REFRESH + DISPATCH) =========
   const moveToList = async (targetList) => {
     if (!manga) return;
     
-    const lists = ['reading', 'completed', 'dropped'];
-    lists.forEach(list => {
-      const items = JSON.parse(localStorage.getItem(list) || '[]');
-      const filtered = items.filter(item => item.url !== manga.url);
-      localStorage.setItem(list, JSON.stringify(filtered));
-    });
-    
-    if (targetList) {
-      const targetItems = JSON.parse(localStorage.getItem(targetList) || '[]');
-      const exists = targetItems.find(item => item.url === manga.url);
+    try {
+      setSyncing(true);
       
-      if (!exists) {
-        const newItem = {
-          url: manga.url,
-          title: manga.title,
-          cover: manga.coverUrl,
-          type: manga.type,
-          source: manga.source || source,
-          addedAt: new Date().toISOString()
-        };
+      // Remove from all lists
+      const lists = ['reading', 'completed', 'dropped'];
+      lists.forEach(list => {
+        const items = JSON.parse(localStorage.getItem(list) || '[]');
+        const filtered = items.filter(item => item.url !== manga.url);
+        localStorage.setItem(list, JSON.stringify(filtered));
+      });
+      
+      // Add to target list
+      if (targetList) {
+        const targetItems = JSON.parse(localStorage.getItem(targetList) || '[]');
+        const exists = targetItems.find(item => item.url === manga.url);
         
-        if (targetList === 'completed') {
-          newItem.completedAt = new Date().toISOString();
-          newItem.progress = 100;
-          
-          const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-          readingProgress[manga.url] = {
-            chapterId: manga.chapters[manga.chapters.length - 1]?.url,
-            chapterIndex: manga.chapters.length - 1,
-            chapterTitle: manga.chapters[manga.chapters.length - 1]?.title || '',
-            totalChapters: manga.chapters.length,
-            page: 0,
-            pageIndex: 0,
-            timestamp: new Date().toISOString()
+        if (!exists) {
+          const newItem = {
+            url: manga.url,
+            title: manga.title,
+            cover: manga.coverUrl,
+            type: manga.type,
+            source: manga.source || source,
+            addedAt: new Date().toISOString()
           };
-          localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
           
-          const completedChapters = JSON.parse(localStorage.getItem('completedChapters') || '{}');
-          if (!completedChapters[manga.url]) {
-            completedChapters[manga.url] = [];
-          }
-          for (let i = 0; i < manga.chapters.length; i++) {
-            if (!completedChapters[manga.url].includes(i)) {
-              completedChapters[manga.url].push(i);
+          // ✅ COMPLETED: PROGRESS 100% + MARK ALL CHAPTERS
+          if (targetList === 'completed') {
+            newItem.completedAt = new Date().toISOString();
+            newItem.progress = 100; // ✅ PROGRESS 100%
+            
+            // Update reading progress to last chapter
+            const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+            readingProgress[manga.url] = {
+              chapterId: manga.chapters[manga.chapters.length - 1]?.url,
+              chapterIndex: manga.chapters.length - 1,
+              chapterTitle: manga.chapters[manga.chapters.length - 1]?.title || '',
+              totalChapters: manga.chapters.length,
+              page: 0,
+              pageIndex: 0,
+              timestamp: new Date().toISOString()
+            };
+            localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
+            
+            // Mark all chapters as completed
+            const completedChapters = JSON.parse(localStorage.getItem('completedChapters') || '{}');
+            completedChapters[manga.url] = Array.from({ length: manga.chapters.length }, (_, i) => i);
+            localStorage.setItem('completedChapters', JSON.stringify(completedChapters));
+            
+            // Update local state
+            setReadingProgress(readingProgress[manga.url]);
+            setCompletedChapters(completedChapters[manga.url]);
+            
+            // Show notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification('🎉 Manga completato!', {
+                body: `Hai completato "${manga.title}"! Tutti i ${manga.chapters.length} capitoli sono stati segnati come letti.`,
+                icon: manga.coverUrl,
+                badge: '/web-app-manifest-192x192.png',
+                tag: 'manga-completed',
+                vibrate: [200, 100, 200]
+              });
             }
+            
+            console.log('✅ Manga marked as completed, all chapters marked as read');
+            
+          } else if (targetList === 'dropped') {
+            newItem.droppedAt = new Date().toISOString();
+            
+            console.log('✅ Manga marked as dropped');
+            
+          } else if (targetList === 'reading') {
+            newItem.lastRead = new Date().toISOString();
+            newItem.progress = readingProgress ? 
+              Math.round(((readingProgress.chapterIndex + 1) / manga.chapters.length) * 100) : 0; // ✅ BASE 0 FIX
+            
+            console.log('✅ Manga added to reading list, progress:', newItem.progress + '%');
           }
-          localStorage.setItem('completedChapters', JSON.stringify(completedChapters));
           
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('🎉 Manga completato!', {
-              body: `Hai completato "${manga.title}"! Tutti i ${manga.chapters.length} capitoli sono stati segnati come letti.`,
-              icon: manga.coverUrl,
-              badge: '/web-app-manifest-192x192.png',
-              tag: 'manga-completed',
-              vibrate: [200, 100, 200]
-            });
-          }
-          
-        } else if (targetList === 'dropped') {
-          newItem.droppedAt = new Date().toISOString();
-        } else if (targetList === 'reading') {
-          newItem.lastRead = new Date().toISOString();
-          newItem.progress = readingProgress ? 
-            Math.round((readingProgress.chapterIndex / manga.chapters.length) * 100) : 0;
+          targetItems.unshift(newItem);
+          localStorage.setItem(targetList, JSON.stringify(targetItems));
         }
-        
-        targetItems.unshift(newItem);
-        localStorage.setItem(targetList, JSON.stringify(targetItems));
       }
+      
+      // Update local state
+      setCurrentStatus(targetList);
+      
+      // ✅ SYNC TO SERVER + REFRESH
+      if (user && syncToServer) {
+        await syncToServer();
+        
+        // Refresh data from server
+        try {
+          await useAuth.getState().syncFromServer();
+          console.log('✅ Data synced and refreshed from server');
+        } catch (e) {
+          console.error('❌ Refresh after move failed:', e);
+        }
+      }
+      
+      // ✅ DISPATCH EVENT
+      window.dispatchEvent(new CustomEvent('library-updated'));
+      
+      // Show toast
+      const messages = {
+        completed: '✅ Manga completato! Tutti i capitoli segnati come letti.',
+        dropped: '❌ Manga droppato',
+        reading: '📖 Aggiunto a "In lettura"',
+        null: 'ℹ️ Rimosso dalle liste'
+      };
+      
+      toast({
+        title: messages[targetList] || 'Aggiornato',
+        status: targetList === 'completed' ? 'success' : 'info',
+        duration: 3000,
+        isClosable: true
+      });
+      
+    } catch (error) {
+      console.error('❌ Error moving to list:', error);
+      toast({
+        title: 'Errore',
+        description: 'Impossibile aggiornare lo stato del manga',
+        status: 'error',
+        duration: 2000
+      });
+    } finally {
+      setSyncing(false);
     }
-    
-    setCurrentStatus(targetList);
-    
-    if (user && syncToServer) {
-      await syncToServer();
-    }
-    
-    const messages = {
-      completed: '✅ Manga completato! Tutti i capitoli segnati come letti.',
-      dropped: '❌ Manga droppato',
-      reading: '📖 Aggiunto a "In lettura"',
-      null: 'ℹ️ Rimosso dalle liste'
-    };
-    
-    toast({
-      title: messages[targetList] || 'Aggiornato',
-      status: targetList === 'completed' ? 'success' : 'info',
-      duration: 3000
-    });
   };
 
   // ========= SHARE =========
@@ -431,6 +563,7 @@ function MangaDetails() {
     try {
       if (navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
         await navigator.share(shareData);
+        console.log('✅ Shared via Web Share API');
       } else {
         await navigator.clipboard.writeText(window.location.href);
         toast({
@@ -439,6 +572,7 @@ function MangaDetails() {
           status: 'success',
           duration: 2000
         });
+        console.log('✅ Link copied to clipboard');
       }
     } catch (error) {
       try {
@@ -448,8 +582,9 @@ function MangaDetails() {
           status: 'success',
           duration: 2000
         });
+        console.log('✅ Link copied to clipboard (fallback)');
       } catch (err) {
-        console.error('Share error:', err);
+        console.error('❌ Share error:', err);
       }
     }
   };
@@ -476,7 +611,7 @@ function MangaDetails() {
     return (
       <Container maxW="container.xl" py={8}>
         <VStack spacing={8}>
-          <Text fontSize="xl">Manga non trovato</Text>
+          <Text fontSize="xl" color="gray.400">Manga non trovato</Text>
           <Button colorScheme="purple" onClick={() => navigate('/home')}>
             Torna alla Home
           </Button>
@@ -485,9 +620,12 @@ function MangaDetails() {
     );
   }
 
-  const readProgress = readingProgress 
-    ? Math.round((readingProgress.chapterIndex / manga.chapters.length) * 100)
-    : 0;
+  // ✅ FIX: PROGRESS 100% QUANDO COMPLETATO + FORMULA CORRETTA
+  const readProgress = (currentStatus === 'completed')
+    ? 100
+    : (readingProgress 
+        ? Math.min(100, Math.round(((readingProgress.chapterIndex + 1) / manga.chapters.length) * 100))
+        : 0);
 
   return (
     <Container maxW="container.xl" py={8}>
@@ -497,6 +635,7 @@ function MangaDetails() {
         <MotionBox
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
         >
           <Flex
             direction={{ base: 'column', md: 'row' }}
@@ -511,7 +650,7 @@ function MangaDetails() {
             {/* COVER */}
             <Box flex="0 0 auto">
               <Image
-                src={manga.coverUrl || 'https://via.placeholder.com/300x450'}
+                src={manga.coverUrl || 'https://via.placeholder.com/300x450?text=No+Cover'}
                 alt={manga.title}
                 borderRadius="lg"
                 width={{ base: '100%', md: '250px' }}
@@ -520,97 +659,139 @@ function MangaDetails() {
                 boxShadow="2xl"
                 border="2px solid"
                 borderColor="gray.700"
+                fallbackSrc="https://via.placeholder.com/300x450?text=Loading..."
               />
+              
+              {/* Progress Bar */}
               {readProgress > 0 && (
-                <Box mt={3}>
-                  <Text fontSize="sm" color="gray.400" mb={1} fontWeight="medium">
-                    Progresso: {readProgress}%
-                  </Text>
+                <Box mt={4}>
+                  <HStack justify="space-between" mb={1}>
+                    <Text fontSize="sm" color="gray.400" fontWeight="medium">
+                      Progresso
+                    </Text>
+                    <Text fontSize="sm" fontWeight="bold" color="purple.400">
+                      {readProgress}%
+                    </Text>
+                  </HStack>
                   <Progress 
                     value={readProgress} 
                     colorScheme="purple" 
                     size="sm" 
                     borderRadius="full"
+                    hasStripe={readProgress < 100}
+                    isAnimated={readProgress < 100}
                   />
+                  {readProgress === 100 && (
+                    <Text fontSize="xs" color="green.400" mt={1} textAlign="center">
+                      ✓ Completato
+                    </Text>
+                  )}
                 </Box>
               )}
             </Box>
 
             {/* INFO */}
             <VStack align="stretch" flex={1} spacing={4}>
-              <Heading size={{ base: 'lg', md: 'xl' }}>{manga.title}</Heading>
+              <Heading size={{ base: 'lg', md: 'xl' }} lineHeight="shorter">
+                {manga.title}
+              </Heading>
               
               {manga.alternativeTitles?.length > 0 && (
-                <Text color="gray.400" fontSize="sm">
+                <Text color="gray.400" fontSize="sm" fontStyle="italic">
                   {manga.alternativeTitles.join(' • ')}
                 </Text>
               )}
 
-              <HStack spacing={2} wrap="wrap">
-                <Badge colorScheme="purple" px={2} py={1} borderRadius="md">
-                  {manga.type || 'MANGA'}
-                </Badge>
-                <Badge colorScheme="green" px={2} py={1} borderRadius="md">
-                  {manga.status || 'In corso'}
-                </Badge>
-                {manga.year && (
-                  <Badge px={2} py={1} borderRadius="md">{manga.year}</Badge>
-                )}
-                <Badge colorScheme="blue" px={2} py={1} borderRadius="md">
-                  {manga.chapters?.length || 0} capitoli
-                </Badge>
-                {manga.source === 'mangaWorldAdult' && (
-                  <Badge colorScheme="pink" px={2} py={1} borderRadius="md">
-                    🔞 Adult
+              {/* BADGES */}
+              <Wrap spacing={2}>
+                <WrapItem>
+                  <Badge colorScheme="purple" px={3} py={1} borderRadius="md" fontSize="xs">
+                    {manga.type || 'MANGA'}
                   </Badge>
+                </WrapItem>
+                <WrapItem>
+                  <Badge colorScheme="green" px={3} py={1} borderRadius="md" fontSize="xs">
+                    {manga.status || 'In corso'}
+                  </Badge>
+                </WrapItem>
+                {manga.year && (
+                  <WrapItem>
+                    <Badge px={3} py={1} borderRadius="md" fontSize="xs">
+                      📅 {manga.year}
+                    </Badge>
+                  </WrapItem>
+                )}
+                <WrapItem>
+                  <Badge colorScheme="blue" px={3} py={1} borderRadius="md" fontSize="xs">
+                    📚 {manga.chapters?.length || 0} capitoli
+                  </Badge>
+                </WrapItem>
+                {manga.source === 'mangaWorldAdult' && (
+                  <WrapItem>
+                    <Badge colorScheme="pink" px={3} py={1} borderRadius="md" fontSize="xs">
+                      🔞 Adult
+                    </Badge>
+                  </WrapItem>
                 )}
                 {currentStatus && (
-                  <Badge 
-                    colorScheme={
-                      currentStatus === 'completed' ? 'green' : 
-                      currentStatus === 'dropped' ? 'red' : 'purple'
-                    }
-                    px={2}
-                    py={1}
-                    borderRadius="md"
-                  >
-                    {currentStatus === 'completed' ? '✓ Completato' : 
-                     currentStatus === 'dropped' ? '✗ Droppato' : '📖 In lettura'}
-                  </Badge>
+                  <WrapItem>
+                    <Badge 
+                      colorScheme={
+                        currentStatus === 'completed' ? 'green' : 
+                        currentStatus === 'dropped' ? 'red' : 'purple'
+                      }
+                      px={3}
+                      py={1}
+                      borderRadius="md"
+                      fontSize="xs"
+                    >
+                      {currentStatus === 'completed' ? '✓ Completato' : 
+                       currentStatus === 'dropped' ? '✗ Droppato' : '📖 In lettura'}
+                    </Badge>
+                  </WrapItem>
                 )}
-              </HStack>
+              </Wrap>
 
+              {/* AUTHORS */}
               {manga.authors?.length > 0 && (
-                <Text fontSize={{ base: 'sm', md: 'md' }}>
-                  <Text as="span" fontWeight="bold">Autore: </Text>
-                  {manga.authors.join(', ')}
-                </Text>
+                <HStack spacing={2}>
+                  <Text fontSize="sm" color="gray.400">Autore:</Text>
+                  <Text fontSize="sm" fontWeight="medium">
+                    {manga.authors.join(', ')}
+                  </Text>
+                </HStack>
               )}
 
+              {/* GENRES */}
               {manga.genres?.length > 0 && (
-                <Wrap spacing={2}>
-                  {manga.genres.map((genre, i) => (
-                    <WrapItem key={i}>
-                      <Badge 
-                        variant="outline" 
-                        colorScheme="purple"
-                        cursor="pointer"
-                        px={3}
-                        py={1}
-                        borderRadius="full"
-                        _hover={{ bg: 'purple.900' }}
-                        onClick={() => navigate(`/categories?genre=${genre.genre || genre}`)}
-                      >
-                        {genre.genre || genre}
-                      </Badge>
-                    </WrapItem>
-                  ))}
-                </Wrap>
+                <Box>
+                  <Text fontSize="sm" color="gray.400" mb={2}>Generi:</Text>
+                  <Wrap spacing={2}>
+                    {manga.genres.slice(0, 10).map((genre, i) => (
+                      <WrapItem key={i}>
+                        <Badge 
+                          variant="outline" 
+                          colorScheme="purple"
+                          cursor="pointer"
+                          px={3}
+                          py={1}
+                          borderRadius="full"
+                          fontSize="xs"
+                          _hover={{ bg: 'purple.900', transform: 'translateY(-2px)' }}
+                          transition="all 0.2s"
+                          onClick={() => navigate(`/categories?genre=${genre.genre || genre}`)}
+                        >
+                          {genre.genre || genre}
+                        </Badge>
+                      </WrapItem>
+                    ))}
+                  </Wrap>
+                </Box>
               )}
 
               {/* ========= ACTIONS ========= */}
               <HStack spacing={2} pt={4} flexWrap="wrap">
-                {readingProgress && readingProgress.chapterIndex > 0 ? (
+                {readingProgress && readingProgress.chapterIndex >= 0 ? (
                   <>
                     <Button
                       colorScheme="green"
@@ -655,10 +836,12 @@ function MangaDetails() {
                     onClick={toggleFavorite}
                     aria-label="Preferiti"
                     size={{ base: 'sm', md: 'md' }}
+                    _hover={{ transform: 'translateY(-2px)' }}
+                    transition="all 0.2s"
                   />
                 </Tooltip>
                 
-                <Tooltip label={notificationsEnabled ? 'Disattiva notifiche' : 'Attiva notifiche'}>
+                <Tooltip label={notificationsEnabled ? 'Disattiva notifiche' : 'Attiva notifiche nuovi capitoli'}>
                   <IconButton
                     icon={notificationsEnabled ? <FaBell /> : <FaBellSlash />}
                     colorScheme={notificationsEnabled ? 'green' : 'gray'}
@@ -666,16 +849,20 @@ function MangaDetails() {
                     onClick={toggleNotifications}
                     aria-label="Notifiche"
                     size={{ base: 'sm', md: 'md' }}
+                    _hover={{ transform: 'translateY(-2px)' }}
+                    transition="all 0.2s"
                   />
                 </Tooltip>
                 
-                <Tooltip label="Condividi">
+                <Tooltip label="Condividi manga">
                   <IconButton
                     icon={<FaShare />}
                     variant="outline"
                     aria-label="Condividi"
                     onClick={shareContent}
                     size={{ base: 'sm', md: 'md' }}
+                    _hover={{ transform: 'translateY(-2px)' }}
+                    transition="all 0.2s"
                   />
                 </Tooltip>
                 
@@ -688,6 +875,9 @@ function MangaDetails() {
                       variant="outline"
                       aria-label="Altre opzioni"
                       size={{ base: 'sm', md: 'md' }}
+                      isLoading={syncing}
+                      _hover={{ transform: 'translateY(-2px)' }}
+                      transition="all 0.2s"
                     />
                   </Tooltip>
                   <MenuList bg="gray.800" borderColor="gray.700">
@@ -719,14 +909,17 @@ function MangaDetails() {
                       </MenuItem>
                     )}
                     {currentStatus && (
-                      <MenuItem 
-                        icon={<FaCheckCircle />}
-                        onClick={() => moveToList(null)}
-                        color="red.400"
-                        _hover={{ bg: 'gray.700' }}
-                      >
-                        Rimuovi da tutte le liste
-                      </MenuItem>
+                      <>
+                        <Divider my={1} />
+                        <MenuItem 
+                          icon={<FaCheckCircle />}
+                          onClick={() => moveToList(null)}
+                          color="red.400"
+                          _hover={{ bg: 'gray.700' }}
+                        >
+                          Rimuovi da tutte le liste
+                        </MenuItem>
+                      </>
                     )}
                   </MenuList>
                 </Menu>
@@ -737,6 +930,34 @@ function MangaDetails() {
 
         {/* ========= TRAMA ========= */}
         {manga.plot && (
+          <MotionBox
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            <Box 
+              bg="gray.800" 
+              p={{ base: 4, md: 6 }} 
+              borderRadius="xl"
+              border="1px solid"
+              borderColor="gray.700"
+            >
+              <Heading size={{ base: 'sm', md: 'md' }} mb={4}>
+                📖 Trama
+              </Heading>
+              <Text color="gray.300" lineHeight="tall" whiteSpace="pre-wrap">
+                {manga.plot.replace(/^trama:?\s*/i, '').trim()}
+              </Text>
+            </Box>
+          </MotionBox>
+        )}
+
+        {/* ========= CAPITOLI ========= */}
+        <MotionBox
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+        >
           <Box 
             bg="gray.800" 
             p={{ base: 4, md: 6 }} 
@@ -744,168 +965,290 @@ function MangaDetails() {
             border="1px solid"
             borderColor="gray.700"
           >
-            <Heading size={{ base: 'sm', md: 'md' }} mb={4}>Trama</Heading>
-            <Text color="gray.300" lineHeight="tall" whiteSpace="pre-wrap">
-              {manga.plot.replace(/^trama:?\s*/i, '').trim()}
-            </Text>
-          </Box>
-        )}
-
-        // frontend/src/pages/MangaDetails.jsx
-// ====== SOSTITUISCI TUTTO il blocco "Capitoli" con questo ======
-
-<Box 
-  bg="gray.800" 
-  p={{ base: 4, md: 6 }} 
-  borderRadius="xl"
-  border="1px solid"
-  borderColor="gray.700"
->
-  <HStack justify="space-between" mb={4}>
-    <Heading size={{ base: 'sm', md: 'md' }}>
-      Capitoli ({manga.chapters?.length || 0})
-    </Heading>
-    
-    <HStack spacing={2}>
-      <Tooltip label="Vista lista">
-        <IconButton
-          icon={<FaList />}
-          size="sm"
-          variant={viewMode === 'list' ? 'solid' : 'ghost'}
-          colorScheme="purple"
-          onClick={() => setViewMode('list')}
-          aria-label="Vista lista"
-        />
-      </Tooltip>
-      <Tooltip label="Vista griglia">
-        <IconButton
-          icon={<FaTh />}
-          size="sm"
-          variant={viewMode === 'grid' ? 'solid' : 'ghost'}
-          colorScheme="purple"
-          onClick={() => setViewMode('grid')}
-          aria-label="Vista griglia"
-        />
-      </Tooltip>
-    </HStack>
-  </HStack>
-
-  {manga.chapters?.length === 0 ? (
-    <Text color="gray.500" textAlign="center" py={8}>
-      Nessun capitolo disponibile
-    </Text>
-  ) : (
-    <>
-      {viewMode === 'list' ? (
-        // ====== LISTA ======
-        <VStack 
-          align="stretch" 
-          spacing={2} 
-          maxH="600px" 
-          overflowY="auto"
-          css={{
-            '&::-webkit-scrollbar': { width: '8px' },
-            '&::-webkit-scrollbar-track': { background: 'transparent' },
-            '&::-webkit-scrollbar-thumb': { 
-              background: 'var(--chakra-colors-purple-500)', 
-              borderRadius: '4px' 
-            }
-          }}
-        >
-          {(manga.chapters || []).map((chapter, i) => (
-            <HStack
-              key={chapter.url || i}
-              p={3}
-              bg="gray.700"
-              borderRadius="lg"
-              cursor="pointer"
-              _hover={{ 
-                bg: 'gray.600', 
-                transform: 'translateX(4px)',
-                borderLeft: '4px solid',
-                borderLeftColor: 'purple.500'
-              }}
-              transition="all 0.2s"
-              onClick={() => startReading(i)}
-              justify="flex-start"
-              opacity={isChapterRead(i) ? 0.6 : 1}
-              border="1px solid"
-              borderColor={readingProgress?.chapterIndex === i ? 'purple.500' : 'transparent'}
-              gap={3}
-            >
-              {isChapterRead(i) && <FaCheckCircle color="green" />}
-              {readingProgress?.chapterIndex === i && (
-                <Badge colorScheme="purple" size="sm" borderRadius="md">Attuale</Badge>
-              )}
-              <Text fontWeight="medium" noOfLines={1}>
-                {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
-              </Text>
+            <HStack justify="space-between" mb={4} flexWrap="wrap">
+              <Heading size={{ base: 'sm', md: 'md' }}>
+                📚 Capitoli ({manga.chapters?.length || 0})
+              </Heading>
+              
+              <HStack spacing={2}>
+                <Tooltip label="Vista lista">
+                  <IconButton
+                    icon={<FaList />}
+                    size="sm"
+                    variant={viewMode === 'list' ? 'solid' : 'ghost'}
+                    colorScheme="purple"
+                    onClick={() => setViewMode('list')}
+                    aria-label="Vista lista"
+                  />
+                </Tooltip>
+                <Tooltip label="Vista griglia">
+                  <IconButton
+                    icon={<FaTh />}
+                    size="sm"
+                    variant={viewMode === 'grid' ? 'solid' : 'ghost'}
+                    colorScheme="purple"
+                    onClick={() => setViewMode('grid')}
+                    aria-label="Vista griglia"
+                  />
+                </Tooltip>
+              </HStack>
             </HStack>
-          ))}
-        </VStack>
-      ) : (
-        // ====== GRIGLIA ======
-        <SimpleGrid 
-          columns={{ base: 2, md: 4 }} 
-          spacing={3} 
-          maxH="600px" 
-          overflowY="auto"
-          css={{
-            '&::-webkit-scrollbar': { width: '8px' },
-            '&::-webkit-scrollbar-track': { background: 'transparent' },
-            '&::-webkit-scrollbar-thumb': { 
-              background: 'var(--chakra-colors-purple-500)', 
-              borderRadius: '4px' 
-            }
-          }}
-        >
-          {(manga.chapters || []).map((chapter, i) => (
+
+            {manga.chapters?.length === 0 ? (
+              <VStack py={12} spacing={3}>
+                <FaBook size={48} color="gray" />
+                <Text color="gray.500" textAlign="center">
+                  Nessun capitolo disponibile
+                </Text>
+              </VStack>
+            ) : (
+              <>
+                {viewMode === 'list' ? (
+                  // ====== VISTA LISTA ======
+                  <VStack 
+                    align="stretch" 
+                    spacing={2} 
+                    maxH="600px" 
+                    overflowY="auto"
+                    css={{
+                      '&::-webkit-scrollbar': { width: '8px' },
+                      '&::-webkit-scrollbar-track': { background: 'transparent' },
+                      '&::-webkit-scrollbar-thumb': { 
+                        background: 'var(--chakra-colors-purple-500)', 
+                        borderRadius: '4px' 
+                      },
+                      '&::-webkit-scrollbar-thumb:hover': {
+                        background: 'var(--chakra-colors-purple-400)'
+                      }
+                    }}
+                  >
+                    {(manga.chapters || []).map((chapter, i) => (
+                      <MotionBox
+                        key={chapter.url || i}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.2, delay: i * 0.02 }}
+                      >
+                        <HStack
+                          p={3}
+                          bg={readingProgress?.chapterIndex === i ? 'purple.900' : 'gray.700'}
+                          borderRadius="lg"
+                          cursor="pointer"
+                          _hover={{ 
+                            bg: 'gray.600', 
+                            transform: 'translateX(4px)',
+                            borderLeft: '4px solid',
+                            borderLeftColor: 'purple.500'
+                          }}
+                          transition="all 0.2s"
+                          onClick={() => startReading(i)}
+                          justify="flex-start"
+                          opacity={isChapterRead(i) ? 0.6 : 1}
+                          border="1px solid"
+                          borderColor={readingProgress?.chapterIndex === i ? 'purple.500' : 'transparent'}
+                          gap={3}
+                        >
+                          {/* Chapter Number */}
+                          <Box
+                            minW="40px"
+                            textAlign="center"
+                            fontWeight="bold"
+                            fontSize="sm"
+                            color="purple.300"
+                          >
+                            #{i + 1}
+                          </Box>
+                          
+                          {/* Read Status */}
+                          {isChapterRead(i) && (
+                            <Tooltip label="Capitolo letto">
+                              <Box>
+                                <FaCheckCircle color="green" />
+                              </Box>
+                            </Tooltip>
+                          )}
+                          
+                          {/* Current Chapter Badge */}
+                          {/* ✅ FIX: NON MOSTRARE "ATTUALE" SE COMPLETATO */}
+                          {currentStatus !== 'completed' && readingProgress?.chapterIndex === i && (
+                            <Badge colorScheme="purple" size="sm" borderRadius="md">
+                              <HStack spacing={1}>
+                                <FaBook size="10" />
+                                <Text>Attuale</Text>
+                              </HStack>
+                            </Badge>
+                          )}
+                          
+                          {/* Chapter Title */}
+                          <Text fontWeight="medium" noOfLines={1} flex={1}>
+                            {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
+                          </Text>
+                          
+                          {/* Chapter Date */}
+                          {chapter.date && (
+                            <Text fontSize="xs" color="gray.400">
+                              <HStack spacing={1}>
+                                <FaClock size="10" />
+                                <Text>{chapter.date}</Text>
+                              </HStack>
+                            </Text>
+                          )}
+                        </HStack>
+                      </MotionBox>
+                    ))}
+                  </VStack>
+                ) : (
+                  // ====== VISTA GRIGLIA ======
+                  <SimpleGrid 
+                    columns={{ base: 2, sm: 3, md: 4, lg: 5 }} 
+                    spacing={3} 
+                    maxH="600px" 
+                    overflowY="auto"
+                    css={{
+                      '&::-webkit-scrollbar': { width: '8px' },
+                      '&::-webkit-scrollbar-track': { background: 'transparent' },
+                      '&::-webkit-scrollbar-thumb': { 
+                        background: 'var(--chakra-colors-purple-500)', 
+                        borderRadius: '4px' 
+                      },
+                      '&::-webkit-scrollbar-thumb:hover': {
+                        background: 'var(--chakra-colors-purple-400)'
+                      }
+                    }}
+                  >
+                    {(manga.chapters || []).map((chapter, i) => (
+                      <MotionBox
+                        key={chapter.url || i}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.2, delay: i * 0.01 }}
+                      >
+                        <Box
+                          p={4}
+                          bg={readingProgress?.chapterIndex === i ? 'purple.900' : 'gray.700'}
+                          borderRadius="lg"
+                          cursor="pointer"
+                          _hover={{ 
+                            bg: 'gray.600', 
+                            transform: 'translateY(-4px)',
+                            boxShadow: 'lg'
+                          }}
+                          transition="all 0.2s"
+                          onClick={() => startReading(i)}
+                          textAlign="center"
+                          position="relative"
+                          opacity={isChapterRead(i) ? 0.6 : 1}
+                          border="2px solid"
+                          borderColor={readingProgress?.chapterIndex === i ? 'purple.500' : 'transparent'}
+                        >
+                          {/* Read Status Icon */}
+                          {isChapterRead(i) && (
+                            <Box position="absolute" top={2} right={2}>
+                              <FaCheckCircle color="green" size="12" />
+                            </Box>
+                          )}
+                          
+                          {/* Current Chapter Badge */}
+                          {/* ✅ FIX: NON MOSTRARE "ATTUALE" SE COMPLETATO */}
+                          {currentStatus !== 'completed' && readingProgress?.chapterIndex === i && (
+                            <Badge 
+                              position="absolute" 
+                              top={2} 
+                              left={2} 
+                              colorScheme="purple" 
+                              size="sm"
+                              borderRadius="md"
+                              fontSize="9px"
+                            >
+                              Attuale
+                            </Badge>
+                          )}
+                          
+                          {/* Chapter Number */}
+                          <Text 
+                            fontSize="2xl" 
+                            fontWeight="bold" 
+                            color="purple.300"
+                            mb={2}
+                          >
+                            {i + 1}
+                          </Text>
+                          
+                          {/* Chapter Title */}
+                          <Text fontSize="xs" fontWeight="medium" noOfLines={2} minH="32px">
+                            {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
+                          </Text>
+                        </Box>
+                      </MotionBox>
+                    ))}
+                  </SimpleGrid>
+                )}
+              </>
+            )}
+          </Box>
+        </MotionBox>
+
+        {/* ========= STATS FOOTER ========= */}
+        {readingProgress && (
+          <MotionBox
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+          >
             <Box
-              key={chapter.url || i}
+              bg="gray.800"
               p={4}
-              bg="gray.700"
               borderRadius="lg"
-              cursor="pointer"
-              _hover={{ 
-                bg: 'gray.600', 
-                transform: 'translateY(-4px)',
-                boxShadow: 'lg'
-              }}
-              transition="all 0.2s"
-              onClick={() => startReading(i)}
-              textAlign="center"
-              position="relative"
-              opacity={isChapterRead(i) ? 0.6 : 1}
-              border="2px solid"
-              borderColor={readingProgress?.chapterIndex === i ? 'purple.500' : 'transparent'}
+              border="1px solid"
+              borderColor="gray.700"
             >
-              {isChapterRead(i) && (
-                <Box position="absolute" top={2} right={2}>
-                  <FaCheckCircle color="green" size="12" />
-                </Box>
-              )}
-              {readingProgress?.chapterIndex === i && (
-                <Badge 
-                  position="absolute" 
-                  top={2} 
-                  left={2} 
-                  colorScheme="purple" 
-                  size="sm"
-                  borderRadius="md"
-                >
-                  Attuale
-                </Badge>
-              )}
-              <Text fontSize="sm" fontWeight="bold" noOfLines={1}>
-                {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
-              </Text>
+              <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
+                <HStack>
+                  <FaBook color="purple" />
+                  <VStack align="start" spacing={0}>
+                    <Text fontSize="xs" color="gray.400">Ultimo capitolo</Text>
+                    <Text fontSize="sm" fontWeight="bold">
+                      {readingProgress.chapterIndex + 1} / {manga.chapters.length}
+                    </Text>
+                  </VStack>
+                </HStack>
+                
+                <HStack>
+                  <FaCheckCircle color="green" />
+                  <VStack align="start" spacing={0}>
+                    <Text fontSize="xs" color="gray.400">Capitoli letti</Text>
+                    <Text fontSize="sm" fontWeight="bold">
+                      {completedChapters.length} / {manga.chapters.length}
+                    </Text>
+                  </VStack>
+                </HStack>
+                
+                <HStack>
+                  <FaClock color="blue" />
+                  <VStack align="start" spacing={0}>
+                    <Text fontSize="xs" color="gray.400">Progresso</Text>
+                    <Text fontSize="sm" fontWeight="bold" color="purple.400">
+                      {readProgress}%
+                    </Text>
+                  </VStack>
+                </HStack>
+                
+                <HStack>
+                  <FaEye color="orange" />
+                  <VStack align="start" spacing={0}>
+                    <Text fontSize="xs" color="gray.400">Ultima lettura</Text>
+                    <Text fontSize="sm" fontWeight="bold">
+                      {new Date(readingProgress.timestamp).toLocaleDateString('it-IT', { 
+                        day: 'numeric', 
+                        month: 'short' 
+                      })}
+                    </Text>
+                  </VStack>
+                </HStack>
+              </SimpleGrid>
             </Box>
-          ))}
-        </SimpleGrid>
-      )}
-    </>
-  )}
-</Box>
+          </MotionBox>
+        )}
 
       </VStack>
     </Container>

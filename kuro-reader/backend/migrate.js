@@ -1,3 +1,4 @@
+// ✅ MIGRATE.JS v2.1 - DATABASE MIGRATION CON DROPPED COLUMN
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -19,7 +20,7 @@ async function main() {
     `;
     console.log('✅ User table created/verified');
     
-    // 2. Create user_profile table (IMPORTANTE!)
+    // 2. Create user_profile table
     await prisma.$executeRaw`
       CREATE TABLE IF NOT EXISTS "user_profile" (
         "id" SERIAL PRIMARY KEY,
@@ -51,19 +52,27 @@ async function main() {
     `;
     console.log('✅ User favorites table created/verified');
     
-    // 4. Create user_library table (IMPORTANTE!)
+    // 4. Create user_library table
     await prisma.$executeRaw`
       CREATE TABLE IF NOT EXISTS "user_library" (
         "id" SERIAL PRIMARY KEY,
         "userId" INTEGER UNIQUE NOT NULL,
         "reading" TEXT DEFAULT '[]',
         "completed" TEXT DEFAULT '[]',
+        "dropped" TEXT DEFAULT '[]',
         "history" TEXT DEFAULT '[]',
         "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE
       );
     `;
     console.log('✅ User library table created/verified');
+    
+    // ✅ 4.1 ADD DROPPED COLUMN IF NOT EXISTS
+    await prisma.$executeRaw`
+      ALTER TABLE "user_library" 
+      ADD COLUMN IF NOT EXISTS "dropped" TEXT DEFAULT '[]';
+    `;
+    console.log('✅ Dropped column added/verified');
     
     // 5. Create reading_progress table
     await prisma.$executeRaw`
@@ -135,11 +144,12 @@ async function main() {
         ALTER TABLE "reading_progress"
         ADD COLUMN IF NOT EXISTS "totalPages" INTEGER DEFAULT 0;
       `;
+      console.log('✅ TotalPages column added/verified');
     } catch (e) {
       // Column might already exist
     }
     
-    console.log('✅ Migration completed successfully!');
+    console.log('\n✅ Migration completed successfully!');
     
     // 10. Verify all tables exist
     const tables = await prisma.$queryRaw`
@@ -151,6 +161,17 @@ async function main() {
     
     console.log('\n📊 Database tables:');
     tables.forEach(t => console.log(`  - ${t.table_name}`));
+    
+    // 11. Verify user_library columns
+    const columns = await prisma.$queryRaw`
+      SELECT column_name, data_type, column_default
+      FROM information_schema.columns
+      WHERE table_name = 'user_library'
+      ORDER BY ordinal_position;
+    `;
+    
+    console.log('\n📋 user_library columns:');
+    columns.forEach(c => console.log(`  - ${c.column_name} (${c.data_type})`));
     
   } catch (error) {
     console.error('❌ Migration failed:', error);

@@ -1,4 +1,4 @@
-// ✅ USEAUTH.JS v3.2 - HOOK AUTH COMPLETO
+// ✅ USEAUTH.JS v3.3 - HOOK AUTH COMPLETO CON SYNC + REFRESH
 import { create } from 'zustand';
 import axios from 'axios';
 import { config } from '../config';
@@ -146,7 +146,7 @@ const useAuth = create((set, get) => ({
     });
   },
 
-  // ========= SYNC TO SERVER =========
+  // ========= SYNC TO SERVER (✅ CON REFRESH) =========
   syncToServer: async () => {
     const token = get().token;
     if (!token) return false;
@@ -165,12 +165,15 @@ const useAuth = create((set, get) => ({
       
       await axios.post('/user/sync', dataToSync);
       
+      // ✅ RICARICA DAL SERVER così anche il profilo vede i dati aggiornati
+      await get().syncFromServer();
+      
       set({ 
         syncStatus: 'synced', 
         lastSync: new Date().toISOString() 
       });
       
-      console.log('✅ Data synced to server');
+      console.log('✅ Data synced to server + refreshed');
       return true;
       
     } catch (error) {
@@ -238,7 +241,7 @@ const useAuth = create((set, get) => ({
       if (get().isAuthenticated && get().syncStatus !== 'syncing') {
         get().syncToServer();
       }
-    }, 30000); // Ogni 30 secondi
+    }, 30000);
     
     const handleFocus = () => {
       if (get().isAuthenticated) {
@@ -287,7 +290,7 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // ========= SYNC SHORTCUTS =========
+  // ========= SYNC FAVORITES (✅ CON REFRESH) =========
   syncFavorites: async (favorites) => {
     const token = get().token;
     if (!token) {
@@ -307,7 +310,10 @@ const useAuth = create((set, get) => ({
         readingProgress: JSON.parse(localStorage.getItem('readingProgress') || '{}')
       });
       
-      console.log('✅ Favorites synced');
+      // ✅ AGGIORNA SUBITO LE LISTE LOCALI DA SERVER
+      await get().syncFromServer();
+      
+      console.log('✅ Favorites synced + refreshed');
       return true;
     } catch (error) {
       console.error('❌ Failed to sync favorites:', error);
@@ -315,6 +321,7 @@ const useAuth = create((set, get) => ({
     }
   },
   
+  // ========= SYNC READING (✅ CON REFRESH) =========
   syncReading: async (reading) => {
     const token = get().token;
     if (!token) {
@@ -334,7 +341,10 @@ const useAuth = create((set, get) => ({
         readingProgress: JSON.parse(localStorage.getItem('readingProgress') || '{}')
       });
       
-      console.log('✅ Reading list synced');
+      // ✅ AGGIORNA SUBITO LE LISTE LOCALI DA SERVER
+      await get().syncFromServer();
+      
+      console.log('✅ Reading list synced + refreshed');
       return true;
     } catch (error) {
       console.error('❌ Failed to sync reading list:', error);
