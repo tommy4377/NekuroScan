@@ -118,48 +118,41 @@ export class MangaWorldAdultAPI {
       };
 
       anchors.forEach((a) => {
-        const href = a.getAttribute('href');
-        if (!href) return;
-        const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
-        if (seenUrls.has(fullUrl)) return;
+  const href = a.getAttribute('href');
+  if (!href) return;
+  const fullUrl = href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`;
+  if (seenUrls.has(fullUrl)) return;
 
-        // Preferisci lo span con "Capitolo N"
-        const spanText = a.querySelector('span')?.textContent?.trim() || '';
-        const titleAttr = a.getAttribute('title') || '';
-        const aText = a.textContent?.trim() || '';
+  const spanText = a.querySelector('span')?.textContent?.trim() || '';
+  const titleAttr = a.getAttribute('title') || '';
+  const aText = a.textContent?.trim() || '';
 
-        // 1) Cerca "Capitolo N" (o "Cap N")
-        let rawSource = spanText || titleAttr || aText;
-        let match = rawSource.match(/cap(?:itolo)?\s*(\d+(?:\.\d+)?)/i);
+  let rawSource = spanText || titleAttr || aText;
+  let match = rawSource.match(/cap(?:itolo)?\s*(\d+(?:\.\d+)?)/i);
 
-        let chapterNumber = null;
-        if (match && match[1]) {
-          chapterNumber = toNumber(match[1]);
-        } else {
-          // 2) Fallback: prendi il numero più grande < 1000 (ignora anni)
-          const nums = [...rawSource.matchAll(/\b\d+(?:\.\d+)?\b/g)]
-            .map(m => toNumber(m[0]))
-            .filter(n => n !== null && n < 1000);
-          if (nums.length) {
-            chapterNumber = Math.max(...nums);
-          }
-        }
+  let chapterNumber = null;
+  if (match && match[1]) {
+    chapterNumber = parseFloat(match[1].replace(',', '.'));
+  } else {
+    const nums = [...rawSource.matchAll(/\b\d+(?:\.\d+)?\b/g)]
+      .map(m => parseFloat(m[0].replace(',', '.')))
+      .filter(n => !isNaN(n) && n < 1000);
+    if (nums.length) chapterNumber = Math.max(...nums);
+  }
 
-        if (chapterNumber === null || isNaN(chapterNumber)) return;
-        if (seenNumbers.has(chapterNumber)) return;
+  if (chapterNumber === null || isNaN(chapterNumber)) return;
+  if (seenNumbers.has(chapterNumber)) return;
 
-        seenUrls.add(fullUrl);
-        seenNumbers.add(chapterNumber);
+  seenUrls.add(fullUrl);
+  seenNumbers.add(chapterNumber);
 
-        const dateAdd = a.querySelector('.chap-date')?.textContent?.trim() || '';
-
-        chapters.push({
-          url: fullUrl,
-          chapterNumber,
-          title: spanText || `Capitolo ${chapterNumber}`,
-          dateAdd
-        });
-      });
+  // ⬇️ niente dateAdd qui
+  chapters.push({
+    url: fullUrl,
+    chapterNumber,
+    title: spanText || `Capitolo ${chapterNumber}`
+  });
+});
 
       // Ordina crescente
       chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
