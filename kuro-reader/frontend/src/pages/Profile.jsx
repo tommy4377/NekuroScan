@@ -5,17 +5,17 @@ import {
   InputRightElement, IconButton, Switch, Badge, Tabs, TabList, Tab,
   TabPanels, TabPanel, useClipboard, Image, Stack, Textarea, Modal,
   ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
-  ModalCloseButton, Progress, Stat, StatLabel, StatNumber, StatHelpText,
+  ModalCloseButton, Progress, Stat, StatLabel, StatNumber,
   Wrap, WrapItem, Tooltip, useDisclosure, Alert, AlertIcon,
   Skeleton, SkeletonCircle, SkeletonText, Flex, Center, Spinner,
   Menu, MenuButton, MenuList, MenuItem, AvatarBadge
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon, EditIcon, CheckIcon, CopyIcon, CloseIcon } from '@chakra-ui/icons';
 import { 
-  FaCamera, FaSave, FaShare, FaLock, FaGlobe, FaTrash, FaQrcode,
-  FaTrophy, FaClock, FaBookOpen, FaHeart, FaEye, FaUserPlus,
+  FaCamera, FaSave, FaShare, FaLock, FaGlobe, FaTrash,
+  FaTrophy, FaBookOpen, FaHeart, FaEye, FaUserPlus,
   FaTwitter, FaDiscord, FaInstagram, FaGithub, FaTiktok,
-  FaImage, FaUserFriends, FaMedal, FaCrown
+  FaImage, FaUserFriends, FaCrown, FaBook
 } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -27,35 +27,10 @@ import { config } from '../config';
 
 const MotionBox = motion(Box);
 
-// Stats card component
-const StatsCard = ({ icon: Icon, label, value, color = 'purple', helpText }) => (
-  <Stat
-    p={4}
-    bg="gray.800"
-    borderRadius="lg"
-    borderLeft="4px solid"
-    borderLeftColor={`${color}.500`}
-    _hover={{ transform: 'translateY(-2px)', boxShadow: 'lg' }}
-    transition="all 0.2s"
-  >
-    <HStack spacing={3}>
-      <Box p={2} bg={`${color}.500`} borderRadius="lg">
-        <Icon color="white" size="16" />
-      </Box>
-      <Box flex={1}>
-        <StatLabel fontSize="xs" color="gray.400">{label}</StatLabel>
-        <StatNumber fontSize="xl">{value}</StatNumber>
-        {helpText && <StatHelpText fontSize="xs">{helpText}</StatHelpText>}
-      </Box>
-    </HStack>
-  </Stat>
-);
-
 export default function Profile() {
   const toast = useToast();
   const navigate = useNavigate();
   const { user, updateProfile, syncToServer } = useAuth();
-  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
   const fileRef = useRef();
   const bannerRef = useRef();
   
@@ -65,8 +40,9 @@ export default function Profile() {
   const [loadingStats, setLoadingStats] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
   
-  // Profile data - SENZA TEMI
+  // Profile data
   const [profileData, setProfileData] = useState({
     username: '',
     email: '',
@@ -78,32 +54,8 @@ export default function Profile() {
     socialLinks: {
       twitter: '',
       discord: '',
-      instagram: '',
-      github: '',
-      tiktok: ''
+      instagram: ''
     }
-  });
-  
-  // Password change
-  const [showPass, setShowPass] = useState(false);
-  const [passwords, setPasswords] = useState({
-    old: '',
-    new: '',
-    confirm: ''
-  });
-  
-  // Stats
-  const [stats, setStats] = useState({
-    totalManga: 0,
-    reading: 0,
-    completed: 0,
-    favorites: 0,
-    chaptersRead: 0,
-    readingTime: 0,
-    profileViews: 0,
-    followers: 0,
-    following: 0,
-    badges: []
   });
   
   // Library data
@@ -113,23 +65,25 @@ export default function Profile() {
     favorites: []
   });
   
+  // Friends data
+  const [friends, setFriends] = useState({
+    followers: [],
+    following: []
+  });
+  
   // QR Code
   const [qrCode, setQrCode] = useState('');
-  const [deletePassword, setDeletePassword] = useState('');
   
-  // Profile URL con username corretto
   const profileUrl = user ? `${window.location.origin}/user/${user.username}` : '';
   const { hasCopied, onCopy } = useClipboard(profileUrl);
 
-  // Load data on mount
   useEffect(() => {
     if (user) {
       loadUserData();
-      loadStats();
+      loadFriends();
     }
   }, [user]);
 
-  // Generate QR when public
   useEffect(() => {
     if (profileData.isPublic && user) {
       generateQRCode();
@@ -158,31 +112,37 @@ export default function Profile() {
       });
       
       setLibraryData({
-        reading: reading.slice(0, 12),
-        completed: completed.slice(0, 12),
-        favorites: favorites.slice(0, 12)
+        reading: reading || [],
+        completed: completed || [],
+        favorites: favorites || []
       });
       
-      // Salva anche in localStorage per accesso offline
       localStorage.setItem('profilePublic', profile?.isPublic ? 'true' : 'false');
       
     } catch (error) {
       console.error('Error loading user data:', error);
+    } finally {
+      setLoadingStats(false);
     }
   };
 
-  const loadStats = async () => {
-    setLoadingStats(true);
+  const loadFriends = async () => {
     try {
-      const response = await axios.get(`${config.API_URL}/api/user/stats`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      const [followersRes, followingRes] = await Promise.all([
+        axios.get(`${config.API_URL}/api/user/followers`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }),
+        axios.get(`${config.API_URL}/api/user/following`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        })
+      ]);
       
-      setStats(response.data);
+      setFriends({
+        followers: followersRes.data.followers || [],
+        following: followingRes.data.following || []
+      });
     } catch (error) {
-      console.error('Error loading stats:', error);
-    } finally {
-      setLoadingStats(false);
+      console.error('Error loading friends:', error);
     }
   };
 
@@ -194,10 +154,7 @@ export default function Profile() {
       const qr = await QRCode.toDataURL(url, {
         width: 200,
         margin: 2,
-        color: {
-          dark: '#805AD5',
-          light: '#FFFFFF'
-        }
+        color: { dark: '#805AD5', light: '#FFFFFF' }
       });
       setQrCode(qr);
     } catch (err) {
@@ -255,7 +212,6 @@ export default function Profile() {
           duration: 2000
         });
         
-        // Ricarica i dati per assicurarsi che siano persistiti
         await loadUserData();
       }
     } catch (error) {
@@ -294,14 +250,12 @@ export default function Profile() {
 
       if (response.data.success) {
         setIsEditing(false);
-        
-        // Salva anche in localStorage
         localStorage.setItem('profilePublic', profileData.isPublic ? 'true' : 'false');
         
         toast({
           title: 'Profilo salvato',
           description: profileData.isPublic 
-            ? 'Il tuo profilo è ora pubblico e visibile a tutti'
+            ? 'Il tuo profilo è ora pubblico'
             : 'Il tuo profilo è privato',
           status: 'success',
           duration: 3000
@@ -311,7 +265,6 @@ export default function Profile() {
           await generateQRCode();
         }
         
-        // Sincronizza dati con server
         await syncToServer();
       }
     } catch (error) {
@@ -324,56 +277,6 @@ export default function Profile() {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handlePasswordChange = async () => {
-    if (passwords.new !== passwords.confirm) {
-      toast({
-        title: 'Le password non coincidono',
-        status: 'error',
-        duration: 2000
-      });
-      return;
-    }
-    
-    if (passwords.new.length < 6) {
-      toast({
-        title: 'Password troppo corta',
-        description: 'Minimo 6 caratteri',
-        status: 'error',
-        duration: 2000
-      });
-      return;
-    }
-
-    try {
-      const response = await axios.post(
-        `${config.API_URL}/api/auth/change-password`,
-        {
-          oldPassword: passwords.old,
-          newPassword: passwords.new
-        },
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        }
-      );
-
-      if (response.data.success) {
-        setPasswords({ old: '', new: '', confirm: '' });
-        toast({
-          title: 'Password cambiata',
-          status: 'success',
-          duration: 2000
-        });
-      }
-    } catch (error) {
-      toast({
-        title: 'Errore',
-        description: error.response?.data?.message || 'Impossibile cambiare password',
-        status: 'error',
-        duration: 3000
-      });
     }
   };
 
@@ -393,11 +296,9 @@ export default function Profile() {
         title: `Profilo di ${profileData.displayName}`,
         text: `Guarda il mio profilo su KuroReader!`,
         url: profileUrl
-      }).catch(err => {
-        if (err.name !== 'AbortError') {
-          onCopy();
-          toast({ title: 'Link copiato!', status: 'success', duration: 2000 });
-        }
+      }).catch(() => {
+        onCopy();
+        toast({ title: 'Link copiato!', status: 'success', duration: 2000 });
       });
     } else {
       onCopy();
@@ -405,16 +306,7 @@ export default function Profile() {
     }
   };
 
-  const formatReadingTime = (minutes) => {
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-    
-    if (days > 0) return `${days}d ${hours % 24}h`;
-    if (hours > 0) return `${hours}h ${minutes % 60}m`;
-    return `${minutes}m`;
-  };
-
-  if (!user) {
+  if (!user || loadingStats) {
     return (
       <Container maxW="container.xl" py={8}>
         <Center minH="50vh">
@@ -430,9 +322,8 @@ export default function Profile() {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={8} align="stretch">
-        {/* Banner & Avatar Section */}
+        {/* Banner & Avatar */}
         <Box position="relative" borderRadius="xl" overflow="hidden">
-          {/* Banner */}
           <Box
             h={{ base: '150px', md: '250px' }}
             bg={profileData.bannerUrl ? `url(${profileData.bannerUrl})` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}
@@ -461,7 +352,6 @@ export default function Profile() {
             />
           </Box>
           
-          {/* Profile Content */}
           <Box bg="gray.800" px={{ base: 4, md: 8 }} pb={6}>
             <Flex
               direction={{ base: 'column', md: 'row' }}
@@ -469,7 +359,6 @@ export default function Profile() {
               position="relative"
               mt="-50px"
             >
-              {/* Avatar */}
               <Box position="relative">
                 <Avatar
                   size="2xl"
@@ -507,7 +396,6 @@ export default function Profile() {
                 />
               </Box>
               
-              {/* Profile Info */}
               <VStack
                 align={{ base: 'center', md: 'start' }}
                 flex={1}
@@ -547,7 +435,6 @@ export default function Profile() {
                     </HStack>
                   </VStack>
                   
-                  {/* Action Buttons */}
                   <HStack>
                     {isEditing ? (
                       <>
@@ -591,7 +478,6 @@ export default function Profile() {
                   </HStack>
                 </HStack>
                 
-                {/* Bio */}
                 {isEditing ? (
                   <Textarea
                     value={profileData.bio}
@@ -609,35 +495,41 @@ export default function Profile() {
                   )
                 )}
                 
-                {/* Social Links */}
                 {isEditing ? (
                   <VStack align="start" width="100%" spacing={2}>
                     <Text fontSize="sm" fontWeight="bold">Link Social</Text>
-                    <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={2} width="100%">
-                      <InputGroup size="sm">
-                        <Input
-                          placeholder="Twitter username"
-                          value={profileData.socialLinks.twitter || ''}
-                          onChange={(e) => setProfileData({
-                            ...profileData,
-                            socialLinks: { ...profileData.socialLinks, twitter: e.target.value }
-                          })}
-                        />
-                      </InputGroup>
-                      <InputGroup size="sm">
-                        <Input
-                          placeholder="Discord username"
-                          value={profileData.socialLinks.discord || ''}
-                          onChange={(e) => setProfileData({
-                            ...profileData,
-                            socialLinks: { ...profileData.socialLinks, discord: e.target.value }
-                          })}
-                        />
-                      </InputGroup>
+                    <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={2} width="100%">
+                      <Input
+                        placeholder="Twitter username"
+                        size="sm"
+                        value={profileData.socialLinks.twitter || ''}
+                        onChange={(e) => setProfileData({
+                          ...profileData,
+                          socialLinks: { ...profileData.socialLinks, twitter: e.target.value }
+                        })}
+                      />
+                      <Input
+                        placeholder="Discord username"
+                        size="sm"
+                        value={profileData.socialLinks.discord || ''}
+                        onChange={(e) => setProfileData({
+                          ...profileData,
+                          socialLinks: { ...profileData.socialLinks, discord: e.target.value }
+                        })}
+                      />
+                      <Input
+                        placeholder="Instagram username"
+                        size="sm"
+                        value={profileData.socialLinks.instagram || ''}
+                        onChange={(e) => setProfileData({
+                          ...profileData,
+                          socialLinks: { ...profileData.socialLinks, instagram: e.target.value }
+                        })}
+                      />
                     </SimpleGrid>
                   </VStack>
                 ) : (
-                  Object.entries(profileData.socialLinks || {}).length > 0 && (
+                  profileData.socialLinks && Object.keys(profileData.socialLinks).length > 0 && (
                     <HStack spacing={2}>
                       {profileData.socialLinks.twitter && (
                         <IconButton
@@ -645,13 +537,26 @@ export default function Profile() {
                           size="sm"
                           variant="ghost"
                           as="a"
-                          href={`https://twitter.com/${profileData.socialLinks.twitter}`}
+                          href={`https://twitter.com/${profileData.socialLinks.twitter.replace('@', '')}`}
                           target="_blank"
                         />
                       )}
                       {profileData.socialLinks.discord && (
-                        <Tooltip label={profileData.socialLinks.discord}>
-                          <IconButton icon={<FaDiscord />} size="sm" variant="ghost" />
+                        <Tooltip label={`Discord: ${profileData.socialLinks.discord}`}>
+                          <IconButton
+                            icon={<FaDiscord />}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              navigator.clipboard.writeText(profileData.socialLinks.discord);
+                              toast({
+                                title: 'Discord username copiato',
+                                description: profileData.socialLinks.discord,
+                                status: 'success',
+                                duration: 2000
+                              });
+                            }}
+                          />
                         </Tooltip>
                       )}
                       {profileData.socialLinks.instagram && (
@@ -660,7 +565,7 @@ export default function Profile() {
                           size="sm"
                           variant="ghost"
                           as="a"
-                          href={`https://instagram.com/${profileData.socialLinks.instagram}`}
+                          href={`https://instagram.com/${profileData.socialLinks.instagram.replace('@', '')}`}
                           target="_blank"
                         />
                       )}
@@ -668,7 +573,6 @@ export default function Profile() {
                   )
                 )}
                 
-                {/* Privacy Toggle */}
                 {isEditing && (
                   <FormControl display="flex" alignItems="center">
                     <FormLabel mb="0">Profilo pubblico</FormLabel>
@@ -684,72 +588,61 @@ export default function Profile() {
           </Box>
         </Box>
 
-        {/* Stats Grid */}
-        <Box>
-          <Heading size="md" mb={4}>Statistiche</Heading>
-          {loadingStats ? (
-            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
-              {[...Array(8)].map((_, i) => (
-                <Skeleton key={i} height="100px" borderRadius="lg" />
-              ))}
-            </SimpleGrid>
-          ) : (
-            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
-              <StatsCard
-                icon={FaBookOpen}
-                label="Manga totali"
-                value={stats.totalManga}
-                color="purple"
-              />
-              <StatsCard
-                icon={FaClock}
-                label="In lettura"
-                value={stats.reading}
-                color="blue"
-              />
-              <StatsCard
-                icon={FaTrophy}
-                label="Completati"
-                value={stats.completed}
-                color="green"
-              />
-              <StatsCard
-                icon={FaHeart}
-                label="Preferiti"
-                value={stats.favorites}
-                color="pink"
-              />
-              <StatsCard
-                icon={FaBookOpen}
-                label="Capitoli letti"
-                value={stats.chaptersRead}
-                color="orange"
-              />
-              <StatsCard
-                icon={FaClock}
-                label="Tempo lettura"
-                value={formatReadingTime(stats.readingTime)}
-                color="cyan"
-              />
-              <StatsCard
-                icon={FaEye}
-                label="Visite profilo"
-                value={stats.profileViews}
-                color="purple"
-                helpText={profileData.isPublic ? 'Profilo pubblico' : 'Solo tu'}
-              />
-              <StatsCard
-                icon={FaUserFriends}
-                label="Followers"
-                value={stats.followers}
-                color="blue"
-              />
-            </SimpleGrid>
-          )}
-        </Box>
+        {/* Stats semplificati */}
+        <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
+          <Stat p={4} bg="gray.800" borderRadius="lg">
+            <HStack spacing={3}>
+              <Box p={2} bg="purple.500" borderRadius="lg">
+                <FaBookOpen color="white" size="16" />
+              </Box>
+              <Box>
+                <StatLabel fontSize="xs">In lettura</StatLabel>
+                <StatNumber fontSize="xl">{libraryData.reading.length}</StatNumber>
+              </Box>
+            </HStack>
+          </Stat>
+          
+          <Stat p={4} bg="gray.800" borderRadius="lg">
+            <HStack spacing={3}>
+              <Box p={2} bg="pink.500" borderRadius="lg">
+                <FaHeart color="white" size="16" />
+              </Box>
+              <Box>
+                <StatLabel fontSize="xs">Preferiti</StatLabel>
+                <StatNumber fontSize="xl">{libraryData.favorites.length}</StatNumber>
+              </Box>
+            </HStack>
+          </Stat>
+          
+          <Stat p={4} bg="gray.800" borderRadius="lg">
+            <HStack spacing={3}>
+              <Box p={2} bg="green.500" borderRadius="lg">
+                <FaTrophy color="white" size="16" />
+              </Box>
+              <Box>
+                <StatLabel fontSize="xs">Completati</StatLabel>
+                <StatNumber fontSize="xl">{libraryData.completed.length}</StatNumber>
+              </Box>
+            </HStack>
+          </Stat>
+          
+          <Stat p={4} bg="gray.800" borderRadius="lg">
+            <HStack spacing={3}>
+              <Box p={2} bg="blue.500" borderRadius="lg">
+                <FaUserFriends color="white" size="16" />
+              </Box>
+              <Box>
+                <StatLabel fontSize="xs">Amici</StatLabel>
+                <StatNumber fontSize="xl">
+                  {friends.followers.length + friends.following.length}
+                </StatNumber>
+              </Box>
+            </HStack>
+          </Stat>
+        </SimpleGrid>
 
         {/* Share Section */}
-        {profileData.isPublic && !isEditing && (
+        {profileData.isPublic && !isEditing && qrCode && (
           <Box p={6} bg="gray.800" borderRadius="xl">
             <Heading size="md" mb={4}>Condividi profilo</Heading>
             <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
@@ -772,38 +665,38 @@ export default function Profile() {
                   </Text>
                 )}
               </Box>
-              {qrCode && (
-                <Box>
-                  <Text fontSize="sm" mb={2}>QR Code</Text>
-                  <Image src={qrCode} alt="QR Code" maxW="150px" />
-                </Box>
-              )}
+              <Box>
+                <Text fontSize="sm" mb={2}>QR Code</Text>
+                <Image src={qrCode} alt="QR Code" maxW="150px" />
+              </Box>
             </SimpleGrid>
           </Box>
         )}
 
-        {/* Tabs Content */}
-        <Tabs colorScheme="purple" variant="enclosed">
+        {/* Tabs */}
+        <Tabs colorScheme="purple" variant="enclosed" index={activeTab} onChange={setActiveTab}>
           <TabList>
-            <Tab>Libreria</Tab>
-            <Tab>Impostazioni</Tab>
-            <Tab>Privacy & Sicurezza</Tab>
+            <Tab>La mia Libreria</Tab>
+            <Tab>Amici ({friends.followers.length + friends.following.length})</Tab>
           </TabList>
 
           <TabPanels>
             {/* Library Tab */}
             <TabPanel>
               <VStack spacing={6} align="stretch">
+                {/* Reading */}
                 <Box>
                   <HStack justify="space-between" mb={3}>
                     <Heading size="md">In lettura ({libraryData.reading.length})</Heading>
-                    <Button size="sm" variant="ghost" onClick={() => navigate('/library')}>
-                      Vedi tutti
-                    </Button>
+                    {libraryData.reading.length > 12 && (
+                      <Button size="sm" variant="ghost" onClick={() => navigate('/library')}>
+                        Vedi tutti
+                      </Button>
+                    )}
                   </HStack>
-                  {libraryData.reading.length ? (
+                  {libraryData.reading.length > 0 ? (
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-                      {libraryData.reading.map((manga, i) => (
+                      {libraryData.reading.slice(0, 10).map((manga, i) => (
                         <MotionBox
                           key={i}
                           initial={{ opacity: 0, y: 20 }}
@@ -821,16 +714,19 @@ export default function Profile() {
                   )}
                 </Box>
 
+                {/* Favorites */}
                 <Box>
                   <HStack justify="space-between" mb={3}>
                     <Heading size="md">Preferiti ({libraryData.favorites.length})</Heading>
-                    <Button size="sm" variant="ghost" onClick={() => navigate('/library')}>
-                      Vedi tutti
-                    </Button>
+                    {libraryData.favorites.length > 12 && (
+                      <Button size="sm" variant="ghost" onClick={() => navigate('/library')}>
+                        Vedi tutti
+                      </Button>
+                    )}
                   </HStack>
-                  {libraryData.favorites.length ? (
+                  {libraryData.favorites.length > 0 ? (
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-                      {libraryData.favorites.map((manga, i) => (
+                      {libraryData.favorites.slice(0, 10).map((manga, i) => (
                         <MotionBox
                           key={i}
                           initial={{ opacity: 0, y: 20 }}
@@ -850,92 +746,73 @@ export default function Profile() {
               </VStack>
             </TabPanel>
 
-            {/* Settings Tab */}
+            {/* Friends Tab */}
             <TabPanel>
-              <VStack spacing={6} align="stretch">
-                <Box bg="gray.800" p={6} borderRadius="lg">
-                  <Heading size="md" mb={4}>Informazioni account</Heading>
-                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                    <FormControl>
-                      <FormLabel>Username</FormLabel>
-                      <Input value={profileData.username} isReadOnly bg="gray.700" />
-                    </FormControl>
-                    <FormControl>
-                      <FormLabel>Email</FormLabel>
-                      <Input value={profileData.email} isReadOnly bg="gray.700" />
-                    </FormControl>
-                  </SimpleGrid>
-                </Box>
-
-                <Box bg="gray.800" p={6} borderRadius="lg">
-                  <Heading size="md" mb={4}>Notifiche</Heading>
-                  <VStack align="stretch" spacing={3}>
-                    <FormControl display="flex" alignItems="center">
-                      <FormLabel mb="0" flex={1}>Nuovi capitoli</FormLabel>
-                      <Switch colorScheme="purple" defaultChecked />
-                    </FormControl>
-                    <FormControl display="flex" alignItems="center">
-                      <FormLabel mb="0" flex={1}>Nuovi followers</FormLabel>
-                      <Switch colorScheme="purple" defaultChecked />
-                    </FormControl>
-                    <FormControl display="flex" alignItems="center">
-                      <FormLabel mb="0" flex={1}>Aggiornamenti sistema</FormLabel>
-                      <Switch colorScheme="purple" />
-                    </FormControl>
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                {/* Followers */}
+                <Box>
+                  <Heading size="md" mb={4}>
+                    Followers ({friends.followers.length})
+                  </Heading>
+                  <VStack align="stretch" spacing={2} maxH="400px" overflowY="auto">
+                    {friends.followers.length > 0 ? (
+                      friends.followers.map((follower) => (
+                        <HStack
+                          key={follower.id}
+                          p={3}
+                          bg="gray.800"
+                          borderRadius="md"
+                          cursor="pointer"
+                          _hover={{ bg: 'gray.700' }}
+                          onClick={() => navigate(`/user/${follower.username}`)}
+                        >
+                          <Avatar size="sm" name={follower.displayName} src={follower.avatarUrl} />
+                          <VStack align="start" spacing={0} flex={1}>
+                            <Text fontSize="sm" fontWeight="bold">{follower.displayName}</Text>
+                            <Text fontSize="xs" color="gray.400">@{follower.username}</Text>
+                          </VStack>
+                        </HStack>
+                      ))
+                    ) : (
+                      <Center py={8} bg="gray.800" borderRadius="lg">
+                        <Text color="gray.500" fontSize="sm">Nessun follower</Text>
+                      </Center>
+                    )}
                   </VStack>
                 </Box>
-              </VStack>
-            </TabPanel>
 
-            {/* Security Tab */}
-            <TabPanel>
-              <VStack spacing={6} align="stretch">
-                <Box bg="gray.800" p={6} borderRadius="lg">
-                  <Heading size="md" mb={4}>Cambia password</Heading>
-                  <VStack spacing={4}>
-                    <FormControl>
-                      <FormLabel>Password attuale</FormLabel>
-                      <InputGroup>
-                        <Input
-                          type={showPass ? 'text' : 'password'}
-                          value={passwords.old}
-                          onChange={(e) => setPasswords({ ...passwords, old: e.target.value })}
-                        />
-                        <InputRightElement>
-                          <IconButton
-                            size="sm"
-                            variant="ghost"
-                            icon={showPass ? <ViewOffIcon /> : <ViewIcon />}
-                            onClick={() => setShowPass(!showPass)}
-                            aria-label="Toggle password"
-                          />
-                        </InputRightElement>
-                      </InputGroup>
-                    </FormControl>
-                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} width="100%">
-                      <FormControl>
-                        <FormLabel>Nuova password</FormLabel>
-                        <Input
-                          type={showPass ? 'text' : 'password'}
-                          value={passwords.new}
-                          onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-                        />
-                      </FormControl>
-                      <FormControl>
-                        <FormLabel>Conferma password</FormLabel>
-                        <Input
-                          type={showPass ? 'text' : 'password'}
-                          value={passwords.confirm}
-                          onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                        />
-                      </FormControl>
-                    </SimpleGrid>
-                    <Button colorScheme="purple" onClick={handlePasswordChange}>
-                      Cambia password
-                    </Button>
+                {/* Following */}
+                <Box>
+                  <Heading size="md" mb={4}>
+                    Seguiti ({friends.following.length})
+                  </Heading>
+                  <VStack align="stretch" spacing={2} maxH="400px" overflowY="auto">
+                    {friends.following.length > 0 ? (
+                      friends.following.map((following) => (
+                        <HStack
+                          key={following.id}
+                          p={3}
+                          bg="gray.800"
+                          borderRadius="md"
+                          cursor="pointer"
+                          _hover={{ bg: 'gray.700' }}
+                          onClick={() => navigate(`/user/${following.username}`)}
+                        >
+                          <Avatar size="sm" name={following.displayName} src={following.avatarUrl} />
+                          <VStack align="start" spacing={0} flex={1}>
+                            <Text fontSize="sm" fontWeight="bold">{following.displayName}</Text>
+                            <Text fontSize="xs" color="gray.400">@{following.username}</Text>
+                          </VStack>
+                        </HStack>
+                      ))
+                    ) : (
+                      <Center py={8} bg="gray.800" borderRadius="lg">
+                        <Text color="gray.500" fontSize="sm">Non segui nessuno</Text>
+                      </Center>
+                    )}
                   </VStack>
                 </Box>
-              </VStack>
+              </SimpleGrid>
             </TabPanel>
           </TabPanels>
         </Tabs>
