@@ -828,18 +828,16 @@ function MangaDetails() {
                   borderColor={readingProgress?.chapterIndex === i ? 'purple.500' : 'transparent'}
                 >
                   <HStack spacing={3}>
-                    {isChapterRead(i) && (
-                      <FaCheckCircle color="green" />
-                    )}
-                    {readingProgress?.chapterIndex === i && (
-                      <Badge colorScheme="purple" size="sm" borderRadius="md">
-                        Attuale
-                      </Badge>
-                    )}
-                    <Text fontWeight="medium">
-                      Capitolo {chapter.chapterNumber || (i + 1)}
-                    </Text>
-                  </HStack>
+  {isChapterRead(i) && (
+    <FaCheckCircle color="green" />
+  )}
+  {readingProgress?.chapterIndex === i && (
+    <Badge colorScheme="purple" size="sm">Attuale</Badge>
+  )}
+  <Text fontWeight="medium">
+    {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
+  </Text>
+</HStack>
                   {chapter.dateAdd && (
                     <Text fontSize="sm" color="gray.400">
                       {chapter.dateAdd}
@@ -901,8 +899,8 @@ function MangaDetails() {
                     </Badge>
                   )}
                   <Text fontSize="sm" fontWeight="bold">
-                    Capitolo {chapter.chapterNumber || (i + 1)}
-                  </Text>
+        {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
+</Text>
                 </Box>
               ))}
             </SimpleGrid>
