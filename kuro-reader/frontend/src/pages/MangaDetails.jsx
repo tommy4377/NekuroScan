@@ -751,106 +751,162 @@ function MangaDetails() {
           </Box>
         )}
 
-        {/* ========= CAPITOLI ========= */}
-        <Box 
-          bg="gray.800" 
-          p={{ base: 4, md: 6 }} 
-          borderRadius="xl"
-          border="1px solid"
-          borderColor="gray.700"
-        >
-          <VStack align="stretch" spacing={2} maxH="600px" overflowY="auto">
-  {manga.chapters.map((chapter, i) => (
-    <HStack
-      key={i}
-      p={3}
-      bg="gray.700"
-      borderRadius="lg"
-      cursor="pointer"
-      _hover={{ 
-        bg: 'gray.600', 
-        transform: 'translateX(4px)',
-        borderLeft: '4px solid',
-        borderLeftColor: 'purple.500'
-      }}
-      transition="all 0.2s"
-      onClick={() => startReading(i)}
-      justify="flex-start"   // <— prima era "space-between"
-      opacity={isChapterRead(i) ? 0.6 : 1}
-      border="1px solid"
-      borderColor={readingProgress?.chapterIndex === i ? 'purple.500' : 'transparent'}
-      gap={3}
-    >
-      {isChapterRead(i) && <FaCheckCircle color="green" />}
-      {readingProgress?.chapterIndex === i && (
-        <Badge colorScheme="purple" size="sm" borderRadius="md">Attuale</Badge>
-      )}
-      <Text fontWeight="medium">
-        {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
-      </Text>
+        // frontend/src/pages/MangaDetails.jsx
+// ====== SOSTITUISCI TUTTO il blocco "Capitoli" con questo ======
+
+<Box 
+  bg="gray.800" 
+  p={{ base: 4, md: 6 }} 
+  borderRadius="xl"
+  border="1px solid"
+  borderColor="gray.700"
+>
+  <HStack justify="space-between" mb={4}>
+    <Heading size={{ base: 'sm', md: 'md' }}>
+      Capitoli ({manga.chapters?.length || 0})
+    </Heading>
+    
+    <HStack spacing={2}>
+      <Tooltip label="Vista lista">
+        <IconButton
+          icon={<FaList />}
+          size="sm"
+          variant={viewMode === 'list' ? 'solid' : 'ghost'}
+          colorScheme="purple"
+          onClick={() => setViewMode('list')}
+          aria-label="Vista lista"
+        />
+      </Tooltip>
+      <Tooltip label="Vista griglia">
+        <IconButton
+          icon={<FaTh />}
+          size="sm"
+          variant={viewMode === 'grid' ? 'solid' : 'ghost'}
+          colorScheme="purple"
+          onClick={() => setViewMode('grid')}
+          aria-label="Vista griglia"
+        />
+      </Tooltip>
     </HStack>
-  ))}
-</VStack>
-          ) : (
-            <SimpleGrid 
-              columns={{ base: 2, md: 4 }} 
-              spacing={3} 
-              maxH="600px" 
-              overflowY="auto"
-              css={{
-                '&::-webkit-scrollbar': { width: '8px' },
-                '&::-webkit-scrollbar-track': { background: 'transparent' },
-                '&::-webkit-scrollbar-thumb': { 
-                  background: 'var(--chakra-colors-purple-500)', 
-                  borderRadius: '4px' 
-                }
+  </HStack>
+
+  {manga.chapters?.length === 0 ? (
+    <Text color="gray.500" textAlign="center" py={8}>
+      Nessun capitolo disponibile
+    </Text>
+  ) : (
+    <>
+      {viewMode === 'list' ? (
+        // ====== LISTA ======
+        <VStack 
+          align="stretch" 
+          spacing={2} 
+          maxH="600px" 
+          overflowY="auto"
+          css={{
+            '&::-webkit-scrollbar': { width: '8px' },
+            '&::-webkit-scrollbar-track': { background: 'transparent' },
+            '&::-webkit-scrollbar-thumb': { 
+              background: 'var(--chakra-colors-purple-500)', 
+              borderRadius: '4px' 
+            }
+          }}
+        >
+          {(manga.chapters || []).map((chapter, i) => (
+            <HStack
+              key={chapter.url || i}
+              p={3}
+              bg="gray.700"
+              borderRadius="lg"
+              cursor="pointer"
+              _hover={{ 
+                bg: 'gray.600', 
+                transform: 'translateX(4px)',
+                borderLeft: '4px solid',
+                borderLeftColor: 'purple.500'
               }}
+              transition="all 0.2s"
+              onClick={() => startReading(i)}
+              justify="flex-start"
+              opacity={isChapterRead(i) ? 0.6 : 1}
+              border="1px solid"
+              borderColor={readingProgress?.chapterIndex === i ? 'purple.500' : 'transparent'}
+              gap={3}
             >
-              {manga.chapters.map((chapter, i) => (
-                <Box
-                  key={i}
-                  p={4}
-                  bg="gray.700"
-                  borderRadius="lg"
-                  cursor="pointer"
-                  _hover={{ 
-                    bg: 'gray.600', 
-                    transform: 'translateY(-4px)',
-                    boxShadow: 'lg'
-                  }}
-                  transition="all 0.2s"
-                  onClick={() => startReading(i)}
-                  textAlign="center"
-                  position="relative"
-                  opacity={isChapterRead(i) ? 0.6 : 1}
-                  border="2px solid"
-                  borderColor={readingProgress?.chapterIndex === i ? 'purple.500' : 'transparent'}
-                >
-                  {isChapterRead(i) && (
-                    <Box position="absolute" top={2} right={2}>
-                      <FaCheckCircle color="green" size="12" />
-                    </Box>
-                  )}
-                  {readingProgress?.chapterIndex === i && (
-                    <Badge 
-                      position="absolute" 
-                      top={2} 
-                      left={2} 
-                      colorScheme="purple" 
-                      size="sm"
-                      borderRadius="md"
-                    >
-                      Attuale
-                    </Badge>
-                  )}
-                  <Text fontSize="sm" fontWeight="bold">
-        {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
-</Text>
+              {isChapterRead(i) && <FaCheckCircle color="green" />}
+              {readingProgress?.chapterIndex === i && (
+                <Badge colorScheme="purple" size="sm" borderRadius="md">Attuale</Badge>
+              )}
+              <Text fontWeight="medium" noOfLines={1}>
+                {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
+              </Text>
+            </HStack>
+          ))}
+        </VStack>
+      ) : (
+        // ====== GRIGLIA ======
+        <SimpleGrid 
+          columns={{ base: 2, md: 4 }} 
+          spacing={3} 
+          maxH="600px" 
+          overflowY="auto"
+          css={{
+            '&::-webkit-scrollbar': { width: '8px' },
+            '&::-webkit-scrollbar-track': { background: 'transparent' },
+            '&::-webkit-scrollbar-thumb': { 
+              background: 'var(--chakra-colors-purple-500)', 
+              borderRadius: '4px' 
+            }
+          }}
+        >
+          {(manga.chapters || []).map((chapter, i) => (
+            <Box
+              key={chapter.url || i}
+              p={4}
+              bg="gray.700"
+              borderRadius="lg"
+              cursor="pointer"
+              _hover={{ 
+                bg: 'gray.600', 
+                transform: 'translateY(-4px)',
+                boxShadow: 'lg'
+              }}
+              transition="all 0.2s"
+              onClick={() => startReading(i)}
+              textAlign="center"
+              position="relative"
+              opacity={isChapterRead(i) ? 0.6 : 1}
+              border="2px solid"
+              borderColor={readingProgress?.chapterIndex === i ? 'purple.500' : 'transparent'}
+            >
+              {isChapterRead(i) && (
+                <Box position="absolute" top={2} right={2}>
+                  <FaCheckCircle color="green" size="12" />
                 </Box>
-              ))}
-            </SimpleGrid>
-          )
-        </Box>
+              )}
+              {readingProgress?.chapterIndex === i && (
+                <Badge 
+                  position="absolute" 
+                  top={2} 
+                  left={2} 
+                  colorScheme="purple" 
+                  size="sm"
+                  borderRadius="md"
+                >
+                  Attuale
+                </Badge>
+              )}
+              <Text fontSize="sm" fontWeight="bold" noOfLines={1}>
+                {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
+              </Text>
+            </Box>
+          ))}
+        </SimpleGrid>
+      )}
+    </>
+  )}
+</Box>
+
       </VStack>
     </Container>
   );
