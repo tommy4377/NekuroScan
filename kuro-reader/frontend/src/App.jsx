@@ -115,7 +115,7 @@ function AppContent() {
       if ('caches' in window) {
         caches.keys().then(names => {
           names.forEach(name => {
-            if (name !== 'kuroreader-v2') caches.delete(name);
+            if (name !== 'NeKuro Scan-v2') caches.delete(name);
           });
         });
       }

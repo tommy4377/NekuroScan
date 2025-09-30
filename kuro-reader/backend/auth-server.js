@@ -636,7 +636,7 @@ app.post('/api/notifications/manga', authenticateToken, async (req, res) => {
 
 app.post('/api/user/sync', authenticateToken, async (req, res) => {
   try {
-    const { favorites, reading, completed, history, readingProgress } = req.body;
+    const { favorites, reading, completed, dropped, history, readingProgress } = req.body;
     const userId = req.user.id;
     
     if (favorites !== undefined) {
@@ -660,6 +660,7 @@ app.post('/api/user/sync', authenticateToken, async (req, res) => {
     const updateLibraryData = {};
     if (reading !== undefined) updateLibraryData.reading = JSON.stringify(reading);
     if (completed !== undefined) updateLibraryData.completed = JSON.stringify(completed);
+    if (dropped !== undefined) updateLibraryData.dropped = JSON.stringify(dropped);
     if (history !== undefined) updateLibraryData.history = JSON.stringify(history);
     updateLibraryData.updatedAt = new Date();
     
@@ -674,6 +675,7 @@ app.post('/api/user/sync', authenticateToken, async (req, res) => {
           userId,
           reading: JSON.stringify(reading || []),
           completed: JSON.stringify(completed || []),
+          dropped: JSON.stringify(dropped || []),
           history: JSON.stringify(history || []),
         }
       });
@@ -744,6 +746,7 @@ app.get('/api/user/data', authenticateToken, async (req, res) => {
       readingProgress: progressObj,
       reading: library ? JSON.parse(library.reading || '[]') : [],
       completed: library ? JSON.parse(library.completed || '[]') : [],
+      dropped: library ? JSON.parse(library.dropped || '[]') : [],
       history: library ? JSON.parse(library.history || '[]') : [],
       profile: profile || {},
       notificationSettings: []
@@ -801,7 +804,7 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    service: 'KuroReader Auth Server',
+    service: 'NeKuro Scan Auth Server',
     version: '2.4.0'
   });
 });

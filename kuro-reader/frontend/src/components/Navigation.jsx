@@ -132,7 +132,7 @@ function Navigation() {
                     bgClip="text"
                     display={{ base: 'block', md: 'block' }}
                   >
-                    KuroReader
+                    NeKuro Scan
                   </Text>
                 </HStack>
               </Link>
@@ -304,7 +304,7 @@ function Navigation() {
                 bgGradient="linear(to-r, purple.400, pink.400)"
                 bgClip="text"
               >
-                KuroReader
+                NeKuro Scan
               </Text>
             </HStack>
           </DrawerHeader>

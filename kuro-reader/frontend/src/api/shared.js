@@ -1,8 +1,8 @@
-// Funzione condivisa per normalizzare i numeri dei capitoli
+// NUOVA VERSIONE MIGLIORATA
 export function normalizeChapterLabel(text, url) {
   if (!text) return null;
   
-  // Rimuovi spazi extra e trim
+  // Rimuovi spazi extra
   let t = text.replace(/\s+/g, ' ').trim();
   
   // Rimuovi date
@@ -13,53 +13,59 @@ export function normalizeChapterLabel(text, url) {
   t = t.replace(/^(vol\.\s*\d+\s*-\s*)?/i, '');
   t = t.replace(/^(capitolo|cap\.|ch\.|chapter)\s*/i, '');
   
-  // Estrai numero
+  // Pattern per estrarre numeri
   const patterns = [
-    /^(\d+(?:\.\d+)?)/,
-    /\s+(\d+(?:\.\d+)?)\s*$/,
-    /(\d+(?:\.\d+)?)/
+    /^(\d+(?:\.\d+)?)/,           // 123 o 123.5
+    /chapter[:\s]+(\d+(?:\.\d+)?)/i,  // Chapter: 123
+    /cap[:\s]+(\d+(?:\.\d+)?)/i,      // Cap: 123
+    /(\d+(?:\.\d+)?)\s*$/,            // 123 alla fine
+    /#(\d+(?:\.\d+)?)/,               // #123
   ];
   
   for (const pattern of patterns) {
     const match = t.match(pattern);
-    if (match) {
+    if (match && match[1]) {
       let num = match[1];
       
-      // FIX: Se il numero è >= 10 e ha più di 2 cifre, tronca le ultime 2
-      const numInt = parseInt(num);
-      if (numInt >= 10 && num.length > 2) {
-        num = num.slice(0, -2);
-      }
-      // Se inizia con 0 e ha 4+ cifre (es. 0176)
-      else if (num.startsWith('0') && num.length >= 4) {
-        num = num.substring(0, 2);
-        // Se diventa > 09, rimuovi lo 0
-        if (parseInt(num) > 9) {
-          num = num.replace(/^0/, '');
-        }
+      // FIX: Gestisci numeri come 0176, 0177, ecc
+      if (num.startsWith('0') && num.length >= 3) {
+        // Se inizia con 0 e ha 3+ cifre, rimuovi lo zero iniziale
+        num = num.replace(/^0+/, '');
+        // Se diventa vuoto, usa 0
+        if (!num) num = '0';
       }
       
-      return parseFloat(num);
+      const parsedNum = parseFloat(num);
+      
+      // Validazione: se il numero è troppo grande, probabilmente è un errore
+      if (parsedNum > 0 && parsedNum < 10000) {
+        return parsedNum;
+      }
     }
   }
   
-  // Prova dall'URL
+  // Prova dall'URL come fallback
   if (url) {
-    const urlMatch = url.match(/\/(\d+(?:\.\d+)?)\/?$/);
-    if (urlMatch) {
-      let num = urlMatch[1];
-      
-      const numInt = parseInt(num);
-      if (numInt >= 10 && num.length > 2) {
-        num = num.slice(0, -2);
-      } else if (num.startsWith('0') && num.length >= 4) {
-        num = num.substring(0, 2);
-        if (parseInt(num) > 9) {
-          num = num.replace(/^0/, '');
+    const urlPatterns = [
+      /\/capitolo-(\d+(?:\.\d+)?)/i,
+      /\/chapter-(\d+(?:\.\d+)?)/i,
+      /\/(\d+(?:\.\d+)?)\/?$/,
+      /cap(?:itolo)?[_-](\d+(?:\.\d+)?)/i,
+    ];
+    
+    for (const pattern of urlPatterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        let num = match[1];
+        if (num.startsWith('0') && num.length >= 3) {
+          num = num.replace(/^0+/, '');
+          if (!num) num = '0';
+        }
+        const parsedNum = parseFloat(num);
+        if (parsedNum >= 0 && parsedNum < 10000) {
+          return parsedNum;
         }
       }
-      
-      return parseFloat(num);
     }
   }
   

@@ -115,7 +115,7 @@ export default function PublicProfile() {
     if (navigator.share) {
       navigator.share({
         title: `Profilo di ${profile.displayName}`,
-        text: `Guarda il profilo di ${profile.displayName} su KuroReader!`,
+        text: `Guarda il profilo di ${profile.displayName} su NeKuro Scan!`,
         url
       }).catch(() => {
         navigator.clipboard.writeText(url);

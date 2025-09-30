@@ -230,10 +230,23 @@ export class MangaWorldAdultAPI {
         });
       }
 
-      // Ordina dal più basso al più alto
-      chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
+      // RIMUOVI DUPLICATI basandoti sul numero capitolo
+      const uniqueChapters = [];
+      const seenNumbers = new Set();
       
-      console.log(`Total chapters found: ${chapters.length}`);
+      chapters.forEach(chapter => {
+        if (!seenNumbers.has(chapter.chapterNumber)) {
+          seenNumbers.add(chapter.chapterNumber);
+          uniqueChapters.push(chapter);
+        } else {
+          console.log(`Duplicate removed: Chapter ${chapter.chapterNumber}`);
+        }
+      });
+
+      // Ordina dal più basso al più alto
+      uniqueChapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
+      
+      console.log(`Total chapters found: ${uniqueChapters.length}`);
       
       return {
         url,
@@ -247,8 +260,8 @@ export class MangaWorldAdultAPI {
         type: info.type,
         year: info.year,
         plot,
-        chapters,
-        chaptersNumber: chapters.length,
+        chapters: uniqueChapters,
+        chaptersNumber: uniqueChapters.length,
         source: 'mangaWorldAdult',
         isAdult: true
       };
@@ -364,23 +377,22 @@ export class MangaWorldAdultAPI {
         }
       }
       
-      // Strategia 2: Cerca negli script - FIX DEI REGEX PROBLEMATICI
+      // Strategia 2: Cerca negli script - FIX CORRETTO
       if (pages.length === 0) {
         const scripts = doc.querySelectorAll('script');
         scripts.forEach(script => {
           const content = script.textContent || script.innerHTML || '';
           
-          // Pattern corretti per array di immagini - FIX: escaped backticks
+          // Pattern corretti per array di immagini
           const arrayPatterns = [
-  /pages\s*=\s*```math([\s\S]*?)```/,
-  /images\s*=\s*```math([\s\S]*?)```/,
-  /pageArray\s*=\s*```math([\s\S]*?)```/,
-  /imageArray\s*=\s*```math([\s\S]*?)```/,
-  /var\s+pages\s*=\s*```math([\s\S]*?)```/,
-  /const\s+pages\s*=\s*```math([\s\S]*?)```/,
-  /let\s+pages\s*=\s*```math([\s\S]*?)```/
+  /pages\s*=\s*\[([\s\S]*?)\]/,
+  /images\s*=\s*\[([\s\S]*?)\]/,
+  /pageArray\s*=\s*\[([\s\S]*?)\]/,
+  /imageArray\s*=\s*\[([\s\S]*?)\]/,
+  /var\s+pages\s*=\s*\[([\s\S]*?)\]/,
+  /const\s+pages\s*=\s*\[([\s\S]*?)\]/,
+  /let\s+pages\s*=\s*\[([\s\S]*?)\]/
 ];
-
           
           for (const pattern of arrayPatterns) {
             const match = content.match(pattern);
@@ -502,4 +514,3 @@ export class MangaWorldAdultAPI {
     }
   }
 }
-

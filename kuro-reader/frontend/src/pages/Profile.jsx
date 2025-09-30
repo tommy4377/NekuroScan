@@ -294,7 +294,7 @@ export default function Profile() {
     if (navigator.share) {
       navigator.share({
         title: `Profilo di ${profileData.displayName}`,
-        text: `Guarda il mio profilo su KuroReader!`,
+        text: `Guarda il mio profilo su NeKuro Scan!`,
         url: profileUrl
       }).catch(() => {
         onCopy();

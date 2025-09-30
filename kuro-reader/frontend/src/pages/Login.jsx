@@ -159,7 +159,7 @@ function Login() {
               bgGradient="linear(to-r, purple.400, pink.400)"
               bgClip="text"
             >
-              KuroReader
+              NeKuro Scan
             </Heading>
             <Box w="40px" /> {/* Spacer for balance */}
           </HStack>

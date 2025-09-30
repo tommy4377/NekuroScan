@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   Container, VStack, HStack, Heading, Text, Box, Badge, Button,
-  IconButton, useToast, Center, Spinner, Divider, Alert, AlertIcon
+  IconButton, useToast, Center, Spinner, Divider
 } from '@chakra-ui/react';
-import { FaBell, FaTrash, FaCheck, FaBellSlash } from 'react-icons/fa';
+import { FaBell, FaTrash, FaBellSlash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import axios from 'axios';
@@ -30,8 +30,7 @@ export default function Notifications() {
   const loadNotifications = async () => {
     setLoading(true);
     try {
-      // In futuro questo endpoint recupererà notifiche reali dal server
-      // Per ora mostriamo solo un messaggio informativo
+      // Future: load real notifications from server
       setNotifications([]);
     } catch (error) {
       console.error('Error loading notifications:', error);
@@ -162,19 +161,6 @@ export default function Notifications() {
           </Button>
         </HStack>
 
-        {/* Info Alert */}
-        <Alert status="info" borderRadius="lg">
-          <AlertIcon />
-          <Box>
-            <Text fontWeight="bold">Sistema di notifiche</Text>
-            <Text fontSize="sm">
-              Le notifiche reali per nuovi capitoli saranno disponibili prossimamente. 
-              Per ora puoi attivare le notifiche del browser per essere pronto quando 
-              il sistema sarà completamente operativo.
-            </Text>
-          </Box>
-        </Alert>
-
         {/* Manga Subscriptions */}
         {mangaSubscriptions.length > 0 && (
           <Box bg="gray.800" p={6} borderRadius="lg">
@@ -207,7 +193,7 @@ export default function Notifications() {
                     aria-label="Disattiva notifiche"
                     onClick={() => {
                       toast({
-                        title: 'Funzione in arrivo',
+                        title: 'Sistema in sviluppo',
                         description: 'Presto potrai gestire le notifiche per singolo manga',
                         status: 'info',
                         duration: 2000

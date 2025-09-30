@@ -1,5 +1,5 @@
 // public/sw.js
-const CACHE_NAME = 'kuroreader-v2';
+const CACHE_NAME = 'NeKuro Scan-v2';
 const urlsToCache = [
   '/',
   '/index.html',

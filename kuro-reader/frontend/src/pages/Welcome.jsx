@@ -72,7 +72,7 @@ function Welcome() {
                 bgGradient={bgGradient}
                 bgClip="text"
               >
-                KuroReader
+                NeKuro Scan
               </Heading>
               
               <Text 

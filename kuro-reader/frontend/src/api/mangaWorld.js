@@ -156,8 +156,21 @@ export class MangaWorldAPI {
         });
       }
 
+      // RIMUOVI DUPLICATI basandoti sul numero capitolo
+      const uniqueChapters = [];
+      const seenNumbers = new Set();
+      
+      chapters.forEach(chapter => {
+        if (!seenNumbers.has(chapter.chapterNumber)) {
+          seenNumbers.add(chapter.chapterNumber);
+          uniqueChapters.push(chapter);
+        } else {
+          console.log(`Duplicate removed: Chapter ${chapter.chapterNumber}`);
+        }
+      });
+
       // ORDINA ASCENDENTE (1, 2, 3...)
-      chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
+      uniqueChapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
 
       return {
         url,
@@ -171,8 +184,8 @@ export class MangaWorldAPI {
         type: info.type,
         year: info.year,
         plot,
-        chapters,
-        chaptersNumber: chapters.length,
+        chapters: uniqueChapters,
+        chaptersNumber: uniqueChapters.length,
         source: 'mangaWorld',
         isAdult: false
       };

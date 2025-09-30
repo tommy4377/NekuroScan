@@ -319,7 +319,7 @@ function Home() {
                 bgGradient="linear(to-r, purple.400, pink.400)" 
                 bgClip="text"
               >
-                Benvenuto su KuroReader
+                Benvenuto su NeKuro Scan
               </Heading>
               <Text color="gray.400">
                 Scopri i tuoi manga preferiti

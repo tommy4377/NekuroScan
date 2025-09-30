@@ -1,6 +1,6 @@
 {
-  "name": "KuroReader - Manga & Novel Reader",
-  "short_name": "KuroReader",
+  "name": "NeKuro Scan - Manga & Novel Reader",
+  "short_name": "NeKuro Scan",
   "description": "Leggi manga e light novel gratuitamente",
   "theme_color": "#805AD5",
   "background_color": "#1A202C",
@@ -8,7 +8,7 @@
   "orientation": "portrait",
   "scope": "/",
   "start_url": "/",
-  "id": "kuroreader-v1",
+  "id": "NeKuro Scan-v1",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",

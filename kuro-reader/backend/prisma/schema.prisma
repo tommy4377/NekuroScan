@@ -81,6 +81,7 @@ model user_library {
   user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
   reading   String?  @db.Text
   completed String?  @db.Text
+  dropped   String?  @db.Text
   history   String?  @db.Text
   updatedAt DateTime @updatedAt
 }

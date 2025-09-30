@@ -23,7 +23,11 @@ import {
   Tab,
   TabPanel,
   Progress,
-  Tooltip
+  Tooltip,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -36,7 +40,11 @@ import {
   FaRedo,
   FaCheckCircle,
   FaBell,
-  FaBellSlash
+  FaBellSlash,
+  FaPlus,
+  FaCheck,
+  FaBan,
+  FaEllipsisV
 } from 'react-icons/fa';
 import apiManager from '../api';
 import { motion } from 'framer-motion';
@@ -55,14 +63,16 @@ function MangaDetails() {
   const [viewMode, setViewMode] = useState('list');
   const [readingProgress, setReadingProgress] = useState(null);
   const [completedChapters, setCompletedChapters] = useState([]);
+  const [currentStatus, setCurrentStatus] = useState(null); // 'reading', 'completed', 'dropped', null
   const toast = useToast();
   const navigate = useNavigate();
-  const { user, syncFavorites } = useAuth();
+  const { user, syncFavorites, syncToServer } = useAuth();
 
   useEffect(() => {
     loadManga();
     checkFavorite();
     loadReadingProgress();
+    checkCurrentStatus();
   }, [source, id]);
 
   useEffect(() => {
@@ -127,6 +137,23 @@ function MangaDetails() {
     setIsFavorite(favorites.some(f => f.url === mangaUrl));
   };
 
+  const checkCurrentStatus = () => {
+    const mangaUrl = atob(id);
+    const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+    const completed = JSON.parse(localStorage.getItem('completed') || '[]');
+    const dropped = JSON.parse(localStorage.getItem('dropped') || '[]');
+    
+    if (completed.some(m => m.url === mangaUrl)) {
+      setCurrentStatus('completed');
+    } else if (dropped.some(m => m.url === mangaUrl)) {
+      setCurrentStatus('dropped');
+    } else if (reading.some(m => m.url === mangaUrl)) {
+      setCurrentStatus('reading');
+    } else {
+      setCurrentStatus(null);
+    }
+  };
+
   const checkNotificationStatus = async () => {
     if (!user || !manga) return;
     
@@ -161,47 +188,47 @@ function MangaDetails() {
   };
 
   const toggleFavorite = async () => {
-  const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-  let updated;
-  
-  if (isFavorite) {
-    updated = favorites.filter(f => f.url !== manga.url);
-    setIsFavorite(false);
+    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    let updated;
     
-    toast({
-      title: 'Rimosso dai preferiti',
-      status: 'info',
-      duration: 2000,
-    });
-  } else {
-    const mangaToSave = {
-      url: manga.url,
-      title: manga.title,
-      cover: manga.coverUrl,
-      type: manga.type,
-      source: manga.source || source,
-      genres: manga.genres || [],
-      addedAt: new Date().toISOString()
-    };
+    if (isFavorite) {
+      updated = favorites.filter(f => f.url !== manga.url);
+      setIsFavorite(false);
+      
+      toast({
+        title: 'Rimosso dai preferiti',
+        status: 'info',
+        duration: 2000,
+      });
+    } else {
+      const mangaToSave = {
+        url: manga.url,
+        title: manga.title,
+        cover: manga.coverUrl,
+        type: manga.type,
+        source: manga.source || source,
+        genres: manga.genres || [],
+        addedAt: new Date().toISOString()
+      };
+      
+      updated = [mangaToSave, ...favorites];
+      setIsFavorite(true);
+      
+      toast({
+        title: 'Aggiunto ai preferiti',
+        status: 'success',
+        duration: 2000,
+      });
+    }
     
-    updated = [mangaToSave, ...favorites];
-    setIsFavorite(true);
+    // Save locally
+    localStorage.setItem('favorites', JSON.stringify(updated));
     
-    toast({
-      title: 'Aggiunto ai preferiti',
-      status: 'success',
-      duration: 2000,
-    });
-  }
-  
-  // Save locally
-  localStorage.setItem('favorites', JSON.stringify(updated));
-  
-  // Sync with server immediately
-  if (user && syncFavorites) {
-    await syncFavorites(updated);
-  }
-};
+    // Sync with server immediately
+    if (user && syncFavorites) {
+      await syncFavorites(updated);
+    }
+  };
 
   const toggleNotifications = async () => {
     if (!user) {
@@ -243,23 +270,13 @@ function MangaDetails() {
               badge: '/web-app-manifest-192x192.png',
               vibrate: [200, 100, 200]
             });
-          } else if (permission === 'denied') {
-            toast({
-              title: 'Permessi notifiche negati',
-              description: 'Abilita le notifiche nelle impostazioni del browser',
-              status: 'warning',
-              duration: 4000,
-            });
           }
         }
         
         toast({
           title: newStatus ? 'Notifiche attivate' : 'Notifiche disattivate',
-          description: newStatus 
-            ? `Riceverai notifiche per nuovi capitoli di ${manga.title}`
-            : 'Non riceverai più notifiche per questo manga',
           status: 'success',
-          duration: 3000,
+          duration: 2000,
         });
       }
     } catch (error) {
@@ -307,39 +324,39 @@ function MangaDetails() {
   };
 
   const updateReadingList = async (chapterIndex, chapter) => {
-  const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-  const existingIndex = reading.findIndex(r => r.url === manga.url);
-  
-  const readingItem = {
-    url: manga.url,
-    title: manga.title,
-    cover: manga.coverUrl,
-    type: manga.type,
-    source: manga.source || source,
-    lastChapterIndex: chapterIndex,
-    lastChapterTitle: chapter.title,
-    totalChapters: manga.chapters.length,
-    progress: Math.round((chapterIndex / manga.chapters.length) * 100),
-    lastRead: new Date().toISOString()
-  };
-  
-  if (existingIndex !== -1) {
-    reading[existingIndex] = readingItem;
-  } else {
-    reading.unshift(readingItem);
-  }
-  
-  // Save locally
-  localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
-  
-  // Sync with server immediately if logged in
-  if (user) {
-    const { syncReading } = useAuth.getState();
-    if (syncReading) {
-      await syncReading(reading.slice(0, 100));
+    const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+    const existingIndex = reading.findIndex(r => r.url === manga.url);
+    
+    const readingItem = {
+      url: manga.url,
+      title: manga.title,
+      cover: manga.coverUrl,
+      type: manga.type,
+      source: manga.source || source,
+      lastChapterIndex: chapterIndex,
+      lastChapterTitle: chapter.title,
+      totalChapters: manga.chapters.length,
+      progress: Math.round((chapterIndex / manga.chapters.length) * 100),
+      lastRead: new Date().toISOString()
+    };
+    
+    if (existingIndex !== -1) {
+      reading[existingIndex] = readingItem;
+    } else {
+      reading.unshift(readingItem);
     }
-  }
-};
+    
+    // Save locally
+    localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
+    
+    // Sync with server immediately if logged in
+    if (user) {
+      const { syncReading } = useAuth.getState();
+      if (syncReading) {
+        await syncReading(reading.slice(0, 100));
+      }
+    }
+  };
 
   const continueReading = () => {
     if (readingProgress && readingProgress.chapterIndex !== undefined) {
@@ -349,41 +366,74 @@ function MangaDetails() {
     }
   };
 
-  const markAsCompleted = () => {
-    const completed = JSON.parse(localStorage.getItem('completed') || '[]');
-    const exists = completed.findIndex(c => c.url === manga.url);
+  const moveToList = async (targetList) => {
+    if (!manga) return;
     
-    if (exists === -1) {
-      const completedItem = {
-        url: manga.url,
-        title: manga.title,
-        cover: manga.coverUrl,
-        type: manga.type,
-        source: manga.source || source,
-        completedAt: new Date().toISOString()
-      };
+    // Remove from all lists
+    const lists = ['reading', 'completed', 'dropped'];
+    lists.forEach(list => {
+      const items = JSON.parse(localStorage.getItem(list) || '[]');
+      const filtered = items.filter(item => item.url !== manga.url);
+      localStorage.setItem(list, JSON.stringify(filtered));
+    });
+    
+    // Add to target list
+    if (targetList) {
+      const targetItems = JSON.parse(localStorage.getItem(targetList) || '[]');
+      const exists = targetItems.find(item => item.url === manga.url);
       
-      completed.unshift(completedItem);
-      localStorage.setItem('completed', JSON.stringify(completed));
-      
-      // Rimuovi da reading
-      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-      const updated = reading.filter(r => r.url !== manga.url);
-      localStorage.setItem('reading', JSON.stringify(updated));
-      
-      toast({
-        title: 'Manga completato!',
-        description: 'Aggiunto alla lista dei completati',
-        status: 'success',
-        duration: 3000,
-      });
+      if (!exists) {
+        const newItem = {
+          url: manga.url,
+          title: manga.title,
+          cover: manga.coverUrl,
+          type: manga.type,
+          source: manga.source || source,
+          addedAt: new Date().toISOString()
+        };
+        
+        if (targetList === 'completed') {
+          newItem.completedAt = new Date().toISOString();
+          newItem.progress = 100;
+        } else if (targetList === 'dropped') {
+          newItem.droppedAt = new Date().toISOString();
+        } else if (targetList === 'reading') {
+          newItem.lastRead = new Date().toISOString();
+          newItem.progress = readingProgress ? 
+            Math.round((readingProgress.chapterIndex / manga.chapters.length) * 100) : 0;
+        }
+        
+        targetItems.unshift(newItem);
+        localStorage.setItem(targetList, JSON.stringify(targetItems));
+      }
     }
+    
+    // Update current status
+    setCurrentStatus(targetList);
+    
+    // Sync with server if logged in
+    if (user && syncToServer) {
+      await syncToServer();
+    }
+    
+    const messages = {
+      completed: '✅ Manga segnato come completato!',
+      dropped: '❌ Manga segnato come droppato',
+      reading: '📖 Manga aggiunto a "In lettura"',
+      null: 'ℹ️ Manga rimosso dalle liste'
+    };
+    
+    toast({
+      title: messages[targetList] || 'Aggiornato',
+      status: targetList === 'completed' ? 'success' : 'info',
+      duration: 3000,
+    });
   };
 
   const shareContent = async () => {
     const shareData = {
       title: manga.title,
-      text: `Leggi ${manga.title} su KuroReader`,
+      text: `Leggi ${manga.title} su NeKuro Scan`,
       url: window.location.href
     };
     
@@ -505,6 +555,17 @@ function MangaDetails() {
                 {manga.source === 'mangaWorldAdult' && (
                   <Badge colorScheme="pink">🔞 Adult</Badge>
                 )}
+                {currentStatus && (
+                  <Badge 
+                    colorScheme={
+                      currentStatus === 'completed' ? 'green' : 
+                      currentStatus === 'dropped' ? 'red' : 'purple'
+                    }
+                  >
+                    {currentStatus === 'completed' ? '✓ Completato' : 
+                     currentStatus === 'dropped' ? '✗ Droppato' : '📖 In lettura'}
+                  </Badge>
+                )}
               </HStack>
 
               {manga.authors?.length > 0 && (
@@ -576,7 +637,7 @@ function MangaDetails() {
                   variant={notificationsEnabled ? 'solid' : 'outline'}
                   onClick={toggleNotifications}
                   aria-label="Notifiche"
-                  title={notificationsEnabled ? 'Disattiva notifiche' : 'Attiva notifiche per nuovi capitoli'}
+                  title={notificationsEnabled ? 'Disattiva notifiche' : 'Attiva notifiche'}
                 />
                 
                 <IconButton
@@ -586,16 +647,50 @@ function MangaDetails() {
                   onClick={shareContent}
                 />
                 
-                {readProgress >= 100 && (
-                  <Button
-                    leftIcon={<FaCheckCircle />}
-                    colorScheme="green"
+                {/* Menu gestione liste */}
+                <Menu>
+                  <MenuButton
+                    as={IconButton}
+                    icon={<FaEllipsisV />}
                     variant="outline"
-                    onClick={markAsCompleted}
-                  >
-                    Segna come completato
-                  </Button>
-                )}
+                    aria-label="Altre opzioni"
+                  />
+                  <MenuList bg="gray.800" borderColor="gray.700">
+                    {currentStatus !== 'reading' && (
+                      <MenuItem 
+                        icon={<FaPlus />}
+                        onClick={() => moveToList('reading')}
+                      >
+                        Aggiungi a "In lettura"
+                      </MenuItem>
+                    )}
+                    {currentStatus !== 'completed' && (
+                      <MenuItem 
+                        icon={<FaCheck />}
+                        onClick={() => moveToList('completed')}
+                      >
+                        Segna come completato
+                      </MenuItem>
+                    )}
+                    {currentStatus !== 'dropped' && (
+                      <MenuItem 
+                        icon={<FaBan />}
+                        onClick={() => moveToList('dropped')}
+                      >
+                        Segna come droppato
+                      </MenuItem>
+                    )}
+                    {currentStatus && (
+                      <MenuItem 
+                        icon={<FaCheckCircle />}
+                        onClick={() => moveToList(null)}
+                        color="red.400"
+                      >
+                        Rimuovi da tutte le liste
+                      </MenuItem>
+                    )}
+                  </MenuList>
+                </Menu>
               </HStack>
             </VStack>
           </Flex>
