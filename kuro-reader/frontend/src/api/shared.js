@@ -1,100 +1,67 @@
-// frontend/src/api/shared.js
-// COMPLETAMENTE RISCRITTO PER FIX CAPITOLI
+// Funzione condivisa per normalizzare i numeri dei capitoli
 export function normalizeChapterLabel(text, url) {
   if (!text) return null;
   
-  // Pulisci il testo
-  let cleanText = text
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
+  // Rimuovi spazi extra e trim
+  let t = text.replace(/\s+/g, ' ').trim();
   
-  // Rimuovi date (es: "2024-01-15")
-  cleanText = cleanText.replace(/\d{4}[-\/]\d{1,2}[-\/]\d{1,2}/g, '');
-  cleanText = cleanText.replace(/\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/g, '');
+  // Rimuovi date
+  t = t.replace(/\s+\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}.*$/, '');
+  t = t.replace(/\s+\d{4}[\/-]\d{1,2}[\/-]\d{1,2}.*$/, '');
   
-  // Pattern per estrarre il numero del capitolo
+  // Rimuovi prefissi comuni
+  t = t.replace(/^(vol\.\s*\d+\s*-\s*)?/i, '');
+  t = t.replace(/^(capitolo|cap\.|ch\.|chapter)\s*/i, '');
+  
+  // Estrai numero
   const patterns = [
-    /capitolo\s+(\d+(?:\.\d+)?)/i,
-    /cap\.\s*(\d+(?:\.\d+)?)/i,
-    /chapter\s+(\d+(?:\.\d+)?)/i,
-    /ch\.\s*(\d+(?:\.\d+)?)/i,
-    /c\.?\s*(\d+(?:\.\d+)?)/i,
-    /episodio\s+(\d+(?:\.\d+)?)/i,
-    /ep\.\s*(\d+(?:\.\d+)?)/i,
-    /#\s*(\d+(?:\.\d+)?)/i,
-    /n[°º]\s*(\d+(?:\.\d+)?)/i,
-    /^(\d+(?:\.\d+)?)\s*[-–—:]/,  // "01 - titolo"
-    /[-–—:]\s*(\d+(?:\.\d+)?)\s*$/,  // "titolo - 01"
-    /^(\d+(?:\.\d+)?)$/  // Solo numero
+    /^(\d+(?:\.\d+)?)/,
+    /\s+(\d+(?:\.\d+)?)\s*$/,
+    /(\d+(?:\.\d+)?)/
   ];
   
   for (const pattern of patterns) {
-    const match = cleanText.match(pattern);
-    if (match && match[1]) {
-      const num = parseFloat(match[1]);
-      // Verifica che sia un numero valido e ragionevole
-      if (!isNaN(num) && num >= 0 && num < 10000) {
-        return num;
+    const match = t.match(pattern);
+    if (match) {
+      let num = match[1];
+      
+      // FIX: Se il numero è >= 10 e ha più di 2 cifre, tronca le ultime 2
+      const numInt = parseInt(num);
+      if (numInt >= 10 && num.length > 2) {
+        num = num.slice(0, -2);
       }
+      // Se inizia con 0 e ha 4+ cifre (es. 0176)
+      else if (num.startsWith('0') && num.length >= 4) {
+        num = num.substring(0, 2);
+        // Se diventa > 09, rimuovi lo 0
+        if (parseInt(num) > 9) {
+          num = num.replace(/^0/, '');
+        }
+      }
+      
+      return parseFloat(num);
     }
   }
   
-  // Prova dall'URL come fallback
+  // Prova dall'URL
   if (url) {
-    // Cerca pattern comuni negli URL
-    const urlPatterns = [
-      /\/capitolo[-_]?(\d+(?:\.\d+)?)/i,
-      /\/chapter[-_]?(\d+(?:\.\d+)?)/i,
-      /\/c[-_]?(\d+(?:\.\d+)?)/i,
-      /\/(\d+(?:\.\d+)?)\/?$/,  // numero alla fine dell'URL
-      /[-_](\d+(?:\.\d+)?)\/?$/  // numero dopo trattino/underscore
-    ];
-    
-    for (const pattern of urlPatterns) {
-      const match = url.match(pattern);
-      if (match && match[1]) {
-        const num = parseFloat(match[1]);
-        if (!isNaN(num) && num >= 0 && num < 10000) {
-          return num;
+    const urlMatch = url.match(/\/(\d+(?:\.\d+)?)\/?$/);
+    if (urlMatch) {
+      let num = urlMatch[1];
+      
+      const numInt = parseInt(num);
+      if (numInt >= 10 && num.length > 2) {
+        num = num.slice(0, -2);
+      } else if (num.startsWith('0') && num.length >= 4) {
+        num = num.substring(0, 2);
+        if (parseInt(num) > 9) {
+          num = num.replace(/^0/, '');
         }
       }
+      
+      return parseFloat(num);
     }
   }
   
   return null;
-}
-
-// Funzione helper per rimuovere duplicati dai capitoli
-export function removeDuplicateChapters(chapters) {
-  const seen = new Map();
-  const unique = [];
-  
-  for (const chapter of chapters) {
-    const key = `${chapter.chapterNumber}`;
-    if (!seen.has(key)) {
-      seen.set(key, true);
-      unique.push(chapter);
-    }
-  }
-  
-  return unique;
-}
-
-// Funzione per validare e pulire i capitoli
-export function validateChapters(chapters) {
-  if (!chapters || !Array.isArray(chapters)) return [];
-  
-  // Rimuovi capitoli senza URL o numero
-  const valid = chapters.filter(ch => 
-    ch.url && ch.chapterNumber !== null && ch.chapterNumber !== undefined
-  );
-  
-  // Rimuovi duplicati
-  const unique = removeDuplicateChapters(valid);
-  
-  // Ordina per numero capitolo
-  unique.sort((a, b) => a.chapterNumber - b.chapterNumber);
-  
-  return unique;
 }
