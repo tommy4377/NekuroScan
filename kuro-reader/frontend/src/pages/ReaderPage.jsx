@@ -1,4 +1,4 @@
-// ✅ READERPAGE.JSX v3.3 - COMPLETO CON AUTO-NEXT E FIX PROGRESS
+// ✅ READERPAGE.JSX v3.4 - FIX REACT ERROR #300
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box, IconButton, useToast, Image, Spinner, Text, VStack, HStack,
@@ -27,6 +27,9 @@ function ReaderPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
+  
+  // ✅ FIX: Usa l'hook correttamente all'inizio del componente
+  const { syncToServer } = useAuth();
   
   const [chapter, setChapter] = useState(null);
   const [manga, setManga] = useState(null);
@@ -95,7 +98,7 @@ function ReaderPage() {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       if (controlsTimeout) clearTimeout(controlsTimeout);
     };
-  }, []);
+  }, [controlsTimeout]);
 
   useEffect(() => {
     loadData();
@@ -149,7 +152,7 @@ function ReaderPage() {
         clearInterval(scrollIntervalRef.current);
       }
     };
-  }, [autoScroll, scrollSpeed, readingMode]);
+  }, [autoScroll, scrollSpeed, readingMode, toast]);
 
   useEffect(() => {
     const handleKeyPress = (e) => {
@@ -283,7 +286,6 @@ function ReaderPage() {
     preloadImages(currentPage, chapter.pages);
   }, [currentPage, chapter]);
 
-  // ✅ FIX: SAVE PROGRESS CON FORMULA CORRETTA (BASE 0)
   const saveProgress = useCallback(() => {
     if (!manga || !chapter) return;
     
@@ -310,7 +312,7 @@ function ReaderPage() {
       lastChapterIndex: chapterIndex,
       lastChapterTitle: manga.chapters[chapterIndex]?.title || '',
       lastPage: currentPage,
-      progress: Math.round(((chapterIndex + 1) / manga.chapters.length) * 100), // ✅ BASE 0 FIX
+      progress: Math.round(((chapterIndex + 1) / manga.chapters.length) * 100),
       lastRead: new Date().toISOString()
     };
     
@@ -326,7 +328,6 @@ function ReaderPage() {
       markChapterAsRead(chapterIndex);
     }
     
-    // ✅ DISPATCH EVENT PER AGGIORNARE PROFILO
     window.dispatchEvent(new CustomEvent('library-updated'));
   }, [manga, chapter, chapterIndex, currentPage, source]);
 
@@ -448,7 +449,7 @@ function ReaderPage() {
     }
   };
 
-  // ✅ FIX: NAVIGATE CHAPTER CON COMPLETAMENTO + SYNC
+  // ✅ FIX: Usa syncToServer dall'hook senza .getState()
   const navigateChapter = async (direction) => {
     if (!manga?.chapters) return;
     
@@ -461,7 +462,6 @@ function ReaderPage() {
       navigate(`/read/${source}/${mangaId}/${newChapterId}?chapter=${newIndex}`);
     } else {
       if (direction > 0) {
-        // ✅ ULTIMO CAPITOLO: COMPLETA + SYNC
         toast({
           title: 'Ultimo capitolo raggiunto',
           description: 'Hai completato il manga!',
@@ -478,12 +478,11 @@ function ReaderPage() {
             type: manga.type,
             source: manga.source || source,
             completedAt: new Date().toISOString(),
-            progress: 100 // ✅ SEGNA 100%
+            progress: 100
           });
           localStorage.setItem('completed', JSON.stringify(completed));
         }
         
-        // ✅ AGGIORNA READING PROGRESS A ULTIMO CAPITOLO
         const rp = JSON.parse(localStorage.getItem('readingProgress') || '{}');
         rp[manga.url] = {
           chapterId: manga.chapters[manga.chapters.length - 1]?.url,
@@ -496,14 +495,12 @@ function ReaderPage() {
         };
         localStorage.setItem('readingProgress', JSON.stringify(rp));
         
-        // ✅ MARCA TUTTI I CAPITOLI COME LETTI
         const cc = JSON.parse(localStorage.getItem('completedChapters') || '{}');
         cc[manga.url] = Array.from({ length: manga.chapters.length }, (_, i) => i);
         localStorage.setItem('completedChapters', JSON.stringify(cc));
         
-        // ✅ SINCRONIZZA CON SERVER
+        // ✅ FIX: Usa la funzione direttamente dall'hook
         try {
-          const { syncToServer } = useAuth.getState();
           if (syncToServer) {
             await syncToServer();
           }
@@ -511,7 +508,6 @@ function ReaderPage() {
           console.error('Sync after completion failed:', e);
         }
         
-        // ✅ DISPATCH EVENT
         window.dispatchEvent(new CustomEvent('library-updated'));
         
         setTimeout(() => {
@@ -709,7 +705,6 @@ function ReaderPage() {
             '&::-webkit-scrollbar-thumb': { background: '#4a4a4a', borderRadius: '4px' },
             '&::-webkit-scrollbar-thumb:hover': { background: '#6a6a6a' },
           }}
-          // ✅ FIX: AUTO NEXT CHAPTER
           onScroll={(e) => {
             const container = e.target;
             const scrollPercentage = (container.scrollTop / (container.scrollHeight - container.clientHeight)) * 100;
@@ -719,7 +714,6 @@ function ReaderPage() {
               setCurrentPage(estimatedPage);
             }
             
-            // ✅ AUTO NEXT CHAPTER QUANDO ARRIVI AL 98%
             if (scrollPercentage >= 98 && !loadingMore) {
               setLoadingMore(true);
               
@@ -794,7 +788,6 @@ function ReaderPage() {
       );
     }
 
-    // Page flip effect
     const pageVariants = {
       enter: (direction) => ({
         x: direction > 0 ? 1000 : -1000,
@@ -838,6 +831,7 @@ function ReaderPage() {
         cursor="pointer"
         overflow="hidden"
       >
+        
         <AnimatePresence mode="wait" custom={1}>
           <MotionBox
             key={currentPage}
