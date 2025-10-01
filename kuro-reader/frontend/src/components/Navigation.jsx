@@ -193,9 +193,9 @@ function Navigation() {
                     <MenuItem icon={<FaBookmark />} onClick={() => navigate('/library')}>
                       I miei manga
                     </MenuItem>
-                    <MenuItem icon={<FaUsers />} onClick={() => navigate('/followers')}>
-                      Follower e Seguiti
-                    </MenuItem>
+                    <MenuItem icon={<FaUsers />} onClick={() => navigate('/profile')}>
+                Follower e Seguiti
+                  </MenuItem>
                     <MenuItem icon={<FaCog />} onClick={() => navigate('/settings')}>
                       Impostazioni
                     </MenuItem>
@@ -300,11 +300,12 @@ function Navigation() {
                       Il mio profilo
                     </Button>
                   </Link>
-                  <Link to="/followers" onClick={onClose}>
-                    <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaUsers />} w="100%">
-                      Follower e Seguiti
-                    </Button>
-                  </Link>
+                  <Link to="/profile" onClick={onClose}>
+              <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaUsers />} w="100%">
+                Follower e Seguiti
+               </Button>
+                </Link>
+
                   <Link to="/settings" onClick={onClose}>
                     <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaCog />} w="100%">
                       Impostazioni

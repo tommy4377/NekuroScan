@@ -1,5 +1,5 @@
 // ✅ READERPAGE.JSX v3.8 - FIX INIZIALIZZAZIONE
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, IconButton, useToast, Image, Spinner, Text, VStack, HStack,
   Drawer, DrawerOverlay, DrawerContent, DrawerBody, DrawerHeader,

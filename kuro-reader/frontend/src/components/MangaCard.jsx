@@ -40,19 +40,23 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
 
   return (
     <MotionBox
-      whileHover={{ scale: 1.05, zIndex: 10 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ duration: 0.2 }}
-      cursor="pointer"
-      onClick={handleClick}
-      height="100%"
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      style={{
-        perspective: '1000px',
-        transformStyle: 'preserve-3d'
-      }}
-    >
+  whileHover={{ scale: 1.05, zIndex: 20 }}
+  whileTap={{ scale: 0.98 }}
+  transition={{ duration: 0.2 }}
+  cursor="pointer"
+  onClick={handleClick}
+  height="100%"
+  onMouseMove={handleMouseMove}
+  onMouseLeave={handleMouseLeave}
+  style={{
+    perspective: '1000px',
+    transformStyle: 'preserve-3d',
+    isolation: 'isolate',
+    position: 'relative',
+    willChange: 'transform'
+  }}
+>
+
       
 <VStack
   bg="gray.800"

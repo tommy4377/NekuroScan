@@ -56,23 +56,24 @@ export default function PublicProfile() {
   };
 
   const checkFollowStatus = async () => {
-    if (!user) return;
-    
-    setCheckingFollow(true);
-    try {
-      const response = await axios.get(
-        `${config.API_URL}/api/user/following/${username}`,
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        }
-      );
-      setFollowing(response.data.following);
-    } catch (error) {
-      console.error('Error checking follow status:', error);
-    } finally {
-      setCheckingFollow(false);
-    }
-  };
+  if (!user) return;
+
+  setCheckingFollow(true);
+  try {
+    const response = await axios.get(
+      `${config.API_URL}/api/user/${user.username}/following`,
+      { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+    );
+    const list = response.data.following || [];
+    const isFollowing = list.some((u) => u.username?.toLowerCase() === username.toLowerCase());
+    setFollowing(isFollowing);
+  } catch (error) {
+    console.error('Error checking follow status:', error);
+  } finally {
+    setCheckingFollow(false);
+  }
+};
+
 
   const toggleFollow = async () => {
     if (!user) {

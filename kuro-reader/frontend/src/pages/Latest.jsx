@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, Text, VStack, HStack,
-  Button, useToast, Skeleton, Badge, IconButton, Switch, Center
+  Button, useToast, Skeleton, Badge, IconButton, Switch, Center, SimpleGrid
 } from '@chakra-ui/react';
 import { FaClock, FaArrowUp, FaPlus } from 'react-icons/fa';
 import { motion } from 'framer-motion';

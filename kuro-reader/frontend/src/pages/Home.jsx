@@ -177,14 +177,18 @@ function Home() {
         >
           <HStack justify="space-between" mb={4}>
             <HStack spacing={3}>
-              <Box 
-                p={2} 
-                bg={`${color}.500`} 
-                borderRadius="lg"
-                boxShadow="lg"
-              >
-                <Icon as={icon} color="white" boxSize={5} />
-              </Box>
+              <Box
+  p={2}
+  bg={`${color}.500`}
+  borderRadius="lg"
+  boxShadow="lg"
+  display="flex"
+  alignItems="center"
+  justifyContent="center"
+  lineHeight={0}
+>
+  <Icon as={icon} color="white" boxSize={5} />
+</Box>
               <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
             </HStack>
           </HStack>
@@ -208,14 +212,19 @@ function Home() {
         >
           <HStack justify="space-between" mb={4}>
             <HStack spacing={3}>
-              <Box 
-                p={2} 
-                bg={`${color}.500`} 
-                borderRadius="lg"
-                boxShadow="lg"
-              >
-                <Icon as={icon} color="white" boxSize={5} />
-              </Box>
+              <Box
+  p={2}
+  bg={`${color}.500`}
+  borderRadius="lg"
+  boxShadow="lg"
+  display="flex"
+  alignItems="center"
+  justifyContent="center"
+  lineHeight={0}
+>
+  <Icon as={icon} color="white" boxSize={5} />
+</Box>
+
               <VStack align="start" spacing={0}>
                 <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
                 <Text fontSize="xs" color="gray.400">

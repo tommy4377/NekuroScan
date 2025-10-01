@@ -10,6 +10,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import useAuth from './hooks/useAuth';
 
 // Lazy load delle pagine
+const Welcome = lazy(() => import('./pages/Welcome'));
 const Home = lazy(() => import('./pages/Home'));
 const Search = lazy(() => import('./pages/Search'));
 const MangaDetails = lazy(() => import('./pages/MangaDetails'));
@@ -130,7 +131,7 @@ function AppContent() {
     window.addEventListener('offline', handleOffline);
 
     // Registra service worker
-    if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+    if ('serviceWorker' in navigator && import.meta.env.PROD) {
       navigator.serviceWorker.register('/sw.js').then(
         (registration) => {
           console.log('Service Worker registrato:', registration);
@@ -245,10 +246,11 @@ function AppContent() {
               <Routes>
                 {/* Public Routes */}
                 <Route path="/" element={
-                  <AnimatedRoute>
-                    <Navigate to="/home" replace />
-                  </AnimatedRoute>
-                } />
+  <AnimatedRoute>
+    <Welcome />
+  </AnimatedRoute>
+} />
+
                 <Route path="/home" element={
                   <AnimatedRoute>
                     <Home />

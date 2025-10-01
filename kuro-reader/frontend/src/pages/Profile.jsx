@@ -185,32 +185,33 @@ export default function Profile() {
   };
 
   const loadFriends = async () => {
-    if (!user) return;
-    
-    setFriendsError(null);
-    
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
+  if (!user) return;
 
-      const [followersRes, followingRes] = await Promise.all([
-        axios.get(`${config.API_URL}/api/user/followers`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }).catch(() => ({ data: { followers: [] } })),
-        axios.get(`${config.API_URL}/api/user/following`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }).catch(() => ({ data: { following: [] } }))
-      ]);
-      
-      setFriends({
-        followers: followersRes.data.followers || [],
-        following: followingRes.data.following || []
-      });
-    } catch (error) {
-      console.error('Error loading friends:', error);
-      setFriendsError('Impossibile caricare gli amici');
-    }
-  };
+  setFriendsError(null);
+
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const [followersRes, followingRes] = await Promise.all([
+      axios.get(`${config.API_URL}/api/user/${user.username}/followers`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).catch(() => ({ data: { followers: [] } })),
+      axios.get(`${config.API_URL}/api/user/${user.username}/following`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).catch(() => ({ data: { following: [] } }))
+    ]);
+
+    setFriends({
+      followers: followersRes.data.followers || [],
+      following: followingRes.data.following || []
+    });
+  } catch (error) {
+    console.error('Error loading friends:', error);
+    setFriendsError('Impossibile caricare gli amici');
+  }
+};
+
 
   const generateQRCode = async () => {
     if (!user) return;
