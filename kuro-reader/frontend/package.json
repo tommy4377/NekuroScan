@@ -25,7 +25,13 @@
     "react-virtualized-auto-sizer": "^1.0.24",
     "zustand": "^4.4.7",
     "qrcode": "^1.5.3",
-    "lodash.debounce": "^4.0.8"
+    "lodash.debounce": "^4.0.8",
+    "p-limit": "^4.0.0",
+    "yocto-queue": "^1.0.0",
+    "p-locate": "^6.0.0",
+    "path-exists": "^5.0.0",
+    "locate-path": "^7.0.0",
+    "helmet": "^7.1.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.47",
