@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'r
 import { ChakraProvider, Box, Spinner, Center, useColorModeValue, VStack, Text, useToast, Button } from '@chakra-ui/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { HelmetProvider, Helmet } from 'react-helmet-async';
-import theme from './styles/theme';
+import { theme } from './styles/theme';
 import Navigation from './components/Navigation';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
