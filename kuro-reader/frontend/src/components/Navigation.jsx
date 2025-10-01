@@ -1,4 +1,3 @@
-// frontend/src/components/Navigation.jsx
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box, Flex, HStack, IconButton, Button, Input, InputGroup, InputLeftElement,
@@ -9,11 +8,10 @@ import {
 } from '@chakra-ui/react';
 import { HamburgerIcon, CloseIcon, SearchIcon } from '@chakra-ui/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaBook, FaUser, FaBookmark, FaSignInAlt, FaSignOutAlt, FaCog, FaShare } from 'react-icons/fa';
+import { FaBook, FaUser, FaBookmark, FaSignInAlt, FaSignOutAlt, FaCog, FaShare, FaUsers } from 'react-icons/fa';
 import { BiCategoryAlt } from 'react-icons/bi';
 import { MdPublic } from 'react-icons/md';
 import useAuth from '../hooks/useAuth';
-import NotificationCenter from './NotificationCenter';
 
 function Navigation() {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -35,21 +33,14 @@ function Navigation() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Modifica solo la parte dell'avatar:
-const avatarSrc = useMemo(() => {
-  // Prima controlla il profilo utente dal server
-  if (user?.profile?.avatarUrl) return user.profile.avatarUrl;
-  
-  // Se l'utente è loggato ma non ha avatar nel profilo, controlla localStorage
-  // (questo dovrebbe essere sincronizzato dal server)
-  if (user) {
-    const localAvatar = localStorage.getItem('userAvatar');
-    if (localAvatar) return localAvatar;
-  }
-  
-  // Nessun avatar trovato
-  return undefined;
-}, [user]);
+  const avatarSrc = useMemo(() => {
+    if (user?.profile?.avatarUrl) return user.profile.avatarUrl;
+    if (user) {
+      const localAvatar = localStorage.getItem('userAvatar');
+      if (localAvatar) return localAvatar;
+    }
+    return undefined;
+  }, [user]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -171,10 +162,6 @@ const avatarSrc = useMemo(() => {
                 colorScheme="purple"
               />
               
-              {user && (
-                <NotificationCenter />
-              )}
-              
               {user ? (
                 <Menu>
                   <MenuButton as={Button} rounded="full" variant="link" cursor="pointer" minW={0}>
@@ -205,6 +192,9 @@ const avatarSrc = useMemo(() => {
                     </MenuItem>
                     <MenuItem icon={<FaBookmark />} onClick={() => navigate('/library')}>
                       I miei manga
+                    </MenuItem>
+                    <MenuItem icon={<FaUsers />} onClick={() => navigate('/followers')}>
+                      Follower e Seguiti
                     </MenuItem>
                     <MenuItem icon={<FaCog />} onClick={() => navigate('/settings')}>
                       Impostazioni
@@ -308,6 +298,11 @@ const avatarSrc = useMemo(() => {
                   <Link to="/profile" onClick={onClose}>
                     <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaUser />} w="100%">
                       Il mio profilo
+                    </Button>
+                  </Link>
+                  <Link to="/followers" onClick={onClose}>
+                    <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaUsers />} w="100%">
+                      Follower e Seguiti
                     </Button>
                   </Link>
                   <Link to="/settings" onClick={onClose}>

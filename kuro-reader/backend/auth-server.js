@@ -1,4 +1,4 @@
-// ✅ AUTH-SERVER.JS v3.7 - FIX SUPABASE/PGBOUNCER
+// ✅ AUTH-SERVER.JS v4.0 - VERSIONE FINALE CORRETTA
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
@@ -24,26 +24,30 @@ const missingVars = requiredEnvVars.filter(v => !process.env[v]);
 
 if (missingVars.length > 0) {
   console.error('❌ Missing required environment variables:', missingVars);
-  console.log('⚠️  Running in LIMITED MODE - Only basic features available');
+  process.exit(1);
 }
 
-// ========= PRISMA SETUP FOR SUPABASE/PGBOUNCER =========
+// ========= PRISMA SETUP FOR SUPABASE =========
 let prisma = null;
 let dbConnected = false;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
 
-// ✅ FIX CRITICO: Configurazione corretta per Supabase
 function createPrismaClient() {
-  // Per Supabase, usa DIRECT URL se disponibile
-  const databaseUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
+  const databaseUrl = process.env.DATABASE_URL;
   
-  // ✅ IMPORTANTE: Se usi il pooler URL, aggiungi i parametri corretti
-  let finalUrl = databaseUrl;
-  if (databaseUrl.includes('pooler.supabase.com')) {
-    // Rimuovi parametri esistenti
-    const baseUrl = databaseUrl.split('?')[0];
-    // Aggiungi parametri per PgBouncer
-    finalUrl = `${baseUrl}?pgbouncer=true&connect_timeout=10&pool_timeout=30`;
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL not configured');
   }
+
+  let finalUrl = databaseUrl;
+  
+  if (databaseUrl.includes(':6543') || databaseUrl.includes('pooler.supabase.com')) {
+    const baseUrl = databaseUrl.split('?')[0];
+    finalUrl = `${baseUrl}?pgbouncer=true&connection_limit=1`;
+  }
+
+  console.log(`🔌 Connecting to database via: ${finalUrl.includes('pooler') ? 'Pooler (6543)' : 'Direct (5432)'}`);
 
   return new PrismaClient({
     datasources: {
@@ -51,7 +55,7 @@ function createPrismaClient() {
         url: finalUrl
       }
     },
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
     errorFormat: 'minimal',
   });
 }
@@ -64,40 +68,55 @@ async function connectDatabase() {
     
     prisma = createPrismaClient();
     
-    // Test connection con retry
-    let retries = 3;
-    while (retries > 0) {
-      try {
-        await prisma.$queryRaw`SELECT 1`;
-        dbConnected = true;
-        console.log('✅ Database connected successfully');
-        return true;
-      } catch (error) {
-        retries--;
-        if (retries === 0) throw error;
-        console.log(`⚠️ Connection attempt failed, retrying... (${3 - retries}/3)`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Connection timeout')), 10000)
+    );
+    
+    const connectPromise = prisma.$queryRaw`SELECT 1`;
+    
+    await Promise.race([connectPromise, timeoutPromise]);
+    
+    dbConnected = true;
+    reconnectAttempts = 0;
+    console.log('✅ Database connected successfully');
+    return true;
+    
   } catch (error) {
     dbConnected = false;
-    console.error('❌ Database connection failed:', error.message);
+    reconnectAttempts++;
     
-    // Riprova dopo 5 secondi
-    setTimeout(() => {
-      console.log('🔄 Retrying database connection...');
-      connectDatabase();
-    }, 5000);
+    console.error(`❌ Database connection failed (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}):`, error.message);
+    
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      const delay = Math.min(reconnectAttempts * 2000, 10000);
+      console.log(`🔄 Retrying in ${delay/1000}s...`);
+      
+      setTimeout(() => {
+        connectDatabase();
+      }, delay);
+    }
     
     return false;
   }
 }
 
-// Initial connection
 connectDatabase();
 
-// ✅ FIX: Wrapper per query con retry automatico
-async function executeWithRetry(operation, maxRetries = 3) {
+// Health check per mantenere la connessione attiva
+setInterval(async () => {
+  if (dbConnected && prisma) {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+    } catch (error) {
+      console.error('Health check failed, reconnecting...');
+      dbConnected = false;
+      connectDatabase();
+    }
+  }
+}, 30000);
+
+// Wrapper per query con retry automatico
+async function executeWithRetry(operation, maxRetries = 2) {
   let lastError;
   
   for (let i = 0; i < maxRetries; i++) {
@@ -106,22 +125,21 @@ async function executeWithRetry(operation, maxRetries = 3) {
     } catch (error) {
       lastError = error;
       
-      // Se è un errore di prepared statement o connessione, riconnetti
-      if (error.code === '26000' || // prepared statement does not exist
-          error.code === 'P1001' || // Can't reach database
-          error.code === 'P1002' || // Database timeout
-          error.code === '42P05' || // prepared statement already exists
-          error.message?.includes('prepared statement') ||
-          error.message?.includes('connection')) {
-        
+      if (
+        error.code === '26000' ||
+        error.code === 'P1001' ||
+        error.code === 'P1002' ||
+        error.code === '42P05' ||
+        error.message?.includes('prepared statement') ||
+        error.message?.includes('connection')
+      ) {
         console.log(`🔄 Database error detected (attempt ${i + 1}/${maxRetries}), reconnecting...`);
+        
         dbConnected = false;
         await connectDatabase();
         
-        // Aspetta un po' prima di riprovare
-        await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)));
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
       } else {
-        // Se non è un errore di connessione, lancia subito
         throw error;
       }
     }
@@ -144,7 +162,7 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
 }
 
 const PORT = process.env.PORT || 10000;
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // ========= MULTER SETUP =========
 const storage = multer.memoryStorage();
@@ -171,7 +189,7 @@ app.use(cors({
     if (!origin || corsOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(null, true); // Allow all in development
+      callback(null, true);
     }
   },
   credentials: true,
@@ -185,8 +203,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // ========= DATABASE CHECK MIDDLEWARE =========
 const requireDatabase = async (req, res, next) => {
   if (!dbConnected || !prisma) {
-    // Prova a riconnettere
-    await connectDatabase();
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      await connectDatabase();
+    }
     
     if (!dbConnected) {
       return res.status(503).json({ 
@@ -269,25 +288,32 @@ app.get('/health', async (req, res) => {
     status: 'checking',
     timestamp: new Date().toISOString(),
     service: 'NeKuro Scan Auth Server',
-    version: '3.7.0',
+    version: '4.0.0',
     database: 'checking',
-    storage: supabase ? 'configured' : 'disabled'
+    storage: supabase ? 'configured' : 'disabled',
+    reconnectAttempts: reconnectAttempts
   };
   
-  // Check database
   try {
-    await executeWithRetry(async () => {
-      await prisma.$queryRaw`SELECT 1`;
-    });
-    health.database = 'healthy';
-    health.status = 'healthy';
-    dbConnected = true;
+    if (prisma) {
+      await executeWithRetry(async () => {
+        await prisma.$queryRaw`SELECT 1`;
+      });
+      health.database = 'healthy';
+      health.status = 'healthy';
+      dbConnected = true;
+    } else {
+      throw new Error('Prisma not initialized');
+    }
   } catch (error) {
     health.database = 'unhealthy';
     health.status = 'degraded';
     health.error = error.message;
     dbConnected = false;
-    connectDatabase(); // Try reconnect
+    
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      connectDatabase();
+    }
   }
   
   res.status(health.status === 'healthy' ? 200 : 503).json(health);
@@ -316,7 +342,6 @@ app.post('/api/auth/register', requireDatabase, async (req, res) => {
     const normalizedEmail = email.toLowerCase().trim();
     const normalizedUsername = username.toLowerCase().trim();
     
-    // ✅ Usa executeWithRetry per tutte le query
     const existingUser = await executeWithRetry(async () => {
       return await prisma.user.findFirst({
         where: { 
@@ -337,7 +362,6 @@ app.post('/api/auth/register', requireDatabase, async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Crea utente e dati correlati
     const newUser = await executeWithRetry(async () => {
       return await prisma.user.create({
         data: { 
@@ -605,7 +629,7 @@ app.put('/api/user/profile', authenticateToken, requireDatabase, upload.fields([
   }
 });
 
-// SYNC DATA TO SERVER
+// SYNC DATA TO SERVER - NO TRANSACTIONS
 app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) => {
   try {
     const { favorites, reading, completed, dropped, history, readingProgress } = req.body;
@@ -660,42 +684,41 @@ app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) 
             reading: JSON.stringify(reading || []),
             completed: JSON.stringify(completed || []),
             dropped: JSON.stringify(dropped || []),
-            history: JSON.stringify(history || []),
+            history: JSON.stringify(history || [])
           }
         });
       }
     });
     
-    // SYNC READING PROGRESS - FIX UNIQUE CONSTRAINT
-if (readingProgress && typeof readingProgress === 'object') {
-  for (const [mangaUrl, progress] of Object.entries(readingProgress)) {
-    if (progress && typeof progress === 'object') {
-      await executeWithRetry(async () => {
-        // Usa UPSERT invece di findUnique + create/update
-        await prisma.reading_progress.upsert({
-          where: {
-            userId_mangaUrl: { userId, mangaUrl }
-          },
-          update: {
-            chapterIndex: progress.chapterIndex || 0,
-            pageIndex: progress.page || progress.pageIndex || 0,
-            totalPages: progress.totalPages || 0,
-            mangaTitle: progress.mangaTitle || progress.title || '',
-            updatedAt: new Date()
-          },
-          create: {
-            userId,
-            mangaUrl,
-            mangaTitle: progress.mangaTitle || progress.title || '',
-            chapterIndex: progress.chapterIndex || 0,
-            pageIndex: progress.page || progress.pageIndex || 0,
-            totalPages: progress.totalPages || 0
-          }
-        });
-      });
+    // SYNC READING PROGRESS - USA UPSERT
+    if (readingProgress && typeof readingProgress === 'object') {
+      for (const [mangaUrl, progress] of Object.entries(readingProgress)) {
+        if (progress && typeof progress === 'object') {
+          await executeWithRetry(async () => {
+            await prisma.reading_progress.upsert({
+              where: {
+                userId_mangaUrl: { userId, mangaUrl }
+              },
+              update: {
+                chapterIndex: progress.chapterIndex || 0,
+                pageIndex: progress.page || progress.pageIndex || 0,
+                totalPages: progress.totalPages || 0,
+                mangaTitle: progress.mangaTitle || progress.title || '',
+                updatedAt: new Date()
+              },
+              create: {
+                userId,
+                mangaUrl,
+                mangaTitle: progress.mangaTitle || progress.title || '',
+                chapterIndex: progress.chapterIndex || 0,
+                pageIndex: progress.page || progress.pageIndex || 0,
+                totalPages: progress.totalPages || 0
+              }
+            });
+          });
+        }
+      }
     }
-  }
-}
     
     res.json({ success: true, message: 'Dati sincronizzati' });
     
@@ -744,8 +767,7 @@ app.get('/api/user/data', authenticateToken, requireDatabase, async (req, res) =
       completed: library ? JSON.parse(library.completed || '[]') : [],
       dropped: library ? JSON.parse(library.dropped || '[]') : [],
       history: library ? JSON.parse(library.history || '[]') : [],
-      profile: profile || {},
-      notificationSettings: []
+      profile: profile || {}
     });
     
   } catch (error) {
@@ -837,6 +859,167 @@ app.get('/api/profile/:username', async (req, res) => {
   }
 });
 
+// FOLLOW/UNFOLLOW USER
+app.post('/api/user/follow/:username', authenticateToken, requireDatabase, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const followerId = req.user.id;
+    
+    const userToFollow = await executeWithRetry(async () => {
+      return await prisma.user.findUnique({
+        where: { username: username.toLowerCase() }
+      });
+    });
+    
+    if (!userToFollow) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+    
+    if (userToFollow.id === followerId) {
+      return res.status(400).json({ message: 'Non puoi seguire te stesso' });
+    }
+    
+    const existingFollow = await executeWithRetry(async () => {
+      return await prisma.user_follows.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId,
+            followingId: userToFollow.id
+          }
+        }
+      });
+    });
+    
+    if (existingFollow) {
+      // Unfollow
+      await executeWithRetry(async () => {
+        await prisma.user_follows.delete({
+          where: { id: existingFollow.id }
+        });
+      });
+      
+      res.json({ success: true, following: false });
+    } else {
+      // Follow
+      await executeWithRetry(async () => {
+        await prisma.user_follows.create({
+          data: {
+            followerId,
+            followingId: userToFollow.id
+          }
+        });
+      });
+      
+      res.json({ success: true, following: true });
+    }
+    
+  } catch (error) {
+    console.error('Follow/unfollow error:', error);
+    res.status(500).json({ 
+      message: 'Errore operazione follow',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// GET FOLLOWERS
+app.get('/api/user/:username/followers', async (req, res) => {
+  try {
+    const { username } = req.params;
+    
+    const user = await executeWithRetry(async () => {
+      return await prisma.user.findUnique({
+        where: { username: username.toLowerCase() }
+      });
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+    
+    const followers = await executeWithRetry(async () => {
+      return await prisma.user_follows.findMany({
+        where: { followingId: user.id },
+        include: {
+          follower: {
+            include: {
+              profile: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+    });
+    
+    const followersList = followers.map(f => ({
+      id: f.follower.id,
+      username: f.follower.username,
+      displayName: f.follower.profile?.displayName || f.follower.username,
+      avatarUrl: f.follower.profile?.avatarUrl || '',
+      bio: f.follower.profile?.bio || '',
+      followedAt: f.createdAt
+    }));
+    
+    res.json({ followers: followersList });
+    
+  } catch (error) {
+    console.error('Get followers error:', error);
+    res.status(500).json({ 
+      message: 'Errore recupero followers',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// GET FOLLOWING
+app.get('/api/user/:username/following', async (req, res) => {
+  try {
+    const { username } = req.params;
+    
+    const user = await executeWithRetry(async () => {
+      return await prisma.user.findUnique({
+        where: { username: username.toLowerCase() }
+      });
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+    
+    const following = await executeWithRetry(async () => {
+      return await prisma.user_follows.findMany({
+        where: { followerId: user.id },
+        include: {
+          following: {
+            include: {
+              profile: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+    });
+    
+    const followingList = following.map(f => ({
+      id: f.following.id,
+      username: f.following.username,
+      displayName: f.following.profile?.displayName || f.following.username,
+      avatarUrl: f.following.profile?.avatarUrl || '',
+      bio: f.following.profile?.bio || '',
+      followedAt: f.createdAt
+    }));
+    
+    res.json({ following: followingList });
+    
+  } catch (error) {
+    console.error('Get following error:', error);
+    res.status(500).json({ 
+      message: 'Errore recupero following',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // ========= ERROR HANDLER =========
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
@@ -850,7 +1033,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`
   ╔════════════════════════════════════════╗
-  ║     NeKuro Scan Auth Server v3.7      ║
+  ║     NeKuro Scan Auth Server v4.0      ║
   ╠════════════════════════════════════════╣
   ║ Port: ${PORT.toString().padEnd(33)}║
   ║ Environment: ${(process.env.NODE_ENV || 'development').padEnd(26)}║
@@ -861,6 +1044,7 @@ app.listen(PORT, () => {
   
   if (!dbConnected) {
     console.log('⏳ Waiting for database connection...');
+    console.log('💡 Make sure you are using Supabase Connection Pooler (port 6543)');
   }
 });
 
