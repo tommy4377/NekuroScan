@@ -1,13 +1,13 @@
-import React, { useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ChakraProvider, Box, Spinner, Center, useColorModeValue } from '@chakra-ui/react';
+import React, { useEffect, lazy, Suspense, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { ChakraProvider, Box, Spinner, Center, useColorModeValue, VStack, Text, useToast, Button } from '@chakra-ui/react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { HelmetProvider, Helmet } from 'react-helmet-async';
 import theme from './theme';
 import Navigation from './components/Navigation';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import useAuth from './hooks/useAuth';
-import { Helmet } from 'react-helmet';
 
 // Lazy load delle pagine
 const Home = lazy(() => import('./pages/Home'));
@@ -90,7 +90,7 @@ const AnimatedRoute = ({ children }) => (
   </motion.div>
 );
 
-function App() {
+function AppContent() {
   const { initAuth, startAutoSync, isAuthenticated } = useAuth();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const toast = useToast();
@@ -213,136 +213,144 @@ function App() {
   }, []);
 
   return (
-    <ChakraProvider theme={theme}>
-      <ThemeProvider>
-        <Router>
-          <ErrorBoundary>
-            <Helmet>
-              <title>NeKuro Scan - Manga Reader</title>
-              <meta name="description" content="Leggi manga e light novel gratuitamente" />
-              <meta name="theme-color" content="#805AD5" />
-              <link rel="manifest" href="/manifest.json" />
-            </Helmet>
-            
-            <Box minH="100vh" bg="gray.900">
-              <Navigation />
-              
-              {!isOnline && (
-                <Box
-                  bg="orange.600"
-                  color="white"
-                  p={2}
-                  textAlign="center"
-                  position="fixed"
-                  top="60px"
-                  left={0}
-                  right={0}
-                  zIndex={1000}
-                >
-                  <Text fontSize="sm">Modalità offline - Contenuto limitato disponibile</Text>
-                </Box>
-              )}
-              
-              <AnimatePresence mode="wait">
-                <Suspense fallback={<PageLoader />}>
-                  <Routes>
-                    {/* Public Routes */}
-                    <Route path="/" element={
-                      <AnimatedRoute>
-                        <Navigate to="/home" replace />
-                      </AnimatedRoute>
-                    } />
-                    <Route path="/home" element={
-                      <AnimatedRoute>
-                        <Home />
-                      </AnimatedRoute>
-                    } />
-                    <Route path="/search" element={
-                      <AnimatedRoute>
-                        <Search />
-                      </AnimatedRoute>
-                    } />
-                    <Route path="/manga/:source/:id" element={
-                      <AnimatedRoute>
-                        <MangaDetail />
-                      </AnimatedRoute>
-                    } />
-                    <Route path="/read/:source/:mangaId/:chapterId" element={
-                      <ReadChapter />
-                    } />
-                    <Route path="/categories" element={
-                      <AnimatedRoute>
-                        <Categories />
-                      </AnimatedRoute>
-                    } />
-                    <Route path="/latest" element={
-                      <AnimatedRoute>
-                        <Latest />
-                      </AnimatedRoute>
-                    } />
-                    <Route path="/popular" element={
-                      <AnimatedRoute>
-                        <Popular />
-                      </AnimatedRoute>
-                    } />
-                    <Route path="/trending" element={
-                      <AnimatedRoute>
-                        <Trending />
-                      </AnimatedRoute>
-                    } />
-                    <Route path="/login" element={
-                      <AnimatedRoute>
-                        <Login />
-                      </AnimatedRoute>
-                    } />
-                    <Route path="/register" element={
-                      <AnimatedRoute>
-                        <Register />
-                      </AnimatedRoute>
-                    } />
-                    <Route path="/user/:username" element={
-                      <AnimatedRoute>
-                        <PublicProfile />
-                      </AnimatedRoute>
-                    } />
-                    
-                    {/* Protected Routes */}
-                    <Route path="/library" element={
-                      <ProtectedRoute>
-                        <AnimatedRoute>
-                          <Library />
-                        </AnimatedRoute>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/profile" element={
-                      <ProtectedRoute>
-                        <AnimatedRoute>
-                          <Profile />
-                        </AnimatedRoute>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/settings" element={
-                      <ProtectedRoute>
-                        <AnimatedRoute>
-                          <Settings />
-                        </AnimatedRoute>
-                      </ProtectedRoute>
-                    } />
-                    
-                    {/* 404 */}
-                    <Route path="*" element={
-                      <AnimatedRoute>
-                        <NotFound />
-                      </AnimatedRoute>
-                    } />
-                  </Routes>
-                </Suspense>
-              </AnimatePresence>
+    <Router>
+      <ErrorBoundary>
+        <Helmet>
+          <title>NeKuro Scan - Manga Reader</title>
+          <meta name="description" content="Leggi manga e light novel gratuitamente" />
+          <meta name="theme-color" content="#805AD5" />
+          <link rel="manifest" href="/manifest.json" />
+        </Helmet>
+        
+        <Box minH="100vh" bg="gray.900">
+          <Navigation />
+          
+          {!isOnline && (
+            <Box
+              bg="orange.600"
+              color="white"
+              p={2}
+              textAlign="center"
+              position="fixed"
+              top="60px"
+              left={0}
+              right={0}
+              zIndex={1000}
+            >
+              <Text fontSize="sm">Modalità offline - Contenuto limitato disponibile</Text>
             </Box>
-          </ErrorBoundary>
-        </Router>
-      </ThemeProvider>
-    </ChakraProvider>
+          )}
+          
+          <AnimatePresence mode="wait">
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/" element={
+                  <AnimatedRoute>
+                    <Navigate to="/home" replace />
+                  </AnimatedRoute>
+                } />
+                <Route path="/home" element={
+                  <AnimatedRoute>
+                    <Home />
+                  </AnimatedRoute>
+                } />
+                <Route path="/search" element={
+                  <AnimatedRoute>
+                    <Search />
+                  </AnimatedRoute>
+                } />
+                <Route path="/manga/:source/:id" element={
+                  <AnimatedRoute>
+                    <MangaDetail />
+                  </AnimatedRoute>
+                } />
+                <Route path="/read/:source/:mangaId/:chapterId" element={
+                  <ReadChapter />
+                } />
+                <Route path="/categories" element={
+                  <AnimatedRoute>
+                    <Categories />
+                  </AnimatedRoute>
+                } />
+                <Route path="/latest" element={
+                  <AnimatedRoute>
+                    <Latest />
+                  </AnimatedRoute>
+                } />
+                <Route path="/popular" element={
+                  <AnimatedRoute>
+                    <Popular />
+                  </AnimatedRoute>
+                } />
+                <Route path="/trending" element={
+                  <AnimatedRoute>
+                    <Trending />
+                  </AnimatedRoute>
+                } />
+                <Route path="/login" element={
+                  <AnimatedRoute>
+                    <Login />
+                  </AnimatedRoute>
+                } />
+                <Route path="/register" element={
+                  <AnimatedRoute>
+                    <Register />
+                  </AnimatedRoute>
+                } />
+                <Route path="/user/:username" element={
+                  <AnimatedRoute>
+                    <PublicProfile />
+                  </AnimatedRoute>
+                } />
+                
+                {/* Protected Routes */}
+                <Route path="/library" element={
+                  <ProtectedRoute>
+                    <AnimatedRoute>
+                      <Library />
+                    </AnimatedRoute>
+                  </ProtectedRoute>
+                } />
+                <Route path="/profile" element={
+                  <ProtectedRoute>
+                    <AnimatedRoute>
+                      <Profile />
+                    </AnimatedRoute>
+                  </ProtectedRoute>
+                } />
+                <Route path="/settings" element={
+                  <ProtectedRoute>
+                    <AnimatedRoute>
+                      <Settings />
+                    </AnimatedRoute>
+                  </ProtectedRoute>
+                } />
+                
+                {/* 404 */}
+                <Route path="*" element={
+                  <AnimatedRoute>
+                    <NotFound />
+                  </AnimatedRoute>
+                } />
+              </Routes>
+            </Suspense>
+          </AnimatePresence>
+        </Box>
+      </ErrorBoundary>
+    </Router>
+  );
+}
+
+function App() {
+  return (
+    <HelmetProvider>
+      <ChakraProvider theme={theme}>
+        <ThemeProvider>
+          <AppContent />
+        </ThemeProvider>
+      </ChakraProvider>
+    </HelmetProvider>
   );
 }
 
