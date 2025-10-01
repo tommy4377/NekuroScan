@@ -1,5 +1,5 @@
-// ✅ READERPAGE.JSX v3.7 - FIX DEFINITIVO DIPENDENZE CIRCOLARI
-import React, { useState, useEffect, useRef } from 'react';
+// ✅ READERPAGE.JSX v3.8 - FIX INIZIALIZZAZIONE
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import {
   Box, IconButton, useToast, Image, Spinner, Text, VStack, HStack,
   Drawer, DrawerOverlay, DrawerContent, DrawerBody, DrawerHeader,
@@ -57,7 +57,10 @@ function ReaderPage() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [zoomOrigin, setZoomOrigin] = useState({ x: 0, y: 0 });
   
-  // Refs - ✅ TUTTE LE FUNZIONI IN REF PER EVITARE DIPENDENZE CIRCOLARI
+  // ✅ Flag per inizializzazione completa
+  const [isInitialized, setIsInitialized] = useState(false);
+  
+  // Refs
   const scrollIntervalRef = useRef(null);
   const containerRef = useRef(null);
   const saveTimeoutRef = useRef(null);
@@ -65,189 +68,206 @@ function ReaderPage() {
   const lastTapRef = useRef(0);
   const touchStartRef = useRef({ x: 0, y: 0 });
   const controlsTimeoutRef = useRef(null);
-  
-  // ✅ Refs per funzioni
-  const changePageRef = useRef(null);
-  const navigateChapterRef = useRef(null);
-  const saveProgressRef = useRef(null);
+  const isMountedRef = useRef(true);
   
   const chapterIndex = parseInt(searchParams.get('chapter') || '0');
 
-  // ========= FUNCTIONS AS REFS =========
+  // ========= ✅ FUNZIONI DEFINITE SUBITO (non in ref) =========
   
-  saveProgressRef.current = () => {
-    if (!manga || !chapter) return;
+  const saveProgress = () => {
+    if (!manga || !chapter || !isMountedRef.current) return;
     
-    const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-    readingProgress[manga.url] = {
-      chapterId: chapter.url,
-      chapterIndex: chapterIndex,
-      chapterTitle: manga.chapters[chapterIndex]?.title || '',
-      page: currentPage,
-      totalPages: chapter.pages?.length || 0,
-      timestamp: new Date().toISOString()
-    };
-    localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
-    
-    const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-    const existingIndex = reading.findIndex(r => r.url === manga.url);
-    
-    const readingItem = {
-      url: manga.url,
-      title: manga.title,
-      cover: manga.coverUrl,
-      type: manga.type,
-      source: manga.source || source,
-      lastChapterIndex: chapterIndex,
-      lastChapterTitle: manga.chapters[chapterIndex]?.title || '',
-      lastPage: currentPage,
-      progress: Math.round(((chapterIndex + 1) / manga.chapters.length) * 100),
-      lastRead: new Date().toISOString()
-    };
-    
-    if (existingIndex !== -1) {
-      reading[existingIndex] = readingItem;
-    } else {
-      reading.unshift(readingItem);
-    }
-    
-    localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
-    
-    if (currentPage >= (chapter.pages?.length || 1) - 1) {
-      const completed = JSON.parse(localStorage.getItem('completedChapters') || '{}');
-      if (!completed[manga.url]) {
-        completed[manga.url] = [];
+    try {
+      const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+      readingProgress[manga.url] = {
+        chapterId: chapter.url,
+        chapterIndex: chapterIndex,
+        chapterTitle: manga.chapters[chapterIndex]?.title || '',
+        page: currentPage,
+        totalPages: chapter.pages?.length || 0,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
+      
+      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+      const existingIndex = reading.findIndex(r => r.url === manga.url);
+      
+      const readingItem = {
+        url: manga.url,
+        title: manga.title,
+        cover: manga.coverUrl,
+        type: manga.type,
+        source: manga.source || source,
+        lastChapterIndex: chapterIndex,
+        lastChapterTitle: manga.chapters[chapterIndex]?.title || '',
+        lastPage: currentPage,
+        progress: Math.round(((chapterIndex + 1) / manga.chapters.length) * 100),
+        lastRead: new Date().toISOString()
+      };
+      
+      if (existingIndex !== -1) {
+        reading[existingIndex] = readingItem;
+      } else {
+        reading.unshift(readingItem);
       }
-      if (!completed[manga.url].includes(chapterIndex)) {
-        completed[manga.url].push(chapterIndex);
-        localStorage.setItem('completedChapters', JSON.stringify(completed));
+      
+      localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
+      
+      if (currentPage >= (chapter.pages?.length || 1) - 1) {
+        const completed = JSON.parse(localStorage.getItem('completedChapters') || '{}');
+        if (!completed[manga.url]) {
+          completed[manga.url] = [];
+        }
+        if (!completed[manga.url].includes(chapterIndex)) {
+          completed[manga.url].push(chapterIndex);
+          localStorage.setItem('completedChapters', JSON.stringify(completed));
+        }
       }
+      
+      window.dispatchEvent(new CustomEvent('library-updated'));
+    } catch (error) {
+      console.error('Error saving progress:', error);
     }
-    
-    window.dispatchEvent(new CustomEvent('library-updated'));
   };
 
-  navigateChapterRef.current = async (direction) => {
-    if (!manga?.chapters) return;
+  const navigateChapter = async (direction) => {
+    if (!manga?.chapters || !isMountedRef.current) return;
     
-    const newIndex = chapterIndex + direction;
-    if (newIndex >= 0 && newIndex < manga.chapters.length) {
-      if (saveProgressRef.current) saveProgressRef.current();
-      
-      const newChapter = manga.chapters[newIndex];
-      const newChapterId = btoa(newChapter.url);
-      navigate(`/read/${source}/${mangaId}/${newChapterId}?chapter=${newIndex}`);
-    } else {
-      if (direction > 0) {
-        toast({
-          title: 'Ultimo capitolo raggiunto',
-          description: 'Hai completato il manga!',
-          status: 'success',
-          duration: 3000,
-        });
+    try {
+      const newIndex = chapterIndex + direction;
+      if (newIndex >= 0 && newIndex < manga.chapters.length) {
+        saveProgress();
         
-        const completed = JSON.parse(localStorage.getItem('completed') || '[]');
-        if (!completed.find(c => c.url === manga.url)) {
-          completed.unshift({
-            url: manga.url,
-            title: manga.title,
-            cover: manga.coverUrl,
-            type: manga.type,
-            source: manga.source || source,
-            completedAt: new Date().toISOString(),
-            progress: 100
+        const newChapter = manga.chapters[newIndex];
+        const newChapterId = btoa(newChapter.url);
+        navigate(`/read/${source}/${mangaId}/${newChapterId}?chapter=${newIndex}`);
+      } else {
+        if (direction > 0) {
+          toast({
+            title: 'Ultimo capitolo raggiunto',
+            description: 'Hai completato il manga!',
+            status: 'success',
+            duration: 3000,
           });
-          localStorage.setItem('completed', JSON.stringify(completed));
+          
+          const completed = JSON.parse(localStorage.getItem('completed') || '[]');
+          if (!completed.find(c => c.url === manga.url)) {
+            completed.unshift({
+              url: manga.url,
+              title: manga.title,
+              cover: manga.coverUrl,
+              type: manga.type,
+              source: manga.source || source,
+              completedAt: new Date().toISOString(),
+              progress: 100
+            });
+            localStorage.setItem('completed', JSON.stringify(completed));
+          }
+          
+          const rp = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+          rp[manga.url] = {
+            chapterId: manga.chapters[manga.chapters.length - 1]?.url,
+            chapterIndex: manga.chapters.length - 1,
+            chapterTitle: manga.chapters[manga.chapters.length - 1]?.title || '',
+            totalChapters: manga.chapters.length,
+            page: 0,
+            totalPages: 0,
+            timestamp: new Date().toISOString()
+          };
+          localStorage.setItem('readingProgress', JSON.stringify(rp));
+          
+          const cc = JSON.parse(localStorage.getItem('completedChapters') || '{}');
+          cc[manga.url] = Array.from({ length: manga.chapters.length }, (_, i) => i);
+          localStorage.setItem('completedChapters', JSON.stringify(cc));
+          
+          if (syncToServer && typeof syncToServer === 'function') {
+            try {
+              await syncToServer();
+            } catch (e) {
+              console.error('Sync after completion failed:', e);
+            }
+          }
+          
+          window.dispatchEvent(new CustomEvent('library-updated'));
+          
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              navigate(`/manga/${source}/${mangaId}`);
+            }
+          }, 1200);
+        } else {
+          toast({
+            title: 'Primo capitolo',
+            status: 'info',
+            duration: 2000,
+          });
         }
+      }
+    } catch (error) {
+      console.error('Error navigating chapter:', error);
+    }
+  };
+
+  const changePage = (direction) => {
+    if (!chapter?.pages || !isMountedRef.current) return;
+    
+    try {
+      const pagesToSkip = readingMode === 'double' ? 2 : 1;
+      const newPage = currentPage + (direction * pagesToSkip);
+      
+      if (newPage >= 0 && newPage < chapter.pages.length) {
+        setCurrentPage(newPage);
         
-        const rp = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-        rp[manga.url] = {
-          chapterId: manga.chapters[manga.chapters.length - 1]?.url,
-          chapterIndex: manga.chapters.length - 1,
-          chapterTitle: manga.chapters[manga.chapters.length - 1]?.title || '',
-          totalChapters: manga.chapters.length,
-          page: 0,
-          totalPages: 0,
-          timestamp: new Date().toISOString()
-        };
-        localStorage.setItem('readingProgress', JSON.stringify(rp));
-        
-        const cc = JSON.parse(localStorage.getItem('completedChapters') || '{}');
-        cc[manga.url] = Array.from({ length: manga.chapters.length }, (_, i) => i);
-        localStorage.setItem('completedChapters', JSON.stringify(cc));
-        
-        if (syncToServer && typeof syncToServer === 'function') {
-          try {
-            await syncToServer();
-          } catch (e) {
-            console.error('Sync after completion failed:', e);
+        // Preload
+        const preloadCount = readingMode === 'webtoon' ? 10 : 5;
+        for (let i = newPage; i < Math.min(newPage + preloadCount, chapter.pages.length); i++) {
+          if (!preloadedImages[i]) {
+            const img = document.createElement('img');
+            img.onload = () => {
+              if (isMountedRef.current) {
+                setPreloadedImages(prev => ({ ...prev, [i]: true }));
+              }
+            };
+            img.src = chapter.pages[i];
           }
         }
-        
-        window.dispatchEvent(new CustomEvent('library-updated'));
-        
-        setTimeout(() => {
-          navigate(`/manga/${source}/${mangaId}`);
-        }, 1200);
-      } else {
-        toast({
-          title: 'Primo capitolo',
-          status: 'info',
-          duration: 2000,
-        });
-      }
-    }
-  };
-
-  changePageRef.current = (direction) => {
-    if (!chapter?.pages) return;
-    
-    const pagesToSkip = readingMode === 'double' ? 2 : 1;
-    const newPage = currentPage + (direction * pagesToSkip);
-    
-    if (newPage >= 0 && newPage < chapter.pages.length) {
-      setCurrentPage(newPage);
-      
-      // Preload
-      const preloadCount = readingMode === 'webtoon' ? 10 : 5;
-      for (let i = newPage; i < Math.min(newPage + preloadCount, chapter.pages.length); i++) {
-        if (!preloadedImages[i]) {
-          const img = document.createElement('img');
-          img.onload = () => {
-            setPreloadedImages(prev => ({ ...prev, [i]: true }));
-          };
-          img.src = chapter.pages[i];
+      } else if (newPage >= chapter.pages.length) {
+        if (chapterIndex < manga?.chapters?.length - 1) {
+          toast({
+            title: 'Capitolo completato!',
+            description: 'Passaggio al capitolo successivo...',
+            status: 'success',
+            duration: 2000,
+          });
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              navigateChapter(1);
+            }
+          }, 1500);
+        } else {
+          toast({
+            title: 'Manga completato!',
+            description: 'Hai raggiunto l\'ultimo capitolo',
+            status: 'success',
+            duration: 3000,
+          });
+        }
+      } else if (newPage < 0) {
+        if (chapterIndex > 0) {
+          navigateChapter(-1);
         }
       }
-    } else if (newPage >= chapter.pages.length) {
-      if (chapterIndex < manga?.chapters?.length - 1) {
-        toast({
-          title: 'Capitolo completato!',
-          description: 'Passaggio al capitolo successivo...',
-          status: 'success',
-          duration: 2000,
-        });
-        setTimeout(() => {
-          if (navigateChapterRef.current) navigateChapterRef.current(1);
-        }, 1500);
-      } else {
-        toast({
-          title: 'Manga completato!',
-          description: 'Hai raggiunto l\'ultimo capitolo',
-          status: 'success',
-          duration: 3000,
-        });
-      }
-    } else if (newPage < 0) {
-      if (chapterIndex > 0) {
-        if (navigateChapterRef.current) navigateChapterRef.current(-1);
-      }
+    } catch (error) {
+      console.error('Error changing page:', error);
     }
   };
 
-  // ✅ Cleanup effect
+  // ✅ Cleanup effect - PRIMO
   useEffect(() => {
+    isMountedRef.current = true;
+    
     return () => {
+      isMountedRef.current = false;
       if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current);
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
@@ -256,7 +276,11 @@ function ReaderPage() {
 
   // ✅ Load data effect
   useEffect(() => {
+    let cancelled = false;
+    
     const loadData = async () => {
+      if (cancelled) return;
+      
       try {
         setLoading(true);
         setErrorPages(new Set());
@@ -266,12 +290,15 @@ function ReaderPage() {
         const chapterUrl = atob(chapterId);
         
         const mangaData = await apiManager.getMangaDetails(mangaUrl, source);
+        if (cancelled) return;
+        
         if (!mangaData) {
           throw new Error('Impossibile caricare i dettagli del manga');
         }
         setManga(mangaData);
         
         const chapterData = await apiManager.getChapter(chapterUrl, source);
+        if (cancelled) return;
         
         if (!chapterData) {
           throw new Error('Impossibile caricare il capitolo');
@@ -307,6 +334,7 @@ function ReaderPage() {
         if (chapterData.pages.length > 0) {
           const img = document.createElement('img');
           img.onload = function() {
+            if (cancelled) return;
             const aspectRatio = this.width / this.height;
             if (aspectRatio < 0.6) {
               setReadingMode('webtoon');
@@ -321,7 +349,13 @@ function ReaderPage() {
           img.src = chapterData.pages[0];
         }
         
+        // ✅ Segna come inizializzato
+        if (!cancelled) {
+          setIsInitialized(true);
+        }
+        
       } catch (error) {
+        if (cancelled) return;
         console.error('Error loading data:', error);
         toast({
           title: 'Errore caricamento',
@@ -332,23 +366,36 @@ function ReaderPage() {
         });
         
         setTimeout(() => {
-          navigate(`/manga/${source}/${mangaId}`);
+          if (!cancelled) {
+            navigate(`/manga/${source}/${mangaId}`);
+          }
         }, 2000);
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     loadData();
+    
+    return () => {
+      cancelled = true;
+    };
   }, [chapterId, source, mangaId, navigate, toast]);
 
-  // ✅ Mouse move effect
+  // ✅ Mouse move effect - SOLO SE INIZIALIZZATO
   useEffect(() => {
+    if (!isInitialized) return;
+    
     const handleMouseMove = () => {
+      if (!isMountedRef.current) return;
       setShowControls(true);
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
       controlsTimeoutRef.current = setTimeout(() => {
-        setShowControls(false);
+        if (isMountedRef.current) {
+          setShowControls(false);
+        }
       }, 3000);
     };
 
@@ -357,13 +404,15 @@ function ReaderPage() {
       window.removeEventListener('mousemove', handleMouseMove);
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     };
-  }, []);
+  }, [isInitialized]);
 
-  // ✅ Auto scroll effect
+  // ✅ Auto scroll effect - SOLO SE INIZIALIZZATO
   useEffect(() => {
+    if (!isInitialized) return;
+    
     if (autoScroll && readingMode === 'webtoon') {
       scrollIntervalRef.current = setInterval(() => {
-        if (containerRef.current) {
+        if (containerRef.current && isMountedRef.current) {
           containerRef.current.scrollBy({
             top: scrollSpeed / 10,
             behavior: 'smooth'
@@ -391,10 +440,12 @@ function ReaderPage() {
         clearInterval(scrollIntervalRef.current);
       }
     };
-  }, [autoScroll, scrollSpeed, readingMode, toast]);
+  }, [autoScroll, scrollSpeed, readingMode, toast, isInitialized]);
 
-  // ✅ Touch gestures
+  // ✅ Touch gestures - SOLO SE INIZIALIZZATO
   useEffect(() => {
+    if (!isInitialized) return;
+    
     const handleTouchStart = (e) => {
       touchStartRef.current = {
         x: e.touches[0].clientX,
@@ -403,6 +454,8 @@ function ReaderPage() {
     };
 
     const handleTouchEnd = (e) => {
+      if (!isMountedRef.current) return;
+      
       const touchEnd = {
         x: e.changedTouches[0].clientX,
         y: e.changedTouches[0].clientY
@@ -412,12 +465,10 @@ function ReaderPage() {
       const deltaY = touchEnd.y - touchStartRef.current.y;
       
       if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
-        if (changePageRef.current) {
-          if (deltaX > 0) {
-            changePageRef.current(-1);
-          } else {
-            changePageRef.current(1);
-          }
+        if (deltaX > 0) {
+          changePage(-1);
+        } else {
+          changePage(1);
         }
       }
     };
@@ -429,12 +480,14 @@ function ReaderPage() {
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, []);
+  }, [isInitialized]);
 
-  // ✅ Keyboard shortcuts
+  // ✅ Keyboard shortcuts - SOLO SE INIZIALIZZATO
   useEffect(() => {
+    if (!isInitialized) return;
+    
     const handleKeyPress = (e) => {
-      if (settingsOpen) return;
+      if (settingsOpen || !isMountedRef.current) return;
       
       if (readingMode === 'webtoon') {
         switch(e.key) {
@@ -468,17 +521,17 @@ function ReaderPage() {
           case 'a':
           case 'A':
             e.preventDefault();
-            if (changePageRef.current) changePageRef.current(-1);
+            changePage(-1);
             break;
           case 'ArrowRight':
           case 'd':
           case 'D':
             e.preventDefault();
-            if (changePageRef.current) changePageRef.current(1);
+            changePage(1);
             break;
           case ' ':
             e.preventDefault();
-            if (changePageRef.current) changePageRef.current(1);
+            changePage(1);
             break;
           case 'Home':
             e.preventDefault();
@@ -510,10 +563,11 @@ function ReaderPage() {
           setSettingsOpen(prev => !prev);
           break;
         case 'Escape':
+          e.preventDefault();
           if (isFullscreen) {
             toggleFullscreen();
           } else {
-            if (saveProgressRef.current) saveProgressRef.current();
+            saveProgress();
             navigate(`/manga/${source}/${mangaId}`);
           }
           break;
@@ -529,29 +583,31 @@ function ReaderPage() {
           break;
         case '[':
           e.preventDefault();
-          if (navigateChapterRef.current) navigateChapterRef.current(-1);
+          navigateChapter(-1);
           break;
         case ']':
           e.preventDefault();
-          if (navigateChapterRef.current) navigateChapterRef.current(1);
+          navigateChapter(1);
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [settingsOpen, readingMode, isFullscreen, chapter, navigate, source, mangaId]);
+  }, [settingsOpen, readingMode, isFullscreen, chapter, navigate, source, mangaId, isInitialized]);
 
-  // ✅ Save progress effect
+  // ✅ Save progress effect - SOLO SE INIZIALIZZATO
   useEffect(() => {
-    if (!manga || !chapter || !chapter.pages || chapter.pages.length === 0) return;
+    if (!manga || !chapter || !chapter.pages || chapter.pages.length === 0 || !isInitialized) return;
     
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
     
     saveTimeoutRef.current = setTimeout(() => {
-      if (saveProgressRef.current) saveProgressRef.current();
+      if (isMountedRef.current) {
+        saveProgress();
+      }
     }, 1000);
     
     return () => {
@@ -559,7 +615,7 @@ function ReaderPage() {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [currentPage, manga, chapter, chapterIndex]);
+  }, [currentPage, manga, chapter, chapterIndex, isInitialized]);
 
   // ========= HELPER FUNCTIONS =========
 
@@ -690,7 +746,6 @@ function ReaderPage() {
     const DOUBLE_TAP_DELAY = 300;
     
     if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-      // Double tap
       if (!isZoomed) {
         const rect = e.target.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -741,6 +796,8 @@ function ReaderPage() {
             '&::-webkit-scrollbar-thumb:hover': { background: '#6a6a6a' },
           }}
           onScroll={(e) => {
+            if (!isMountedRef.current) return;
+            
             const container = e.target;
             const scrollPercentage = (container.scrollTop / (container.scrollHeight - container.clientHeight)) * 100;
             const estimatedPage = Math.floor((scrollPercentage / 100) * chapter.pages.length);
@@ -753,6 +810,8 @@ function ReaderPage() {
               setLoadingMore(true);
               
               setTimeout(() => {
+                if (!isMountedRef.current) return;
+                
                 if (chapterIndex < manga?.chapters?.length - 1) {
                   toast({
                     title: 'Capitolo completato!',
@@ -762,7 +821,9 @@ function ReaderPage() {
                   });
                   
                   setTimeout(() => {
-                    if (navigateChapterRef.current) navigateChapterRef.current(1);
+                    if (isMountedRef.current) {
+                      navigateChapter(1);
+                    }
                   }, 1000);
                 } else {
                   toast({
@@ -857,9 +918,9 @@ function ReaderPage() {
           const clickZone = rect.width * 0.3;
           
           if (x < clickZone) {
-            if (changePageRef.current) changePageRef.current(-1);
+            changePage(-1);
           } else if (x > rect.width - clickZone) {
-            if (changePageRef.current) changePageRef.current(1);
+            changePage(1);
           }
         }}
         cursor="pointer"
@@ -998,7 +1059,7 @@ function ReaderPage() {
             size="lg"
             borderRadius="full"
             onClick={() => {
-              if (saveProgressRef.current) saveProgressRef.current();
+              saveProgress();
               navigate(`/manga/${source}/${mangaId}`);
             }}
             aria-label="Chiudi reader"
@@ -1012,7 +1073,7 @@ function ReaderPage() {
             size="lg"
             borderRadius="full"
             onClick={() => {
-              if (saveProgressRef.current) saveProgressRef.current();
+              saveProgress();
               navigate('/home');
             }}
             aria-label="Home"
@@ -1083,7 +1144,7 @@ function ReaderPage() {
             borderRadius="full"
             onClick={(e) => {
               e.stopPropagation();
-              if (changePageRef.current) changePageRef.current(-1);
+              changePage(-1);
             }}
             isDisabled={currentPage === 0 && chapterIndex === 0}
             zIndex={1001}
@@ -1108,7 +1169,7 @@ function ReaderPage() {
             borderRadius="full"
             onClick={(e) => {
               e.stopPropagation();
-              if (changePageRef.current) changePageRef.current(1);
+              changePage(1);
             }}
             isDisabled={currentPage >= chapter.pages.length - 1 && 
                       chapterIndex >= manga?.chapters?.length - 1}
