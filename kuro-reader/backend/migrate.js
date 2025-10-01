@@ -1,10 +1,11 @@
-// ✅ MIGRATE.JS v2.1 - DATABASE MIGRATION CON DROPPED COLUMN
+// backend/migrate.js
+// ✅ MIGRATE.JS v2.2 - FIX COMPLETO CON DROPPED + VERIFICA
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Starting database migration...');
+  console.log('🔄 Starting database migration...');
   
   try {
     // 1. Create user table
@@ -67,12 +68,33 @@ async function main() {
     `;
     console.log('✅ User library table created/verified');
     
-    // ✅ 4.1 ADD DROPPED COLUMN IF NOT EXISTS
-    await prisma.$executeRaw`
-      ALTER TABLE "user_library" 
-      ADD COLUMN IF NOT EXISTS "dropped" TEXT DEFAULT '[]';
-    `;
-    console.log('✅ Dropped column added/verified');
+    // ✅ 4.1 VERIFICA E AGGIUNGI DROPPED SE MANCA
+    try {
+      const columnCheck = await prisma.$queryRaw`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'user_library' AND column_name = 'dropped';
+      `;
+      
+      if (!columnCheck || columnCheck.length === 0) {
+        console.log('⚠️  Dropped column missing, adding it...');
+        await prisma.$executeRaw`
+          ALTER TABLE "user_library" 
+          ADD COLUMN "dropped" TEXT DEFAULT '[]';
+        `;
+        console.log('✅ Dropped column added successfully');
+      } else {
+        console.log('✅ Dropped column already exists');
+      }
+    } catch (e) {
+      console.error('❌ Error checking/adding dropped column:', e.message);
+      // Try alternative method
+      await prisma.$executeRaw`
+        ALTER TABLE "user_library" 
+        ADD COLUMN IF NOT EXISTS "dropped" TEXT DEFAULT '[]';
+      `;
+      console.log('✅ Dropped column added (alternative method)');
+    }
     
     // 5. Create reading_progress table
     await prisma.$executeRaw`
@@ -105,53 +127,32 @@ async function main() {
     `;
     console.log('✅ User follows table created/verified');
     
-    // 7. Create indexes for better performance
-    await prisma.$executeRaw`
-      CREATE INDEX IF NOT EXISTS "idx_user_username" ON "user"("username");
-    `;
-    
-    await prisma.$executeRaw`
-      CREATE INDEX IF NOT EXISTS "idx_user_email" ON "user"("email");
-    `;
-    
-    await prisma.$executeRaw`
-      CREATE INDEX IF NOT EXISTS "idx_reading_progress_user" ON "reading_progress"("userId");
-    `;
-    
-    await prisma.$executeRaw`
-      CREATE INDEX IF NOT EXISTS "idx_user_follows_follower" ON "user_follows"("followerId");
-    `;
-    
-    await prisma.$executeRaw`
-      CREATE INDEX IF NOT EXISTS "idx_user_follows_following" ON "user_follows"("followingId");
-    `;
+    // 7. Create indexes
+    await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_user_username" ON "user"("username");`;
+    await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_user_email" ON "user"("email");`;
+    await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_reading_progress_user" ON "reading_progress"("userId");`;
+    await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_user_follows_follower" ON "user_follows"("followerId");`;
+    await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_user_follows_following" ON "user_follows"("followingId");`;
     console.log('✅ Indexes created/verified');
     
-    // 8. Remove theme column if exists (cleanup)
+    // 8. Cleanup old theme column
     try {
-      await prisma.$executeRaw`
-        ALTER TABLE "user_profile" 
-        DROP COLUMN IF EXISTS "theme";
-      `;
+      await prisma.$executeRaw`ALTER TABLE "user_profile" DROP COLUMN IF EXISTS "theme";`;
       console.log('✅ Removed theme column (if existed)');
-    } catch (e) {
-      // Column might not exist, that's ok
-    }
+    } catch {}
     
-    // 9. Add missing columns if they don't exist
+    // 9. Add totalPages if missing
     try {
       await prisma.$executeRaw`
         ALTER TABLE "reading_progress"
         ADD COLUMN IF NOT EXISTS "totalPages" INTEGER DEFAULT 0;
       `;
-      console.log('✅ TotalPages column added/verified');
-    } catch (e) {
-      // Column might already exist
-    }
+      console.log('✅ TotalPages column verified');
+    } catch {}
     
     console.log('\n✅ Migration completed successfully!');
     
-    // 10. Verify all tables exist
+    // 10. Verify structure
     const tables = await prisma.$queryRaw`
       SELECT table_name 
       FROM information_schema.tables 
@@ -172,6 +173,14 @@ async function main() {
     
     console.log('\n📋 user_library columns:');
     columns.forEach(c => console.log(`  - ${c.column_name} (${c.data_type})`));
+    
+    // ✅ Verifica che dropped ci sia
+    const hasDropped = columns.some(c => c.column_name === 'dropped');
+    if (hasDropped) {
+      console.log('\n✅ DROPPED COLUMN CONFIRMED IN DATABASE');
+    } else {
+      console.error('\n❌ WARNING: DROPPED COLUMN STILL MISSING!');
+    }
     
   } catch (error) {
     console.error('❌ Migration failed:', error);

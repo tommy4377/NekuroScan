@@ -11,7 +11,6 @@ import { useInView } from 'react-intersection-observer';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import { motion } from 'framer-motion';
-import debounce from 'lodash.debounce';
 import VirtualGrid from '../components/VirtualGrid';
 
 const MotionBox = motion(Box);
@@ -28,7 +27,11 @@ function Search() {
   const [results, setResults] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  
+  // ✅ FIX: Ref per evitare spam
   const loadingRef = useRef(false);
+  const searchTimeoutRef = useRef(null);
+  const lastSearchRef = useRef('');
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0.1,
@@ -43,88 +46,109 @@ function Search() {
     }
   }, []);
 
-  const debouncedSearch = useCallback(
-    debounce(async (searchQuery, mode, pageNum = 1, append = false) => {
-      if (!searchQuery?.trim() || loadingRef.current) { 
-        setResults([]); 
-        setLoading(false);
-        return; 
-      }
+  // ✅ FIX: Funzione di ricerca ottimizzata senza spam
+  const performSearch = useCallback(async (searchQuery, mode, pageNum = 1, append = false) => {
+    // Evita ricerche duplicate
+    const searchKey = `${searchQuery}-${mode}-${pageNum}`;
+    if (loadingRef.current || !searchQuery?.trim() || searchKey === lastSearchRef.current) {
+      return;
+    }
+    
+    lastSearchRef.current = searchKey;
+    loadingRef.current = true;
+    
+    if (pageNum === 1) {
+      setLoading(true);
+      setResults([]);
+    } else {
+      setLoadingMore(true);
+    }
+    
+    try {
+      let data = [];
+      const limit = 40;
       
-      loadingRef.current = true;
-      
-      if (pageNum === 1) {
-        setLoading(true);
-        setResults([]);
+      if (mode === 'adult') {
+        data = await apiManager.searchAdult(searchQuery, limit);
+      } else if (mode === 'normal') {
+        const r = await apiManager.searchManga(searchQuery, limit);
+        data = r.all || r.manga || [];
       } else {
-        setLoadingMore(true);
+        const r = await apiManager.searchAll(searchQuery, { includeAdult: true, limit });
+        data = r.all || [];
       }
       
-      try {
-        let data = [];
-        const limit = 40;
-        
-        if (mode === 'adult') {
-          const r = await apiManager.searchAdult(searchQuery, limit);
-          data = r || [];
-        } else if (mode === 'normal') {
-          const r = await apiManager.searchManga(searchQuery, limit);
-          data = r.all || r.manga || [];
-        } else {
-          const r = await apiManager.searchAll(searchQuery, { includeAdult: true, limit });
-          data = r.all || [];
-        }
-        
-        if (append) {
-          setResults(prev => {
-            const existingUrls = new Set(prev.map(m => m.url));
-            const newItems = data.filter(m => !existingUrls.has(m.url));
-            preCacheImages(newItems);
-            return [...prev, ...newItems];
-          });
-        } else {
-          preCacheImages(data);
-          setResults(data);
-        }
-        
-        setHasMore(data.length >= 20);
-        setPage(pageNum);
-        
-        if (data.length === 0 && pageNum === 1) {
-          toast({ 
-            title: 'Nessun risultato trovato', 
-            status: 'info', 
-            duration: 2500 
-          });
-        }
-      } catch (e) {
-        console.error('Search error:', e);
-        toast({ title: 'Errore nella ricerca', status: 'error' });
-        setResults(append ? results : []);
-        setHasMore(false);
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-        loadingRef.current = false;
+      if (append) {
+        setResults(prev => {
+          const existingUrls = new Set(prev.map(m => m.url));
+          const newItems = data.filter(m => !existingUrls.has(m.url));
+          preCacheImages(newItems);
+          return [...prev, ...newItems];
+        });
+      } else {
+        preCacheImages(data);
+        setResults(data);
       }
-    }, 500),
-    [preCacheImages, toast, results]
-  );
+      
+      setHasMore(data.length >= 20);
+      setPage(pageNum);
+      
+      // ✅ Solo 1 toast se nessun risultato
+      if (data.length === 0 && pageNum === 1) {
+        toast({ 
+          title: 'Nessun risultato trovato', 
+          status: 'info', 
+          duration: 2000,
+          isClosable: true
+        });
+      }
+    } catch (e) {
+      console.error('❌ Search error:', e);
+      toast({ 
+        title: 'Errore nella ricerca', 
+        status: 'error',
+        duration: 2000,
+        isClosable: true
+      });
+      setResults(append ? results : []);
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+      loadingRef.current = false;
+    }
+  }, [preCacheImages, toast, results]);
 
+  // ✅ FIX: Debounce manuale più efficiente
   useEffect(() => {
     const q = searchParams.get('q');
-    if (q) {
+    if (q && q !== query) {
       setQuery(q);
-      setPage(1);
-      debouncedSearch(q, searchMode, 1, false);
-    } else {
+    }
+    
+    if (q && q.length >= 3) {
+      // Cancella timeout precedente
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      
+      // Nuovo timeout
+      searchTimeoutRef.current = setTimeout(() => {
+        setPage(1);
+        lastSearchRef.current = ''; // Reset per permettere nuova ricerca
+        performSearch(q, searchMode, 1, false);
+      }, 500);
+    } else if (!q) {
       setResults([]);
+      setHasMore(true);
     }
     
     return () => {
-      debouncedSearch.cancel();
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
     };
-  }, [searchParams, searchMode, debouncedSearch]);
+  }, [searchParams, searchMode, performSearch]);
 
   useEffect(() => {
     if (inView && hasMore && !loadingRef.current && results.length > 0 && query) {
@@ -135,12 +159,12 @@ function Search() {
   const loadMore = () => {
     if (loadingRef.current || !hasMore) return;
     const nextPage = page + 1;
-    debouncedSearch(query, searchMode, nextPage, true);
+    performSearch(query, searchMode, nextPage, true);
   };
 
   const onSubmit = (e) => {
     e.preventDefault();
-    if (query.trim()) {
+    if (query.trim() && query.length >= 3) {
       navigate(`/search?q=${encodeURIComponent(query)}`);
     }
   };
@@ -148,12 +172,12 @@ function Search() {
   const handleInputChange = (e) => {
     const value = e.target.value;
     setQuery(value);
-    if (value.length >= 3) {
-      setPage(1);
-      debouncedSearch(value, searchMode, 1, false);
-    } else if (value.length === 0) {
+    
+    // ✅ Non cercare durante la digitazione, solo quando premi invio
+    if (value.length === 0) {
       setResults([]);
       setHasMore(true);
+      lastSearchRef.current = '';
     }
   };
 
@@ -161,8 +185,9 @@ function Search() {
     setSearchMode(mode);
     localStorage.setItem('searchMode', mode);
     setPage(1);
-    if (query.trim()) {
-      debouncedSearch(query, mode, 1, false);
+    lastSearchRef.current = ''; // Reset
+    if (query.trim() && query.length >= 3) {
+      performSearch(query, mode, 1, false);
     }
   };
 
@@ -295,7 +320,7 @@ function Search() {
                     {loadingMore ? (
                       <HStack>
                         <Spinner color="purple.500" />
-                        <Text>Caricamento altri risultati...</Text>
+                        <Text>Caricamento...</Text>
                       </HStack>
                     ) : (
                       <Button
