@@ -1,4 +1,4 @@
-// ✅ USEAUTH.JS v3.7 - ANTI-LOOP, IDEMPOTENT AUTO-SYNC, DEDUPE
+// ✅ USEAUTH.JS v3.8 - PULIZIA COMPLETA LOCALSTORAGE
 import { create } from 'zustand';
 import axios from 'axios';
 import { config } from '../config';
@@ -60,6 +60,26 @@ const buildLocalPayload = () => ({
   readingProgress: readLS('readingProgress', {})
 });
 
+// ✅ LISTA COMPLETA CHIAVI LOCALSTORAGE DA PULIRE
+const USER_LOCAL_KEYS = [
+  'user',
+  'token',
+  'userAvatar',
+  'userBanner',
+  'profilePublic',
+  'favorites',
+  'reading',
+  'completed',
+  'dropped',
+  'history',
+  'readingProgress',
+  'lastSyncedHash',
+  'notifications',
+  'notificationSettings',
+  'userTheme',
+  'userPreferences'
+];
+
 const useAuth = create((set, get) => ({
   // ========= STATE =========
   user: JSON.parse(localStorage.getItem('user') || 'null'),
@@ -116,6 +136,10 @@ const useAuth = create((set, get) => ({
 
       const { user, token } = response.data;
       
+      // ✅ PULISCI TUTTO PRIMA DI SALVARE I NUOVI DATI
+      USER_LOCAL_KEYS.forEach(key => localStorage.removeItem(key));
+      
+      // Salva nuovi dati
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -128,6 +152,7 @@ const useAuth = create((set, get) => ({
         error: null
       });
 
+      // Carica dati dal server
       await get().syncFromServer({ reason: 'login' });
 
       return { success: true, user };
@@ -151,6 +176,9 @@ const useAuth = create((set, get) => ({
       });
 
       const { user, token } = response.data;
+      
+      // ✅ PULISCI TUTTO PRIMA DI SALVARE I NUOVI DATI
+      USER_LOCAL_KEYS.forEach(key => localStorage.removeItem(key));
       
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
@@ -193,8 +221,9 @@ const useAuth = create((set, get) => ({
       if (stop) stop();
     } catch {}
 
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    // ✅ PULISCI TUTTO IL LOCALSTORAGE RELATIVO ALL'UTENTE
+    USER_LOCAL_KEYS.forEach(key => localStorage.removeItem(key));
+    
     delete axios.defaults.headers.common['Authorization'];
 
     set({
@@ -204,11 +233,13 @@ const useAuth = create((set, get) => ({
       error: null,
       syncStatus: 'idle',
       lastSync: null,
-      _lastSyncedHash: null
+      _lastSyncedHash: null,
+      _syncInFlight: false,
+      _lastSyncAt: 0
     });
   },
 
-  // ========= SYNC TO SERVER (anti-loop + optional refresh) =========
+  // ========= SYNC TO SERVER =========
   syncToServer: async (opts = {}) => {
     const { refreshAfter = true, force = false, reason = 'manual' } = opts;
     const token = get().token;
@@ -267,7 +298,7 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // ========= SYNC FROM SERVER (write only if changed) =========
+  // ========= SYNC FROM SERVER (with complete profile data) =========
   syncFromServer: async (opts = {}) => {
     const { reason = 'manual' } = opts;
     const token = get().token;
@@ -289,7 +320,7 @@ const useAuth = create((set, get) => ({
         profile = {}
       } = response.data;
 
-      // SetItem only if different (less storage-event between tabs)
+      // ✅ SALVA TUTTI I DATI (incluso profilo completo)
       setItemIfChanged('favorites', favorites);
       setItemIfChanged('reading', reading);
       setItemIfChanged('completed', completed);
@@ -297,11 +328,25 @@ const useAuth = create((set, get) => ({
       setItemIfChanged('history', history);
       setItemIfChanged('readingProgress', readingProgress);
 
+      // ✅ SALVA DATI PROFILO
       if (profile) {
-        const prev = localStorage.getItem('profilePublic');
-        const next = profile.isPublic ? 'true' : 'false';
-        if (prev !== next) localStorage.setItem('profilePublic', next);
+        // Salva stato pubblico
+        localStorage.setItem('profilePublic', profile.isPublic ? 'true' : 'false');
+        
+        // ✅ SALVA AVATAR E BANNER
+        if (profile.avatarUrl) {
+          localStorage.setItem('userAvatar', profile.avatarUrl);
+        } else {
+          localStorage.removeItem('userAvatar');
+        }
+        
+        if (profile.bannerUrl) {
+          localStorage.setItem('userBanner', profile.bannerUrl);
+        } else {
+          localStorage.removeItem('userBanner');
+        }
 
+        // Aggiorna user con profilo completo
         const currentUser = get().user;
         if (currentUser) {
           const updatedUser = { ...currentUser, profile };
@@ -330,17 +375,15 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // ========= AUTO SYNC (idempotent, no refresh) =========
+  // ========= AUTO SYNC =========
   startAutoSync: () => {
     const state = get();
     if (state._autoSyncActive) {
-      // Already active: return existing cleanup
       return state._stopAutoSync || (() => {});
     }
 
     const tick = () => {
       if (get().isAuthenticated) {
-        // Auto-sync WITHOUT refresh, anti-loop
         get().syncToServer({ refreshAfter: false, reason: 'autosync' });
       }
     };
@@ -369,10 +412,29 @@ const useAuth = create((set, get) => ({
     try {
       const response = await axios.put('/user/profile', updates);
       
-      if (response.data.success) {
-        const updatedUser = { ...get().user, profile: response.data.profile };
+      if (response.data.success && response.data.profile) {
+        const profile = response.data.profile;
+        const updatedUser = { ...get().user, profile };
+        
+        // Aggiorna stato
         set({ user: updatedUser, loading: false });
+        
+        // ✅ SALVA TUTTO NEL LOCALSTORAGE
         localStorage.setItem('user', JSON.stringify(updatedUser));
+        localStorage.setItem('profilePublic', profile.isPublic ? 'true' : 'false');
+        
+        if (profile.avatarUrl) {
+          localStorage.setItem('userAvatar', profile.avatarUrl);
+        } else {
+          localStorage.removeItem('userAvatar');
+        }
+        
+        if (profile.bannerUrl) {
+          localStorage.setItem('userBanner', profile.bannerUrl);
+        } else {
+          localStorage.removeItem('userBanner');
+        }
+        
         return { success: true, user: updatedUser };
       }
       
@@ -387,7 +449,7 @@ const useAuth = create((set, get) => ({
     }
   },
 
-  // ========= SYNC SHORTCUTS (POST + refresh) =========
+  // ========= SYNC SHORTCUTS =========
   syncFavorites: async (favorites) => {
     const token = get().token;
     if (!token) {
@@ -397,18 +459,12 @@ const useAuth = create((set, get) => ({
 
     try {
       localStorage.setItem('favorites', JSON.stringify(favorites));
-
       await axios.post('/user/sync', {
         ...buildLocalPayload(),
         favorites
       });
-
-      // Targeted refresh
       await get().syncFromServer({ reason: 'favorites' });
-
-      console.log('✅ Favorites synced + refreshed');
       return true;
-      
     } catch (error) {
       console.error('❌ Failed to sync favorites:', error);
       return false;
@@ -424,18 +480,12 @@ const useAuth = create((set, get) => ({
 
     try {
       localStorage.setItem('reading', JSON.stringify(reading));
-
       await axios.post('/user/sync', {
         ...buildLocalPayload(),
         reading
       });
-
-      // Targeted refresh
       await get().syncFromServer({ reason: 'reading' });
-
-      console.log('✅ Reading list synced + refreshed');
       return true;
-      
     } catch (error) {
       console.error('❌ Failed to sync reading list:', error);
       return false;

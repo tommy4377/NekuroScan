@@ -35,11 +35,21 @@ function Navigation() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const avatarSrc = useMemo(() => {
-    if (user?.profile?.avatarUrl) return user.profile.avatarUrl;
-    const local = localStorage.getItem('userAvatar');
-    return local || undefined;
-  }, [user]);
+  // Modifica solo la parte dell'avatar:
+const avatarSrc = useMemo(() => {
+  // Prima controlla il profilo utente dal server
+  if (user?.profile?.avatarUrl) return user.profile.avatarUrl;
+  
+  // Se l'utente è loggato ma non ha avatar nel profilo, controlla localStorage
+  // (questo dovrebbe essere sincronizzato dal server)
+  if (user) {
+    const localAvatar = localStorage.getItem('userAvatar');
+    if (localAvatar) return localAvatar;
+  }
+  
+  // Nessun avatar trovato
+  return undefined;
+}, [user]);
 
   const handleSearch = (e) => {
     e.preventDefault();
