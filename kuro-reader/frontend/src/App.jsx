@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'r
 import { ChakraProvider, Box, Spinner, Center, useColorModeValue, VStack, Text, useToast, Button } from '@chakra-ui/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { HelmetProvider, Helmet } from 'react-helmet-async';
-import theme from './theme';
+import theme from './styles/theme';
 import Navigation from './components/Navigation';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -12,15 +12,14 @@ import useAuth from './hooks/useAuth';
 // Lazy load delle pagine
 const Home = lazy(() => import('./pages/Home'));
 const Search = lazy(() => import('./pages/Search'));
-const MangaDetail = lazy(() => import('./pages/MangaDetail'));
-const ReadChapter = lazy(() => import('./pages/ReadChapter'));
+const MangaDetails = lazy(() => import('./pages/MangaDetails'));
+const ReaderPage = lazy(() => import('./pages/ReaderPage'));
 const Library = lazy(() => import('./components/Library'));
 const Categories = lazy(() => import('./pages/Categories'));
 const Latest = lazy(() => import('./pages/Latest'));
 const Popular = lazy(() => import('./pages/Popular'));
 const Trending = lazy(() => import('./pages/Trending'));
 const Login = lazy(() => import('./pages/Login'));
-const Register = lazy(() => import('./pages/Register'));
 const Profile = lazy(() => import('./pages/Profile'));
 const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -262,11 +261,11 @@ function AppContent() {
                 } />
                 <Route path="/manga/:source/:id" element={
                   <AnimatedRoute>
-                    <MangaDetail />
+                    <MangaDetails />
                   </AnimatedRoute>
                 } />
                 <Route path="/read/:source/:mangaId/:chapterId" element={
-                  <ReadChapter />
+                  <ReaderPage />
                 } />
                 <Route path="/categories" element={
                   <AnimatedRoute>
@@ -291,11 +290,6 @@ function AppContent() {
                 <Route path="/login" element={
                   <AnimatedRoute>
                     <Login />
-                  </AnimatedRoute>
-                } />
-                <Route path="/register" element={
-                  <AnimatedRoute>
-                    <Register />
                   </AnimatedRoute>
                 } />
                 <Route path="/user/:username" element={
