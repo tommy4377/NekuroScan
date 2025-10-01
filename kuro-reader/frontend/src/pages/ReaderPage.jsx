@@ -20,6 +20,16 @@ import useAuth from '../hooks/useAuth';
 
 const MotionBox = motion(Box);
 
+// ✅ Componente di caricamento separato
+const PageLoader = () => (
+  <Box bg="black" minH="100vh" display="flex" alignItems="center" justifyContent="center">
+    <VStack spacing={4}>
+      <Spinner size="xl" color="purple.500" thickness="4px" />
+      <Text color="white" fontSize="lg">Caricamento capitolo...</Text>
+    </VStack>
+  </Box>
+);
+
 function ReaderPage() {
   const { source, mangaId, chapterId } = useParams();
   const [searchParams] = useSearchParams();
@@ -56,10 +66,7 @@ function ReaderPage() {
   const [isZoomed, setIsZoomed] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [zoomOrigin, setZoomOrigin] = useState({ x: 0, y: 0 });
-  
-  // ✅ Flag per inizializzazione completa
-  const [isInitialized, setIsInitialized] = useState(false);
-  
+    
   // Refs
   const scrollIntervalRef = useRef(null);
   const containerRef = useRef(null);
@@ -349,10 +356,6 @@ function ReaderPage() {
           img.src = chapterData.pages[0];
         }
         
-        // ✅ Segna come inizializzato
-        if (!cancelled) {
-          setIsInitialized(true);
-        }
         
       } catch (error) {
         if (cancelled) return;
@@ -386,7 +389,7 @@ function ReaderPage() {
 
   // ✅ Mouse move effect - SOLO SE INIZIALIZZATO
   useEffect(() => {
-    if (!isInitialized) return;
+    if (loading || !manga || !chapter) return;
     
     const handleMouseMove = () => {
       if (!isMountedRef.current) return;
@@ -404,11 +407,11 @@ function ReaderPage() {
       window.removeEventListener('mousemove', handleMouseMove);
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     };
-  }, [isInitialized]);
+  }, [loading, manga, chapter]);
 
   // ✅ Auto scroll effect - SOLO SE INIZIALIZZATO
   useEffect(() => {
-    if (!isInitialized) return;
+    if (loading || !manga || !chapter) return;
     
     if (autoScroll && readingMode === 'webtoon') {
       scrollIntervalRef.current = setInterval(() => {
@@ -440,11 +443,11 @@ function ReaderPage() {
         clearInterval(scrollIntervalRef.current);
       }
     };
-  }, [autoScroll, scrollSpeed, readingMode, toast, isInitialized]);
+  }, [autoScroll, scrollSpeed, readingMode, toast, loading, manga, chapter]);
 
   // ✅ Touch gestures - SOLO SE INIZIALIZZATO
   useEffect(() => {
-    if (!isInitialized) return;
+    if (loading || !manga || !chapter) return;
     
     const handleTouchStart = (e) => {
       touchStartRef.current = {
@@ -480,11 +483,11 @@ function ReaderPage() {
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [isInitialized]);
+    }, [loading, manga, chapter, changePage]);
 
   // ✅ Keyboard shortcuts - SOLO SE INIZIALIZZATO
   useEffect(() => {
-    if (!isInitialized) return;
+    if (loading || !manga || !chapter) return;
     
     const handleKeyPress = (e) => {
       if (settingsOpen || !isMountedRef.current) return;
@@ -594,11 +597,11 @@ function ReaderPage() {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [settingsOpen, readingMode, isFullscreen, chapter, navigate, source, mangaId, isInitialized]);
+  }, [settingsOpen, readingMode, isFullscreen, chapter, navigate, source, mangaId, loading, manga]);
 
   // ✅ Save progress effect - SOLO SE INIZIALIZZATO
   useEffect(() => {
-    if (!manga || !chapter || !chapter.pages || chapter.pages.length === 0 || !isInitialized) return;
+    if (loading || !manga || !chapter || !chapter.pages || chapter.pages.length === 0) return;
     
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -615,7 +618,7 @@ function ReaderPage() {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [currentPage, manga, chapter, chapterIndex, isInitialized]);
+  }, [currentPage, manga, chapter, chapterIndex, loading, saveProgress]);
 
   // ========= HELPER FUNCTIONS =========
 
@@ -1023,16 +1026,10 @@ function ReaderPage() {
     );
   };
 
-  if (loading) {
-    return (
-      <Box bg="black" minH="100vh" display="flex" alignItems="center" justifyContent="center">
-        <VStack spacing={4}>
-          <Spinner size="xl" color="purple.500" thickness="4px" />
-          <Text color="white" fontSize="lg">Caricamento capitolo...</Text>
-        </VStack>
-      </Box>
-    );
-  }
+  // ✅ FIX DEFINITIVO: Mostra loader finché MANGA e CHAPTER non sono pronti
+if (loading || !manga || !chapter) {
+  return <PageLoader />;
+}
 
   const pageProgress = chapter?.pages ? Math.round(((currentPage + 1) / chapter.pages.length) * 100) : 0;
 
