@@ -1,5 +1,5 @@
-// ✅ MANGADETAILS.JSX v3.5 - COMPLETO CON TUTTI I FIX E MIGLIORAMENTI
-import React, { useState, useEffect } from 'react';
+// ✅ MANGADETAILS.JSX v3.6 - FIX REACT ERROR #300
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, Text, Image, VStack, HStack, Button, Badge,
   SimpleGrid, Skeleton, useToast, Flex, IconButton, Wrap, WrapItem,
@@ -21,6 +21,19 @@ const MotionBox = motion(Box);
 
 function MangaDetails() {
   const { source, id } = useParams();
+  const navigate = useNavigate();
+  const toast = useToast();
+  
+  // ✅ FIX: Hook sempre in cima, con fallback sicuro
+  const authHook = useAuth() || {};
+  const { 
+    user = null, 
+    syncFavorites = null, 
+    syncToServer = null, 
+    syncReading = null 
+  } = authHook;
+  
+  // States
   const [manga, setManga] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -30,32 +43,9 @@ function MangaDetails() {
   const [completedChapters, setCompletedChapters] = useState([]);
   const [currentStatus, setCurrentStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
-  
-  const toast = useToast();
-  const navigate = useNavigate();
-  const { user, syncFavorites, syncToServer, syncReading } = useAuth();
 
-  // ========= EFFECTS =========
-  useEffect(() => {
-    loadManga();
-    checkFavorite();
-    loadReadingProgress();
-    checkCurrentStatus();
-  }, [source, id]);
-
-  useEffect(() => {
-    if (manga) {
-      checkNotificationStatus();
-    }
-  }, [manga, user]);
-
-  useEffect(() => {
-    // Save view mode preference
-    localStorage.setItem('chaptersViewMode', viewMode);
-  }, [viewMode]);
-
-  // ========= LOAD MANGA =========
-  const loadManga = async () => {
+  // ✅ Load manga callback
+  const loadManga = useCallback(async () => {
     try {
       setLoading(true);
       const mangaUrl = atob(id);
@@ -84,9 +74,10 @@ function MangaDetails() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, source, navigate, toast]);
 
-  const addToHistory = (mangaDetails) => {
+  // ✅ Add to history callback
+  const addToHistory = useCallback((mangaDetails) => {
     try {
       const history = JSON.parse(localStorage.getItem('history') || '[]');
       const existingIndex = history.findIndex(h => h.url === mangaDetails.url);
@@ -111,9 +102,10 @@ function MangaDetails() {
     } catch (error) {
       console.error('❌ Error adding to history:', error);
     }
-  };
+  }, [source]);
 
-  const checkFavorite = () => {
+  // ✅ Check favorite callback
+  const checkFavorite = useCallback(() => {
     try {
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
       const mangaUrl = atob(id);
@@ -123,9 +115,10 @@ function MangaDetails() {
     } catch (error) {
       console.error('❌ Error checking favorite:', error);
     }
-  };
+  }, [id]);
 
-  const checkCurrentStatus = () => {
+  // ✅ Check current status callback
+  const checkCurrentStatus = useCallback(() => {
     try {
       const mangaUrl = atob(id);
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
@@ -148,26 +141,10 @@ function MangaDetails() {
     } catch (error) {
       console.error('❌ Error checking status:', error);
     }
-  };
+  }, [id]);
 
-  const checkNotificationStatus = async () => {
-    if (!user || !manga) return;
-    
-    try {
-      const response = await axios.get(`${config.API_URL}/api/user/data`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      
-      const notificationSettings = response.data.notificationSettings || [];
-      const isEnabled = notificationSettings.some(n => n.mangaUrl === manga.url);
-      setNotificationsEnabled(isEnabled);
-      console.log('✅ Notifications enabled:', isEnabled);
-    } catch (error) {
-      console.error('❌ Error checking notifications:', error);
-    }
-  };
-
-  const loadReadingProgress = () => {
+  // ✅ Load reading progress callback
+  const loadReadingProgress = useCallback(() => {
     try {
       const mangaUrl = atob(id);
       const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
@@ -176,12 +153,10 @@ function MangaDetails() {
       if (mangaProgress) {
         setReadingProgress(mangaProgress);
         
-        // Load completed chapters
         const completedChaps = JSON.parse(localStorage.getItem('completedChapters') || '{}');
         if (completedChaps[mangaUrl]) {
           setCompletedChapters(completedChaps[mangaUrl]);
         } else {
-          // Mark all chapters before current as completed
           const completed = [];
           for (let i = 0; i < mangaProgress.chapterIndex; i++) {
             completed.push(i);
@@ -194,9 +169,46 @@ function MangaDetails() {
     } catch (error) {
       console.error('❌ Error loading progress:', error);
     }
-  };
+  }, [id]);
 
-  // ========= TOGGLE FAVORITE =========
+  // ✅ Check notification status callback
+  const checkNotificationStatus = useCallback(async () => {
+    if (!user || !manga) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      const response = await axios.get(`${config.API_URL}/api/user/data`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const notificationSettings = response.data.notificationSettings || [];
+      const isEnabled = notificationSettings.some(n => n.mangaUrl === manga.url);
+      setNotificationsEnabled(isEnabled);
+      console.log('✅ Notifications enabled:', isEnabled);
+    } catch (error) {
+      console.error('❌ Error checking notifications:', error);
+    }
+  }, [user, manga]);
+
+  // ✅ Effects with proper dependencies
+  useEffect(() => {
+    loadManga();
+    checkFavorite();
+    loadReadingProgress();
+    checkCurrentStatus();
+  }, [loadManga, checkFavorite, loadReadingProgress, checkCurrentStatus]);
+
+  useEffect(() => {
+    checkNotificationStatus();
+  }, [checkNotificationStatus]);
+
+  useEffect(() => {
+    localStorage.setItem('chaptersViewMode', viewMode);
+  }, [viewMode]);
+
+  // ✅ Toggle favorite with safe sync
   const toggleFavorite = async () => {
     try {
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
@@ -238,12 +250,15 @@ function MangaDetails() {
       
       localStorage.setItem('favorites', JSON.stringify(updated));
       
-      // Sync to server
-      if (user && syncFavorites) {
-        await syncFavorites(updated);
+      // ✅ Safe sync
+      if (user && syncFavorites && typeof syncFavorites === 'function') {
+        try {
+          await syncFavorites(updated);
+        } catch (e) {
+          console.error('❌ Sync favorites failed:', e);
+        }
       }
       
-      // ✅ DISPATCH EVENT
       window.dispatchEvent(new CustomEvent('library-updated'));
       
     } catch (error) {
@@ -257,7 +272,7 @@ function MangaDetails() {
     }
   };
 
-  // ========= TOGGLE NOTIFICATIONS =========
+  // ✅ Toggle notifications with safe checks
   const toggleNotifications = async () => {
     if (!user) {
       toast({
@@ -271,6 +286,11 @@ function MangaDetails() {
     }
     
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Token non trovato');
+      }
+      
       const newStatus = !notificationsEnabled;
       
       const response = await axios.post(
@@ -281,14 +301,13 @@ function MangaDetails() {
           enabled: newStatus
         },
         {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          headers: { Authorization: `Bearer ${token}` }
         }
       );
       
       if (response.data.success) {
         setNotificationsEnabled(newStatus);
         
-        // Request notification permission
         if (newStatus && 'Notification' in window) {
           const permission = await Notification.requestPermission();
           if (permission === 'granted') {
@@ -313,14 +332,14 @@ function MangaDetails() {
       console.error('❌ Error toggling notifications:', error);
       toast({
         title: 'Errore',
-        description: 'Impossibile aggiornare le notifiche',
+        description: error.message || 'Impossibile aggiornare le notifiche',
         status: 'error',
         duration: 2000
       });
     }
   };
 
-  // ========= START READING =========
+  // ✅ Start reading with safe updates
   const startReading = (chapterIndex = 0) => {
     if (!manga?.chapters?.[chapterIndex]) {
       toast({
@@ -335,7 +354,6 @@ function MangaDetails() {
       const chapter = manga.chapters[chapterIndex];
       const chapterId = btoa(chapter.url);
       
-      // Save progress
       const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
       progress[manga.url] = {
         chapterId: chapter.url,
@@ -348,15 +366,12 @@ function MangaDetails() {
       };
       localStorage.setItem('readingProgress', JSON.stringify(progress));
       
-      // Update reading list
       updateReadingList(chapterIndex, chapter);
       
-      // ✅ DISPATCH EVENT
       window.dispatchEvent(new CustomEvent('library-updated'));
       
       console.log('✅ Starting chapter:', chapterIndex + 1);
       
-      // Navigate to reader
       navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
       
     } catch (error) {
@@ -370,7 +385,7 @@ function MangaDetails() {
     }
   };
 
-  // ✅ FIX: FORMULA PROGRESS CORRETTA (BASE 0)
+  // ✅ Update reading list with safe sync
   const updateReadingList = async (chapterIndex, chapter) => {
     try {
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
@@ -385,7 +400,7 @@ function MangaDetails() {
         lastChapterIndex: chapterIndex,
         lastChapterTitle: chapter.title,
         totalChapters: manga.chapters.length,
-        progress: Math.round(((chapterIndex + 1) / manga.chapters.length) * 100), // ✅ BASE 0 FIX
+        progress: Math.round(((chapterIndex + 1) / manga.chapters.length) * 100),
         lastRead: new Date().toISOString()
       };
       
@@ -397,9 +412,13 @@ function MangaDetails() {
       
       localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
       
-      // Sync to server
-      if (user && syncReading) {
-        await syncReading(reading.slice(0, 100));
+      // ✅ Safe sync
+      if (user && syncReading && typeof syncReading === 'function') {
+        try {
+          await syncReading(reading.slice(0, 100));
+        } catch (e) {
+          console.error('❌ Sync reading failed:', e);
+        }
       }
       
       console.log('✅ Reading list updated, progress:', readingItem.progress + '%');
@@ -417,14 +436,13 @@ function MangaDetails() {
     }
   };
 
-  // ========= MOVE TO LIST (✅ CON SYNC + REFRESH + DISPATCH) =========
+  // ✅ Move to list with safe sync
   const moveToList = async (targetList) => {
     if (!manga) return;
     
     try {
       setSyncing(true);
       
-      // Remove from all lists
       const lists = ['reading', 'completed', 'dropped'];
       lists.forEach(list => {
         const items = JSON.parse(localStorage.getItem(list) || '[]');
@@ -432,7 +450,6 @@ function MangaDetails() {
         localStorage.setItem(list, JSON.stringify(filtered));
       });
       
-      // Add to target list
       if (targetList) {
         const targetItems = JSON.parse(localStorage.getItem(targetList) || '[]');
         const exists = targetItems.find(item => item.url === manga.url);
@@ -447,12 +464,10 @@ function MangaDetails() {
             addedAt: new Date().toISOString()
           };
           
-          // ✅ COMPLETED: PROGRESS 100% + MARK ALL CHAPTERS
           if (targetList === 'completed') {
             newItem.completedAt = new Date().toISOString();
-            newItem.progress = 100; // ✅ PROGRESS 100%
+            newItem.progress = 100;
             
-            // Update reading progress to last chapter
             const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
             readingProgress[manga.url] = {
               chapterId: manga.chapters[manga.chapters.length - 1]?.url,
@@ -465,16 +480,13 @@ function MangaDetails() {
             };
             localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
             
-            // Mark all chapters as completed
             const completedChapters = JSON.parse(localStorage.getItem('completedChapters') || '{}');
             completedChapters[manga.url] = Array.from({ length: manga.chapters.length }, (_, i) => i);
             localStorage.setItem('completedChapters', JSON.stringify(completedChapters));
             
-            // Update local state
             setReadingProgress(readingProgress[manga.url]);
             setCompletedChapters(completedChapters[manga.url]);
             
-            // Show notification
             if ('Notification' in window && Notification.permission === 'granted') {
               new Notification('🎉 Manga completato!', {
                 body: `Hai completato "${manga.title}"! Tutti i ${manga.chapters.length} capitoli sono stati segnati come letti.`,
@@ -489,14 +501,12 @@ function MangaDetails() {
             
           } else if (targetList === 'dropped') {
             newItem.droppedAt = new Date().toISOString();
-            
             console.log('✅ Manga marked as dropped');
             
           } else if (targetList === 'reading') {
             newItem.lastRead = new Date().toISOString();
             newItem.progress = readingProgress ? 
-              Math.round(((readingProgress.chapterIndex + 1) / manga.chapters.length) * 100) : 0; // ✅ BASE 0 FIX
-            
+              Math.round(((readingProgress.chapterIndex + 1) / manga.chapters.length) * 100) : 0;
             console.log('✅ Manga added to reading list, progress:', newItem.progress + '%');
           }
           
@@ -505,26 +515,20 @@ function MangaDetails() {
         }
       }
       
-      // Update local state
       setCurrentStatus(targetList);
       
-      // ✅ SYNC TO SERVER + REFRESH
-      if (user && syncToServer) {
-        await syncToServer();
-        
-        // Refresh data from server
+      // ✅ Safe sync
+      if (user && syncToServer && typeof syncToServer === 'function') {
         try {
-          await useAuth.getState().syncFromServer();
-          console.log('✅ Data synced and refreshed from server');
+          await syncToServer();
+          console.log('✅ Data synced to server');
         } catch (e) {
-          console.error('❌ Refresh after move failed:', e);
+          console.error('❌ Sync to server failed:', e);
         }
       }
       
-      // ✅ DISPATCH EVENT
       window.dispatchEvent(new CustomEvent('library-updated'));
       
-      // Show toast
       const messages = {
         completed: '✅ Manga completato! Tutti i capitoli segnati come letti.',
         dropped: '❌ Manga droppato',
@@ -552,7 +556,7 @@ function MangaDetails() {
     }
   };
 
-  // ========= SHARE =========
+  // ✅ Share content
   const shareContent = async () => {
     const shareData = {
       title: manga.title,
@@ -620,7 +624,6 @@ function MangaDetails() {
     );
   }
 
-  // ✅ FIX: PROGRESS 100% QUANDO COMPLETATO + FORMULA CORRETTA
   const readProgress = (currentStatus === 'completed')
     ? 100
     : (readingProgress 
@@ -1004,7 +1007,6 @@ function MangaDetails() {
             ) : (
               <>
                 {viewMode === 'list' ? (
-                  // ====== VISTA LISTA ======
                   <VStack 
                     align="stretch" 
                     spacing={2} 
@@ -1048,7 +1050,6 @@ function MangaDetails() {
                           borderColor={readingProgress?.chapterIndex === i ? 'purple.500' : 'transparent'}
                           gap={3}
                         >
-                          {/* Chapter Number */}
                           <Box
                             minW="40px"
                             textAlign="center"
@@ -1059,7 +1060,6 @@ function MangaDetails() {
                             #{i + 1}
                           </Box>
                           
-                          {/* Read Status */}
                           {isChapterRead(i) && (
                             <Tooltip label="Capitolo letto">
                               <Box>
@@ -1068,8 +1068,6 @@ function MangaDetails() {
                             </Tooltip>
                           )}
                           
-                          {/* Current Chapter Badge */}
-                          {/* ✅ FIX: NON MOSTRARE "ATTUALE" SE COMPLETATO */}
                           {currentStatus !== 'completed' && readingProgress?.chapterIndex === i && (
                             <Badge colorScheme="purple" size="sm" borderRadius="md">
                               <HStack spacing={1}>
@@ -1079,12 +1077,10 @@ function MangaDetails() {
                             </Badge>
                           )}
                           
-                          {/* Chapter Title */}
                           <Text fontWeight="medium" noOfLines={1} flex={1}>
                             {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
                           </Text>
                           
-                          {/* Chapter Date */}
                           {chapter.date && (
                             <Text fontSize="xs" color="gray.400">
                               <HStack spacing={1}>
@@ -1098,7 +1094,6 @@ function MangaDetails() {
                     ))}
                   </VStack>
                 ) : (
-                  // ====== VISTA GRIGLIA ======
                   <SimpleGrid 
                     columns={{ base: 2, sm: 3, md: 4, lg: 5 }} 
                     spacing={3} 
@@ -1141,15 +1136,12 @@ function MangaDetails() {
                           border="2px solid"
                           borderColor={readingProgress?.chapterIndex === i ? 'purple.500' : 'transparent'}
                         >
-                          {/* Read Status Icon */}
                           {isChapterRead(i) && (
                             <Box position="absolute" top={2} right={2}>
                               <FaCheckCircle color="green" size="12" />
                             </Box>
                           )}
                           
-                          {/* Current Chapter Badge */}
-                          {/* ✅ FIX: NON MOSTRARE "ATTUALE" SE COMPLETATO */}
                           {currentStatus !== 'completed' && readingProgress?.chapterIndex === i && (
                             <Badge 
                               position="absolute" 
@@ -1164,7 +1156,6 @@ function MangaDetails() {
                             </Badge>
                           )}
                           
-                          {/* Chapter Number */}
                           <Text 
                             fontSize="2xl" 
                             fontWeight="bold" 
@@ -1174,7 +1165,6 @@ function MangaDetails() {
                             {i + 1}
                           </Text>
                           
-                          {/* Chapter Title */}
                           <Text fontSize="xs" fontWeight="medium" noOfLines={2} minH="32px">
                             {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
                           </Text>
