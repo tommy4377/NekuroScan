@@ -1,6 +1,6 @@
 import React, { useEffect, lazy, Suspense, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { ChakraProvider, Box, Spinner, Center, useColorModeValue, VStack, Text, useToast, Button } from '@chakra-ui/react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ChakraProvider, Box, Spinner, Center, VStack, Text, useToast, Button } from '@chakra-ui/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { HelmetProvider, Helmet } from 'react-helmet-async';
 import { theme } from './styles/theme';
@@ -27,35 +27,30 @@ const Settings = lazy(() => import('./pages/Settings'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Loading component con animazione
-const PageLoader = () => {
-  const spinnerColor = useColorModeValue('purple.500', 'purple.300');
-  
-  return (
-    <Center h="100vh" bg="gray.900">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.5 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.3 }}
-      >
-        <VStack spacing={4}>
-          <Spinner 
-            size="xl" 
-            color={spinnerColor} 
-            thickness="4px"
-            speed="0.65s"
-            emptyColor="gray.700"
-          />
-          <Text color="gray.400" fontSize="sm">Caricamento...</Text>
-        </VStack>
-      </motion.div>
-    </Center>
-  );
-};
+const PageLoader = () => (
+  <Center h="100vh" bg="gray.900">
+    <motion.div
+      initial={{ opacity: 0, scale: 0.5 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      <VStack spacing={4}>
+        <Spinner 
+          size="xl" 
+          color="purple.500" 
+          thickness="4px"
+          speed="0.65s"
+          emptyColor="gray.700"
+        />
+        <Text color="gray.400" fontSize="sm">Caricamento...</Text>
+      </VStack>
+    </motion.div>
+  </Center>
+);
 
-// Protected Route Component con animazione
+// Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
-  const navigate = useNavigate();
   const toast = useToast();
   
   useEffect(() => {
@@ -67,28 +62,73 @@ const ProtectedRoute = ({ children }) => {
         duration: 3000,
         isClosable: true,
       });
-      navigate('/login');
     }
-  }, [isAuthenticated, loading, navigate, toast]);
+  }, [isAuthenticated, loading, toast]);
   
-  if (loading) {
-    return <PageLoader />;
-  }
+  if (loading) return <PageLoader />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
   
-  return isAuthenticated ? children : null;
+  return children;
 };
 
 // Route con transizione animata
 const AnimatedRoute = ({ children }) => (
   <motion.div
-    initial={{ opacity: 0, y: 20 }}
+    initial={{ opacity: 0, y: 15 }}
     animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -20 }}
-    transition={{ duration: 0.3 }}
+    exit={{ opacity: 0, y: -15 }}
+    transition={{ duration: 0.25, ease: 'easeInOut' }}
   >
     {children}
   </motion.div>
 );
+
+// Componente che gestisce le Routes animate
+function AnimatedRoutes() {
+  const location = useLocation();
+  
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        {/* Public Routes */}
+        <Route path="/" element={<AnimatedRoute><Welcome /></AnimatedRoute>} />
+        <Route path="/home" element={<AnimatedRoute><Home /></AnimatedRoute>} />
+        <Route path="/search" element={<AnimatedRoute><Search /></AnimatedRoute>} />
+        <Route path="/manga/:source/:id" element={<AnimatedRoute><MangaDetails /></AnimatedRoute>} />
+        
+        {/* Reader senza animazione per performance */}
+        <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
+        
+        <Route path="/categories" element={<AnimatedRoute><Categories /></AnimatedRoute>} />
+        <Route path="/latest" element={<AnimatedRoute><Latest /></AnimatedRoute>} />
+        <Route path="/popular" element={<AnimatedRoute><Popular /></AnimatedRoute>} />
+        <Route path="/trending" element={<AnimatedRoute><Trending /></AnimatedRoute>} />
+        <Route path="/login" element={<AnimatedRoute><Login /></AnimatedRoute>} />
+        <Route path="/user/:username" element={<AnimatedRoute><PublicProfile /></AnimatedRoute>} />
+        
+        {/* Protected Routes */}
+        <Route path="/library" element={
+          <ProtectedRoute>
+            <AnimatedRoute><Library /></AnimatedRoute>
+          </ProtectedRoute>
+        } />
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <AnimatedRoute><Profile /></AnimatedRoute>
+          </ProtectedRoute>
+        } />
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <AnimatedRoute><Settings /></AnimatedRoute>
+          </ProtectedRoute>
+        } />
+        
+        {/* 404 */}
+        <Route path="*" element={<AnimatedRoute><NotFound /></AnimatedRoute>} />
+      </Routes>
+    </AnimatePresence>
+  );
+}
 
 function AppContent() {
   const { initAuth, startAutoSync, isAuthenticated } = useAuth();
@@ -96,10 +136,8 @@ function AppContent() {
   const toast = useToast();
 
   useEffect(() => {
-    // Inizializza autenticazione
     initAuth();
-
-    // Avvia auto-sync se loggato
+    
     let cleanup;
     if (isAuthenticated) {
       cleanup = startAutoSync();
@@ -136,7 +174,6 @@ function AppContent() {
         (registration) => {
           console.log('Service Worker registrato:', registration);
           
-          // Check for updates
           registration.addEventListener('updatefound', () => {
             const newWorker = registration.installing;
             newWorker.addEventListener('statechange', () => {
@@ -158,9 +195,7 @@ function AppContent() {
             });
           });
         },
-        (error) => {
-          console.error('Service Worker registrazione fallita:', error);
-        }
+        (error) => console.error('Service Worker registrazione fallita:', error)
       );
     }
 
@@ -183,7 +218,6 @@ function AppContent() {
     preconnectLink.href = 'https://www.mangaworld.cx';
     document.head.appendChild(preconnectLink);
 
-    // Cleanup
     return () => {
       if (cleanup) cleanup();
       window.removeEventListener('online', handleOnline);
@@ -195,13 +229,11 @@ function AppContent() {
   // Gestione tasti rapidi globali
   useEffect(() => {
     const handleKeyPress = (e) => {
-      // Ctrl/Cmd + K per search
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
         document.querySelector('input[placeholder*="Cerca"]')?.focus();
       }
       
-      // Ctrl/Cmd + B per library
       if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
         e.preventDefault();
         window.location.href = '/library';
@@ -213,128 +245,36 @@ function AppContent() {
   }, []);
 
   return (
-    <Router>
-      <ErrorBoundary>
-        <Helmet>
-          <title>NeKuro Scan - Manga Reader</title>
-          <meta name="description" content="Leggi manga e light novel gratuitamente" />
-          <meta name="theme-color" content="#805AD5" />
-          <link rel="manifest" href="/manifest.json" />
-        </Helmet>
-        
-        <Box minH="100vh" bg="gray.900">
-          <Navigation />
-          
-          {!isOnline && (
-            <Box
-              bg="orange.600"
-              color="white"
-              p={2}
-              textAlign="center"
-              position="fixed"
-              top="60px"
-              left={0}
-              right={0}
-              zIndex={1000}
-            >
-              <Text fontSize="sm">Modalità offline - Contenuto limitato disponibile</Text>
-            </Box>
-          )}
-          
-          <AnimatePresence mode="wait">
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={
-  <AnimatedRoute>
-    <Welcome />
-  </AnimatedRoute>
-} />
-
-                <Route path="/home" element={
-                  <AnimatedRoute>
-                    <Home />
-                  </AnimatedRoute>
-                } />
-                <Route path="/search" element={
-                  <AnimatedRoute>
-                    <Search />
-                  </AnimatedRoute>
-                } />
-                <Route path="/manga/:source/:id" element={
-                  <AnimatedRoute>
-                    <MangaDetails />
-                  </AnimatedRoute>
-                } />
-                <Route path="/read/:source/:mangaId/:chapterId" element={
-                  <ReaderPage />
-                } />
-                <Route path="/categories" element={
-                  <AnimatedRoute>
-                    <Categories />
-                  </AnimatedRoute>
-                } />
-                <Route path="/latest" element={
-                  <AnimatedRoute>
-                    <Latest />
-                  </AnimatedRoute>
-                } />
-                <Route path="/popular" element={
-                  <AnimatedRoute>
-                    <Popular />
-                  </AnimatedRoute>
-                } />
-                <Route path="/trending" element={
-                  <AnimatedRoute>
-                    <Trending />
-                  </AnimatedRoute>
-                } />
-                <Route path="/login" element={
-                  <AnimatedRoute>
-                    <Login />
-                  </AnimatedRoute>
-                } />
-                <Route path="/user/:username" element={
-                  <AnimatedRoute>
-                    <PublicProfile />
-                  </AnimatedRoute>
-                } />
-                
-                {/* Protected Routes */}
-                <Route path="/library" element={
-                  <ProtectedRoute>
-                    <AnimatedRoute>
-                      <Library />
-                    </AnimatedRoute>
-                  </ProtectedRoute>
-                } />
-                <Route path="/profile" element={
-                  <ProtectedRoute>
-                    <AnimatedRoute>
-                      <Profile />
-                    </AnimatedRoute>
-                  </ProtectedRoute>
-                } />
-                <Route path="/settings" element={
-                  <ProtectedRoute>
-                    <AnimatedRoute>
-                      <Settings />
-                    </AnimatedRoute>
-                  </ProtectedRoute>
-                } />
-                
-                {/* 404 */}
-                <Route path="*" element={
-                  <AnimatedRoute>
-                    <NotFound />
-                  </AnimatedRoute>
-                } />
-              </Routes>
-            </Suspense>
-          </AnimatePresence>
+    <Box minH="100vh" bg="gray.900">
+      <Helmet>
+        <title>NeKuro Scan - Manga Reader</title>
+        <meta name="description" content="Leggi manga e light novel gratuitamente" />
+        <meta name="theme-color" content="#805AD5" />
+        <link rel="manifest" href="/manifest.json" />
+      </Helmet>
+      
+      <Navigation />
+      
+      {!isOnline && (
+        <Box
+          bg="orange.600"
+          color="white"
+          p={2}
+          textAlign="center"
+          position="fixed"
+          top="60px"
+          left={0}
+          right={0}
+          zIndex={1000}
+        >
+          <Text fontSize="sm">Modalità offline - Contenuto limitato disponibile</Text>
         </Box>
-      </ErrorBoundary>
-    </Router>
+      )}
+      
+      <Suspense fallback={<PageLoader />}>
+        <AnimatedRoutes />
+      </Suspense>
+    </Box>
   );
 }
 
@@ -343,7 +283,11 @@ function App() {
     <HelmetProvider>
       <ChakraProvider theme={theme}>
         <ThemeProvider>
-          <AppContent />
+          <Router>
+            <ErrorBoundary>
+              <AppContent />
+            </ErrorBoundary>
+          </Router>
         </ThemeProvider>
       </ChakraProvider>
     </HelmetProvider>
