@@ -1,4 +1,4 @@
-// ✅ AUTH-SERVER.JS v3.6 - FIX PREPARED STATEMENTS E RECONNECTION
+// ✅ AUTH-SERVER.JS v3.7 - FIX SUPABASE/PGBOUNCER
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
@@ -27,107 +27,110 @@ if (missingVars.length > 0) {
   console.log('⚠️  Running in LIMITED MODE - Only basic features available');
 }
 
-// ========= PRISMA SETUP WITH CONNECTION POOLING =========
+// ========= PRISMA SETUP FOR SUPABASE/PGBOUNCER =========
 let prisma = null;
 let dbConnected = false;
-let reconnectTimer = null;
-let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 10;
 
-// ✅ FIX: Configurazione Prisma ottimizzata per evitare prepared statements issues
-async function createPrismaClient() {
+// ✅ FIX CRITICO: Configurazione corretta per Supabase
+function createPrismaClient() {
+  // Per Supabase, usa DIRECT URL se disponibile
+  const databaseUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
+  
+  // ✅ IMPORTANTE: Se usi il pooler URL, aggiungi i parametri corretti
+  let finalUrl = databaseUrl;
+  if (databaseUrl.includes('pooler.supabase.com')) {
+    // Rimuovi parametri esistenti
+    const baseUrl = databaseUrl.split('?')[0];
+    // Aggiungi parametri per PgBouncer
+    finalUrl = `${baseUrl}?pgbouncer=true&connect_timeout=10&pool_timeout=30`;
+  }
+
+  return new PrismaClient({
+    datasources: {
+      db: {
+        url: finalUrl
+      }
+    },
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    errorFormat: 'minimal',
+  });
+}
+
+async function connectDatabase() {
   try {
-    // Chiudi istanza precedente se esiste
     if (prisma) {
       await prisma.$disconnect().catch(() => {});
     }
     
-    prisma = new PrismaClient({
-      log: ['error', 'warn'],
-      errorFormat: 'minimal',
-      // ✅ FIX: Disabilita prepared statements per evitare errori
-      datasources: {
-        db: {
-          url: process.env.DATABASE_URL + '?pgbouncer=true&connection_limit=1'
-        }
+    prisma = createPrismaClient();
+    
+    // Test connection con retry
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        await prisma.$queryRaw`SELECT 1`;
+        dbConnected = true;
+        console.log('✅ Database connected successfully');
+        return true;
+      } catch (error) {
+        retries--;
+        if (retries === 0) throw error;
+        console.log(`⚠️ Connection attempt failed, retrying... (${3 - retries}/3)`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
-    });
-    
-    // ✅ FIX: Usa queryRaw per evitare prepared statements
-    await prisma.$queryRawUnsafe('SELECT 1');
-    
-    dbConnected = true;
-    reconnectAttempts = 0;
-    console.log('✅ Database connected successfully');
-    return true;
+    }
   } catch (error) {
     dbConnected = false;
     console.error('❌ Database connection failed:', error.message);
+    
+    // Riprova dopo 5 secondi
+    setTimeout(() => {
+      console.log('🔄 Retrying database connection...');
+      connectDatabase();
+    }, 5000);
+    
     return false;
-  }
-}
-
-// ✅ FIX: Reconnection logic migliorata
-async function reconnectDatabase() {
-  if (reconnectTimer) return;
-  
-  reconnectAttempts++;
-  
-  if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
-    console.error('❌ Max reconnection attempts reached. Please check database.');
-    return;
-  }
-  
-  const delay = Math.min(reconnectAttempts * 2000, 30000); // Max 30s
-  console.log(`🔄 Reconnecting in ${delay/1000}s... (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-  
-  reconnectTimer = setTimeout(async () => {
-    reconnectTimer = null;
-    await connectDatabase();
-  }, delay);
-}
-
-async function connectDatabase() {
-  const success = await createPrismaClient();
-  if (!success) {
-    await reconnectDatabase();
   }
 }
 
 // Initial connection
 connectDatabase();
 
-// ✅ FIX: Middleware per gestire errori di connessione
-const handlePrismaError = (fn) => async (req, res, next) => {
-  try {
-    await fn(req, res, next);
-  } catch (error) {
-    // Se è un errore di prepared statement o connessione, riconnetti
-    if (error.code === '26000' || // prepared statement does not exist
-        error.code === 'P1001' || // Can't reach database
-        error.code === 'P1002' || // Database timeout
-        error.message?.includes('prepared statement')) {
+// ✅ FIX: Wrapper per query con retry automatico
+async function executeWithRetry(operation, maxRetries = 3) {
+  let lastError;
+  
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
       
-      console.error('🔄 Database error detected, reconnecting...', error.code);
-      dbConnected = false;
-      await reconnectDatabase();
-      
-      return res.status(503).json({ 
-        message: 'Database temporaneamente non disponibile, riprova',
-        retryAfter: 5 
-      });
+      // Se è un errore di prepared statement o connessione, riconnetti
+      if (error.code === '26000' || // prepared statement does not exist
+          error.code === 'P1001' || // Can't reach database
+          error.code === 'P1002' || // Database timeout
+          error.code === '42P05' || // prepared statement already exists
+          error.message?.includes('prepared statement') ||
+          error.message?.includes('connection')) {
+        
+        console.log(`🔄 Database error detected (attempt ${i + 1}/${maxRetries}), reconnecting...`);
+        dbConnected = false;
+        await connectDatabase();
+        
+        // Aspetta un po' prima di riprovare
+        await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)));
+      } else {
+        // Se non è un errore di connessione, lancia subito
+        throw error;
+      }
     }
-    
-    // Altri errori
-    console.error('Request error:', error);
-    res.status(500).json({ 
-      message: 'Errore del server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
   }
-};
+  
+  throw lastError;
+}
 
-// ========= SUPABASE SETUP (OPTIONAL) =========
+// ========= SUPABASE SETUP =========
 let supabase = null;
 if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
   supabase = createClient(
@@ -180,12 +183,17 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ========= DATABASE CHECK MIDDLEWARE =========
-const requireDatabase = (req, res, next) => {
+const requireDatabase = async (req, res, next) => {
   if (!dbConnected || !prisma) {
-    return res.status(503).json({ 
-      message: 'Database temporaneamente non disponibile',
-      retryAfter: 5 
-    });
+    // Prova a riconnettere
+    await connectDatabase();
+    
+    if (!dbConnected) {
+      return res.status(503).json({ 
+        message: 'Database temporaneamente non disponibile',
+        retryAfter: 5 
+      });
+    }
   }
   next();
 };
@@ -258,488 +266,585 @@ async function deleteImageFromSupabase(url, bucket = 'profile-images') {
 // ========= HEALTH CHECK =========
 app.get('/health', async (req, res) => {
   const health = {
-    status: dbConnected ? 'healthy' : 'degraded',
+    status: 'checking',
     timestamp: new Date().toISOString(),
     service: 'NeKuro Scan Auth Server',
-    version: '3.6.0',
-    database: dbConnected ? 'connected' : 'disconnected',
+    version: '3.7.0',
+    database: 'checking',
     storage: supabase ? 'configured' : 'disabled'
   };
   
-  if (dbConnected) {
-    try {
-      await prisma.$queryRawUnsafe('SELECT 1');
-      health.database = 'healthy';
-    } catch (error) {
-      health.database = 'unhealthy';
-      health.status = 'degraded';
-      dbConnected = false;
-      reconnectDatabase();
-    }
+  // Check database
+  try {
+    await executeWithRetry(async () => {
+      await prisma.$queryRaw`SELECT 1`;
+    });
+    health.database = 'healthy';
+    health.status = 'healthy';
+    dbConnected = true;
+  } catch (error) {
+    health.database = 'unhealthy';
+    health.status = 'degraded';
+    health.error = error.message;
+    dbConnected = false;
+    connectDatabase(); // Try reconnect
   }
   
   res.status(health.status === 'healthy' ? 200 : 503).json(health);
 });
 
-// ========= AUTH ROUTES WITH ERROR HANDLING =========
+// ========= AUTH ROUTES =========
 
 // REGISTER
-app.post('/api/auth/register', requireDatabase, handlePrismaError(async (req, res) => {
-  const { username, email, password } = req.body;
-  
-  if (!username || !email || !password) {
-    return res.status(400).json({ message: 'Tutti i campi sono richiesti' });
+app.post('/api/auth/register', requireDatabase, async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+    
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: 'Tutti i campi sono richiesti' });
+    }
+    
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'La password deve essere di almeno 6 caratteri' });
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Email non valida' });
+    }
+    
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedUsername = username.toLowerCase().trim();
+    
+    // ✅ Usa executeWithRetry per tutte le query
+    const existingUser = await executeWithRetry(async () => {
+      return await prisma.user.findFirst({
+        where: { 
+          OR: [
+            { email: normalizedEmail }, 
+            { username: normalizedUsername }
+          ] 
+        }
+      });
+    });
+    
+    if (existingUser) {
+      if (existingUser.email === normalizedEmail) {
+        return res.status(400).json({ message: 'Email già registrata' });
+      }
+      return res.status(400).json({ message: 'Username già in uso' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Crea utente e dati correlati
+    const newUser = await executeWithRetry(async () => {
+      return await prisma.user.create({
+        data: { 
+          username: normalizedUsername, 
+          email: normalizedEmail, 
+          password: hashedPassword 
+        }
+      });
+    });
+
+    await executeWithRetry(async () => {
+      await prisma.user_profile.create({
+        data: {
+          userId: newUser.id,
+          displayName: username,
+          bio: '',
+          avatarUrl: '',
+          bannerUrl: '',
+          isPublic: false,
+          viewCount: 0,
+          badges: []
+        }
+      });
+    });
+
+    await executeWithRetry(async () => {
+      await prisma.user_favorites.create({
+        data: {
+          userId: newUser.id,
+          favorites: '[]'
+        }
+      });
+    });
+
+    await executeWithRetry(async () => {
+      await prisma.user_library.create({
+        data: {
+          userId: newUser.id,
+          reading: '[]',
+          completed: '[]',
+          dropped: '[]',
+          history: '[]'
+        }
+      });
+    });
+
+    const token = jwt.sign(
+      { id: newUser.id, email: newUser.email, username: newUser.username }, 
+      JWT_SECRET, 
+      { expiresIn: '30d' }
+    );
+
+    res.status(201).json({ 
+      user: { 
+        id: newUser.id, 
+        username: newUser.username, 
+        email: newUser.email 
+      }, 
+      token 
+    });
+    
+  } catch (error) {
+    console.error('Register error:', error);
+    res.status(500).json({ 
+      message: 'Errore durante la registrazione',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
-  
-  if (password.length < 6) {
-    return res.status(400).json({ message: 'La password deve essere di almeno 6 caratteri' });
-  }
-  
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ message: 'Email non valida' });
-  }
-  
-  const normalizedEmail = email.toLowerCase().trim();
-  const normalizedUsername = username.toLowerCase().trim();
-  
-  const existingUser = await prisma.user.findFirst({
-    where: { 
-      OR: [
-        { email: normalizedEmail }, 
-        { username: normalizedUsername }
-      ] 
-    }
-  });
-  
-  if (existingUser) {
-    if (existingUser.email === normalizedEmail) {
-      return res.status(400).json({ message: 'Email già registrata' });
-    }
-    return res.status(400).json({ message: 'Username già in uso' });
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-  
-  // ✅ FIX: Use sequential operations instead of transaction
-  const newUser = await prisma.user.create({
-    data: { 
-      username: normalizedUsername, 
-      email: normalizedEmail, 
-      password: hashedPassword 
-    }
-  });
-
-  await prisma.user_profile.create({
-    data: {
-      userId: newUser.id,
-      displayName: username,
-      bio: '',
-      avatarUrl: '',
-      bannerUrl: '',
-      isPublic: false,
-      viewCount: 0,
-      badges: []
-    }
-  });
-
-  await prisma.user_favorites.create({
-    data: {
-      userId: newUser.id,
-      favorites: '[]'
-    }
-  });
-
-  await prisma.user_library.create({
-    data: {
-      userId: newUser.id,
-      reading: '[]',
-      completed: '[]',
-      dropped: '[]',
-      history: '[]'
-    }
-  });
-
-  const token = jwt.sign(
-    { id: newUser.id, email: newUser.email, username: newUser.username }, 
-    JWT_SECRET, 
-    { expiresIn: '30d' }
-  );
-
-  res.status(201).json({ 
-    user: { 
-      id: newUser.id, 
-      username: newUser.username, 
-      email: newUser.email 
-    }, 
-    token 
-  });
-}));
+});
 
 // LOGIN
-app.post('/api/auth/login', requireDatabase, handlePrismaError(async (req, res) => {
-  const { emailOrUsername, password } = req.body;
-  
-  if (!emailOrUsername || !password) {
-    return res.status(400).json({ message: 'Email/Username e password richiesti' });
-  }
-  
-  const normalized = emailOrUsername.toLowerCase().trim();
-  
-  const user = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { email: normalized },
-        { username: normalized }
-      ]
-    },
-    include: {
-      profile: true
+app.post('/api/auth/login', requireDatabase, async (req, res) => {
+  try {
+    const { emailOrUsername, password } = req.body;
+    
+    if (!emailOrUsername || !password) {
+      return res.status(400).json({ message: 'Email/Username e password richiesti' });
     }
-  });
-  
-  if (!user) {
-    return res.status(401).json({ message: 'Credenziali non valide' });
+    
+    const normalized = emailOrUsername.toLowerCase().trim();
+    
+    const user = await executeWithRetry(async () => {
+      return await prisma.user.findFirst({
+        where: {
+          OR: [
+            { email: normalized },
+            { username: normalized }
+          ]
+        },
+        include: {
+          profile: true
+        }
+      });
+    });
+    
+    if (!user) {
+      return res.status(401).json({ message: 'Credenziali non valide' });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Credenziali non valide' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, username: user.username }, 
+      JWT_SECRET, 
+      { expiresIn: '30d' }
+    );
+
+    res.json({ 
+      user: { 
+        id: user.id, 
+        username: user.username, 
+        email: user.email,
+        profile: user.profile
+      }, 
+      token 
+    });
+    
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ 
+      message: 'Errore durante il login',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
-
-  const validPassword = await bcrypt.compare(password, user.password);
-  if (!validPassword) {
-    return res.status(401).json({ message: 'Credenziali non valide' });
-  }
-
-  const token = jwt.sign(
-    { id: user.id, email: user.email, username: user.username }, 
-    JWT_SECRET, 
-    { expiresIn: '30d' }
-  );
-
-  res.json({ 
-    user: { 
-      id: user.id, 
-      username: user.username, 
-      email: user.email,
-      profile: user.profile
-    }, 
-    token 
-  });
-}));
+});
 
 // GET CURRENT USER
-app.get('/api/auth/me', authenticateToken, requireDatabase, handlePrismaError(async (req, res) => {
-  const user = await prisma.user.findUnique({ 
-    where: { id: req.user.id },
-    include: {
-      profile: true
+app.get('/api/auth/me', authenticateToken, requireDatabase, async (req, res) => {
+  try {
+    const user = await executeWithRetry(async () => {
+      return await prisma.user.findUnique({ 
+        where: { id: req.user.id },
+        include: {
+          profile: true
+        }
+      });
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Utente non trovato' });
     }
-  });
-  
-  if (!user) {
-    return res.status(404).json({ message: 'Utente non trovato' });
+    
+    res.json({ 
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        createdAt: user.createdAt,
+        profile: user.profile
+      }
+    });
+    
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ 
+      message: 'Errore nel recupero utente',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
-  
-  res.json({ 
-    user: {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      createdAt: user.createdAt,
-      profile: user.profile
-    }
-  });
-}));
+});
 
 // UPDATE PROFILE
 app.put('/api/user/profile', authenticateToken, requireDatabase, upload.fields([
   { name: 'avatar', maxCount: 1 },
   { name: 'banner', maxCount: 1 }
-]), handlePrismaError(async (req, res) => {
-  const { bio, isPublic, displayName, socialLinks } = req.body;
-  const userId = req.user.id;
-  
-  let profile = await prisma.user_profile.findUnique({
-    where: { userId }
-  });
-
-  let updateData = {
-    bio: bio || profile?.bio || '',
-    isPublic: isPublic === true || isPublic === 'true',
-    displayName: displayName || profile?.displayName || req.user.username,
-    updatedAt: new Date()
-  };
-
-  if (socialLinks) {
-    try {
-      updateData.socialLinks = typeof socialLinks === 'string' 
-        ? JSON.parse(socialLinks) 
-        : socialLinks;
-    } catch (e) {
-      updateData.socialLinks = {};
-    }
-  }
-
-  // AVATAR UPLOAD
-  if (req.files?.avatar && supabase) {
-    const avatarFile = req.files.avatar[0];
-    const avatarFileName = `avatars/avatar_${userId}_${Date.now()}.webp`;
+]), async (req, res) => {
+  try {
+    const { bio, isPublic, displayName, socialLinks } = req.body;
+    const userId = req.user.id;
     
-    if (profile?.avatarUrl) {
-      await deleteImageFromSupabase(profile.avatarUrl);
-    }
-    
-    const processedAvatar = await sharp(avatarFile.buffer)
-      .resize(300, 300, { fit: 'cover' })
-      .webp({ quality: 90 })
-      .toBuffer();
-    
-    const avatarUrl = await uploadImageToSupabase(processedAvatar, avatarFileName);
-    if (avatarUrl) {
-      updateData.avatarUrl = avatarUrl;
-    }
-  }
-  
-  // BANNER UPLOAD
-  if (req.files?.banner && supabase) {
-    const bannerFile = req.files.banner[0];
-    const bannerFileName = `banners/banner_${userId}_${Date.now()}.webp`;
-    
-    if (profile?.bannerUrl) {
-      await deleteImageFromSupabase(profile.bannerUrl);
-    }
-    
-    const processedBanner = await sharp(bannerFile.buffer)
-      .resize(1200, 400, { fit: 'cover' })
-      .webp({ quality: 90 })
-      .toBuffer();
-    
-    const bannerUrl = await uploadImageToSupabase(processedBanner, bannerFileName);
-    if (bannerUrl) {
-      updateData.bannerUrl = bannerUrl;
-    }
-  }
-  
-  if (profile) {
-    profile = await prisma.user_profile.update({
-      where: { userId },
-      data: updateData
+    let profile = await executeWithRetry(async () => {
+      return await prisma.user_profile.findUnique({
+        where: { userId }
+      });
     });
-  } else {
-    profile = await prisma.user_profile.create({
-      data: {
-        userId,
-        ...updateData,
-        viewCount: 0,
-        badges: []
+
+    let updateData = {
+      bio: bio || profile?.bio || '',
+      isPublic: isPublic === true || isPublic === 'true',
+      displayName: displayName || profile?.displayName || req.user.username,
+      updatedAt: new Date()
+    };
+
+    if (socialLinks) {
+      try {
+        updateData.socialLinks = typeof socialLinks === 'string' 
+          ? JSON.parse(socialLinks) 
+          : socialLinks;
+      } catch (e) {
+        updateData.socialLinks = {};
       }
-    });
-  }
-  
-  res.json({ success: true, profile });
-}));
+    }
 
-// SYNC DATA TO SERVER
-app.post('/api/user/sync', authenticateToken, requireDatabase, handlePrismaError(async (req, res) => {
-  const { favorites, reading, completed, dropped, history, readingProgress } = req.body;
-  const userId = req.user.id;
-  
-  // ✅ FIX: Use sequential operations instead of transaction
-  
-  // SYNC FAVORITES
-  if (favorites !== undefined) {
-    const existing = await prisma.user_favorites.findUnique({ where: { userId } });
+    // AVATAR UPLOAD
+    if (req.files?.avatar && supabase) {
+      const avatarFile = req.files.avatar[0];
+      const avatarFileName = `avatars/avatar_${userId}_${Date.now()}.webp`;
+      
+      if (profile?.avatarUrl) {
+        await deleteImageFromSupabase(profile.avatarUrl);
+      }
+      
+      const processedAvatar = await sharp(avatarFile.buffer)
+        .resize(300, 300, { fit: 'cover' })
+        .webp({ quality: 90 })
+        .toBuffer();
+      
+      const avatarUrl = await uploadImageToSupabase(processedAvatar, avatarFileName);
+      if (avatarUrl) {
+        updateData.avatarUrl = avatarUrl;
+      }
+    }
     
-    if (existing) {
-      await prisma.user_favorites.update({
-        where: { userId },
-        data: { 
-          favorites: JSON.stringify(favorites),
-          updatedAt: new Date()
-        }
+    // BANNER UPLOAD
+    if (req.files?.banner && supabase) {
+      const bannerFile = req.files.banner[0];
+      const bannerFileName = `banners/banner_${userId}_${Date.now()}.webp`;
+      
+      if (profile?.bannerUrl) {
+        await deleteImageFromSupabase(profile.bannerUrl);
+      }
+      
+      const processedBanner = await sharp(bannerFile.buffer)
+        .resize(1200, 400, { fit: 'cover' })
+        .webp({ quality: 90 })
+        .toBuffer();
+      
+      const bannerUrl = await uploadImageToSupabase(processedBanner, bannerFileName);
+      if (bannerUrl) {
+        updateData.bannerUrl = bannerUrl;
+      }
+    }
+    
+    if (profile) {
+      profile = await executeWithRetry(async () => {
+        return await prisma.user_profile.update({
+          where: { userId },
+          data: updateData
+        });
       });
     } else {
-      await prisma.user_favorites.create({
-        data: { 
-          userId, 
-          favorites: JSON.stringify(favorites) 
-        }
-      });
-    }
-  }
-  
-  // SYNC LIBRARY
-  const existingLibrary = await prisma.user_library.findUnique({
-    where: { userId }
-  });
-  
-  const updateLibraryData = {};
-  if (reading !== undefined) updateLibraryData.reading = JSON.stringify(reading);
-  if (completed !== undefined) updateLibraryData.completed = JSON.stringify(completed);
-  if (dropped !== undefined) updateLibraryData.dropped = JSON.stringify(dropped);
-  if (history !== undefined) updateLibraryData.history = JSON.stringify(history);
-  updateLibraryData.updatedAt = new Date();
-  
-  if (existingLibrary) {
-    await prisma.user_library.update({
-      where: { userId },
-      data: updateLibraryData
-    });
-  } else {
-    await prisma.user_library.create({
-      data: {
-        userId,
-        reading: JSON.stringify(reading || []),
-        completed: JSON.stringify(completed || []),
-        dropped: JSON.stringify(dropped || []),
-        history: JSON.stringify(history || []),
-      }
-    });
-  }
-  
-  // SYNC READING PROGRESS
-  if (readingProgress && typeof readingProgress === 'object') {
-    for (const [mangaUrl, progress] of Object.entries(readingProgress)) {
-      if (progress && typeof progress === 'object') {
-        const existing = await prisma.reading_progress.findUnique({
-          where: {
-            userId_mangaUrl: { userId, mangaUrl }
+      profile = await executeWithRetry(async () => {
+        return await prisma.user_profile.create({
+          data: {
+            userId,
+            ...updateData,
+            viewCount: 0,
+            badges: []
           }
         });
+      });
+    }
+    
+    res.json({ success: true, profile });
+    
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ 
+      message: 'Errore aggiornamento profilo',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// SYNC DATA TO SERVER
+app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) => {
+  try {
+    const { favorites, reading, completed, dropped, history, readingProgress } = req.body;
+    const userId = req.user.id;
+    
+    // SYNC FAVORITES
+    if (favorites !== undefined) {
+      await executeWithRetry(async () => {
+        const existing = await prisma.user_favorites.findUnique({ where: { userId } });
         
         if (existing) {
-          await prisma.reading_progress.update({
-            where: {
-              userId_mangaUrl: { userId, mangaUrl }
-            },
-            data: {
-              chapterIndex: progress.chapterIndex || 0,
-              pageIndex: progress.page || progress.pageIndex || 0,
-              totalPages: progress.totalPages || 0,
+          await prisma.user_favorites.update({
+            where: { userId },
+            data: { 
+              favorites: JSON.stringify(favorites),
               updatedAt: new Date()
             }
           });
         } else {
-          await prisma.reading_progress.create({
-            data: {
-              userId,
-              mangaUrl,
-              mangaTitle: progress.mangaTitle || progress.title || '',
-              chapterIndex: progress.chapterIndex || 0,
-              pageIndex: progress.page || progress.pageIndex || 0,
-              totalPages: progress.totalPages || 0
+          await prisma.user_favorites.create({
+            data: { 
+              userId, 
+              favorites: JSON.stringify(favorites) 
+            }
+          });
+        }
+      });
+    }
+    
+    // SYNC LIBRARY
+    await executeWithRetry(async () => {
+      const existingLibrary = await prisma.user_library.findUnique({
+        where: { userId }
+      });
+      
+      const updateLibraryData = {};
+      if (reading !== undefined) updateLibraryData.reading = JSON.stringify(reading);
+      if (completed !== undefined) updateLibraryData.completed = JSON.stringify(completed);
+      if (dropped !== undefined) updateLibraryData.dropped = JSON.stringify(dropped);
+      if (history !== undefined) updateLibraryData.history = JSON.stringify(history);
+      updateLibraryData.updatedAt = new Date();
+      
+      if (existingLibrary) {
+        await prisma.user_library.update({
+          where: { userId },
+          data: updateLibraryData
+        });
+      } else {
+        await prisma.user_library.create({
+          data: {
+            userId,
+            reading: JSON.stringify(reading || []),
+            completed: JSON.stringify(completed || []),
+            dropped: JSON.stringify(dropped || []),
+            history: JSON.stringify(history || []),
+          }
+        });
+      }
+    });
+    
+    // SYNC READING PROGRESS
+    if (readingProgress && typeof readingProgress === 'object') {
+      for (const [mangaUrl, progress] of Object.entries(readingProgress)) {
+        if (progress && typeof progress === 'object') {
+          await executeWithRetry(async () => {
+            const existing = await prisma.reading_progress.findUnique({
+              where: {
+                userId_mangaUrl: { userId, mangaUrl }
+              }
+            });
+            
+            if (existing) {
+              await prisma.reading_progress.update({
+                where: {
+                  userId_mangaUrl: { userId, mangaUrl }
+                },
+                data: {
+                  chapterIndex: progress.chapterIndex || 0,
+                  pageIndex: progress.page || progress.pageIndex || 0,
+                  totalPages: progress.totalPages || 0,
+                  updatedAt: new Date()
+                }
+              });
+            } else {
+              await prisma.reading_progress.create({
+                data: {
+                  userId,
+                  mangaUrl,
+                  mangaTitle: progress.mangaTitle || progress.title || '',
+                  chapterIndex: progress.chapterIndex || 0,
+                  pageIndex: progress.page || progress.pageIndex || 0,
+                  totalPages: progress.totalPages || 0
+                }
+              });
             }
           });
         }
       }
     }
+    
+    res.json({ success: true, message: 'Dati sincronizzati' });
+    
+  } catch (error) {
+    console.error('Sync error:', error);
+    res.status(500).json({ 
+      message: 'Errore sincronizzazione', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
-  
-  res.json({ success: true, message: 'Dati sincronizzati' });
-}));
+});
 
 // GET USER DATA
-app.get('/api/user/data', authenticateToken, requireDatabase, handlePrismaError(async (req, res) => {
-  const userId = req.user.id;
-  
-  const [userFavorites, readingProgress, library, profile] = await Promise.all([
-    prisma.user_favorites.findUnique({ where: { userId } }),
-    prisma.reading_progress.findMany({ 
-      where: { userId },
-      orderBy: { updatedAt: 'desc' }
-    }),
-    prisma.user_library.findUnique({ where: { userId } }),
-    prisma.user_profile.findUnique({ where: { userId } })
-  ]);
-  
-  const progressObj = {};
-  readingProgress.forEach(p => {
-    progressObj[p.mangaUrl] = {
-      chapterIndex: p.chapterIndex,
-      pageIndex: p.pageIndex,
-      page: p.pageIndex,
-      totalPages: p.totalPages,
-      mangaTitle: p.mangaTitle,
-      timestamp: p.updatedAt
-    };
-  });
-  
-  res.json({ 
-    favorites: userFavorites ? JSON.parse(userFavorites.favorites) : [],
-    readingProgress: progressObj,
-    reading: library ? JSON.parse(library.reading || '[]') : [],
-    completed: library ? JSON.parse(library.completed || '[]') : [],
-    dropped: library ? JSON.parse(library.dropped || '[]') : [],
-    history: library ? JSON.parse(library.history || '[]') : [],
-    profile: profile || {},
-    notificationSettings: []
-  });
-}));
+app.get('/api/user/data', authenticateToken, requireDatabase, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const [userFavorites, readingProgress, library, profile] = await executeWithRetry(async () => {
+      return await Promise.all([
+        prisma.user_favorites.findUnique({ where: { userId } }),
+        prisma.reading_progress.findMany({ 
+          where: { userId },
+          orderBy: { updatedAt: 'desc' }
+        }),
+        prisma.user_library.findUnique({ where: { userId } }),
+        prisma.user_profile.findUnique({ where: { userId } })
+      ]);
+    });
+    
+    const progressObj = {};
+    readingProgress.forEach(p => {
+      progressObj[p.mangaUrl] = {
+        chapterIndex: p.chapterIndex,
+        pageIndex: p.pageIndex,
+        page: p.pageIndex,
+        totalPages: p.totalPages,
+        mangaTitle: p.mangaTitle,
+        timestamp: p.updatedAt
+      };
+    });
+    
+    res.json({ 
+      favorites: userFavorites ? JSON.parse(userFavorites.favorites) : [],
+      readingProgress: progressObj,
+      reading: library ? JSON.parse(library.reading || '[]') : [],
+      completed: library ? JSON.parse(library.completed || '[]') : [],
+      dropped: library ? JSON.parse(library.dropped || '[]') : [],
+      history: library ? JSON.parse(library.history || '[]') : [],
+      profile: profile || {},
+      notificationSettings: []
+    });
+    
+  } catch (error) {
+    console.error('Get user data error:', error);
+    res.status(500).json({ 
+      message: 'Errore nel recupero dati utente',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
 
 // GET PUBLIC PROFILE
-app.get('/api/profile/:username', handlePrismaError(async (req, res) => {
+app.get('/api/profile/:username', async (req, res) => {
   if (!dbConnected) {
     return res.status(503).json({ message: 'Servizio temporaneamente non disponibile' });
   }
   
-  const { username } = req.params;
-  
-  const user = await prisma.user.findUnique({
-    where: { username: username.toLowerCase() },
-    include: {
-      profile: true,
-      library: true,
-      favorites: true
+  try {
+    const { username } = req.params;
+    
+    const user = await executeWithRetry(async () => {
+      return await prisma.user.findUnique({
+        where: { username: username.toLowerCase() },
+        include: {
+          profile: true,
+          library: true,
+          favorites: true
+        }
+      });
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Utente non trovato' });
     }
-  });
-  
-  if (!user) {
-    return res.status(404).json({ message: 'Utente non trovato' });
+    
+    if (!user.profile || !user.profile.isPublic) {
+      return res.status(403).json({ message: 'Profilo privato' });
+    }
+    
+    await executeWithRetry(async () => {
+      await prisma.user_profile.update({
+        where: { id: user.profile.id },
+        data: { viewCount: user.profile.viewCount + 1 }
+      });
+    });
+    
+    const reading = JSON.parse(user.library?.reading || '[]').slice(0, 12);
+    const completed = JSON.parse(user.library?.completed || '[]').slice(0, 12);
+    const dropped = JSON.parse(user.library?.dropped || '[]').slice(0, 12);
+    const favorites = JSON.parse(user.favorites?.favorites || '[]').slice(0, 12);
+    
+    const [followersCount, followingCount] = await executeWithRetry(async () => {
+      return await Promise.all([
+        prisma.user_follows.count({ where: { followingId: user.id } }),
+        prisma.user_follows.count({ where: { followerId: user.id } })
+      ]);
+    });
+    
+    res.json({
+      username: user.username,
+      displayName: user.profile.displayName || user.username,
+      bio: user.profile.bio,
+      avatarUrl: user.profile.avatarUrl,
+      bannerUrl: user.profile.bannerUrl,
+      badges: user.profile.badges || [],
+      stats: {
+        totalRead: reading.length + completed.length,
+        favorites: favorites.length,
+        completed: completed.length,
+        dropped: dropped.length,
+        views: user.profile.viewCount,
+        followers: followersCount,
+        following: followingCount
+      },
+      reading,
+      completed,
+      dropped,
+      favorites,
+      socialLinks: user.profile.socialLinks || {},
+      joinedAt: user.createdAt
+    });
+    
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({ 
+      message: 'Errore recupero profilo',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
-  
-  if (!user.profile || !user.profile.isPublic) {
-    return res.status(403).json({ message: 'Profilo privato' });
-  }
-  
-  await prisma.user_profile.update({
-    where: { id: user.profile.id },
-    data: { viewCount: user.profile.viewCount + 1 }
-  });
-  
-  const reading = JSON.parse(user.library?.reading || '[]').slice(0, 12);
-  const completed = JSON.parse(user.library?.completed || '[]').slice(0, 12);
-  const dropped = JSON.parse(user.library?.dropped || '[]').slice(0, 12);
-  const favorites = JSON.parse(user.favorites?.favorites || '[]').slice(0, 12);
-  
-  const followersCount = await prisma.user_follows.count({
-    where: { followingId: user.id }
-  });
-  
-  const followingCount = await prisma.user_follows.count({
-    where: { followerId: user.id }
-  });
-  
-  res.json({
-    username: user.username,
-    displayName: user.profile.displayName || user.username,
-    bio: user.profile.bio,
-    avatarUrl: user.profile.avatarUrl,
-    bannerUrl: user.profile.bannerUrl,
-    badges: user.profile.badges || [],
-    stats: {
-      totalRead: reading.length + completed.length,
-      favorites: favorites.length,
-      completed: completed.length,
-      dropped: dropped.length,
-      views: user.profile.viewCount,
-      followers: followersCount,
-      following: followingCount
-    },
-    reading,
-    completed,
-    dropped,
-    favorites,
-    socialLinks: user.profile.socialLinks || {},
-    joinedAt: user.createdAt
-  });
-}));
+});
 
 // ========= ERROR HANDLER =========
 app.use((err, req, res, next) => {
@@ -754,28 +859,23 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`
   ╔════════════════════════════════════════╗
-  ║     NeKuro Scan Auth Server v3.6      ║
+  ║     NeKuro Scan Auth Server v3.7      ║
   ╠════════════════════════════════════════╣
   ║ Port: ${PORT.toString().padEnd(33)}║
   ║ Environment: ${(process.env.NODE_ENV || 'development').padEnd(26)}║
-  ║ Database: ${dbConnected ? '✅ Connected'.padEnd(29) : '❌ Disconnected'.padEnd(29)}║
+  ║ Database: ${dbConnected ? '✅ Connected'.padEnd(29) : '⏳ Connecting...'.padEnd(29)}║
   ║ Storage: ${supabase ? '✅ Configured'.padEnd(30) : '⚠️  Disabled'.padEnd(30)}║
   ╚════════════════════════════════════════╝
   `);
   
   if (!dbConnected) {
-    console.log('⚠️  Server running in DEGRADED mode - Database offline');
-    console.log('🔄 Attempting to reconnect...');
+    console.log('⏳ Waiting for database connection...');
   }
 });
 
 // ========= GRACEFUL SHUTDOWN =========
 const gracefulShutdown = async (signal) => {
   console.log(`\n🔄 ${signal} received, starting graceful shutdown...`);
-  
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer);
-  }
   
   if (prisma) {
     await prisma.$disconnect();
