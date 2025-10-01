@@ -666,45 +666,36 @@ app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) 
       }
     });
     
-    // SYNC READING PROGRESS
-    if (readingProgress && typeof readingProgress === 'object') {
-      for (const [mangaUrl, progress] of Object.entries(readingProgress)) {
-        if (progress && typeof progress === 'object') {
-          await executeWithRetry(async () => {
-            const existing = await prisma.reading_progress.findUnique({
-              where: {
-                userId_mangaUrl: { userId, mangaUrl }
-              }
-            });
-            
-            if (existing) {
-              await prisma.reading_progress.update({
-                where: {
-                  userId_mangaUrl: { userId, mangaUrl }
-                },
-                data: {
-                  chapterIndex: progress.chapterIndex || 0,
-                  pageIndex: progress.page || progress.pageIndex || 0,
-                  totalPages: progress.totalPages || 0,
-                  updatedAt: new Date()
-                }
-              });
-            } else {
-              await prisma.reading_progress.create({
-                data: {
-                  userId,
-                  mangaUrl,
-                  mangaTitle: progress.mangaTitle || progress.title || '',
-                  chapterIndex: progress.chapterIndex || 0,
-                  pageIndex: progress.page || progress.pageIndex || 0,
-                  totalPages: progress.totalPages || 0
-                }
-              });
-            }
-          });
-        }
-      }
+    // SYNC READING PROGRESS - FIX UNIQUE CONSTRAINT
+if (readingProgress && typeof readingProgress === 'object') {
+  for (const [mangaUrl, progress] of Object.entries(readingProgress)) {
+    if (progress && typeof progress === 'object') {
+      await executeWithRetry(async () => {
+        // Usa UPSERT invece di findUnique + create/update
+        await prisma.reading_progress.upsert({
+          where: {
+            userId_mangaUrl: { userId, mangaUrl }
+          },
+          update: {
+            chapterIndex: progress.chapterIndex || 0,
+            pageIndex: progress.page || progress.pageIndex || 0,
+            totalPages: progress.totalPages || 0,
+            mangaTitle: progress.mangaTitle || progress.title || '',
+            updatedAt: new Date()
+          },
+          create: {
+            userId,
+            mangaUrl,
+            mangaTitle: progress.mangaTitle || progress.title || '',
+            chapterIndex: progress.chapterIndex || 0,
+            pageIndex: progress.page || progress.pageIndex || 0,
+            totalPages: progress.totalPages || 0
+          }
+        });
+      });
     }
+  }
+}
     
     res.json({ success: true, message: 'Dati sincronizzati' });
     

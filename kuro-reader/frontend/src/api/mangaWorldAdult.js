@@ -180,6 +180,47 @@ export class MangaWorldAdultAPI {
     }
   }
 
+  // frontend/src/api/mangaWorldAdult.js
+// Aggiungi questo metodo nella classe MangaWorldAdultAPI
+
+async search(query) {
+  try {
+    if (!query || query.trim() === '') return [];
+    
+    const searchUrl = `${this.baseUrl}archive?keyword=${encodeURIComponent(query)}`;
+    const html = await this.makeRequest(searchUrl);
+    const doc = this.parseHTML(html);
+    
+    const results = [];
+    const entries = doc.querySelectorAll('.entry');
+    
+    entries.forEach((entry, index) => {
+      if (index >= 20) return; // Limita a 20 risultati
+      
+      const link = entry.querySelector('a');
+      const img = entry.querySelector('img');
+      const title = entry.querySelector('.manga-title, .name, .title');
+      
+      if (link?.href && title) {
+        const href = link.getAttribute('href');
+        results.push({
+          url: href.startsWith('http') ? href : `${this.baseUrl}${href.replace(/^\//, '')}`,
+          title: title.textContent.trim(),
+          cover: img?.src || img?.dataset?.src || '',
+          source: 'mangaWorldAdult',
+          type: 'manga',
+          isAdult: true
+        });
+      }
+    });
+    
+    return results;
+  } catch (error) {
+    console.error('Search adult error:', error);
+    return [];
+  }
+}
+
 
   async getChapterDetail(chapterUrl) {
     try {
