@@ -1,4 +1,4 @@
-// ✅ READERPAGE.JSX v3.4 - FIX REACT ERROR #300
+// ✅ READERPAGE.JSX v3.5 - FIX REACT ERROR #300
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box, IconButton, useToast, Image, Spinner, Text, VStack, HStack,
@@ -28,9 +28,11 @@ function ReaderPage() {
   const navigate = useNavigate();
   const toast = useToast();
   
-  // ✅ FIX: Usa l'hook correttamente all'inizio del componente
-  const { syncToServer } = useAuth();
+  // ✅ FIX: Tutti gli hook all'inizio, nessun hook condizionale
+  const authHook = useAuth();
+  const syncToServer = authHook?.syncToServer || null;
   
+  // States
   const [chapter, setChapter] = useState(null);
   const [manga, setManga] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -54,12 +56,11 @@ function ReaderPage() {
   const [showControls, setShowControls] = useState(true);
   const [controlsTimeout, setControlsTimeout] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
-  
-  // Zoom state
   const [isZoomed, setIsZoomed] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [zoomOrigin, setZoomOrigin] = useState({ x: 0, y: 0 });
   
+  // Refs
   const scrollIntervalRef = useRef(null);
   const containerRef = useRef(null);
   const saveTimeoutRef = useRef(null);
@@ -67,14 +68,14 @@ function ReaderPage() {
   
   const chapterIndex = parseInt(searchParams.get('chapter') || '0');
 
-  // Swipe gesture for page navigation
+  // ✅ Swipe gesture hook
   useSwipeGesture(
-    () => changePage(1),
-    () => changePage(-1),
+    useCallback(() => changePage(1), [chapter, currentPage, readingMode]),
+    useCallback(() => changePage(-1), [chapter, currentPage, readingMode]),
     50
   );
 
-  // Double tap to zoom
+  // ✅ Double tap hook
   const handleDoubleTap = useDoubleTap((e) => {
     if (readingMode === 'webtoon') return;
     
@@ -92,6 +93,7 @@ function ReaderPage() {
     }
   }, 300);
 
+  // ✅ Cleanup effect
   useEffect(() => {
     return () => {
       if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current);
@@ -100,10 +102,12 @@ function ReaderPage() {
     };
   }, [controlsTimeout]);
 
+  // ✅ Load data effect
   useEffect(() => {
     loadData();
   }, [chapterId, source]);
 
+  // ✅ Mouse move effect for controls
   useEffect(() => {
     const handleMouseMove = () => {
       setShowControls(true);
@@ -121,6 +125,7 @@ function ReaderPage() {
     };
   }, [controlsTimeout]);
 
+  // ✅ Auto scroll effect
   useEffect(() => {
     if (autoScroll && readingMode === 'webtoon') {
       scrollIntervalRef.current = setInterval(() => {
@@ -154,6 +159,7 @@ function ReaderPage() {
     };
   }, [autoScroll, scrollSpeed, readingMode, toast]);
 
+  // ✅ Keyboard shortcuts effect
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (settingsOpen) return;
@@ -263,6 +269,7 @@ function ReaderPage() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [currentPage, readingMode, chapter, settingsOpen, isFullscreen]);
 
+  // ✅ Save progress effect
   useEffect(() => {
     if (!manga || !chapter || !chapter.pages || chapter.pages.length === 0) return;
     
@@ -281,11 +288,13 @@ function ReaderPage() {
     };
   }, [currentPage, manga, chapter, chapterIndex]);
 
+  // ✅ Preload images effect
   useEffect(() => {
     if (!chapter?.pages) return;
     preloadImages(currentPage, chapter.pages);
   }, [currentPage, chapter]);
 
+  // ✅ Save progress function
   const saveProgress = useCallback(() => {
     if (!manga || !chapter) return;
     
@@ -331,7 +340,8 @@ function ReaderPage() {
     window.dispatchEvent(new CustomEvent('library-updated'));
   }, [manga, chapter, chapterIndex, currentPage, source]);
 
-  const markChapterAsRead = (chapIndex) => {
+  // ✅ Mark chapter as read
+  const markChapterAsRead = useCallback((chapIndex) => {
     if (!manga) return;
     
     const completed = JSON.parse(localStorage.getItem('completedChapters') || '{}');
@@ -342,8 +352,9 @@ function ReaderPage() {
       completed[manga.url].push(chapIndex);
       localStorage.setItem('completedChapters', JSON.stringify(completed));
     }
-  };
+  }, [manga]);
 
+  // ✅ Load data function
   const loadData = async () => {
     try {
       setLoading(true);
@@ -415,6 +426,7 @@ function ReaderPage() {
     }
   };
 
+  // ✅ Detect reading mode
   const detectReadingMode = (firstPageUrl) => {
     if (!firstPageUrl) return;
     
@@ -434,6 +446,7 @@ function ReaderPage() {
     img.src = firstPageUrl;
   };
 
+  // ✅ Preload images function
   const preloadImages = (startIndex, pages) => {
     if (!pages || pages.length === 0) return;
     
@@ -449,8 +462,8 @@ function ReaderPage() {
     }
   };
 
-  // ✅ FIX: Usa syncToServer dall'hook senza .getState()
-  const navigateChapter = async (direction) => {
+  // ✅ Navigate chapter function
+  const navigateChapter = useCallback(async (direction) => {
     if (!manga?.chapters) return;
     
     const newIndex = chapterIndex + direction;
@@ -499,13 +512,13 @@ function ReaderPage() {
         cc[manga.url] = Array.from({ length: manga.chapters.length }, (_, i) => i);
         localStorage.setItem('completedChapters', JSON.stringify(cc));
         
-        // ✅ FIX: Usa la funzione direttamente dall'hook
-        try {
-          if (syncToServer) {
+        // ✅ FIX: Usa syncToServer in modo sicuro
+        if (syncToServer && typeof syncToServer === 'function') {
+          try {
             await syncToServer();
+          } catch (e) {
+            console.error('Sync after completion failed:', e);
           }
-        } catch (e) {
-          console.error('Sync after completion failed:', e);
         }
         
         window.dispatchEvent(new CustomEvent('library-updated'));
@@ -521,9 +534,10 @@ function ReaderPage() {
         });
       }
     }
-  };
+  }, [manga, chapterIndex, source, mangaId, navigate, toast, saveProgress, syncToServer]);
 
-  const changePage = (direction) => {
+  // ✅ Change page function
+  const changePage = useCallback((direction) => {
     if (!chapter?.pages) return;
     
     const pagesToSkip = readingMode === 'double' ? 2 : 1;
@@ -533,7 +547,7 @@ function ReaderPage() {
       setCurrentPage(newPage);
       preloadImages(newPage, chapter.pages);
     } else if (newPage >= chapter.pages.length) {
-      if (chapterIndex < manga.chapters.length - 1) {
+      if (chapterIndex < manga?.chapters?.length - 1) {
         toast({
           title: 'Capitolo completato!',
           description: 'Passaggio al capitolo successivo...',
@@ -554,9 +568,10 @@ function ReaderPage() {
         navigateChapter(-1);
       }
     }
-  };
+  }, [chapter, readingMode, currentPage, chapterIndex, manga, toast, navigateChapter]);
 
-  const toggleFullscreen = () => {
+  // ✅ Toggle fullscreen
+  const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       const elem = document.documentElement;
       if (elem.requestFullscreen) {
@@ -581,9 +596,10 @@ function ReaderPage() {
       }
       setIsFullscreen(false);
     }
-  };
+  }, []);
 
-  const cycleReadingMode = () => {
+  // ✅ Cycle reading mode
+  const cycleReadingMode = useCallback(() => {
     const modes = ['single', 'double', 'webtoon'];
     const currentIndex = modes.indexOf(readingMode);
     const nextMode = modes[(currentIndex + 1) % modes.length];
@@ -608,9 +624,10 @@ function ReaderPage() {
       status: 'info',
       duration: 1500,
     });
-  };
+  }, [readingMode, currentPage, toast]);
 
-  const getReadingModeIcon = () => {
+  // ✅ Get reading mode icon
+  const getReadingModeIcon = useCallback(() => {
     switch(readingMode) {
       case 'single':
         return <RiPagesFill />;
@@ -621,14 +638,16 @@ function ReaderPage() {
       default:
         return <FaAlignJustify />;
     }
-  };
+  }, [readingMode]);
 
-  const handleImageError = (pageIndex) => {
+  // ✅ Handle image error
+  const handleImageError = useCallback((pageIndex) => {
     setErrorPages(prev => new Set([...prev, pageIndex]));
     console.error(`Failed to load page ${pageIndex + 1}`);
-  };
+  }, []);
 
-  const retryImage = (pageIndex) => {
+  // ✅ Retry image
+  const retryImage = useCallback((pageIndex) => {
     setErrorPages(prev => {
       const newSet = new Set(prev);
       newSet.delete(pageIndex);
@@ -642,9 +661,10 @@ function ReaderPage() {
         img.src = src;
       }, 100);
     }
-  };
+  }, []);
 
-  const addBookmark = () => {
+  // ✅ Add bookmark
+  const addBookmark = useCallback(() => {
     if (!manga) return;
     
     const bookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
@@ -674,8 +694,9 @@ function ReaderPage() {
         duration: 2000,
       });
     }
-  };
+  }, [manga, chapterIndex, currentPage, toast]);
 
+  // ✅ Render pages function
   const renderPages = () => {
     if (!chapter || !chapter.pages || chapter.pages.length === 0) {
       return (
@@ -831,7 +852,6 @@ function ReaderPage() {
         cursor="pointer"
         overflow="hidden"
       >
-        
         <AnimatePresence mode="wait" custom={1}>
           <MotionBox
             key={currentPage}
@@ -1127,9 +1147,142 @@ function ReaderPage() {
         </VStack>
       </Box>
 
-      {/* Settings Drawer (rimane uguale) */}
+      {/* Settings Drawer */}
       <Drawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} placement="right" size="sm">
-        {/* ... drawer content ... */}
+        <DrawerOverlay />
+        <DrawerContent bg="gray.900" color="white">
+          <DrawerCloseButton />
+          <DrawerHeader borderBottomWidth="1px" borderColor="gray.700">
+            Impostazioni Lettura
+          </DrawerHeader>
+          <DrawerBody>
+            <VStack spacing={6} align="stretch">
+              <FormControl>
+                <FormLabel>Modalità Lettura</FormLabel>
+                <Select 
+                  value={readingMode} 
+                  onChange={(e) => {
+                    setReadingMode(e.target.value);
+                    localStorage.setItem('preferredReadingMode', e.target.value);
+                  }}
+                  bg="gray.800"
+                >
+                  <option value="single">Pagina Singola</option>
+                  <option value="double">Pagina Doppia</option>
+                  <option value="webtoon">Webtoon</option>
+                </Select>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Adattamento Pagina</FormLabel>
+                <Select 
+                  value={fitMode} 
+                  onChange={(e) => {
+                    setFitMode(e.target.value);
+                    localStorage.setItem('preferredFitMode', e.target.value);
+                  }}
+                  bg="gray.800"
+                >
+                  <option value="height">Adatta Altezza</option>
+                  <option value="width">Adatta Larghezza</option>
+                </Select>
+              </FormControl>
+
+              {readingMode === 'webtoon' && (
+                <>
+                  <FormControl display="flex" alignItems="center">
+                    <FormLabel mb="0">
+                      Scroll Automatico
+                    </FormLabel>
+                    <Switch 
+                      isChecked={autoScroll} 
+                      onChange={(e) => setAutoScroll(e.target.checked)}
+                      colorScheme="purple"
+                    />
+                  </FormControl>
+
+                  {autoScroll && (
+                    <FormControl>
+                      <FormLabel>Velocità Scroll: {scrollSpeed}</FormLabel>
+                      <Slider 
+                        value={scrollSpeed} 
+                        onChange={setScrollSpeed}
+                        min={10}
+                        max={100}
+                        colorScheme="purple"
+                      >
+                        <SliderTrack>
+                          <SliderFilledTrack />
+                        </SliderTrack>
+                        <SliderThumb />
+                      </Slider>
+                    </FormControl>
+                  )}
+                </>
+              )}
+
+              <FormControl>
+                <FormLabel>Zoom Immagine: {imageScale}%</FormLabel>
+                <Slider 
+                  value={imageScale} 
+                  onChange={setImageScale}
+                  min={50}
+                  max={200}
+                  colorScheme="purple"
+                >
+                  <SliderTrack>
+                    <SliderFilledTrack />
+                  </SliderTrack>
+                  <SliderThumb />
+                </Slider>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Luminosità: {brightness}%</FormLabel>
+                <Slider 
+                  value={brightness} 
+                  onChange={setBrightness}
+                  min={50}
+                  max={150}
+                  colorScheme="purple"
+                >
+                  <SliderTrack>
+                    <SliderFilledTrack />
+                  </SliderTrack>
+                  <SliderThumb />
+                </Slider>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Contrasto: {contrast}%</FormLabel>
+                <Slider 
+                  value={contrast} 
+                  onChange={setContrast}
+                  min={50}
+                  max={150}
+                  colorScheme="purple"
+                >
+                  <SliderTrack>
+                    <SliderFilledTrack />
+                  </SliderTrack>
+                  <SliderThumb />
+                </Slider>
+              </FormControl>
+
+              <Divider />
+
+              <VStack spacing={2} align="stretch">
+                <Text fontSize="sm" fontWeight="bold">Scorciatoie Tastiera</Text>
+                <Text fontSize="xs" color="gray.400">← → : Cambia pagina</Text>
+                <Text fontSize="xs" color="gray.400">F : Schermo intero</Text>
+                <Text fontSize="xs" color="gray.400">M : Cambia modalità</Text>
+                <Text fontSize="xs" color="gray.400">B : Aggiungi segnalibro</Text>
+                <Text fontSize="xs" color="gray.400">[ ] : Cambia capitolo</Text>
+                <Text fontSize="xs" color="gray.400">ESC : Esci</Text>
+              </VStack>
+            </VStack>
+          </DrawerBody>
+        </DrawerContent>
       </Drawer>
 
       {renderPages()}
