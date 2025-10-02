@@ -1,11 +1,17 @@
+// ErrorBoundary.jsx - VERSIONE CORRETTA v2.0
 import React from 'react';
 import { Box, Container, VStack, Heading, Text, Button, Code, HStack } from '@chakra-ui/react';
-import { FaExclamationTriangle, FaHome, FaRedo } from 'react-icons/fa';
+import { FaExclamationTriangle, FaHome } from 'react-icons/fa';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      errorCount: 0
+    };
   }
 
   static getDerivedStateFromError(error) {
@@ -14,25 +20,32 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('Error Boundary caught:', error, errorInfo);
-    this.setState({
-      error,
-      errorInfo
-    });
     
-    // Log to error reporting service if needed
+    this.setState((prevState) => ({
+      error,
+      errorInfo,
+      errorCount: prevState.errorCount + 1
+    }));
+
     if (window.Sentry) {
       window.Sentry.captureException(error);
     }
+
+    // Previeni loop infinito
+    if (this.state.errorCount >= 3) {
+      console.error('Too many errors, forcing redirect');
+      window.location.href = '/home';
+    }
   }
 
-  handleReset = () => {
-    this.setState({ hasError: false, error: null, errorInfo: null });
-    window.location.reload();
-  };
-
   handleGoHome = () => {
-    this.setState({ hasError: false, error: null, errorInfo: null });
-    window.location.href = '/';
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null
+    });
+    // NON usare reload! Naviga direttamente
+    window.location.href = '/home';
   };
 
   render() {
@@ -45,44 +58,23 @@ class ErrorBoundary extends React.Component {
             <Text color="gray.400" textAlign="center">
               Si è verificato un errore imprevisto. Ci scusiamo per l'inconveniente.
             </Text>
-            
+
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <Box w="100%" p={4} bg="gray.800" borderRadius="md">
                 <Text fontWeight="bold" mb={2}>Dettagli errore:</Text>
                 <Code colorScheme="red" p={2} borderRadius="md" fontSize="sm">
                   {this.state.error.toString()}
                 </Code>
-                {this.state.errorInfo && (
-                  <Code 
-                    mt={2} 
-                    p={2} 
-                    borderRadius="md" 
-                    fontSize="xs" 
-                    display="block"
-                    whiteSpace="pre-wrap"
-                  >
-                    {this.state.errorInfo.componentStack}
-                  </Code>
-                )}
               </Box>
             )}
-            
-            <HStack spacing={4}>
-              <Button
-                leftIcon={<FaRedo />}
-                colorScheme="purple"
-                onClick={this.handleReset}
-              >
-                Ricarica pagina
-              </Button>
-              <Button
-                leftIcon={<FaHome />}
-                variant="outline"
-                onClick={this.handleGoHome}
-              >
-                Torna alla Home
-              </Button>
-            </HStack>
+
+            <Button
+              leftIcon={<FaHome />}
+              colorScheme="purple"
+              onClick={this.handleGoHome}
+            >
+              Torna alla Home
+            </Button>
           </VStack>
         </Container>
       );

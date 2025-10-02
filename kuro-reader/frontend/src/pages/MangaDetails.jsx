@@ -339,51 +339,60 @@ function MangaDetails() {
     }
   };
 
-  // ✅ Start reading with safe updates
-  const startReading = (chapterIndex = 0) => {
-    if (!manga?.chapters?.[chapterIndex]) {
+  const startReading = (chapterIndex) => {
+    // VALIDAZIONE CRITICA
+    if (!manga?.chapters || !Array.isArray(manga.chapters)) {
       toast({
-        title: 'Capitolo non disponibile',
+        title: 'Errore',
+        description: 'Nessun capitolo disponibile',
         status: 'error',
-        duration: 2000
+        duration: 3000,
       });
       return;
     }
-    
-    try {
-      const chapter = manga.chapters[chapterIndex];
-      const chapterId = btoa(chapter.url);
-      
-      const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-      progress[manga.url] = {
-        chapterId: chapter.url,
-        chapterIndex: chapterIndex,
-        chapterTitle: chapter.title,
-        totalChapters: manga.chapters.length,
-        page: 0,
-        pageIndex: 0,
-        timestamp: new Date().toISOString()
-      };
-      localStorage.setItem('readingProgress', JSON.stringify(progress));
-      
-      updateReadingList(chapterIndex, chapter);
-      
-      window.dispatchEvent(new CustomEvent('library-updated'));
-      
-      console.log('✅ Starting chapter:', chapterIndex + 1);
-      
-      navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
-      
-    } catch (error) {
-      console.error('❌ Error starting reading:', error);
+  
+    if (chapterIndex < 0 || chapterIndex >= manga.chapters.length) {
       toast({
         title: 'Errore',
-        description: 'Impossibile avviare la lettura',
+        description: 'Capitolo non valido',
         status: 'error',
-        duration: 2000
+        duration: 3000,
+      });
+      return;
+    }
+  
+    const chapter = manga.chapters[chapterIndex];
+    if (!chapter?.url) {
+      toast({
+        title: 'Errore',
+        description: 'URL capitolo non valido',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+  
+    try {
+      const mangaId = encodeURIComponent(btoa(manga.url));
+      const chapterId = encodeURIComponent(btoa(chapter.url));
+      const source = manga.source || (manga.isAdult ? 'mangaWorldAdult' : 'mangaWorld');
+      
+      // Salva progresso
+      saveReadingProgress(chapterIndex, 0);
+      
+      // Naviga
+      navigate(`/read/${source}/${mangaId}/${chapterId}`);
+    } catch (error) {
+      console.error('Navigation error:', error);
+      toast({
+        title: 'Errore navigazione',
+        description: 'Impossibile aprire il capitolo',
+        status: 'error',
+        duration: 3000,
       });
     }
   };
+  
 
   // ✅ Update reading list with safe sync
   const updateReadingList = async (chapterIndex, chapter) => {
