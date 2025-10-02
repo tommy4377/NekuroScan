@@ -1,5 +1,5 @@
-// Reader.jsx - VERSIONE CORRETTA E VALIDATA v2.0
-import React, { useState, useEffect, useCallback } from 'react';
+// Reader.jsx - VERSIONE CORRETTA SENZA ERRORI REACT #300
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Image,
@@ -14,7 +14,7 @@ import 'react-lazy-load-image-component/src/effects/blur.css';
 function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
   const [loadedImages, setLoadedImages] = useState({});
 
-  // Validazione iniziale dei props
+  // ==================== VALIDAZIONE INIZIALE ====================
   useEffect(() => {
     if (!chapter) {
       console.error('Reader: chapter is undefined');
@@ -23,11 +23,10 @@ function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
     
     if (!isNovel && (!chapter.pages || !Array.isArray(chapter.pages))) {
       console.error('Reader: chapter.pages is invalid', chapter);
-      return;
     }
   }, [chapter, isNovel]);
 
-  // Preload delle immagini successive
+  // ==================== PRELOAD IMMAGINI ====================
   useEffect(() => {
     if (!chapter?.pages || !Array.isArray(chapter.pages)) {
       return;
@@ -45,22 +44,19 @@ function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
           setLoadedImages(prev => ({ ...prev, [i]: true }));
         };
         img.onerror = () => {
-          console.error(`Failed to load image at index ${i}:`, chapter.pages[i]);
+          console.error(`Failed to load image at index ${i}`);
         };
       }
     }
   }, [currentPage, chapter]);
 
-  // Gestione click con validazione completa
-  const handlePageClick = useCallback((e) => {
+  // ==================== GESTIONE CLICK - DEFINITA PRIMA DEI RETURN ====================
+  const handlePageClick = (e) => {
     // VALIDAZIONE CRITICA
     if (!chapter?.pages || !Array.isArray(chapter.pages) || chapter.pages.length === 0) {
       console.error('Cannot navigate: no pages available');
       return;
     }
-
-    // Previeni propagazione e default
-    e.stopPropagation();
 
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -81,8 +77,7 @@ function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
         onPageChange(newPage);
       }
     }
-    // Click al centro = mostra/nascondi UI (opzionale)
-  }, [chapter, currentPage, onPageChange, settings]);
+  };
 
   // ==================== NOVEL READER ====================
   if (isNovel) {
@@ -147,10 +142,6 @@ function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
                 style={{
                   filter: `brightness(${settings?.brightness || 100}%)`,
                 }}
-                onError={(e) => {
-                  console.error(`Image load error at index ${i}:`, page);
-                  e.target.style.display = 'none';
-                }}
               />
             ) : (
               <Box bg="gray.800" minH="400px" display="flex" alignItems="center" justifyContent="center">
@@ -173,9 +164,6 @@ function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
           <Text color="gray.500" fontSize="lg" textAlign="center">
             Nessuna pagina disponibile per questo capitolo
           </Text>
-          <Text color="gray.600" fontSize="sm">
-            Verifica la connessione o riprova più tardi
-          </Text>
         </VStack>
       </Container>
     );
@@ -195,16 +183,13 @@ function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
     }
   }
 
-  // Se non ci sono pagine valide da mostrare
+  // Se non ci sono pagine valide
   if (pages.length === 0) {
     return (
       <Container maxW="container.md" py={20}>
         <VStack spacing={4}>
           <Text color="gray.500" fontSize="lg">
             Pagina non disponibile
-          </Text>
-          <Text color="gray.600" fontSize="sm">
-            Indice pagina: {currentPage} / {chapter.pages.length - 1}
           </Text>
         </VStack>
       </Container>
@@ -221,7 +206,6 @@ function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
       onClick={handlePageClick}
       cursor="pointer"
       position="relative"
-      userSelect="none"
     >
       {pages.map((pageData) => (
         <Box
@@ -237,31 +221,21 @@ function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
             <Image
               src={pageData.url}
               alt={`Page ${pageData.index + 1}`}
-              objectFit={settings?.fitMode === 'width' ? 'contain' : (settings?.fitMode || 'contain')}
+              objectFit={settings?.fitMode || 'contain'}
               maxH="calc(100vh - 128px)"
               maxW="100%"
               style={{
                 filter: `brightness(${settings?.brightness || 100}%)`,
                 transform: `scale(${(settings?.zoom || 100) / 100})`,
               }}
-              onError={(e) => {
-                console.error(`Failed to display image at index ${pageData.index}`);
-                e.target.style.display = 'none';
-              }}
             />
           ) : (
-            <Skeleton height="80vh" width="100%" borderRadius="md">
-              <VStack spacing={2} justify="center" height="100%">
-                <Text color="gray.600" fontSize="sm">
-                  Caricamento pagina {pageData.index + 1}...
-                </Text>
-              </VStack>
-            </Skeleton>
+            <Skeleton height="80vh" width="100%" borderRadius="md" />
           )}
         </Box>
       ))}
 
-      {/* Navigation hints - sinistra */}
+      {/* Navigation hints */}
       <Box
         position="absolute"
         left={0}
@@ -276,7 +250,6 @@ function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
         pointerEvents="none"
       />
       
-      {/* Navigation hints - destra */}
       <Box
         position="absolute"
         right={0}
@@ -291,7 +264,7 @@ function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
         pointerEvents="none"
       />
 
-      {/* Indicatore pagina (opzionale) */}
+      {/* Indicatore pagina */}
       <Box
         position="absolute"
         bottom={4}
