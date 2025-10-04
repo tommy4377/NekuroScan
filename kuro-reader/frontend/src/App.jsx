@@ -7,12 +7,12 @@ import { theme } from './styles/theme';
 import Navigation from './components/Navigation';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
-import useAuth from './hooks/useAuth';
+import useAuthStore from './hooks/useAuth';
 
-// ✅ READER NON LAZY - IMPORTATO NORMALMENTE PER EVITARE ERRORE #300
+// ✅ READER IMPORTATO NORMALMENTE (NO LAZY)
 import ReaderPage from './pages/ReaderPage';
 
-// Lazy load delle altre pagine
+// Lazy load altre pagine
 const Welcome = lazy(() => import('./pages/Welcome'));
 const Home = lazy(() => import('./pages/Home'));
 const Search = lazy(() => import('./pages/Search'));
@@ -28,7 +28,6 @@ const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const Settings = lazy(() => import('./pages/Settings'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
-// Loading component con animazione
 const PageLoader = () => (
   <Center h="100vh" bg="gray.900">
     <motion.div
@@ -50,10 +49,10 @@ const PageLoader = () => (
   </Center>
 );
 
-// Protected Route Component
+// Protected Route
 const ProtectedRoute = ({ children }) => {
-  const isAuthenticated = useAuth(state => state.isAuthenticated);
-  const loading = useAuth(state => state.loading);
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const loading = useAuthStore(state => state.loading);
   const toast = useToast();
   
   useEffect(() => {
@@ -74,7 +73,7 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// Route con transizione animata
+// ✅ ROUTE ANIMATE SOLO PER PAGINE NON-READER
 const AnimatedRoute = ({ children }) => (
   <motion.div
     initial={{ opacity: 0, y: 15 }}
@@ -86,22 +85,28 @@ const AnimatedRoute = ({ children }) => (
   </motion.div>
 );
 
-// Componente che gestisce le Routes animate
+// ✅ ROUTES SENZA AnimatePresence PER READER
 function AnimatedRoutes() {
   const location = useLocation();
-  
+  const isReaderPage = location.pathname.startsWith('/read/');
+
+  // ✅ Se è ReaderPage, niente animazioni!
+  if (isReaderPage) {
+    return (
+      <Routes location={location}>
+        <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
+      </Routes>
+    );
+  }
+
+  // ✅ Altre pagine con animazioni
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        {/* Public Routes */}
         <Route path="/" element={<AnimatedRoute><Welcome /></AnimatedRoute>} />
         <Route path="/home" element={<AnimatedRoute><Home /></AnimatedRoute>} />
         <Route path="/search" element={<AnimatedRoute><Search /></AnimatedRoute>} />
         <Route path="/manga/:source/:id" element={<AnimatedRoute><MangaDetails /></AnimatedRoute>} />
-        
-        {/* ✅ READER SENZA ANIMAZIONE E SENZA LAZY - IMPORTATO DIRETTAMENTE */}
-        <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
-        
         <Route path="/categories" element={<AnimatedRoute><Categories /></AnimatedRoute>} />
         <Route path="/latest" element={<AnimatedRoute><Latest /></AnimatedRoute>} />
         <Route path="/popular" element={<AnimatedRoute><Popular /></AnimatedRoute>} />
@@ -109,7 +114,6 @@ function AnimatedRoutes() {
         <Route path="/login" element={<AnimatedRoute><Login /></AnimatedRoute>} />
         <Route path="/user/:username" element={<AnimatedRoute><PublicProfile /></AnimatedRoute>} />
         
-        {/* Protected Routes */}
         <Route path="/library" element={
           <ProtectedRoute>
             <AnimatedRoute><Library /></AnimatedRoute>
@@ -126,7 +130,6 @@ function AnimatedRoutes() {
           </ProtectedRoute>
         } />
         
-        {/* 404 */}
         <Route path="*" element={<AnimatedRoute><NotFound /></AnimatedRoute>} />
       </Routes>
     </AnimatePresence>
@@ -134,9 +137,9 @@ function AnimatedRoutes() {
 }
 
 function AppContent() {
-  const initAuth = useAuth(state => state.initAuth);
-  const startAutoSync = useAuth(state => state.startAutoSync);
-  const isAuthenticated = useAuth(state => state.isAuthenticated);
+  const initAuth = useAuthStore(state => state.initAuth);
+  const startAutoSync = useAuthStore(state => state.startAutoSync);
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const toast = useToast();
@@ -149,7 +152,6 @@ function AppContent() {
       cleanup = startAutoSync();
     }
 
-    // Gestione stato online/offline
     const handleOnline = () => {
       setIsOnline(true);
       toast({
@@ -174,7 +176,6 @@ function AppContent() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Registra service worker
     if ('serviceWorker' in navigator && import.meta.env.PROD) {
       navigator.serviceWorker.register('/sw.js').then(
         (registration) => {
@@ -205,7 +206,6 @@ function AppContent() {
       );
     }
 
-    // Gestione errori globali
     const handleUnhandledRejection = (event) => {
       console.error('Unhandled promise rejection:', event.reason);
       toast({
@@ -218,7 +218,6 @@ function AppContent() {
 
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
-    // Preconnect to external domains
     const preconnectLink = document.createElement('link');
     preconnectLink.rel = 'preconnect';
     preconnectLink.href = 'https://www.mangaworld.cx';
@@ -232,7 +231,6 @@ function AppContent() {
     };
   }, [initAuth, startAutoSync, isAuthenticated, toast]);
 
-  // Gestione tasti rapidi globali
   useEffect(() => {
     const handleKeyPress = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
