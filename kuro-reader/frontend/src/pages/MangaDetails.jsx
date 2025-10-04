@@ -1,4 +1,4 @@
-// ✅ MANGADETAILS.JSX v3.6 - FIX REACT ERROR #300
+// ✅ MANGADETAILS.JSX v3.7 - FIX DEFINITIVO REACT ERROR #300
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, Text, Image, VStack, HStack, Button, Badge,
@@ -24,7 +24,7 @@ function MangaDetails() {
   const navigate = useNavigate();
   const toast = useToast();
   
-  // ✅ FIX: Hook sempre in cima, con fallback sicuro
+  // ✅ Hook sempre in cima, con fallback sicuro
   const authHook = useAuth() || {};
   const { 
     user = null, 
@@ -44,7 +44,9 @@ function MangaDetails() {
   const [currentStatus, setCurrentStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
 
-  // ✅ Load manga callback
+  // ========== CALLBACKS ==========
+
+  // Load manga
   const loadManga = useCallback(async () => {
     try {
       setLoading(true);
@@ -76,7 +78,7 @@ function MangaDetails() {
     }
   }, [id, source, navigate, toast]);
 
-  // ✅ Add to history callback
+  // Add to history
   const addToHistory = useCallback((mangaDetails) => {
     try {
       const history = JSON.parse(localStorage.getItem('history') || '[]');
@@ -104,7 +106,7 @@ function MangaDetails() {
     }
   }, [source]);
 
-  // ✅ Check favorite callback
+  // Check favorite
   const checkFavorite = useCallback(() => {
     try {
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
@@ -117,7 +119,7 @@ function MangaDetails() {
     }
   }, [id]);
 
-  // ✅ Check current status callback
+  // Check current status
   const checkCurrentStatus = useCallback(() => {
     try {
       const mangaUrl = atob(id);
@@ -143,7 +145,7 @@ function MangaDetails() {
     }
   }, [id]);
 
-  // ✅ Load reading progress callback
+  // Load reading progress
   const loadReadingProgress = useCallback(() => {
     try {
       const mangaUrl = atob(id);
@@ -171,7 +173,7 @@ function MangaDetails() {
     }
   }, [id]);
 
-  // ✅ Check notification status callback
+  // Check notification status
   const checkNotificationStatus = useCallback(async () => {
     if (!user || !manga) return;
     
@@ -192,7 +194,8 @@ function MangaDetails() {
     }
   }, [user, manga]);
 
-  // ✅ Effects with proper dependencies
+  // ========== EFFECTS ==========
+
   useEffect(() => {
     loadManga();
     checkFavorite();
@@ -208,7 +211,9 @@ function MangaDetails() {
     localStorage.setItem('chaptersViewMode', viewMode);
   }, [viewMode]);
 
-  // ✅ Toggle favorite with safe sync
+  // ========== HANDLERS ==========
+
+  // Toggle favorite
   const toggleFavorite = async () => {
     try {
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
@@ -250,7 +255,6 @@ function MangaDetails() {
       
       localStorage.setItem('favorites', JSON.stringify(updated));
       
-      // ✅ Safe sync
       if (user && syncFavorites && typeof syncFavorites === 'function') {
         try {
           await syncFavorites(updated);
@@ -272,7 +276,7 @@ function MangaDetails() {
     }
   };
 
-  // ✅ Toggle notifications with safe checks
+  // Toggle notifications
   const toggleNotifications = async () => {
     if (!user) {
       toast({
@@ -339,8 +343,9 @@ function MangaDetails() {
     }
   };
 
-  const startReading = (chapterIndex = 0) => {
-    // VALIDAZIONE CRITICA - Previene crash
+  // ✅ START READING - VERSIONE CORRETTA CON SYNC IN BACKGROUND
+  const startReading = async (chapterIndex = 0) => {
+    // VALIDAZIONE CRITICA
     if (!manga?.chapters || !Array.isArray(manga.chapters)) {
       toast({
         title: 'Errore',
@@ -350,7 +355,7 @@ function MangaDetails() {
       });
       return;
     }
-  
+
     if (chapterIndex < 0 || chapterIndex >= manga.chapters.length) {
       toast({
         title: 'Errore',
@@ -360,7 +365,7 @@ function MangaDetails() {
       });
       return;
     }
-  
+
     const chapter = manga.chapters[chapterIndex];
     if (!chapter?.url) {
       toast({
@@ -371,11 +376,11 @@ function MangaDetails() {
       });
       return;
     }
-  
+
     try {
       const chapterId = btoa(chapter.url);
       
-      // Salva progress direttamente in localStorage
+      // ✅ 1. Salva progress LOCALMENTE
       const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
       progress[manga.url] = {
         chapterId: chapter.url,
@@ -388,29 +393,7 @@ function MangaDetails() {
       };
       localStorage.setItem('readingProgress', JSON.stringify(progress));
       
-      // Aggiorna reading list (questa funzione esiste già)
-      updateReadingList(chapterIndex, chapter);
-      
-      // Naviga al capitolo
-      navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
-      
-      console.log('Starting chapter:', chapterIndex + 1);
-    } catch (error) {
-      console.error('Error starting reading:', error);
-      toast({
-        title: 'Errore navigazione',
-        description: 'Impossibile aprire il capitolo',
-        status: 'error',
-        duration: 3000,
-      });
-    }
-  };
-  
-  
-
-  // ✅ Update reading list with safe sync
-  const updateReadingList = async (chapterIndex, chapter) => {
-    try {
+      // ✅ 2. Aggiorna reading list LOCALMENTE
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       const existingIndex = reading.findIndex(r => r.url === manga.url);
       
@@ -435,22 +418,32 @@ function MangaDetails() {
       
       localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
       
-      // ✅ Safe sync
+      console.log('✅ Data saved locally, starting chapter:', chapterIndex + 1);
+      
+      // ✅ 3. SYNC IN BACKGROUND (non blocca la navigazione)
       if (user && syncReading && typeof syncReading === 'function') {
-        try {
-          await syncReading(reading.slice(0, 100));
-        } catch (e) {
-          console.error('❌ Sync reading failed:', e);
-        }
+        syncReading(reading.slice(0, 100)).catch(err => {
+          console.error('❌ Background sync failed:', err);
+        });
       }
       
-      console.log('✅ Reading list updated, progress:', readingItem.progress + '%');
+      // ✅ 4. NAVIGA DOPO UN BREVE DELAY
+      setTimeout(() => {
+        navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
+      }, 50);
       
     } catch (error) {
-      console.error('❌ Error updating reading list:', error);
+      console.error('❌ Error starting reading:', error);
+      toast({
+        title: 'Errore navigazione',
+        description: 'Impossibile aprire il capitolo',
+        status: 'error',
+        duration: 3000,
+      });
     }
   };
 
+  // Continue reading
   const continueReading = () => {
     if (readingProgress && readingProgress.chapterIndex !== undefined) {
       startReading(readingProgress.chapterIndex);
@@ -459,7 +452,7 @@ function MangaDetails() {
     }
   };
 
-  // ✅ Move to list with safe sync
+  // Move to list
   const moveToList = async (targetList) => {
     if (!manga) return;
     
@@ -520,7 +513,7 @@ function MangaDetails() {
               });
             }
             
-            console.log('✅ Manga marked as completed, all chapters marked as read');
+            console.log('✅ Manga marked as completed');
             
           } else if (targetList === 'dropped') {
             newItem.droppedAt = new Date().toISOString();
@@ -530,7 +523,7 @@ function MangaDetails() {
             newItem.lastRead = new Date().toISOString();
             newItem.progress = readingProgress ? 
               Math.round(((readingProgress.chapterIndex + 1) / manga.chapters.length) * 100) : 0;
-            console.log('✅ Manga added to reading list, progress:', newItem.progress + '%');
+            console.log('✅ Manga added to reading list');
           }
           
           targetItems.unshift(newItem);
@@ -540,7 +533,6 @@ function MangaDetails() {
       
       setCurrentStatus(targetList);
       
-      // ✅ Safe sync
       if (user && syncToServer && typeof syncToServer === 'function') {
         try {
           await syncToServer();
@@ -579,7 +571,7 @@ function MangaDetails() {
     }
   };
 
-  // ✅ Share content
+  // Share content
   const shareContent = async () => {
     const shareData = {
       title: manga.title,
@@ -620,7 +612,8 @@ function MangaDetails() {
     return completedChapters.includes(chapterIndex);
   };
 
-  // ========= LOADING STATE =========
+  // ========== RENDER ==========
+
   if (loading) {
     return (
       <Container maxW="container.xl" py={8}>
@@ -633,7 +626,6 @@ function MangaDetails() {
     );
   }
 
-  // ========= NOT FOUND STATE =========
   if (!manga) {
     return (
       <Container maxW="container.xl" py={8}>
