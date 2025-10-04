@@ -181,7 +181,7 @@ const upload = multer({
 
 // ========= CORS SETUP =========
 const corsOrigins = process.env.NODE_ENV === 'production' 
-  ? ['https://kuroreader.onrender.com', 'https://nekuroscan.com']
+  ? ['https://nekuro-scan.onrender.com', 'https://nekuroscan.com']
   : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'];
 
 app.use(cors({

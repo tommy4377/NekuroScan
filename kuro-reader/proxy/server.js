@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 10001;
 
 app.use(cors({
   origin: [
-    'https://kuroreader.onrender.com',
+    'https://nekuro-scan.onrender.com',
     'http://localhost:5173'
   ]
 }));
