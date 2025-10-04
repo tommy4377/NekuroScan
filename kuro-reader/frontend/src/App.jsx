@@ -9,12 +9,14 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import useAuth from './hooks/useAuth';
 
-// Lazy load delle pagine
+// ✅ READER NON LAZY - IMPORTATO NORMALMENTE PER EVITARE ERRORE #300
+import ReaderPage from './pages/ReaderPage';
+
+// Lazy load delle altre pagine
 const Welcome = lazy(() => import('./pages/Welcome'));
 const Home = lazy(() => import('./pages/Home'));
 const Search = lazy(() => import('./pages/Search'));
 const MangaDetails = lazy(() => import('./pages/MangaDetails'));
-const ReaderPage = lazy(() => import('./pages/ReaderPage'));
 const Library = lazy(() => import('./components/Library'));
 const Categories = lazy(() => import('./pages/Categories'));
 const Latest = lazy(() => import('./pages/Latest'));
@@ -50,7 +52,8 @@ const PageLoader = () => (
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const isAuthenticated = useAuth(state => state.isAuthenticated);
+  const loading = useAuth(state => state.loading);
   const toast = useToast();
   
   useEffect(() => {
@@ -96,7 +99,7 @@ function AnimatedRoutes() {
         <Route path="/search" element={<AnimatedRoute><Search /></AnimatedRoute>} />
         <Route path="/manga/:source/:id" element={<AnimatedRoute><MangaDetails /></AnimatedRoute>} />
         
-        {/* Reader senza animazione per performance */}
+        {/* ✅ READER SENZA ANIMAZIONE E SENZA LAZY - IMPORTATO DIRETTAMENTE */}
         <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
         
         <Route path="/categories" element={<AnimatedRoute><Categories /></AnimatedRoute>} />
@@ -131,7 +134,10 @@ function AnimatedRoutes() {
 }
 
 function AppContent() {
-  const { initAuth, startAutoSync, isAuthenticated } = useAuth();
+  const initAuth = useAuth(state => state.initAuth);
+  const startAutoSync = useAuth(state => state.startAutoSync);
+  const isAuthenticated = useAuth(state => state.isAuthenticated);
+  
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const toast = useToast();
 
