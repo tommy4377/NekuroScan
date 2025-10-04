@@ -1,4 +1,4 @@
-// ✅ READERPAGE.JSX - VERSIONE CORRETTA ZUSTAND
+// ✅ READERPAGE.JSX - VERSIONE ISOLATA DA ZUSTAND
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box, IconButton, useToast, Image, Spinner, Text, VStack, HStack,
@@ -15,7 +15,7 @@ import { RiPagesFill, RiPagesLine } from 'react-icons/ri';
 import { MdFullscreen, MdFullscreenExit } from 'react-icons/md';
 import { motion, AnimatePresence } from 'framer-motion';
 import apiManager from '../api';
-import useAuth from '../hooks/useAuth';
+import useAuthStore from '../hooks/useAuth';
 
 const MotionBox = motion(Box);
 
@@ -36,10 +36,8 @@ function ReaderPage() {
   const toast = useToast();
   const chapterIndex = parseInt(searchParams.get('chapter') || '0');
   
-  // ========== ZUSTAND - USA SOLO SELETTORE! ==========
-  // ✅ NON fare: const auth = useAuth() ← QUESTO CAUSA L'ERRORE!
-  // ✅ USA SOLO il selettore per la funzione che ti serve:
-  const syncToServer = useAuth(state => state.syncToServer);
+  // ✅ NESSUN HOOK ZUSTAND QUI - Solo ref per la funzione sync
+  const syncFunctionRef = useRef(null);
   
   // ========== STATES ==========
   const [chapter, setChapter] = useState(null);
@@ -76,6 +74,13 @@ function ReaderPage() {
   const lastTapRef = useRef(0);
   const touchStartRef = useRef({ x: 0, y: 0 });
   const controlsTimeoutRef = useRef(null);
+
+  // ✅ ESTRAI FUNZIONE SYNC UNA VOLTA SOLA ALL'INIZIO
+  useEffect(() => {
+    // Ottieni la funzione sync dallo store SOLO una volta
+    const store = useAuthStore.getState();
+    syncFunctionRef.current = store.syncToServer;
+  }, []);
 
   // ========== CALLBACKS ==========
   
@@ -129,14 +134,14 @@ function ReaderPage() {
       
       window.dispatchEvent(new CustomEvent('library-updated'));
 
-      // ✅ USA LA FUNZIONE DIRETTAMENTE (già estratta con selettore)
-      if (syncToServer) {
-        syncToServer({ refreshAfter: false, reason: 'reading-progress' });
+      // ✅ USA LA REF invece di chiamare direttamente lo store
+      if (syncFunctionRef.current) {
+        syncFunctionRef.current({ refreshAfter: false, reason: 'reading-progress' });
       }
     } catch (error) {
       console.error('Error saving progress:', error);
     }
-  }, [manga, chapter, currentPage, chapterIndex, source, syncToServer]);
+  }, [manga, chapter, currentPage, chapterIndex, source]);
 
   const navigateChapter = useCallback((direction) => {
     if (!manga?.chapters) return;
@@ -279,7 +284,6 @@ function ReaderPage() {
 
   const handleImageError = useCallback((pageIndex) => {
     setErrorPages(prev => new Set([...prev, pageIndex]));
-    console.error(`Failed to load page ${pageIndex + 1}`);
   }, []);
 
   const retryImage = useCallback((pageIndex) => {
@@ -356,18 +360,9 @@ function ReaderPage() {
     }
   }, [readingMode, isZoomed]);
 
-  const getReadingModeIcon = useCallback(() => {
-    switch(readingMode) {
-      case 'single': return RiPagesFill;
-      case 'double': return RiPagesLine;
-      case 'webtoon': return FaAlignJustify;
-      default: return FaAlignJustify;
-    }
-  }, [readingMode]);
-
   // ========== USE EFFECTS ==========
   
-  // Cleanup on unmount
+  // Cleanup
   useEffect(() => {
     return () => {
       if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current);
@@ -376,7 +371,7 @@ function ReaderPage() {
     };
   }, []);
 
-  // Load manga and chapter data
+  // Load data
   useEffect(() => {
     let cancelled = false;
 
@@ -503,7 +498,7 @@ function ReaderPage() {
     };
   }, [chapterId, source, mangaId, chapterIndex, navigate, toast]);
 
-  // Mouse move handler
+  // Mouse move
   useEffect(() => {
     const handleMouseMove = () => {
       setShowControls(true);
@@ -579,7 +574,7 @@ function ReaderPage() {
     };
   }, [changePage]);
 
-  // Keyboard shortcuts
+  // Keyboard
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (settingsOpen) return;
@@ -712,9 +707,27 @@ function ReaderPage() {
     };
   }, [currentPage, saveProgress]);
 
-  // ========== RENDER FUNCTIONS ==========
+  // ========== RENDER ==========
   
-  const renderPages = useCallback(() => {
+  if (loading || !chapter || !manga) {
+    return <PageLoader />;
+  }
+
+  const pageProgress = chapter?.pages ? Math.round(((currentPage + 1) / chapter.pages.length) * 100) : 0;
+  
+  const getReadingModeIcon = () => {
+    switch(readingMode) {
+      case 'single': return RiPagesFill;
+      case 'double': return RiPagesLine;
+      case 'webtoon': return FaAlignJustify;
+      default: return FaAlignJustify;
+    }
+  };
+  
+  const ReadingModeIcon = getReadingModeIcon();
+
+  // Render pages function
+  const renderPages = () => {
     if (!chapter || !chapter.pages || chapter.pages.length === 0) {
       return (
         <Box bg="black" minH="100vh" display="flex" alignItems="center" justifyContent="center">
@@ -911,40 +924,7 @@ function ReaderPage() {
         </AnimatePresence>
       </Box>
     );
-  }, [
-    chapter,
-    readingMode,
-    currentPage,
-    imageLoading,
-    errorPages,
-    preloadedImages,
-    fitMode,
-    isZoomed,
-    zoomLevel,
-    zoomOrigin,
-    imageScale,
-    loadingMore,
-    chapterIndex,
-    manga,
-    navigate,
-    source,
-    mangaId,
-    toast,
-    changePage,
-    handleImageError,
-    retryImage,
-    handleImageClick,
-    navigateChapter
-  ]);
-
-  // ========== MAIN RENDER ==========
-  
-  if (loading || !chapter || !manga) {
-    return <PageLoader />;
-  }
-
-  const pageProgress = chapter?.pages ? Math.round(((currentPage + 1) / chapter.pages.length) * 100) : 0;
-  const ReadingModeIcon = getReadingModeIcon();
+  };
 
   return (
     <Box bg="black" minH="100vh" position="relative">
