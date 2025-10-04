@@ -1,4 +1,4 @@
-// ✅ READERPAGE.JSX - VERSIONE DEFINITIVA SENZA ERRORI
+// ✅ READERPAGE.JSX - VERSIONE CORRETTA ZUSTAND
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box, IconButton, useToast, Image, Spinner, Text, VStack, HStack,
@@ -36,10 +36,12 @@ function ReaderPage() {
   const toast = useToast();
   const chapterIndex = parseInt(searchParams.get('chapter') || '0');
   
-  // ========== AUTH HOOK - SEMPRE CHIAMATO ==========
-  const auth = useAuth();
+  // ========== ZUSTAND - USA SOLO SELETTORE! ==========
+  // ✅ NON fare: const auth = useAuth() ← QUESTO CAUSA L'ERRORE!
+  // ✅ USA SOLO il selettore per la funzione che ti serve:
+  const syncToServer = useAuth(state => state.syncToServer);
   
-  // ========== STATES - TUTTI INIZIALIZZATI ==========
+  // ========== STATES ==========
   const [chapter, setChapter] = useState(null);
   const [manga, setManga] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -74,9 +76,8 @@ function ReaderPage() {
   const lastTapRef = useRef(0);
   const touchStartRef = useRef({ x: 0, y: 0 });
   const controlsTimeoutRef = useRef(null);
-  const isMountedRef = useRef(true);
 
-  // ========== CALLBACKS (MEMOIZZATI) ==========
+  // ========== CALLBACKS ==========
   
   const saveProgress = useCallback(() => {
     if (!manga || !chapter) return;
@@ -128,13 +129,14 @@ function ReaderPage() {
       
       window.dispatchEvent(new CustomEvent('library-updated'));
 
-      if (auth?.syncToServer) {
-        auth.syncToServer({ refreshAfter: false, reason: 'reading-progress' });
+      // ✅ USA LA FUNZIONE DIRETTAMENTE (già estratta con selettore)
+      if (syncToServer) {
+        syncToServer({ refreshAfter: false, reason: 'reading-progress' });
       }
     } catch (error) {
       console.error('Error saving progress:', error);
     }
-  }, [manga, chapter, currentPage, chapterIndex, source, auth]);
+  }, [manga, chapter, currentPage, chapterIndex, source, syncToServer]);
 
   const navigateChapter = useCallback((direction) => {
     if (!manga?.chapters) return;
@@ -363,20 +365,18 @@ function ReaderPage() {
     }
   }, [readingMode]);
 
-  // ========== USE EFFECTS (SEMPRE TUTTI CHIAMATI) ==========
+  // ========== USE EFFECTS ==========
   
-  // 1. Cleanup on unmount
+  // Cleanup on unmount
   useEffect(() => {
-    isMountedRef.current = true;
     return () => {
-      isMountedRef.current = false;
       if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current);
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     };
   }, []);
 
-  // 2. Load manga and chapter data
+  // Load manga and chapter data
   useEffect(() => {
     let cancelled = false;
 
@@ -503,7 +503,7 @@ function ReaderPage() {
     };
   }, [chapterId, source, mangaId, chapterIndex, navigate, toast]);
 
-  // 3. Mouse move handler
+  // Mouse move handler
   useEffect(() => {
     const handleMouseMove = () => {
       setShowControls(true);
@@ -520,7 +520,7 @@ function ReaderPage() {
     };
   }, []);
 
-  // 4. Auto scroll
+  // Auto scroll
   useEffect(() => {
     if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current);
 
@@ -543,7 +543,7 @@ function ReaderPage() {
     };
   }, [autoScroll, scrollSpeed, readingMode, toast]);
 
-  // 5. Touch gestures
+  // Touch gestures
   useEffect(() => {
     const handleTouchStart = (e) => {
       touchStartRef.current = {
@@ -579,7 +579,7 @@ function ReaderPage() {
     };
   }, [changePage]);
 
-  // 6. Keyboard shortcuts
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (settingsOpen) return;
@@ -699,7 +699,7 @@ function ReaderPage() {
     navigateChapter
   ]);
 
-  // 7. Save progress
+  // Save progress
   useEffect(() => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
@@ -939,11 +939,7 @@ function ReaderPage() {
 
   // ========== MAIN RENDER ==========
   
-  if (loading) {
-    return <PageLoader />;
-  }
-
-  if (!chapter || !manga) {
+  if (loading || !chapter || !manga) {
     return <PageLoader />;
   }
 
