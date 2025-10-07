@@ -152,7 +152,6 @@ export class StatsAPI {
     try {
       const base = BASE(includeAdult);
       const url = `${base}/?page=${page}`;
-      console.log('Fetching latest from:', url);
       
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
@@ -161,8 +160,6 @@ export class StatsAPI {
       
       // FIX: hasMore basato sui risultati effettivi
       const hasMore = this.hasMoreFromPagination(doc, results, page);
-      
-      console.log(`Latest page ${page}: ${results.length} results, hasMore: ${hasMore}`);
       
       const finalResults = {
         results,
@@ -188,7 +185,6 @@ export class StatsAPI {
     try {
       const base = BASE(includeAdult);
       const url = `${base}/archive?sort=most_read&page=${page}`;
-      console.log('Fetching favorites from:', url);
       
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
@@ -197,8 +193,6 @@ export class StatsAPI {
       
       // FIX: hasMore basato sui risultati effettivi
       const hasMore = this.hasMoreFromPagination(doc, results, page);
-      
-      console.log(`Favorites page ${page}: ${results.length} results, hasMore: ${hasMore}`);
       
       const finalResults = {
         results,
@@ -224,7 +218,6 @@ export class StatsAPI {
     try {
       const base = BASE(includeAdult);
       const url = `${base}/archive?type=${type}&sort=most_read&page=${page}`;
-      console.log('Fetching top', type, 'from:', url);
       
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
@@ -233,8 +226,6 @@ export class StatsAPI {
       
       // FIX: hasMore basato sui risultati effettivi
       const hasMore = this.hasMoreFromPagination(doc, results, page);
-      
-      console.log(`Top ${type} page ${page}: ${results.length} results, hasMore: ${hasMore}`);
       
       const finalResults = {
         results,
@@ -281,7 +272,6 @@ export class StatsAPI {
       params.append('page', page);
 
       const url = `${base}/archive?${params.toString()}`;
-      console.log('Advanced search:', url);
       
       const html = await this.makeRequest(url);
       const doc = this.parseHTML(html);
@@ -290,8 +280,6 @@ export class StatsAPI {
       
       // FIX: hasMore basato sui risultati effettivi
       const hasMore = this.hasMoreFromPagination(doc, results, page);
-      
-      console.log(`Search page ${page}: ${results.length} results, hasMore: ${hasMore}`);
       
       return {
         results,

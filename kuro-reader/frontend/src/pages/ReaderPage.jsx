@@ -7,7 +7,6 @@ import {
   SliderThumb, Button, Progress, Badge, DrawerCloseButton, Select, Divider
 } from '@chakra-ui/react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { getBySlug, getChapterUrlByIndex } from '../utils/slug';
 import {
   FaChevronLeft, FaChevronRight, FaTimes, FaCog, FaAlignJustify,
   FaBookmark, FaHome
@@ -22,11 +21,7 @@ const MotionBox = motion(Box);
 
 function ReaderPage() {
   // ========== HOOKS (SEMPRE TUTTI, SEMPRE IN QUESTO ORDINE!) ==========
-  const params = useParams();
-  const source = params.source;
-  const mangaId = params.mangaId;
-  const chapterId = params.chapterId;
-  const slug = params.slug;
+  const { source, mangaId, chapterId } = useParams();
   const [searchParams] = useSearchParams();
   const toast = useToast();
   
@@ -386,18 +381,10 @@ function ReaderPage() {
         setErrorPages(new Set());
         setPreloadedImages({});
 
-        let mangaData, chapterUrl;
-        if (slug) {
-          const entry = getBySlug(slug);
-          if (!entry) throw new Error('Manga non trovato');
-          mangaData = await apiManager.getMangaDetails(entry.mangaUrl, entry.source);
-          chapterUrl = getChapterUrlByIndex(slug, chapterIndex) || entry.chapters?.[chapterIndex]?.url;
-          if (!chapterUrl) throw new Error('Capitolo non trovato');
-        } else {
-          const mangaUrl = atob(mangaId);
-          chapterUrl = atob(chapterId);
-          mangaData = await apiManager.getMangaDetails(mangaUrl, source);
-        }
+        const mangaUrl = atob(mangaId);
+        const chapterUrl = atob(chapterId);
+
+        const mangaData = await apiManager.getMangaDetails(mangaUrl, source);
         if (cancelled) return;
         if (!mangaData) throw new Error('Impossibile caricare i dettagli del manga');
         

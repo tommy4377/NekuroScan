@@ -96,7 +96,6 @@ function AnimatedRoutes() {
     return (
       <Routes location={location}>
         <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
-        <Route path="/read/:slug" element={<ReaderPage />} />
       </Routes>
     );
   }
@@ -109,7 +108,6 @@ function AnimatedRoutes() {
         <Route path="/home" element={<AnimatedRoute><Home /></AnimatedRoute>} />
         <Route path="/search" element={<AnimatedRoute><Search /></AnimatedRoute>} />
         <Route path="/manga/:source/:id" element={<AnimatedRoute><MangaDetails /></AnimatedRoute>} />
-        <Route path="/manga/:slug" element={<AnimatedRoute><MangaDetails /></AnimatedRoute>} />
         <Route path="/categories" element={<AnimatedRoute><Categories /></AnimatedRoute>} />
         <Route path="/latest" element={<AnimatedRoute><Latest /></AnimatedRoute>} />
         <Route path="/popular" element={<AnimatedRoute><Popular /></AnimatedRoute>} />
@@ -256,13 +254,8 @@ function AppContent() {
 
   return (
     <Box minH="100vh" bg="gray.900" position="relative">
-      {/* Background 3D opzionale */}
-      <ThreeBackground 
-        enabled
-        modelUrl={localStorage.getItem('modelUrl') || ''}
-        preset={localStorage.getItem('threePreset') || 'particles'}
-        intensity={parseInt(localStorage.getItem('threeIntensity') || '70')}
-      />
+      {/* Background particellare viola */}
+      <ThreeBackground />
       <Helmet>
         <title>NeKuro Scan - Manga Reader</title>
         <meta name="description" content="Leggi manga e light novel gratuitamente" />

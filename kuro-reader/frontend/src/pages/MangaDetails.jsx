@@ -1,12 +1,11 @@
 // ✅ MANGADETAILS.JSX v3.7 - FIX DEFINITIVO REACT ERROR #300
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, Text, Image, VStack, HStack, Button, Badge,
   SimpleGrid, Skeleton, useToast, Flex, IconButton, Wrap, WrapItem,
   Progress, Tooltip, Menu, MenuButton, MenuList, MenuItem, Divider
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getBySlug, registerMangaSlug, updateChaptersForSlug } from '../utils/slug';
 import {
   FaBookmark, FaPlay, FaShare, FaHeart, FaList, FaTh, FaRedo,
   FaCheckCircle, FaBell, FaBellSlash, FaPlus, FaCheck, FaBan, FaEllipsisV,
@@ -21,10 +20,7 @@ import { config } from '../config';
 const MotionBox = motion(Box);
 
 function MangaDetails() {
-  const params = useParams();
-  const source = params.source;
-  const id = params.id;
-  const slug = params.slug;
+  const { source, id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
   
@@ -54,15 +50,8 @@ function MangaDetails() {
   const loadManga = useCallback(async () => {
     try {
       setLoading(true);
-      let details;
-      if (slug) {
-        const entry = getBySlug(slug);
-        if (!entry) throw new Error('Manga non trovato');
-        details = await apiManager.getMangaDetails(entry.mangaUrl, entry.source);
-      } else {
-        const mangaUrl = atob(id);
-        details = await apiManager.getMangaDetails(mangaUrl, source);
-      }
+      const mangaUrl = atob(id);
+      const details = await apiManager.getMangaDetails(mangaUrl, source);
       
       if (!details) {
         throw new Error('Manga non trovato');
@@ -72,8 +61,6 @@ function MangaDetails() {
       console.log('✅ Chapters:', details.chapters?.length || 0);
       
       setManga(details);
-      const ensuredSlug = registerMangaSlug(details);
-      if (ensuredSlug) updateChaptersForSlug(ensuredSlug, details.chapters);
       addToHistory(details);
       
     } catch (error) {
@@ -89,7 +76,7 @@ function MangaDetails() {
     } finally {
       setLoading(false);
     }
-  }, [id, source, slug, navigate, toast]);
+  }, [id, source, navigate, toast]);
 
   // Add to history
   const addToHistory = useCallback((mangaDetails) => {
@@ -120,34 +107,22 @@ function MangaDetails() {
   }, [source]);
 
   // Check favorite
-  const resolvedMangaUrl = useMemo(() => {
-    try {
-      if (slug) {
-        const entry = getBySlug(slug);
-        return entry?.mangaUrl || '';
-      }
-      return atob(id);
-    } catch {
-      return '';
-    }
-  }, [slug, id]);
-
   const checkFavorite = useCallback(() => {
     try {
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-      const url = resolvedMangaUrl;
-      const isFav = url ? favorites.some(f => f.url === url) : false;
+      const mangaUrl = atob(id);
+      const isFav = favorites.some(f => f.url === mangaUrl);
       setIsFavorite(isFav);
       console.log('✅ Favorite status:', isFav);
     } catch (error) {
       console.error('❌ Error checking favorite:', error);
     }
-  }, [resolvedMangaUrl]);
+  }, [id]);
 
   // Check current status
   const checkCurrentStatus = useCallback(() => {
     try {
-      const mangaUrl = resolvedMangaUrl;
+      const mangaUrl = atob(id);
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       const completed = JSON.parse(localStorage.getItem('completed') || '[]');
       const dropped = JSON.parse(localStorage.getItem('dropped') || '[]');
@@ -168,12 +143,12 @@ function MangaDetails() {
     } catch (error) {
       console.error('❌ Error checking status:', error);
     }
-  }, [resolvedMangaUrl]);
+  }, [id]);
 
   // Load reading progress
   const loadReadingProgress = useCallback(() => {
     try {
-      const mangaUrl = resolvedMangaUrl;
+      const mangaUrl = atob(id);
       const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
       const mangaProgress = progress[mangaUrl];
       
@@ -403,7 +378,7 @@ const startReading = (chapterIndex = 0) => {
   }
 
   try {
-    const entrySlug = slug || (registerMangaSlug(manga) || '');
+    const chapterId = btoa(chapter.url);
     
     // ✅ 1. Salva tutto in localStorage
     const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
@@ -444,13 +419,8 @@ const startReading = (chapterIndex = 0) => {
     
     console.log('✅ Data saved locally, starting chapter:', chapterIndex + 1);
     
-    // ✅ 2. Navigazione con slug pulito
-    if (entrySlug) {
-      window.location.href = `/read/${entrySlug}?chapter=${chapterIndex}`;
-    } else {
-      const chapterId = btoa(chapter.url);
-      window.location.href = `/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`;
-    }
+    // ✅ 2. HARD NAVIGATION (bypassa completamente React Router e Zustand)
+    window.location.href = `/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`;
     
   } catch (error) {
     console.error('❌ Error starting reading:', error);
