@@ -3,7 +3,7 @@ import {
   Container, VStack, HStack, Heading, Text, Box, Switch, Select,
   Button, useToast, Divider, FormControl, FormLabel, Slider,
   SliderTrack, SliderFilledTrack, SliderThumb, Badge, Radio,
-  RadioGroup, Stack
+  RadioGroup, Stack, Input
 } from '@chakra-ui/react';
 import { FaCog, FaSave, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
@@ -25,7 +25,11 @@ export default function Settings() {
     fontSize: parseInt(localStorage.getItem('fontSize') || '16'),
     autoPlay: localStorage.getItem('autoPlay') === 'true',
     notifications: localStorage.getItem('notifications') !== 'false',
-    language: localStorage.getItem('language') || 'it'
+    language: localStorage.getItem('language') || 'it',
+    enable3D: localStorage.getItem('enable3D') === 'true',
+    modelUrl: localStorage.getItem('modelUrl') || '',
+    threePreset: localStorage.getItem('threePreset') || 'particles',
+    threeIntensity: parseInt(localStorage.getItem('threeIntensity') || '70')
   });
 
   const handleSave = () => {
@@ -54,7 +58,11 @@ export default function Settings() {
         fontSize: 16,
         autoPlay: false,
         notifications: true,
-        language: 'it'
+        language: 'it',
+        enable3D: false,
+        modelUrl: '',
+        threePreset: 'particles',
+        threeIntensity: 70
       };
       
       setSettings(defaultSettings);
@@ -202,6 +210,59 @@ export default function Settings() {
         <Box bg="gray.800" p={6} borderRadius="xl">
           <Heading size="md" mb={4}>Interfaccia</Heading>
           <VStack spacing={4} align="stretch">
+            <FormControl display="flex" alignItems="center" justifyContent="space-between">
+              <Box>
+                <FormLabel mb="0">Effetti 3D (sperimentale)</FormLabel>
+                <Text fontSize="sm" color="gray.400">Aggiunge uno sfondo 3D animato</Text>
+              </Box>
+              <Switch 
+                colorScheme="purple"
+                isChecked={settings.enable3D}
+                onChange={(e) => setSettings({...settings, enable3D: e.target.checked})}
+              />
+            </FormControl>
+
+            {settings.enable3D && (
+              <>
+                <FormControl>
+                  <FormLabel>Presets effetto</FormLabel>
+                  <Select 
+                    bg="gray.700"
+                    value={settings.threePreset}
+                    onChange={(e) => setSettings({ ...settings, threePreset: e.target.value })}
+                  >
+                    <option value="particles">Particles</option>
+                    <option value="grid">Neon Grid</option>
+                    <option value="aurora">Aurora</option>
+                  </Select>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Intensità effetti: {settings.threeIntensity}%</FormLabel>
+                  <Slider 
+                    colorScheme="purple"
+                    value={settings.threeIntensity}
+                    onChange={(v) => setSettings({ ...settings, threeIntensity: v })}
+                    min={10} max={100}
+                  >
+                    <SliderTrack>
+                      <SliderFilledTrack />
+                    </SliderTrack>
+                    <SliderThumb />
+                  </Slider>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>URL modello GLTF/GLB (opzionale)</FormLabel>
+                  <Input 
+                    value={settings.modelUrl}
+                    onChange={(e) => setSettings({...settings, modelUrl: e.target.value})}
+                    placeholder="https://.../model.glb"
+                    bg="gray.700"
+                  />
+                </FormControl>
+              </>
+            )}
             <FormControl>
               <FormLabel>Tema</FormLabel>
               <RadioGroup 

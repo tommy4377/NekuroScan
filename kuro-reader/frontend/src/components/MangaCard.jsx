@@ -56,7 +56,7 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
 
   return (
     <MotionBox
-      whileHover={{ scale: 1.05, zIndex: 20 }}
+      whileHover={{ scale: 1.06, zIndex: 25 }}
       whileTap={{ scale: 0.98 }}
       transition={{ duration: 0.2 }}
       cursor="pointer"
@@ -79,8 +79,8 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
         _hover={{
           bg: 'gray.700',
           borderColor: 'purple.500',
-          boxShadow: '0 20px 40px rgba(128, 90, 213, 0.3)',
-          transform: 'translateY(-8px)'
+          boxShadow: '0 30px 60px rgba(128, 90, 213, 0.35)',
+          transform: 'translateY(-10px)'
         }}
         style={{
           transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
@@ -88,6 +88,17 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
         }}
       >
         <Box position="relative" width="100%" paddingBottom="140%">
+          {/* Glow gradiente */}
+          <Box
+            position="absolute"
+            inset={0}
+            bgGradient="linear(to-b, rgba(139,92,246,0.25), rgba(236,72,153,0.15))"
+            opacity={0.0}
+            transition="opacity 0.3s"
+            _groupHover={{ opacity: 1 }}
+            pointerEvents="none"
+            style={{ transform: 'translateZ(5px)' }}
+          />
           {!imageLoaded && (
             <Skeleton position="absolute" top={0} left={0} width="100%" height="100%" />
           )}
@@ -104,6 +115,19 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
             onLoad={() => setImageLoaded(true)}
             fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280' viewBox='0 0 200 280'%3E%3Crect width='200' height='280' fill='%234A5568'%3E%3C/rect%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23A0AEC0' font-family='sans-serif' font-size='16'%3ENo Image%3C/text%3E%3C/svg%3E"
             style={{ transform: 'translateZ(20px)' }}
+          />
+
+          {/* Riflesso dinamico */}
+          <Box
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            height="40%"
+            bgGradient="linear(to-b, rgba(255,255,255,0.18), rgba(255,255,255,0))"
+            mixBlendMode="overlay"
+            pointerEvents="none"
+            style={{ transform: 'translateZ(22px)' }}
           />
 
           {manga.isAdult && (
@@ -160,7 +184,8 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
         </Box>
 
         <VStack p={3} spacing={1} align="stretch" flex={1} width="100%" style={{ transform: 'translateZ(15px)' }}>
-          <Text fontSize="sm" fontWeight="bold" noOfLines={2} title={manga.title} lineHeight="short">
+          <Text fontSize="sm" fontWeight="bold" noOfLines={2} title={manga.title} lineHeight="short"
+            bgGradient="linear(to-r, purple.200, pink.200)" bgClip="text">
             {manga.title}
           </Text>
         </VStack>

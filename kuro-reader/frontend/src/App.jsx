@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { HelmetProvider, Helmet } from 'react-helmet-async';
 import { theme } from './styles/theme';
 import Navigation from './components/Navigation';
+import ThreeBackground from './components/ThreeBackground';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import useAuthStore from './hooks/useAuth';
@@ -249,7 +250,16 @@ function AppContent() {
   }, []);
 
   return (
-    <Box minH="100vh" bg="gray.900">
+    <Box minH="100vh" bg="gray.900" position="relative">
+      {/* Background 3D opzionale */}
+      {localStorage.getItem('enable3D') === 'true' && (
+        <ThreeBackground 
+          enabled 
+          modelUrl={localStorage.getItem('modelUrl') || ''}
+          preset={localStorage.getItem('threePreset') || 'particles'}
+          intensity={parseInt(localStorage.getItem('threeIntensity') || '70')}
+        />
+      )}
       <Helmet>
         <title>NeKuro Scan - Manga Reader</title>
         <meta name="description" content="Leggi manga e light novel gratuitamente" />
