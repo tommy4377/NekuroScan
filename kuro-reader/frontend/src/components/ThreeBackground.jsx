@@ -1,201 +1,140 @@
 import React, { useEffect, useRef } from 'react';
 
-// Lazy import di three per evitare pesi inutili al primo paint
-let THREERef = null;
-async function ensureThree() {
-  if (!THREERef) {
-    THREERef = await import('three');
-  }
-  return THREERef;
-}
-
-export default function ThreeBackground({ enabled = false, modelUrl = '', preset = 'snow', intensity = 70 }) {
+// Background particellare minimale con WebGL API nativa
+export default function ThreeBackground() {
   const containerRef = useRef(null);
-  const animationRef = useRef(null);
-  const sceneRef = useRef(null);
-  const rendererRef = useRef(null);
-  const cameraRef = useRef(null);
-  const particlesRef = useRef(null);
-  const modelRef = useRef(null);
+  const rafRef = useRef(0);
+  const glRef = useRef(null);
+  const programRef = useRef(null);
+  const bufferRef = useRef(null);
+  const colorBufferRef = useRef(null);
+  const startRef = useRef(performance.now());
 
   useEffect(() => {
-    if (!enabled) return;
-    let disposed = false;
+    const container = containerRef.current;
+    if (!container) return;
 
-    (async () => {
-      const THREE = await ensureThree();
-      if (disposed) return;
+    const canvas = document.createElement('canvas');
+    canvas.style.position = 'fixed';
+    canvas.style.inset = 0;
+    canvas.style.zIndex = 0;
+    canvas.style.pointerEvents = 'none';
+    container.appendChild(canvas);
 
-      const container = containerRef.current;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
+    const gl = canvas.getContext('webgl', { alpha: true, antialias: true });
+    if (!gl) return;
+    glRef.current = gl;
 
-      const scene = new THREE.Scene();
-      sceneRef.current = scene;
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    };
+    window.addEventListener('resize', resize);
+    resize();
 
-      const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
-      camera.position.set(0, 0, 60);
-      cameraRef.current = camera;
-
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(width, height);
-      rendererRef.current = renderer;
-      container.appendChild(renderer.domElement);
-
-      // Presets di sfondo
-      const effectIntensity = Math.max(10, Math.min(100, intensity));
-      if (preset === 'particles' || preset === 'snow') {
-        const particleCount = Math.floor(600 + effectIntensity * 4);
-        const geometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(particleCount * 3);
-        for (let i = 0; i < particleCount; i++) {
-          positions[i * 3] = (Math.random() - 0.5) * (150 + effectIntensity);
-          positions[i * 3 + 1] = (Math.random() - 0.5) * (90 + effectIntensity * 0.6);
-          positions[i * 3 + 2] = (Math.random() - 0.5) * (150 + effectIntensity);
-        }
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        const color = preset === 'snow' ? 0xffffff : 0x8b5cf6;
-        const material = new THREE.PointsMaterial({ color, size: 1 + effectIntensity / 100, sizeAttenuation: true });
-        const particles = new THREE.Points(geometry, material);
-        particlesRef.current = particles;
-        scene.add(particles);
-      } else if (preset === 'grid') {
-        const grid = new THREE.Group();
-        const size = 200;
-        const div = 20 + Math.floor(effectIntensity / 5);
-        const color = 0x8b5cf6;
-        const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.5 });
-        for (let i = -div; i <= div; i++) {
-          const geo1 = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(-size, -20, (i / div) * size),
-            new THREE.Vector3(size, -20, (i / div) * size)
-          ]);
-          const line1 = new THREE.Line(geo1, material);
-          grid.add(line1);
-          const geo2 = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3((i / div) * size, -20, -size),
-            new THREE.Vector3((i / div) * size, -20, size)
-          ]);
-          const line2 = new THREE.Line(geo2, material);
-          grid.add(line2);
-        }
-        particlesRef.current = grid;
-        scene.add(grid);
-      } else if (preset === 'aurora') {
-        const geometry = new THREE.PlaneGeometry(200, 120, 64, 32);
-        const material = new THREE.MeshBasicMaterial({ color: 0x8b5cf6, transparent: true, opacity: 0.2, wireframe: false });
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set(0, 0, -30);
-        particlesRef.current = mesh;
-        scene.add(mesh);
+    const vertSrc = `
+      attribute vec2 aPos;
+      attribute vec3 aCol;
+      varying vec3 vCol;
+      uniform float uTime;
+      uniform vec2 uRes;
+      void main() {
+        vCol = aCol;
+        vec2 p = aPos;
+        p.y += 0.02 * sin(uTime * 0.5 + aPos.x * 10.0);
+        gl_Position = vec4(p, 0.0, 1.0);
+        gl_PointSize = 1.5 + 1.5 * abs(sin(uTime + aPos.x * 20.0));
       }
-
-      // Luci minime
-      const ambient = new THREE.AmbientLight(0xffffff, 0.5);
-      scene.add(ambient);
-      const dir = new THREE.DirectionalLight(0xffffff, 0.6);
-      dir.position.set(5, 10, 7);
-      scene.add(dir);
-
-      // Carica modello opzionale
-      if (modelUrl) {
-        try {
-          const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
-          const loader = new GLTFLoader();
-          loader.load(
-            modelUrl,
-            (gltf) => {
-              modelRef.current = gltf.scene;
-              gltf.scene.scale.set(12, 12, 12);
-              gltf.scene.position.set(0, -10, 0);
-              scene.add(gltf.scene);
-            },
-            undefined,
-            (err) => console.error('GLTF load error:', err)
-          );
-        } catch (e) {
-          console.warn('GLTF loader non disponibile:', e);
-        }
+    `;
+    const fragSrc = `
+      precision mediump float;
+      varying vec3 vCol;
+      void main() {
+        float d = length(gl_PointCoord - vec2(0.5));
+        if (d > 0.5) discard;
+        gl_FragColor = vec4(vCol, 0.6);
       }
+    `;
 
-      const onResize = () => {
-        const w = container.clientWidth;
-        const h = container.clientHeight;
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
-        renderer.setSize(w, h);
-      };
-      window.addEventListener('resize', onResize);
+    const compile = (src, type) => {
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      return sh;
+    };
+    const vs = compile(vertSrc, gl.VERTEX_SHADER);
+    const fs = compile(fragSrc, gl.FRAGMENT_SHADER);
+    const prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    gl.useProgram(prog);
+    programRef.current = prog;
 
-      const animate = () => {
-        animationRef.current = requestAnimationFrame(animate);
-        if (particlesRef.current) {
-          if (preset === 'particles') {
-            particlesRef.current.rotation.y += 0.0008;
-            particlesRef.current.rotation.x += 0.0004;
-          } else if (preset === 'snow') {
-            const pos = particlesRef.current.geometry.attributes.position;
-            for (let i = 0; i < pos.count; i++) {
-              pos.array[i * 3 + 1] -= 0.15 + effectIntensity * 0.003; // fall speed
-              if (pos.array[i * 3 + 1] < -70) {
-                pos.array[i * 3 + 1] = 70;
-                pos.array[i * 3] = (Math.random() - 0.5) * (150 + effectIntensity);
-                pos.array[i * 3 + 2] = (Math.random() - 0.5) * (150 + effectIntensity);
-              }
-            }
-            pos.needsUpdate = true;
-          } else if (preset === 'grid') {
-            particlesRef.current.rotation.z += 0.0005;
-          } else if (preset === 'aurora') {
-            particlesRef.current.position.y = Math.sin(Date.now() * 0.0005) * 5;
-          }
-        }
-        if (modelRef.current) {
-          modelRef.current.rotation.y += 0.003;
-        }
-        renderer.render(scene, camera);
-      };
-      animate();
+    // Genera punti distribuiti su schermo
+    const N = 1500;
+    const positions = new Float32Array(N * 2);
+    const colors = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      const x = Math.random() * 2 - 1;
+      const y = Math.random() * 2 - 1;
+      positions[i * 2] = x;
+      positions[i * 2 + 1] = y;
+      // viola pastello
+      const base = [0.54, 0.37, 0.96];
+      const jitter = (Math.random() - 0.5) * 0.1;
+      colors[i * 3] = Math.min(1, Math.max(0, base[0] + jitter));
+      colors[i * 3 + 1] = Math.min(1, Math.max(0, base[1] + jitter));
+      colors[i * 3 + 2] = Math.min(1, Math.max(0, base[2] + jitter));
+    }
 
-      return () => {
-        window.removeEventListener('resize', onResize);
-      };
-    })();
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    bufferRef.current = buf;
+
+    const colBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+    colorBufferRef.current = colBuf;
+
+    const aPos = gl.getAttribLocation(prog, 'aPos');
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    const aCol = gl.getAttribLocation(prog, 'aCol');
+    gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
+    gl.enableVertexAttribArray(aCol);
+    gl.vertexAttribPointer(aCol, 3, gl.FLOAT, false, 0, 0);
+
+    const uTime = gl.getUniformLocation(prog, 'uTime');
+
+    const render = (t) => {
+      rafRef.current = requestAnimationFrame(render);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.uniform1f(uTime, (t - startRef.current) * 0.001);
+      gl.drawArrays(gl.POINTS, 0, N);
+    };
+    rafRef.current = requestAnimationFrame(render);
 
     return () => {
-      disposed = true;
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      if (rendererRef.current) {
-        rendererRef.current.dispose();
-        const canvas = rendererRef.current.domElement;
-        canvas && canvas.parentNode && canvas.parentNode.removeChild(canvas);
-      }
-      if (sceneRef.current) {
-        // Best-effort cleanup
-        sceneRef.current.traverse((obj) => {
-          if (obj.geometry) obj.geometry.dispose?.();
-          if (obj.material) {
-            if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose?.());
-            else obj.material.dispose?.();
-          }
-        });
+      cancelAnimationFrame(rafRef.current);
+      if (container.contains(canvas)) container.removeChild(canvas);
+      if (gl) {
+        const ext = gl.getExtension('WEBGL_lose_context');
+        ext && ext.loseContext();
       }
     };
-  }, [enabled, modelUrl, preset, intensity]);
+  }, []);
 
-  return (
-    <div
-      ref={containerRef}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 0,
-        pointerEvents: 'none',
-      }}
-      aria-hidden
-    />
-  );
+  return <div ref={containerRef} />;
 }
 
 

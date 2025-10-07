@@ -1,5 +1,5 @@
 // ✅ MANGADETAILS.JSX v3.7 - FIX DEFINITIVO REACT ERROR #300
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box, Container, Heading, Text, Image, VStack, HStack, Button, Badge,
   SimpleGrid, Skeleton, useToast, Flex, IconButton, Wrap, WrapItem,
@@ -89,7 +89,7 @@ function MangaDetails() {
     } finally {
       setLoading(false);
     }
-  }, [id, source, navigate, toast]);
+  }, [id, source, slug, navigate, toast]);
 
   // Add to history
   const addToHistory = useCallback((mangaDetails) => {
@@ -120,22 +120,34 @@ function MangaDetails() {
   }, [source]);
 
   // Check favorite
+  const resolvedMangaUrl = useMemo(() => {
+    try {
+      if (slug) {
+        const entry = getBySlug(slug);
+        return entry?.mangaUrl || '';
+      }
+      return atob(id);
+    } catch {
+      return '';
+    }
+  }, [slug, id]);
+
   const checkFavorite = useCallback(() => {
     try {
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-      const mangaUrl = atob(id);
-      const isFav = favorites.some(f => f.url === mangaUrl);
+      const url = resolvedMangaUrl;
+      const isFav = url ? favorites.some(f => f.url === url) : false;
       setIsFavorite(isFav);
       console.log('✅ Favorite status:', isFav);
     } catch (error) {
       console.error('❌ Error checking favorite:', error);
     }
-  }, [id]);
+  }, [resolvedMangaUrl]);
 
   // Check current status
   const checkCurrentStatus = useCallback(() => {
     try {
-      const mangaUrl = atob(id);
+      const mangaUrl = resolvedMangaUrl;
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       const completed = JSON.parse(localStorage.getItem('completed') || '[]');
       const dropped = JSON.parse(localStorage.getItem('dropped') || '[]');
@@ -156,12 +168,12 @@ function MangaDetails() {
     } catch (error) {
       console.error('❌ Error checking status:', error);
     }
-  }, [id]);
+  }, [resolvedMangaUrl]);
 
   // Load reading progress
   const loadReadingProgress = useCallback(() => {
     try {
-      const mangaUrl = atob(id);
+      const mangaUrl = resolvedMangaUrl;
       const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
       const mangaProgress = progress[mangaUrl];
       
@@ -184,7 +196,7 @@ function MangaDetails() {
     } catch (error) {
       console.error('❌ Error loading progress:', error);
     }
-  }, [id]);
+  }, [resolvedMangaUrl]);
 
   // Check notification status
   const checkNotificationStatus = useCallback(async () => {
@@ -391,7 +403,7 @@ const startReading = (chapterIndex = 0) => {
   }
 
   try {
-    const chapterId = btoa(chapter.url);
+    const entrySlug = slug || (registerMangaSlug(manga) || '');
     
     // ✅ 1. Salva tutto in localStorage
     const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
@@ -432,8 +444,13 @@ const startReading = (chapterIndex = 0) => {
     
     console.log('✅ Data saved locally, starting chapter:', chapterIndex + 1);
     
-    // ✅ 2. HARD NAVIGATION (bypassa completamente React Router e Zustand)
-    window.location.href = `/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`;
+    // ✅ 2. Navigazione con slug pulito
+    if (entrySlug) {
+      window.location.href = `/read/${entrySlug}?chapter=${chapterIndex}`;
+    } else {
+      const chapterId = btoa(chapter.url);
+      window.location.href = `/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`;
+    }
     
   } catch (error) {
     console.error('❌ Error starting reading:', error);

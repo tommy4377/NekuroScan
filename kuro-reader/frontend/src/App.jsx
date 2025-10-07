@@ -235,11 +235,7 @@ function AppContent() {
   }, [initAuth, startAutoSync, isAuthenticated, toast]);
 
   // Richiedi permessi notifiche all'avvio
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
-    }
-  }, []);
+  // Rimosso: richiesta permessi notifiche automatica (crea warning in console)
 
   useEffect(() => {
     const handleKeyPress = (e) => {
