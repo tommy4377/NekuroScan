@@ -5,13 +5,11 @@ let THREERef = null;
 async function ensureThree() {
   if (!THREERef) {
     THREERef = await import('three');
-    // GLTFLoader opzionale solo se richiesto
-    THREERef.GLTFLoader = (await import('three/examples/jsm/loaders/GLTFLoader.js')).GLTFLoader;
   }
   return THREERef;
 }
 
-export default function ThreeBackground({ enabled = false, modelUrl = '', preset = 'particles', intensity = 70 }) {
+export default function ThreeBackground({ enabled = false, modelUrl = '', preset = 'snow', intensity = 70 }) {
   const containerRef = useRef(null);
   const animationRef = useRef(null);
   const sceneRef = useRef(null);
@@ -47,7 +45,7 @@ export default function ThreeBackground({ enabled = false, modelUrl = '', preset
 
       // Presets di sfondo
       const effectIntensity = Math.max(10, Math.min(100, intensity));
-      if (preset === 'particles') {
+      if (preset === 'particles' || preset === 'snow') {
         const particleCount = Math.floor(600 + effectIntensity * 4);
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(particleCount * 3);
@@ -57,7 +55,8 @@ export default function ThreeBackground({ enabled = false, modelUrl = '', preset
           positions[i * 3 + 2] = (Math.random() - 0.5) * (150 + effectIntensity);
         }
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        const material = new THREE.PointsMaterial({ color: 0x8b5cf6, size: 1 + effectIntensity / 100, sizeAttenuation: true });
+        const color = preset === 'snow' ? 0xffffff : 0x8b5cf6;
+        const material = new THREE.PointsMaterial({ color, size: 1 + effectIntensity / 100, sizeAttenuation: true });
         const particles = new THREE.Points(geometry, material);
         particlesRef.current = particles;
         scene.add(particles);
@@ -102,7 +101,8 @@ export default function ThreeBackground({ enabled = false, modelUrl = '', preset
       // Carica modello opzionale
       if (modelUrl) {
         try {
-          const loader = new THREE.GLTFLoader();
+          const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+          const loader = new GLTFLoader();
           loader.load(
             modelUrl,
             (gltf) => {
@@ -134,6 +134,17 @@ export default function ThreeBackground({ enabled = false, modelUrl = '', preset
           if (preset === 'particles') {
             particlesRef.current.rotation.y += 0.0008;
             particlesRef.current.rotation.x += 0.0004;
+          } else if (preset === 'snow') {
+            const pos = particlesRef.current.geometry.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+              pos.array[i * 3 + 1] -= 0.15 + effectIntensity * 0.003; // fall speed
+              if (pos.array[i * 3 + 1] < -70) {
+                pos.array[i * 3 + 1] = 70;
+                pos.array[i * 3] = (Math.random() - 0.5) * (150 + effectIntensity);
+                pos.array[i * 3 + 2] = (Math.random() - 0.5) * (150 + effectIntensity);
+              }
+            }
+            pos.needsUpdate = true;
           } else if (preset === 'grid') {
             particlesRef.current.rotation.z += 0.0005;
           } else if (preset === 'aurora') {

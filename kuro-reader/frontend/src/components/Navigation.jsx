@@ -174,7 +174,7 @@ function Navigation() {
                       borderColor="purple.400"
                     />
                   </MenuButton>
-                  <MenuList bg="gray.800" borderColor="gray.700">
+                <MenuList bg="gray.800" borderColor="gray.700">
                     <MenuItem isDisabled bg="gray.900">
                       <VStack align="start" spacing={0}>
                         <HStack>
@@ -193,9 +193,7 @@ function Navigation() {
                     <MenuItem icon={<FaBookmark />} onClick={() => navigate('/library')}>
                       I miei manga
                     </MenuItem>
-                    <MenuItem icon={<FaUsers />} onClick={() => navigate('/profile')}>
-                Follower e Seguiti
-                  </MenuItem>
+                    {/* Follower/Seguiti gestiti dentro Profilo, voce dedicata rimossa */}
                     <MenuItem icon={<FaCog />} onClick={() => navigate('/settings')}>
                       Impostazioni
                     </MenuItem>

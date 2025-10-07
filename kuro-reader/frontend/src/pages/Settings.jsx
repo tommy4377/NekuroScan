@@ -23,7 +23,6 @@ export default function Settings() {
     includeAdult: localStorage.getItem('includeAdult') === 'true',
     theme: localStorage.getItem('theme') || 'dark',
     fontSize: parseInt(localStorage.getItem('fontSize') || '16'),
-    autoPlay: localStorage.getItem('autoPlay') === 'true',
     notifications: localStorage.getItem('notifications') !== 'false',
     language: localStorage.getItem('language') || 'it',
     enable3D: localStorage.getItem('enable3D') === 'true',
@@ -163,14 +162,7 @@ export default function Settings() {
               />
             </FormControl>
 
-            <FormControl display="flex" alignItems="center" justifyContent="space-between">
-              <FormLabel mb="0">Auto-play video (se presenti)</FormLabel>
-              <Switch 
-                colorScheme="purple"
-                isChecked={settings.autoPlay}
-                onChange={(e) => setSettings({...settings, autoPlay: e.target.checked})}
-              />
-            </FormControl>
+            {/* Rimosso autoplay perché non necessario */}
           </VStack>
         </Box>
 

@@ -6,6 +6,7 @@ import {
   Progress, Tooltip, Menu, MenuButton, MenuList, MenuItem, Divider
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { getBySlug, registerMangaSlug, updateChaptersForSlug } from '../utils/slug';
 import {
   FaBookmark, FaPlay, FaShare, FaHeart, FaList, FaTh, FaRedo,
   FaCheckCircle, FaBell, FaBellSlash, FaPlus, FaCheck, FaBan, FaEllipsisV,
@@ -20,7 +21,10 @@ import { config } from '../config';
 const MotionBox = motion(Box);
 
 function MangaDetails() {
-  const { source, id } = useParams();
+  const params = useParams();
+  const source = params.source;
+  const id = params.id;
+  const slug = params.slug;
   const navigate = useNavigate();
   const toast = useToast();
   
@@ -50,8 +54,15 @@ function MangaDetails() {
   const loadManga = useCallback(async () => {
     try {
       setLoading(true);
-      const mangaUrl = atob(id);
-      const details = await apiManager.getMangaDetails(mangaUrl, source);
+      let details;
+      if (slug) {
+        const entry = getBySlug(slug);
+        if (!entry) throw new Error('Manga non trovato');
+        details = await apiManager.getMangaDetails(entry.mangaUrl, entry.source);
+      } else {
+        const mangaUrl = atob(id);
+        details = await apiManager.getMangaDetails(mangaUrl, source);
+      }
       
       if (!details) {
         throw new Error('Manga non trovato');
@@ -61,6 +72,8 @@ function MangaDetails() {
       console.log('✅ Chapters:', details.chapters?.length || 0);
       
       setManga(details);
+      const ensuredSlug = registerMangaSlug(details);
+      if (ensuredSlug) updateChaptersForSlug(ensuredSlug, details.chapters);
       addToHistory(details);
       
     } catch (error) {

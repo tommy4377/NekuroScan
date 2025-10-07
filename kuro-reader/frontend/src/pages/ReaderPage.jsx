@@ -7,6 +7,7 @@ import {
   SliderThumb, Button, Progress, Badge, DrawerCloseButton, Select, Divider
 } from '@chakra-ui/react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { getBySlug, getChapterUrlByIndex } from '../utils/slug';
 import {
   FaChevronLeft, FaChevronRight, FaTimes, FaCog, FaAlignJustify,
   FaBookmark, FaHome
@@ -21,7 +22,11 @@ const MotionBox = motion(Box);
 
 function ReaderPage() {
   // ========== HOOKS (SEMPRE TUTTI, SEMPRE IN QUESTO ORDINE!) ==========
-  const { source, mangaId, chapterId } = useParams();
+  const params = useParams();
+  const source = params.source;
+  const mangaId = params.mangaId;
+  const chapterId = params.chapterId;
+  const slug = params.slug;
   const [searchParams] = useSearchParams();
   const toast = useToast();
   
@@ -37,7 +42,7 @@ function ReaderPage() {
   const [imageLoading, setImageLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [autoScroll, setAutoScroll] = useState(false);
-  const [scrollSpeed, setScrollSpeed] = useState(50);
+  const [scrollSpeed, setScrollSpeed] = useState(80);
   const [imageScale, setImageScale] = useState(100);
   const [errorPages, setErrorPages] = useState(new Set());
   const [fitMode, setFitMode] = useState(() =>
@@ -294,7 +299,7 @@ function ReaderPage() {
       img.src = '';
       setTimeout(() => {
         img.src = src;
-      }, 100);
+      }, 70);
     }
   };
 
@@ -381,10 +386,18 @@ function ReaderPage() {
         setErrorPages(new Set());
         setPreloadedImages({});
 
-        const mangaUrl = atob(mangaId);
-        const chapterUrl = atob(chapterId);
-
-        const mangaData = await apiManager.getMangaDetails(mangaUrl, source);
+        let mangaData, chapterUrl;
+        if (slug) {
+          const entry = getBySlug(slug);
+          if (!entry) throw new Error('Manga non trovato');
+          mangaData = await apiManager.getMangaDetails(entry.mangaUrl, entry.source);
+          chapterUrl = getChapterUrlByIndex(slug, chapterIndex) || entry.chapters?.[chapterIndex]?.url;
+          if (!chapterUrl) throw new Error('Capitolo non trovato');
+        } else {
+          const mangaUrl = atob(mangaId);
+          chapterUrl = atob(chapterId);
+          mangaData = await apiManager.getMangaDetails(mangaUrl, source);
+        }
         if (cancelled) return;
         if (!mangaData) throw new Error('Impossibile caricare i dettagli del manga');
         

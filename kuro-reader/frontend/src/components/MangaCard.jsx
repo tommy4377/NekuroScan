@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Box, Image, Text, VStack, Badge, Skeleton } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { registerMangaSlug, toSlug } from '../utils/slug';
 
 const MotionBox = motion(Box);
 
@@ -28,10 +29,8 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
       console.error('Invalid manga data:', manga);
       return;
     }
-
-    const mangaId = safeEncodeUrl(manga.url);
-    const source = manga.source || (manga.isAdult ? 'mangaWorldAdult' : 'mangaWorld');
-    navigate(`/manga/${source}/${mangaId}`);
+    const slug = registerMangaSlug(manga) || toSlug(manga.title);
+    navigate(`/manga/${slug}`);
   };
 
   // Resto del componente uguale...
