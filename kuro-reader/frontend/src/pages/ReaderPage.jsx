@@ -61,6 +61,7 @@ function ReaderPage() {
   const lastTapRef = useRef(0);
   const touchStartRef = useRef({ x: 0, y: 0 });
   const controlsTimeoutRef = useRef(null);
+  const endChapterGuardRef = useRef(false);
   
   // ========== CALCOLI ==========
   const chapterIndex = parseInt(searchParams.get('chapter') || '0');
@@ -171,6 +172,20 @@ function ReaderPage() {
     }
   };
 
+  const markChapterCompleted = () => {
+    try {
+      if (!manga || !chapter) return;
+      const completed = JSON.parse(localStorage.getItem('completedChapters') || '{}');
+      if (!completed[manga.url]) completed[manga.url] = [];
+      if (!completed[manga.url].includes(chapterIndex)) {
+        completed[manga.url].push(chapterIndex);
+      }
+      localStorage.setItem('completedChapters', JSON.stringify(completed));
+    } catch (e) {
+      console.error('Error marking chapter completed:', e);
+    }
+  };
+
   const changePage = (direction) => {
     if (!chapter?.pages) return;
     
@@ -192,23 +207,28 @@ function ReaderPage() {
         }
       }
     } else if (newPage >= chapter.pages.length) {
+      if (endChapterGuardRef.current) return;
+      endChapterGuardRef.current = true;
+
+      // Ensure completion is recorded even in double/webtoon mode
+      markChapterCompleted();
+
       if (chapterIndex < (manga?.chapters?.length || 0) - 1) {
         toast({
           title: 'Capitolo completato!',
           description: 'Passaggio al capitolo successivo...',
           status: 'success',
-          duration: 2000,
+          duration: 1500,
         });
-        
         setTimeout(() => {
           navigateChapter(1);
-        }, 1500);
+        }, 900);
       } else {
         toast({
           title: 'Manga completato!',
           description: 'Hai raggiunto l\'ultimo capitolo',
           status: 'success',
-          duration: 3000,
+          duration: 2500,
         });
       }
     } else if (newPage < 0 && chapterIndex > 0) {
@@ -424,22 +444,23 @@ function ReaderPage() {
         localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
         
         if (chapterData.pages.length > 0) {
-          const img = new window.Image();
-          img.onload = function() {
-            if (cancelled) return;
-            
-            const aspectRatio = this.width / this.height;
-            if (aspectRatio < 0.6) {
-              setReadingMode('webtoon');
-              setFitMode('width');
-            } else {
-              const savedMode = localStorage.getItem('preferredReadingMode');
-              if (savedMode) {
-                setReadingMode(savedMode);
+          const savedMode = localStorage.getItem('preferredReadingMode');
+          const savedFit = localStorage.getItem('preferredFitMode');
+          if (savedMode) setReadingMode(savedMode);
+          if (savedFit) setFitMode(savedFit);
+
+          if (!savedMode) {
+            const img = new window.Image();
+            img.onload = function() {
+              if (cancelled) return;
+              const aspectRatio = this.width / this.height;
+              if (aspectRatio < 0.6) {
+                setReadingMode('webtoon');
+                setFitMode('width');
               }
-            }
-          };
-          img.src = chapterData.pages[0];
+            };
+            img.src = chapterData.pages[0];
+          }
         }
 
         setLoading(false);
@@ -728,23 +749,25 @@ function ReaderPage() {
               setCurrentPage(estimatedPage);
             }
 
-            if (scrollPercentage > 98 && !loadingMore) {
+            if (scrollPercentage > 98 && !loadingMore && !endChapterGuardRef.current) {
+              endChapterGuardRef.current = true;
               setLoadingMore(true);
+              // Ensure completion is recorded
+              markChapterCompleted();
               setTimeout(() => {
                 if (chapterIndex < (manga?.chapters?.length || 0) - 1) {
                   toast({
                     title: 'Capitolo completato!',
                     description: 'Passaggio al capitolo successivo...',
                     status: 'success',
-                    duration: 2000,
+                    duration: 1200,
                   });
-
                   setTimeout(() => {
                     navigateChapter(1);
-                  }, 1500);
+                  }, 800);
                 }
                 setLoadingMore(false);
-              }, 500);
+              }, 300);
             }
           }}
         >

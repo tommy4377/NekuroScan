@@ -487,7 +487,10 @@ const startReading = (chapterIndex = 0) => {
             localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
             
             const completedChapters = JSON.parse(localStorage.getItem('completedChapters') || '{}');
-            completedChapters[manga.url] = Array.from({ length: manga.chapters.length }, (_, i) => i);
+            // Merge: ensure we do not clear existing per-chapter read list inadvertently
+            const existing = new Set(completedChapters[manga.url] || []);
+            for (let i = 0; i < manga.chapters.length; i++) existing.add(i);
+            completedChapters[manga.url] = Array.from(existing).sort((a,b) => a - b);
             localStorage.setItem('completedChapters', JSON.stringify(completedChapters));
             
             setReadingProgress(readingProgress[manga.url]);

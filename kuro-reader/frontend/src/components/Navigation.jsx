@@ -70,7 +70,7 @@ function Navigation() {
 
   return (
     <>
-      <Box h="60px" />
+      <Box h={{ base: '64px', md: '60px' }} />
       <Box
         bg="rgba(26, 32, 44, 0.95)"
         px={2}

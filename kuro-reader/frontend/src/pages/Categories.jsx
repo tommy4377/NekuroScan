@@ -113,16 +113,17 @@ function Categories() {
       }
       
       if (result && result.results) {
+        const deduped = Array.from(new Map(result.results.map(item => [item.url, item])).values());
         if (reset) {
-          setMangaList(result.results);
-          setTotalLoaded(result.results.length);
+          setMangaList(deduped);
+          setTotalLoaded(deduped.length);
         } else {
           setMangaList(prev => {
             const existingUrls = new Set(prev.map(m => m.url));
-            const newItems = result.results.filter(m => !existingUrls.has(m.url));
+            const newItems = deduped.filter(m => !existingUrls.has(m.url));
             return [...prev, ...newItems];
           });
-          setTotalLoaded(prev => prev + result.results.length);
+          setTotalLoaded(prev => prev + deduped.length);
         }
         setHasMore(result.hasMore);
         setPage(pageNum);
@@ -227,9 +228,10 @@ function Categories() {
     
     try {
       const { results, hasMore } = await runSearch({ page: 1 });
-      setMangaList(results);
+      const deduped = Array.from(new Map(results.map(item => [item.url, item])).values());
+      setMangaList(deduped);
       setHasMore(hasMore);
-      setTotalLoaded(results.length);
+      setTotalLoaded(deduped.length);
     } catch (error) {
       console.error('Error searching:', error);
       toast({ title: 'Errore ricerca', status: 'error', duration: 3000 });
@@ -466,7 +468,7 @@ function Categories() {
                     gap={16}
                     renderItem={(manga, i) => (
                       <MotionBox
-                        key={`${manga.url}-${i}`}
+                        key={manga.url}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: Math.min(i * 0.02, 0.5) }}
