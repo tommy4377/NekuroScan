@@ -384,18 +384,30 @@ function ReaderPage() {
         const mangaUrl = atob(mangaId);
         const chapterUrl = atob(chapterId);
 
+        console.log('🔄 Loading manga details for:', mangaUrl);
         const mangaData = await apiManager.getMangaDetails(mangaUrl, source);
         if (cancelled) return;
-        if (!mangaData) throw new Error('Impossibile caricare i dettagli del manga');
+        if (!mangaData) {
+          console.error('❌ No manga data returned');
+          throw new Error('Impossibile caricare i dettagli del manga');
+        }
         
+        console.log('✅ Manga loaded:', mangaData.title);
         setManga(mangaData);
         
+        console.log('🔄 Loading chapter:', chapterUrl);
         const chapterData = await apiManager.getChapter(chapterUrl, source);
         if (cancelled) return;
-        if (!chapterData) throw new Error('Impossibile caricare il capitolo');
+        if (!chapterData) {
+          console.error('❌ No chapter data returned');
+          throw new Error('Impossibile caricare il capitolo');
+        }
         if (!chapterData.pages || chapterData.pages.length === 0) {
+          console.error('❌ No pages found in chapter');
           throw new Error('Nessuna pagina trovata nel capitolo');
         }
+        
+        console.log('✅ Chapter loaded with', chapterData.pages.length, 'pages');
 
         setChapter(chapterData);
         
@@ -698,10 +710,13 @@ function ReaderPage() {
   
   if (loading || !chapter || !manga) {
     return (
-      <Box bg="black" minH="100vh" display="flex" alignItems="center" justifyContent="center">
+      <Box bg="gray.900" minH="100vh" display="flex" alignItems="center" justifyContent="center">
         <VStack spacing={4}>
           <Spinner size="xl" color="purple.500" thickness="4px" />
           <Text color="white" fontSize="lg">Caricamento capitolo...</Text>
+          <Text color="gray.400" fontSize="sm">
+            {loading ? 'Caricamento in corso...' : 'Preparazione lettura...'}
+          </Text>
         </VStack>
       </Box>
     );
@@ -714,9 +729,10 @@ function ReaderPage() {
   const renderPages = () => {
     if (!chapter || !chapter.pages || chapter.pages.length === 0) {
       return (
-        <Box bg="black" minH="100vh" display="flex" alignItems="center" justifyContent="center">
+        <Box bg="gray.900" minH="100vh" display="flex" alignItems="center" justifyContent="center">
           <VStack spacing={4}>
             <Text color="white" fontSize="lg">Nessuna pagina disponibile</Text>
+            <Text color="gray.400" fontSize="sm">Il capitolo potrebbe essere temporaneamente non disponibile</Text>
             <Button colorScheme="purple" onClick={() => window.location.href = `/manga/${source}/${mangaId}`}>
               Torna al manga
             </Button>
@@ -729,7 +745,7 @@ function ReaderPage() {
       return (
         <Box
           ref={containerRef}
-          bg="black"
+          bg="gray.900"
           height="100vh"
           overflowY="auto"
           overflowX="hidden"
@@ -800,7 +816,7 @@ function ReaderPage() {
 
     return (
       <Box
-        bg="black"
+        bg="gray.900"
         minH="100vh"
         display="flex"
         alignItems="center"
@@ -889,6 +905,7 @@ function ReaderPage() {
                         onLoad={() => setImageLoading(false)}
                         onError={() => handleImageError(pageIndex)}
                         onClick={handleImageClick}
+                        fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='600' viewBox='0 0 400 600'%3E%3Crect width='400' height='600' fill='%23374151'%3E%3C/rect%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23A0AEC0' font-family='sans-serif' font-size='16'%3EPagina non disponibile%3C/text%3E%3C/svg%3E"
                       />
                     )}
                   </Box>
@@ -902,7 +919,7 @@ function ReaderPage() {
   };
 
   return (
-    <Box bg="black" minH="100vh" position="relative">
+    <Box bg="gray.900" minH="100vh" position="relative">
       {/* Top Controls */}
       <HStack
         position="fixed"
