@@ -6,7 +6,7 @@ import {
   Switch, FormControl, FormLabel, Slider, SliderTrack, SliderFilledTrack,
   SliderThumb, Button, Progress, Badge, DrawerCloseButton, Select, Divider
 } from '@chakra-ui/react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   FaChevronLeft, FaChevronRight, FaTimes, FaCog, FaAlignJustify,
   FaBookmark, FaHome
@@ -23,6 +23,7 @@ function ReaderPage() {
   // ========== HOOKS (SEMPRE TUTTI, SEMPRE IN QUESTO ORDINE!) ==========
   const { source, mangaId, chapterId } = useParams();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const toast = useToast();
   
   // ========== STATES (SEMPRE TUTTI!) ==========
@@ -135,7 +136,7 @@ function ReaderPage() {
       saveProgress();
       const newChapter = manga.chapters[newIndex];
       const newChapterId = btoa(newChapter.url);
-      window.location.href = `/read/${source}/${mangaId}/${newChapterId}?chapter=${newIndex}`;
+      navigate(`/read/${source}/${mangaId}/${newChapterId}?chapter=${newIndex}`);
     } else if (direction > 0) {
       toast({
         title: 'Ultimo capitolo raggiunto',
@@ -161,7 +162,7 @@ function ReaderPage() {
       window.dispatchEvent(new CustomEvent('library-updated'));
       
       setTimeout(() => {
-        window.location.href = `/manga/${source}/${mangaId}`;
+        navigate(`/manga/${source}/${mangaId}`);
       }, 1200);
     } else {
       toast({
@@ -490,7 +491,7 @@ function ReaderPage() {
         });
 
         setTimeout(() => {
-          if (!cancelled) window.location.href = `/manga/${source}/${mangaId}`;
+          if (!cancelled) navigate(`/manga/${source}/${mangaId}`);
         }, 2000);
       }
     }
@@ -656,7 +657,7 @@ function ReaderPage() {
             toggleFullscreen();
           } else {
             saveProgress();
-            window.location.href = `/manga/${source}/${mangaId}`;
+            navigate(`/manga/${source}/${mangaId}`);
           }
           break;
         case 'b':
@@ -942,7 +943,7 @@ function ReaderPage() {
             borderRadius="full"
             onClick={() => {
               saveProgress();
-              window.location.href = `/manga/${source}/${mangaId}`;
+              navigate(`/manga/${source}/${mangaId}`);
             }}
             aria-label="Chiudi"
           />

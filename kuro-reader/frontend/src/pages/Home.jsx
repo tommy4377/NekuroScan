@@ -17,6 +17,7 @@ import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { recommendationEngine } from '../utils/recommendations';
 
 const MotionBox = motion(Box);
 
@@ -36,6 +37,14 @@ function Home() {
   
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
   
+  // Carica dati utente per raccomandazioni
+  const [userManga, setUserManga] = useState({
+    reading: [],
+    favorites: [],
+    completed: [],
+    dropped: []
+  });
+  
   // ========= STATE =========
   const [content, setContent] = useState({
     trending: [],
@@ -46,7 +55,8 @@ function Home() {
     topManhua: [],
     topOneshot: [],
     continueReading: [],
-    recommendations: []
+    recommendations: [],
+    forYou: []
   });
   
   const [loading, setLoading] = useState(true);
@@ -98,7 +108,20 @@ function Home() {
         continueFrom: item.lastChapterIndex ? `Cap. ${item.lastChapterIndex + 1}` : null
       }));
       
-      // Raccomandazioni
+      // Raccomandazioni "Per te" intelligenti
+      const allContent = {
+        trending: processResult(trendingRes),
+        latest: processResult(latestRes),
+        popular: processResult(popularRes),
+        topManga: processResult(mangaRes),
+        topManhwa: processResult(manhwaRes),
+        topManhua: processResult(manhuaRes),
+        topOneshot: processResult(oneshotRes)
+      };
+      
+      const forYouRecommendations = await generateForYouRecommendations(allContent);
+      
+      // Raccomandazioni tradizionali (fallback)
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
       let recommendations = [];
       if (favorites.length > 0) {
@@ -125,7 +148,8 @@ function Home() {
         topManhua: processResult(manhuaRes),
         topOneshot: processResult(oneshotRes),
         continueReading: readingWithProgress,
-        recommendations
+        recommendations,
+        forYou: forYouRecommendations
       });
       
     } catch (error) {
@@ -143,10 +167,12 @@ function Home() {
   }, [includeAdult, toast]);
 
   useEffect(() => {
+    loadUserManga();
     loadAllContent();
     
     // Ascolta aggiornamenti della libreria
     const handleLibraryUpdate = () => {
+      loadUserManga();
       loadAllContent();
     };
     
@@ -156,6 +182,65 @@ function Home() {
       window.removeEventListener('library-updated', handleLibraryUpdate);
     };
   }, [loadAllContent]);
+
+  // Carica dati utente per raccomandazioni
+  const loadUserManga = () => {
+    const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    const completed = JSON.parse(localStorage.getItem('completed') || '[]');
+    const dropped = JSON.parse(localStorage.getItem('dropped') || '[]');
+    
+    setUserManga({ reading, favorites, completed, dropped });
+  };
+
+  // Genera raccomandazioni "Per te"
+  const generateForYouRecommendations = async (allContent) => {
+    try {
+      // Combina tutti i manga disponibili
+      const allManga = [
+        ...allContent.trending,
+        ...allContent.latest,
+        ...allContent.popular,
+        ...allContent.topManga,
+        ...allContent.topManhwa,
+        ...allContent.topManhua,
+        ...allContent.topOneshot
+      ];
+
+      // Rimuovi duplicati
+      const uniqueManga = allManga.filter((manga, index, self) => 
+        index === self.findIndex(m => m.url === manga.url)
+      );
+
+      // Carica dati utente aggiornati
+      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+      const completed = JSON.parse(localStorage.getItem('completed') || '[]');
+      const dropped = JSON.parse(localStorage.getItem('dropped') || '[]');
+      
+      // Combina tutti i manga dell'utente
+      const allUserManga = [
+        ...reading,
+        ...favorites,
+        ...completed,
+        ...dropped
+      ];
+
+      // Genera raccomandazioni
+      const recommendations = recommendationEngine.generateRecommendations(uniqueManga, allUserManga);
+      
+      console.log('🎯 For You Recommendations generated:', {
+        totalManga: uniqueManga.length,
+        userManga: allUserManga.length,
+        recommendations: recommendations.length
+      });
+      
+      return recommendations.slice(0, 12); // Limita a 12 raccomandazioni
+    } catch (error) {
+      console.error('Error generating recommendations:', error);
+      return [];
+    }
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -391,6 +476,18 @@ function Home() {
             color="green"
             viewAllPath="/library"
             showProgress={true}
+          />
+        )}
+
+        {/* ========= PER TE ========= */}
+        {content.forYou.length > 0 && (
+          <ContentSection
+            title="Per te"
+            icon={FaStar}
+            items={content.forYou}
+            color="purple"
+            viewAllPath="/search"
+            showProgress={false}
           />
         )}
 

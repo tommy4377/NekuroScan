@@ -419,8 +419,8 @@ const startReading = (chapterIndex = 0) => {
     
     console.log('✅ Data saved locally, starting chapter:', chapterIndex + 1);
     
-    // ✅ 2. HARD NAVIGATION (bypassa completamente React Router e Zustand)
-    window.location.href = `/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`;
+    // ✅ 2. NAVIGATION con React Router
+    navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
     
   } catch (error) {
     console.error('❌ Error starting reading:', error);

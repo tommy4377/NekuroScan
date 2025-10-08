@@ -5,7 +5,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { HelmetProvider, Helmet } from 'react-helmet-async';
 import { theme } from './styles/theme';
 import Navigation from './components/Navigation';
-import ThreeBackground from './components/ThreeBackground';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import useAuthStore from './hooks/useAuth';
@@ -272,9 +271,7 @@ function AppContent() {
   }, []);
 
   return (
-    <Box minH="100vh" bg="gray.900" position="relative" overflow="hidden">
-      {/* Background particellare viola - sempre attivo */}
-      <ThreeBackground />
+    <Box minH="100vh" bg="gray.900">
       <Helmet>
         <title>NeKuro Scan - Manga Reader</title>
         <meta name="description" content="Leggi manga e light novel gratuitamente" />
