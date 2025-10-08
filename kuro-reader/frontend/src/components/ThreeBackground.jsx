@@ -23,10 +23,11 @@ export default function ThreeBackground() {
     canvas.style.left = '0';
     canvas.style.width = '100%';
     canvas.style.height = '100%';
-    canvas.style.zIndex = '-999';
+    canvas.style.zIndex = '1';
     canvas.style.pointerEvents = 'none';
-    canvas.style.opacity = '0.6';
+    canvas.style.opacity = '0.8';
     canvas.style.background = 'transparent';
+    canvas.id = 'particle-background';
     container.appendChild(canvas);
 
     const ctx = canvas.getContext('2d');
@@ -97,6 +98,12 @@ export default function ThreeBackground() {
         ctx.shadowBlur = 0;
       });
       
+      // Debug: disegna un punto rosso per test
+      if (Math.floor(time) % 5 === 0) {
+        ctx.fillStyle = 'red';
+        ctx.fillRect(10, 10, 5, 5);
+      }
+      
       ctx.globalAlpha = 1;
     };
     
@@ -104,6 +111,20 @@ export default function ThreeBackground() {
     console.log('✅ ThreeBackground: CSS particle system started with', particleCount, 'particles');
     console.log('✅ ThreeBackground: Canvas size:', canvas.width, 'x', canvas.height);
     console.log('✅ ThreeBackground: Canvas z-index:', canvas.style.zIndex);
+    console.log('✅ ThreeBackground: Canvas opacity:', canvas.style.opacity);
+    console.log('✅ ThreeBackground: Canvas position:', canvas.style.position);
+    console.log('✅ ThreeBackground: Canvas in DOM:', document.getElementById('particle-background') ? 'YES' : 'NO');
+    
+    // Test visibilità
+    setTimeout(() => {
+      const testCanvas = document.getElementById('particle-background');
+      if (testCanvas) {
+        console.log('✅ ThreeBackground: Canvas found in DOM after 1s');
+        console.log('✅ ThreeBackground: Canvas computed style:', window.getComputedStyle(testCanvas).zIndex);
+      } else {
+        console.error('❌ ThreeBackground: Canvas NOT found in DOM after 1s');
+      }
+    }, 1000);
 
     return () => {
       console.log('✅ ThreeBackground: Cleaning up...');
@@ -122,7 +143,7 @@ export default function ThreeBackground() {
         left: 0, 
         right: 0, 
         bottom: 0, 
-        zIndex: -999, 
+        zIndex: 1, 
         pointerEvents: 'none',
         overflow: 'hidden',
         background: 'transparent'

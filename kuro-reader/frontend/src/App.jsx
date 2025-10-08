@@ -139,6 +139,31 @@ function AppContent() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const toast = useToast();
 
+  // Gestione routing per URL diretti
+  useEffect(() => {
+    const handleDirectUrl = () => {
+      const path = window.location.pathname;
+      console.log('🔍 Current path:', path);
+      
+      // Se siamo su una route valida, non fare nulla
+      const validRoutes = [
+        '/', '/home', '/search', '/categories', '/latest', '/popular', 
+        '/trending', '/login', '/library', '/profile', '/settings'
+      ];
+      
+      const isMangaRoute = path.startsWith('/manga/');
+      const isUserRoute = path.startsWith('/user/');
+      const isValidRoute = validRoutes.includes(path) || isMangaRoute || isUserRoute;
+      
+      if (!isValidRoute && path !== '/') {
+        console.log('⚠️ Invalid route detected, redirecting to home');
+        // Non fare redirect automatico, lascia che NotFound gestisca
+      }
+    };
+    
+    handleDirectUrl();
+  }, []);
+
   useEffect(() => {
     initAuth();
     
@@ -287,7 +312,7 @@ function App() {
     <HelmetProvider>
       <ChakraProvider theme={theme}>
         <ThemeProvider>
-          <Router>
+          <Router basename="/">
             <ErrorBoundary>
               <AppContent />
             </ErrorBoundary>
