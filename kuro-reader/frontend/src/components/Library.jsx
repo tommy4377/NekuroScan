@@ -25,6 +25,17 @@ function Library() {
 
   useEffect(() => {
     loadLibrary();
+    
+    // Ascolta aggiornamenti della libreria
+    const handleLibraryUpdate = () => {
+      loadLibrary();
+    };
+    
+    window.addEventListener('library-updated', handleLibraryUpdate);
+    
+    return () => {
+      window.removeEventListener('library-updated', handleLibraryUpdate);
+    };
   }, []);
 
   const loadLibrary = () => {

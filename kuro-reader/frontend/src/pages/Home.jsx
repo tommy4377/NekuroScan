@@ -144,6 +144,17 @@ function Home() {
 
   useEffect(() => {
     loadAllContent();
+    
+    // Ascolta aggiornamenti della libreria
+    const handleLibraryUpdate = () => {
+      loadAllContent();
+    };
+    
+    window.addEventListener('library-updated', handleLibraryUpdate);
+    
+    return () => {
+      window.removeEventListener('library-updated', handleLibraryUpdate);
+    };
   }, [loadAllContent]);
 
   const handleRefresh = async () => {

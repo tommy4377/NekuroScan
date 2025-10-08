@@ -23,9 +23,9 @@ export default function ThreeBackground() {
     canvas.style.left = '0';
     canvas.style.width = '100%';
     canvas.style.height = '100%';
-    canvas.style.zIndex = '1';
+    canvas.style.zIndex = '-999';
     canvas.style.pointerEvents = 'none';
-    canvas.style.opacity = '0.8';
+    canvas.style.opacity = '0.3';
     canvas.style.background = 'transparent';
     canvas.id = 'particle-background';
     container.appendChild(canvas);
@@ -37,18 +37,18 @@ export default function ThreeBackground() {
     }
 
     // Genera particelle
-    const particleCount = 200;
+    const particleCount = 100;
     const particles = [];
     
     for (let i = 0; i < particleCount; i++) {
       particles.push({
         x: Math.random() * window.innerWidth,
         y: Math.random() * window.innerHeight,
-        vx: (Math.random() - 0.5) * 0.8,
-        vy: (Math.random() - 0.5) * 0.8,
-        size: Math.random() * 3 + 1.5,
-        opacity: Math.random() * 0.7 + 0.4,
-        color: `hsl(${280 + Math.random() * 40}, 80%, ${70 + Math.random() * 20}%)`
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        size: Math.random() * 1.5 + 0.5,
+        opacity: Math.random() * 0.3 + 0.1,
+        color: `hsl(${240 + Math.random() * 40}, 60%, ${50 + Math.random() * 20}%)`
       });
     }
     
@@ -74,9 +74,9 @@ export default function ThreeBackground() {
         particle.x += particle.vx;
         particle.y += particle.vy;
         
-        // Effetto onde
-        particle.y += Math.sin(time * 0.5 + i * 0.1) * 0.5;
-        particle.x += Math.cos(time * 0.3 + i * 0.05) * 0.3;
+        // Effetto onde molto leggero
+        particle.y += Math.sin(time * 0.2 + i * 0.1) * 0.1;
+        particle.x += Math.cos(time * 0.1 + i * 0.05) * 0.1;
         
         // Wrap around
         if (particle.x < 0) particle.x = canvas.width;
@@ -91,43 +91,20 @@ export default function ThreeBackground() {
         ctx.globalAlpha = particle.opacity;
         ctx.fill();
         
-        // Aggiungi glow
-        ctx.shadowBlur = 15;
+        // Aggiungi glow leggero
+        ctx.shadowBlur = 5;
         ctx.shadowColor = particle.color;
         ctx.fill();
         ctx.shadowBlur = 0;
       });
       
-      // Debug: disegna un punto rosso per test
-      if (Math.floor(time) % 5 === 0) {
-        ctx.fillStyle = 'red';
-        ctx.fillRect(10, 10, 5, 5);
-      }
       
       ctx.globalAlpha = 1;
     };
     
     rafRef.current = requestAnimationFrame(render);
-    console.log('✅ ThreeBackground: CSS particle system started with', particleCount, 'particles');
-    console.log('✅ ThreeBackground: Canvas size:', canvas.width, 'x', canvas.height);
-    console.log('✅ ThreeBackground: Canvas z-index:', canvas.style.zIndex);
-    console.log('✅ ThreeBackground: Canvas opacity:', canvas.style.opacity);
-    console.log('✅ ThreeBackground: Canvas position:', canvas.style.position);
-    console.log('✅ ThreeBackground: Canvas in DOM:', document.getElementById('particle-background') ? 'YES' : 'NO');
-    
-    // Test visibilità
-    setTimeout(() => {
-      const testCanvas = document.getElementById('particle-background');
-      if (testCanvas) {
-        console.log('✅ ThreeBackground: Canvas found in DOM after 1s');
-        console.log('✅ ThreeBackground: Canvas computed style:', window.getComputedStyle(testCanvas).zIndex);
-      } else {
-        console.error('❌ ThreeBackground: Canvas NOT found in DOM after 1s');
-      }
-    }, 1000);
 
     return () => {
-      console.log('✅ ThreeBackground: Cleaning up...');
       window.removeEventListener('resize', resize);
       cancelAnimationFrame(rafRef.current);
       if (container.contains(canvas)) container.removeChild(canvas);
@@ -143,7 +120,7 @@ export default function ThreeBackground() {
         left: 0, 
         right: 0, 
         bottom: 0, 
-        zIndex: 1, 
+        zIndex: -999, 
         pointerEvents: 'none',
         overflow: 'hidden',
         background: 'transparent'
