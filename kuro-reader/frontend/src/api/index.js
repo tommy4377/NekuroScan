@@ -1,6 +1,7 @@
 // frontend/src/api/index.js
 import { MangaWorldAPI } from './mangaWorld';
 import { MangaWorldAdultAPI } from './mangaWorldAdult';
+import { fallbackManga, fallbackCategories } from '../data/fallbackData';
 
 // Cache timeout configuration
 const CACHE_TIMEOUT = 10 * 60 * 1000; // 10 minuti
@@ -306,7 +307,8 @@ class APIManager {
       
     } catch (error) {
       console.error('Get recent chapters error:', error);
-      return [];
+      console.log('🔄 Using fallback data for recent chapters');
+      return fallbackManga.filter(m => m.isRecent).slice(0, 10);
     }
   }
 
@@ -403,7 +405,8 @@ class APIManager {
       
     } catch (error) {
       console.error('Get trending error:', error);
-      return [];
+      console.log('🔄 Using fallback data for trending');
+      return fallbackManga.filter(m => m.isTrending).slice(0, 10);
     }
   }
 
@@ -449,7 +452,8 @@ class APIManager {
       
     } catch (error) {
       console.error('Get weekly releases error:', error);
-      return [];
+      console.log('🔄 Using fallback data for weekly releases');
+      return fallbackManga.slice(0, 8);
     }
   }
 
@@ -497,6 +501,10 @@ class APIManager {
     
     this.setCache(cacheKey, topManga);
     return topManga;
+  } catch (error) {
+    console.error('Get top manga error:', error);
+    console.log('🔄 Using fallback data for top manga');
+    return fallbackManga.filter(m => m.isTopManga).slice(0, 10);
   }
 
   // ============= UTILITY =============
@@ -563,6 +571,10 @@ class APIManager {
     this.setCache(cacheKey, uniqueResults);
     
     return uniqueResults;
+  } catch (error) {
+    console.error('Get by category error:', error);
+    console.log('🔄 Using fallback data for category:', category);
+    return fallbackCategories[category.toLowerCase()] || fallbackManga.slice(0, 10);
   }
 }
 
