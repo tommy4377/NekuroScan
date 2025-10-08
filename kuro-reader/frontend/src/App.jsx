@@ -86,24 +86,18 @@ const AnimatedRoute = ({ children }) => (
   </motion.div>
 );
 
-// ✅ ROUTES SENZA AnimatePresence PER READER
+// ✅ ROUTES UNIFICATE CON GESTIONE READER
 function AnimatedRoutes() {
   const location = useLocation();
   const isReaderPage = location.pathname.startsWith('/read/');
 
-  // ✅ Se è ReaderPage, niente animazioni!
-  if (isReaderPage) {
-    return (
-      <Routes location={location}>
-        <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
-      </Routes>
-    );
-  }
-
-  // ✅ Altre pagine con animazioni
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
+        {/* Reader Route - senza animazioni */}
+        <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
+        
+        {/* Altre pagine con animazioni */}
         <Route path="/" element={<AnimatedRoute><Welcome /></AnimatedRoute>} />
         <Route path="/home" element={<AnimatedRoute><Home /></AnimatedRoute>} />
         <Route path="/search" element={<AnimatedRoute><Search /></AnimatedRoute>} />
@@ -253,7 +247,7 @@ function AppContent() {
   }, []);
 
   return (
-    <Box minH="100vh" bg="gray.900" position="relative">
+    <Box minH="100vh" bg="gray.900" position="relative" overflow="hidden">
       {/* Background particellare viola - sempre attivo */}
       <ThreeBackground />
       <Helmet>
