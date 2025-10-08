@@ -18,6 +18,7 @@ import apiManager from '../api';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { recommendationEngine } from '../utils/recommendations';
+import useAuth from '../hooks/useAuth';
 
 const MotionBox = motion(Box);
 
@@ -34,6 +35,7 @@ const cleanChapterNumber = (chapter) => {
 function Home() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { user } = useAuth();
   
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
   
@@ -119,7 +121,7 @@ function Home() {
         topOneshot: processResult(oneshotRes)
       };
       
-      const forYouRecommendations = await generateForYouRecommendations(allContent);
+      const forYouRecommendations = user ? await generateForYouRecommendations(allContent) : [];
       
       // Raccomandazioni tradizionali (fallback)
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
@@ -479,17 +481,6 @@ function Home() {
           />
         )}
 
-        {/* ========= PER TE ========= */}
-        {content.forYou.length > 0 && (
-          <ContentSection
-            title="Per te"
-            icon={FaStar}
-            items={content.forYou}
-            color="purple"
-            viewAllPath="/search"
-            showProgress={false}
-          />
-        )}
 
         {/* ========= TABS CONTENUTI ========= */}
         <Box 
@@ -528,7 +519,7 @@ function Home() {
                   <Text display={{ base: 'none', sm: 'block' }}>Top Series</Text>
                 </HStack>
               </Tab>
-              {content.recommendations.length > 0 && (
+              {user && content.forYou.length > 0 && (
                 <Tab>
                   <HStack spacing={2}>
                     <FaStar />
@@ -611,15 +602,15 @@ function Home() {
                 </VStack>
               </TabPanel>
               
-              {/* TAB CONSIGLIATI */}
-              {content.recommendations.length > 0 && (
+              {/* TAB PER TE */}
+              {user && content.forYou.length > 0 && (
                 <TabPanel px={0} pt={6}>
                   <ContentSection 
-                    title="Consigliati per te" 
+                    title="Per te" 
                     icon={FaStar} 
-                    items={content.recommendations} 
-                    color="yellow" 
-                    emptyMessage="Aggiungi preferiti per ricevere consigli personalizzati"
+                    items={content.forYou} 
+                    color="purple" 
+                    emptyMessage="Aggiungi manga alle tue liste per ricevere consigli personalizzati"
                   />
                 </TabPanel>
               )}
