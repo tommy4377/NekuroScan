@@ -469,10 +469,10 @@ function Home() {
           </HStack>
         </Box>
 
-        {/* ========= CONTINUA A LEGGERE ========= */}
+        {/* ========= IN LETTURA ========= */}
         {content.continueReading.length > 0 && (
           <ContentSection
-            title="Continua a leggere"
+            title="In lettura"
             icon={FaBookOpen}
             items={content.continueReading}
             color="green"
