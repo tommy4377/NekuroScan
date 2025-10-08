@@ -171,7 +171,7 @@ function MangaDetails() {
     } catch (error) {
       console.error('❌ Error loading progress:', error);
     }
-  }, [resolvedMangaUrl]);
+  }, [id]);
 
   // Check notification status
   const checkNotificationStatus = useCallback(async () => {

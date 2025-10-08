@@ -127,12 +127,29 @@ async function main() {
     `;
     console.log('✅ User follows table created/verified');
     
+    // 6.1 Create manga_notifications table
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS "manga_notifications" (
+        "id" SERIAL PRIMARY KEY,
+        "userId" INTEGER NOT NULL,
+        "mangaUrl" VARCHAR(500) NOT NULL,
+        "mangaTitle" VARCHAR(500) NOT NULL,
+        "enabled" BOOLEAN DEFAULT true,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE("userId", "mangaUrl"),
+        FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE
+      );
+    `;
+    console.log('✅ Manga notifications table created/verified');
+    
     // 7. Create indexes
     await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_user_username" ON "user"("username");`;
     await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_user_email" ON "user"("email");`;
     await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_reading_progress_user" ON "reading_progress"("userId");`;
     await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_user_follows_follower" ON "user_follows"("followerId");`;
     await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_user_follows_following" ON "user_follows"("followingId");`;
+    await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_manga_notifications_user" ON "manga_notifications"("userId");`;
     console.log('✅ Indexes created/verified');
     
     // 8. Cleanup old theme column

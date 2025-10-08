@@ -9,8 +9,8 @@ const MotionBox = motion(Box);
 // FUNZIONE SICURA per encoding URL
 function safeEncodeUrl(url) {
   try {
-    // Usa encodeURIComponent invece di btoa per evitare errori
-    return encodeURIComponent(btoa(url));
+    // Usa btoa direttamente come nel resto dell'app
+    return btoa(url);
   } catch (e) {
     console.error('Encoding error:', e);
     // Fallback: usa solo encodeURIComponent

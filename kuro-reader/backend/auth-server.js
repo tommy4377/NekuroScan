@@ -217,6 +217,63 @@ const requireDatabase = async (req, res, next) => {
   next();
 };
 
+// ========= RATE LIMITING =========
+const requestCounts = new Map();
+const RATE_LIMIT_WINDOW = 60000; // 1 minuto
+const MAX_REQUESTS = 100; // 100 richieste per minuto
+
+const rateLimiter = (req, res, next) => {
+  const ip = req.ip || req.connection.remoteAddress;
+  const now = Date.now();
+  
+  if (!requestCounts.has(ip)) {
+    requestCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return next();
+  }
+  
+  const data = requestCounts.get(ip);
+  
+  if (now > data.resetTime) {
+    requestCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return next();
+  }
+  
+  if (data.count >= MAX_REQUESTS) {
+    return res.status(429).json({ message: 'Troppe richieste, riprova tra poco' });
+  }
+  
+  data.count++;
+  next();
+};
+
+// Pulisci cache rate limit ogni 5 minuti
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of requestCounts.entries()) {
+    if (now > data.resetTime) {
+      requestCounts.delete(ip);
+    }
+  }
+}, 300000);
+
+app.use(rateLimiter);
+
+// ========= INPUT SANITIZATION =========
+function sanitizeString(str, maxLength = 500) {
+  if (typeof str !== 'string') return '';
+  return str.trim().slice(0, maxLength);
+}
+
+function sanitizeEmail(email) {
+  if (typeof email !== 'string') return '';
+  return email.toLowerCase().trim().slice(0, 255);
+}
+
+function sanitizeUsername(username) {
+  if (typeof username !== 'string') return '';
+  return username.toLowerCase().trim().replace(/[^a-z0-9_-]/g, '').slice(0, 30);
+}
+
 // ========= AUTH MIDDLEWARE =========
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -330,17 +387,20 @@ app.post('/api/auth/register', requireDatabase, async (req, res) => {
       return res.status(400).json({ message: 'Tutti i campi sono richiesti' });
     }
     
-    if (password.length < 6) {
-      return res.status(400).json({ message: 'La password deve essere di almeno 6 caratteri' });
+    if (password.length < 6 || password.length > 100) {
+      return res.status(400).json({ message: 'La password deve essere tra 6 e 100 caratteri' });
     }
     
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    const normalizedEmail = sanitizeEmail(email);
+    if (!emailRegex.test(normalizedEmail)) {
       return res.status(400).json({ message: 'Email non valida' });
     }
     
-    const normalizedEmail = email.toLowerCase().trim();
-    const normalizedUsername = username.toLowerCase().trim();
+    const normalizedUsername = sanitizeUsername(username);
+    if (normalizedUsername.length < 3) {
+      return res.status(400).json({ message: 'Username deve essere almeno 3 caratteri (lettere, numeri, _ o -)' });
+    }
     
     const existingUser = await executeWithRetry(async () => {
       return await prisma.user.findFirst({
@@ -441,7 +501,11 @@ app.post('/api/auth/login', requireDatabase, async (req, res) => {
       return res.status(400).json({ message: 'Email/Username e password richiesti' });
     }
     
-    const normalized = emailOrUsername.toLowerCase().trim();
+    if (password.length > 100) {
+      return res.status(400).json({ message: 'Password non valida' });
+    }
+    
+    const normalized = sanitizeString(emailOrUsername, 255).toLowerCase();
     
     const user = await executeWithRetry(async () => {
       return await prisma.user.findFirst({
@@ -542,9 +606,9 @@ app.put('/api/user/profile', authenticateToken, requireDatabase, upload.fields([
     });
 
     let updateData = {
-      bio: bio || profile?.bio || '',
+      bio: sanitizeString(bio || profile?.bio || '', 5000),
       isPublic: isPublic === true || isPublic === 'true',
-      displayName: displayName || profile?.displayName || req.user.username,
+      displayName: sanitizeString(displayName || profile?.displayName || req.user.username, 100),
       updatedAt: new Date()
     };
 
@@ -760,6 +824,18 @@ app.get('/api/user/data', authenticateToken, requireDatabase, async (req, res) =
       };
     });
     
+    // Get notification settings
+    let notificationSettings = [];
+    try {
+      notificationSettings = await prisma.$queryRaw`
+        SELECT "mangaUrl", "mangaTitle", "enabled"
+        FROM "manga_notifications" 
+        WHERE "userId" = ${userId} AND "enabled" = true
+      `;
+    } catch (e) {
+      // Table might not exist yet
+    }
+    
     res.json({ 
       favorites: userFavorites ? JSON.parse(userFavorites.favorites) : [],
       readingProgress: progressObj,
@@ -767,7 +843,8 @@ app.get('/api/user/data', authenticateToken, requireDatabase, async (req, res) =
       completed: library ? JSON.parse(library.completed || '[]') : [],
       dropped: library ? JSON.parse(library.dropped || '[]') : [],
       history: library ? JSON.parse(library.history || '[]') : [],
-      profile: profile || {}
+      profile: profile || {},
+      notificationSettings: notificationSettings || []
     });
     
   } catch (error) {
@@ -1015,6 +1092,111 @@ app.get('/api/user/:username/following', async (req, res) => {
     console.error('Get following error:', error);
     res.status(500).json({ 
       message: 'Errore recupero following',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ========= NOTIFICATIONS ROUTES =========
+
+// CREATE NOTIFICATION TABLE (if doesn't exist)
+async function ensureNotificationTable() {
+  try {
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS "manga_notifications" (
+        "id" SERIAL PRIMARY KEY,
+        "userId" INTEGER NOT NULL,
+        "mangaUrl" VARCHAR(500) NOT NULL,
+        "mangaTitle" VARCHAR(500) NOT NULL,
+        "enabled" BOOLEAN DEFAULT true,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE("userId", "mangaUrl"),
+        FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE
+      );
+    `;
+    await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_manga_notifications_user" ON "manga_notifications"("userId");`;
+  } catch (e) {
+    // Table might already exist
+  }
+}
+
+ensureNotificationTable();
+
+// TOGGLE MANGA NOTIFICATIONS
+app.post('/api/notifications/manga', authenticateToken, requireDatabase, async (req, res) => {
+  try {
+    const { mangaUrl, mangaTitle, enabled } = req.body;
+    const userId = req.user.id;
+    
+    if (!mangaUrl || !mangaTitle) {
+      return res.status(400).json({ message: 'mangaUrl e mangaTitle richiesti' });
+    }
+    
+    const sanitizedUrl = sanitizeString(mangaUrl, 500);
+    const sanitizedTitle = sanitizeString(mangaTitle, 500);
+    
+    if (!sanitizedUrl || !sanitizedTitle) {
+      return res.status(400).json({ message: 'Dati non validi' });
+    }
+    
+    await executeWithRetry(async () => {
+      const existing = await prisma.$queryRaw`
+        SELECT * FROM "manga_notifications" 
+        WHERE "userId" = ${userId} AND "mangaUrl" = ${sanitizedUrl}
+      `;
+      
+      if (existing && existing.length > 0) {
+        if (enabled) {
+          await prisma.$executeRaw`
+            UPDATE "manga_notifications" 
+            SET "enabled" = true, "updatedAt" = CURRENT_TIMESTAMP
+            WHERE "userId" = ${userId} AND "mangaUrl" = ${sanitizedUrl}
+          `;
+        } else {
+          await prisma.$executeRaw`
+            DELETE FROM "manga_notifications"
+            WHERE "userId" = ${userId} AND "mangaUrl" = ${sanitizedUrl}
+          `;
+        }
+      } else if (enabled) {
+        await prisma.$executeRaw`
+          INSERT INTO "manga_notifications" ("userId", "mangaUrl", "mangaTitle", "enabled")
+          VALUES (${userId}, ${sanitizedUrl}, ${sanitizedTitle}, true)
+        `;
+      }
+    });
+    
+    res.json({ success: true, enabled });
+    
+  } catch (error) {
+    console.error('Toggle notifications error:', error);
+    res.status(500).json({ 
+      message: 'Errore gestione notifiche',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// GET USER NOTIFICATION SETTINGS
+app.get('/api/notifications/settings', authenticateToken, requireDatabase, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const notifications = await executeWithRetry(async () => {
+      return await prisma.$queryRaw`
+        SELECT "mangaUrl", "mangaTitle", "enabled"
+        FROM "manga_notifications" 
+        WHERE "userId" = ${userId} AND "enabled" = true
+      `;
+    });
+    
+    res.json({ notificationSettings: notifications || [] });
+    
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    res.status(500).json({ 
+      message: 'Errore recupero notifiche',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

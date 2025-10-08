@@ -254,7 +254,7 @@ function AppContent() {
 
   return (
     <Box minH="100vh" bg="gray.900" position="relative">
-      {/* Background particellare viola */}
+      {/* Background particellare viola - sempre attivo */}
       <ThreeBackground />
       <Helmet>
         <title>NeKuro Scan - Manga Reader</title>

@@ -76,10 +76,21 @@ async function repairUserData() {
             userId: user.id,
             reading: '[]',
             completed: '[]',
+            dropped: '[]',
             history: '[]'
           }
         });
         console.log(`  ✅ Library created`);
+      } else {
+        // Ensure dropped field exists and is valid
+        if (!library.dropped) {
+          console.log(`  Fixing missing dropped field...`);
+          await prisma.user_library.update({
+            where: { userId: user.id },
+            data: { dropped: '[]' }
+          });
+          console.log(`  ✅ Dropped field fixed`);
+        }
       }
     }
     

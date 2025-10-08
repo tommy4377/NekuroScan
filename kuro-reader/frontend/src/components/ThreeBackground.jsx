@@ -9,19 +9,27 @@ export default function ThreeBackground() {
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) {
+      console.warn('ThreeBackground: Container not found');
+      return;
+    }
 
+    console.log('✅ ThreeBackground: Initializing particle system...');
     const canvas = document.createElement('canvas');
     canvas.style.position = 'fixed';
     canvas.style.inset = '0';
     canvas.style.zIndex = '-1';
     canvas.style.pointerEvents = 'none';
-    canvas.style.opacity = '0.25';
+    canvas.style.opacity = '0.4';
     container.appendChild(canvas);
 
     const gl = canvas.getContext('webgl', { alpha: true, antialias: false, depth: false });
-    if (!gl) return;
+    if (!gl) {
+      console.warn('ThreeBackground: WebGL not supported');
+      return;
+    }
     glRef.current = gl;
+    console.log('✅ ThreeBackground: WebGL context created');
 
     const resize = () => {
       const w = window.innerWidth;
@@ -43,7 +51,7 @@ export default function ThreeBackground() {
         vec2 p = aPos;
         p.y += 0.01 * sin(uTime * 0.3 + aPos.x * 8.0);
         gl_Position = vec4(p, 0.0, 1.0);
-        gl_PointSize = 1.8;
+        gl_PointSize = 2.2;
       }
     `;
     const fragSrc = `
@@ -52,7 +60,7 @@ export default function ThreeBackground() {
       void main() {
         float d = length(gl_PointCoord - vec2(0.5));
         if (d > 0.5) discard;
-        gl_FragColor = vec4(vCol, 0.85);
+        gl_FragColor = vec4(vCol, 0.9);
       }
     `;
 
@@ -70,19 +78,19 @@ export default function ThreeBackground() {
     gl.linkProgram(prog);
     gl.useProgram(prog);
 
-    // Genera 800 punti distribuiti
-    const N = 800;
+    // Genera 1200 punti distribuiti (più particelle)
+    const N = 1200;
     const positions = new Float32Array(N * 2);
     const colors = new Float32Array(N * 3);
     for (let i = 0; i < N; i++) {
       positions[i * 2] = Math.random() * 2 - 1;
       positions[i * 2 + 1] = Math.random() * 2 - 1;
-      // Viola vivace
-      const base = [0.55, 0.36, 0.97];
-      const var1 = (Math.random() - 0.5) * 0.15;
-      colors[i * 3] = Math.min(1, Math.max(0, base[0] + var1));
-      colors[i * 3 + 1] = Math.min(1, Math.max(0, base[1] + var1));
-      colors[i * 3 + 2] = Math.min(1, Math.max(0, base[2] + var1));
+      // Viola più vivace e variato
+      const base = [0.6, 0.4, 0.95];
+      const var1 = (Math.random() - 0.5) * 0.2;
+      colors[i * 3] = Math.min(1, Math.max(0.3, base[0] + var1));
+      colors[i * 3 + 1] = Math.min(1, Math.max(0.2, base[1] + var1));
+      colors[i * 3 + 2] = Math.min(1, Math.max(0.7, base[2] + var1));
     }
 
     const buf = gl.createBuffer();
@@ -112,8 +120,10 @@ export default function ThreeBackground() {
       gl.drawArrays(gl.POINTS, 0, N);
     };
     rafRef.current = requestAnimationFrame(render);
+    console.log('✅ ThreeBackground: Particle system started with', N, 'particles');
 
     return () => {
+      console.log('✅ ThreeBackground: Cleaning up...');
       window.removeEventListener('resize', resize);
       cancelAnimationFrame(rafRef.current);
       if (container.contains(canvas)) container.removeChild(canvas);
