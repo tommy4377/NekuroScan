@@ -469,9 +469,6 @@ function Categories() {
                     renderItem={(manga, i) => (
                       <Box
                         key={manga.url}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: Math.min(i * 0.02, 0.5) }}
                       >
                         <MangaCard manga={manga} hideSource />
                       </Box>

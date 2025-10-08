@@ -63,9 +63,6 @@ function SearchResults({ results, loading, filter = 'all' }) {
         {filteredResults.map((item, i) => (
           <Box
             key={`${item.url}-${i}`}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(i * 0.05, 0.5) }}
           >
             <MangaCard manga={item} />
           </Box>

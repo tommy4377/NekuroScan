@@ -166,9 +166,6 @@ function TopType() {
                 renderItem={(item, i) => (
                   <Box
                     key={`${item.url}-${i}`}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i * 0.01, 0.3) }}
                     position="relative"
                   >
                     <MangaCard manga={item} hideSource />
@@ -196,9 +193,6 @@ function TopType() {
                     key={`${item.url}-${i}`}
                     flex="1 0 160px"
                     maxW="200px"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i * 0.03, 0.5) }}
                     position="relative"
                   >
                     <MangaCard manga={item} hideSource />

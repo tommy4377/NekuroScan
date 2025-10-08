@@ -108,10 +108,6 @@ export function NotificationCenter() {
                   {notifications.map((notif, i) => (
                     <Box
                       key={notif.id}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ delay: i * 0.05 }}
                     >
                       <Box
                         p={3}

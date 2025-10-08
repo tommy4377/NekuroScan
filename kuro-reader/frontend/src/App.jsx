@@ -9,14 +9,12 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import useAuthStore from './hooks/useAuth';
 
-// ✅ READER IMPORTATO NORMALMENTE (NO LAZY)
-import ReaderPage from './pages/ReaderPage';
-
-// Lazy load altre pagine
+// Lazy load tutte le pagine per consistenza
 const Welcome = lazy(() => import('./pages/Welcome'));
 const Home = lazy(() => import('./pages/Home'));
 const Search = lazy(() => import('./pages/Search'));
 const MangaDetails = lazy(() => import('./pages/MangaDetails'));
+const ReaderPage = lazy(() => import('./pages/ReaderPage'));
 const Library = lazy(() => import('./components/Library'));
 const Categories = lazy(() => import('./pages/Categories'));
 const Latest = lazy(() => import('./pages/Latest'));

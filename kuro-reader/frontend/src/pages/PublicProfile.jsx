@@ -484,9 +484,6 @@ export default function PublicProfile() {
                   {profile.reading.map((manga, i) => (
                     <Box
                       key={i}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(i * 0.05, 0.5) }}
                     >
                       <MangaCard manga={manga} />
                     </Box>
@@ -508,9 +505,6 @@ export default function PublicProfile() {
                   {profile.favorites.map((manga, i) => (
                     <Box
                       key={i}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(i * 0.05, 0.5) }}
                     >
                       <MangaCard manga={manga} />
                     </Box>
@@ -532,9 +526,6 @@ export default function PublicProfile() {
                   {profile.completed.map((manga, i) => (
                     <Box
                       key={i}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(i * 0.05, 0.5) }}
                     >
                       <MangaCard manga={manga} />
                     </Box>

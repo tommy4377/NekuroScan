@@ -55,9 +55,6 @@ function Welcome() {
         <VStack spacing={{ base: 8, md: 12 }} align="center">
           {/* Hero Section - FIX MOBILE */}
           <Box
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
             width="100%"
           >
             <VStack spacing={{ base: 4, md: 6 }} textAlign="center">
@@ -117,9 +114,6 @@ function Welcome() {
 
           {/* Features Grid - FIX MOBILE */}
           <Box
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
             width="100%"
             px={{ base: 2, md: 0 }}
           >
@@ -130,9 +124,6 @@ function Welcome() {
               {features.map((feature, index) => (
                 <Box
                   key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 * index, duration: 0.5 }}
                 >
                   <VStack
                     p={{ base: 4, md: 6 }}
@@ -172,9 +163,6 @@ function Welcome() {
 
           {/* CTA Section - FIX MOBILE */}
           <Box
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6, duration: 0.6 }}
             width="100%"
             px={{ base: 2, md: 0 }}
           >

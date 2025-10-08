@@ -360,9 +360,6 @@ function Home() {
                   key={`${item.url}-${i}`}
                   minW={{ base: '140px', md: '160px' }}
                   maxW={{ base: '140px', md: '160px' }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(i * 0.05, 0.5) }}
                   position="relative"
                 >
                   <MangaCard 

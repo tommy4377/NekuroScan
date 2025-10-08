@@ -22,13 +22,13 @@ function MangaDetails() {
   const toast = useToast();
   
   // ✅ Hook sempre in cima, con fallback sicuro
-  const authHook = useAuth() || {};
+  const authHook = useAuth();
   const { 
     user = null, 
     syncFavorites = null, 
     syncToServer = null, 
     syncReading = null 
-  } = authHook;
+  } = authHook || {};
   
   // States
   const [manga, setManga] = useState(null);
@@ -342,6 +342,10 @@ function MangaDetails() {
 
   // ✅ START READING - VERSIONE CORRETTA CON SYNC IN BACKGROUND
 const startReading = (chapterIndex = 0) => {
+  // ✅ VALIDAZIONE: Se chapterIndex è 0 ma non ci sono capitoli, usa il primo disponibile
+  if (chapterIndex === 0 && manga?.chapters?.length > 0) {
+    chapterIndex = 0; // Il primo capitolo è effettivamente l'indice 0
+  }
   // VALIDAZIONE CRITICA
   if (!manga?.chapters || !Array.isArray(manga.chapters)) {
     toast({
@@ -641,9 +645,6 @@ const startReading = (chapterIndex = 0) => {
         
         {/* ========= HEADER ========= */}
         <Box
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
         >
           <Flex
             direction={{ base: 'column', md: 'row' }}
@@ -939,9 +940,6 @@ const startReading = (chapterIndex = 0) => {
         {/* ========= TRAMA ========= */}
         {manga.plot && (
           <Box
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
           >
             <Box 
               bg="gray.800" 
@@ -962,9 +960,6 @@ const startReading = (chapterIndex = 0) => {
 
         {/* ========= CAPITOLI ========= */}
         <Box
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
         >
           <Box 
             bg="gray.800" 
@@ -1032,9 +1027,6 @@ const startReading = (chapterIndex = 0) => {
                     {(manga.chapters || []).map((chapter, i) => (
                       <Box
                         key={chapter.url || i}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.2, delay: i * 0.02 }}
                       >
                         <HStack
                           p={3}
@@ -1119,9 +1111,6 @@ const startReading = (chapterIndex = 0) => {
                     {(manga.chapters || []).map((chapter, i) => (
                       <Box
                         key={chapter.url || i}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.2, delay: i * 0.01 }}
                       >
                         <Box
                           p={4}
@@ -1186,9 +1175,6 @@ const startReading = (chapterIndex = 0) => {
         {/* ========= STATS FOOTER ========= */}
         {readingProgress && (
           <Box
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.3 }}
           >
             <Box
               bg="gray.800"

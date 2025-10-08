@@ -289,10 +289,7 @@ function Search() {
                     gap={16}
                     renderItem={(item, i) => (
                       <Box 
-                        key={`${item.url}-${i}`} 
-                        initial={{ opacity: 0, y: 20 }} 
-                        animate={{ opacity: 1, y: 0 }} 
-                        transition={{ delay: Math.min(i * 0.01, 0.3) }}
+                        key={`${item.url}-${i}`}
                       >
                         <MangaCard manga={item} hideSource />
                       </Box>
@@ -305,9 +302,6 @@ function Search() {
                         key={`${item.url}-${i}`} 
                         flex="1 0 160px"
                         maxW="200px"
-                        initial={{ opacity: 0, y: 20 }} 
-                        animate={{ opacity: 1, y: 0 }} 
-                        transition={{ delay: Math.min(i * 0.05, 1) }}
                       >
                         <MangaCard manga={item} hideSource />
                       </Box>

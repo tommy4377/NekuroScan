@@ -825,9 +825,6 @@ export default function Profile() {
                       {libraryData.reading.slice(0, 10).map((manga, i) => (
                         <Box
                           key={`reading-${manga.url || i}`}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.05 }}
                         >
                           <MangaCard manga={manga} />
                         </Box>
@@ -860,9 +857,6 @@ export default function Profile() {
                       {libraryData.completed.slice(0, 10).map((manga, i) => (
                         <Box
                           key={`completed-${manga.url || i}`}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.05 }}
                         >
                           <MangaCard manga={manga} />
                         </Box>
@@ -895,9 +889,6 @@ export default function Profile() {
                       {libraryData.dropped.slice(0, 10).map((manga, i) => (
                         <Box
                           key={`dropped-${manga.url || i}`}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.05 }}
                         >
                           <MangaCard manga={manga} />
                         </Box>
@@ -930,9 +921,6 @@ export default function Profile() {
                       {libraryData.favorites.slice(0, 10).map((manga, i) => (
                         <Box
                           key={`fav-${manga.url || i}`}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.05 }}
                         >
                           <MangaCard manga={manga} />
                         </Box>
