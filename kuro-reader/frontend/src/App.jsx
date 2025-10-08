@@ -1,7 +1,7 @@
 import React, { useEffect, lazy, Suspense, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ChakraProvider, Box, Spinner, Center, VStack, Text, useToast, Button } from '@chakra-ui/react';
-import { AnimatePresence, motion } from 'framer-motion';
+// import { AnimatePresence, motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import { HelmetProvider, Helmet } from 'react-helmet-async';
 import { theme } from './styles/theme';
 import Navigation from './components/Navigation';
@@ -30,22 +30,16 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 
 const PageLoader = () => (
   <Center h="100vh" bg="gray.900">
-    <motion.div
-      initial={{ opacity: 0, scale: 0.5 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3 }}
-    >
-      <VStack spacing={4}>
-        <Spinner 
-          size="xl" 
-          color="purple.500" 
-          thickness="4px"
-          speed="0.65s"
-          emptyColor="gray.700"
-        />
-        <Text color="gray.400" fontSize="sm">Caricamento...</Text>
-      </VStack>
-    </motion.div>
+    <VStack spacing={4}>
+      <Spinner 
+        size="xl" 
+        color="purple.500" 
+        thickness="4px"
+        speed="0.65s"
+        emptyColor="gray.700"
+      />
+      <Text color="gray.400" fontSize="sm">Caricamento...</Text>
+    </VStack>
   </Center>
 );
 
@@ -73,16 +67,11 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// ✅ ROUTE ANIMATE SOLO PER PAGINE NON-READER
+// ✅ ROUTE ANIMATE SOLO PER PAGINE NON-READER - RIMOSSO PER EVITARE ERRORI REACT #300
 const AnimatedRoute = ({ children }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 15 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -15 }}
-    transition={{ duration: 0.25, ease: 'easeInOut' }}
-  >
+  <Box>
     {children}
-  </motion.div>
+  </Box>
 );
 
 // ✅ ROUTES UNIFICATE CON GESTIONE READER
@@ -91,8 +80,7 @@ function AnimatedRoutes() {
   const isReaderPage = location.pathname.startsWith('/read/');
 
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
+    <Routes location={location} key={location.pathname}>
         {/* Reader Route - senza animazioni */}
         <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
         
@@ -126,7 +114,6 @@ function AnimatedRoutes() {
         
         <Route path="*" element={<AnimatedRoute><NotFound /></AnimatedRoute>} />
       </Routes>
-    </AnimatePresence>
   );
 }
 

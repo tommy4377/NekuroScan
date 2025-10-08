@@ -11,13 +11,10 @@ import {
   FaCheckCircle, FaBell, FaBellSlash, FaPlus, FaCheck, FaBan, FaEllipsisV,
   FaClock, FaEye, FaBook
 } from 'react-icons/fa';
-import { motion } from 'framer-motion';
 import apiManager from '../api';
 import useAuth from '../hooks/useAuth';
 import axios from 'axios';
 import { config } from '../config';
-
-const MotionBox = motion(Box);
 
 function MangaDetails() {
   const { source, id } = useParams();
@@ -643,7 +640,7 @@ const startReading = (chapterIndex = 0) => {
       <VStack spacing={8} align="stretch">
         
         {/* ========= HEADER ========= */}
-        <MotionBox
+        <Box
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
@@ -937,11 +934,11 @@ const startReading = (chapterIndex = 0) => {
               </HStack>
             </VStack>
           </Flex>
-        </MotionBox>
+        </Box>
 
         {/* ========= TRAMA ========= */}
         {manga.plot && (
-          <MotionBox
+          <Box
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
@@ -960,11 +957,11 @@ const startReading = (chapterIndex = 0) => {
                 {manga.plot.replace(/^trama:?\s*/i, '').trim()}
               </Text>
             </Box>
-          </MotionBox>
+          </Box>
         )}
 
         {/* ========= CAPITOLI ========= */}
-        <MotionBox
+        <Box
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
@@ -1033,7 +1030,7 @@ const startReading = (chapterIndex = 0) => {
                     }}
                   >
                     {(manga.chapters || []).map((chapter, i) => (
-                      <MotionBox
+                      <Box
                         key={chapter.url || i}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -1098,7 +1095,7 @@ const startReading = (chapterIndex = 0) => {
                             </Text>
                           )}
                         </HStack>
-                      </MotionBox>
+                      </Box>
                     ))}
                   </VStack>
                 ) : (
@@ -1120,7 +1117,7 @@ const startReading = (chapterIndex = 0) => {
                     }}
                   >
                     {(manga.chapters || []).map((chapter, i) => (
-                      <MotionBox
+                      <Box
                         key={chapter.url || i}
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -1177,18 +1174,18 @@ const startReading = (chapterIndex = 0) => {
                             {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
                           </Text>
                         </Box>
-                      </MotionBox>
+                      </Box>
                     ))}
                   </SimpleGrid>
                 )}
               </>
             )}
           </Box>
-        </MotionBox>
+        </Box>
 
         {/* ========= STATS FOOTER ========= */}
         {readingProgress && (
-          <MotionBox
+          <Box
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.3 }}
@@ -1245,7 +1242,7 @@ const startReading = (chapterIndex = 0) => {
                 </HStack>
               </SimpleGrid>
             </Box>
-          </MotionBox>
+          </Box>
         )}
 
       </VStack>
