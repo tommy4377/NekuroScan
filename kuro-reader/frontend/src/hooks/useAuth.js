@@ -158,40 +158,6 @@ const useAuth = create((set, get) => ({
       return { success: true, user };
       
     } catch (error) {
-      console.warn('Backend login failed, trying offline mode:', error.message);
-      
-      // Fallback: modalità offline
-      if (error.code === 'ERR_NETWORK' || error.message.includes('CORS') || error.message.includes('NetworkError')) {
-        // Crea un utente temporaneo per modalità offline
-        const offlineUser = {
-          id: Date.now(),
-          username: emailOrUsername.toLowerCase().trim(),
-          email: emailOrUsername.includes('@') ? emailOrUsername.toLowerCase().trim() : `${emailOrUsername}@offline.local`,
-          isOffline: true
-        };
-        
-        // ✅ PULISCI TUTTO PRIMA DI SALVARE I NUOVI DATI
-        USER_LOCAL_KEYS.forEach(key => localStorage.removeItem(key));
-        
-        // Salva utente offline
-        localStorage.setItem('user', JSON.stringify(offlineUser));
-        localStorage.setItem('token', 'offline-token');
-        
-        set({
-          user: offlineUser,
-          token: 'offline-token',
-          isAuthenticated: true,
-          loading: false,
-          error: null
-        });
-        
-        return { 
-          success: true, 
-          user: offlineUser,
-          isOffline: true 
-        };
-      }
-      
       const message = error.response?.data?.message || 'Login fallito';
       set({ error: message, loading: false });
       return { success: false, error: message };
@@ -231,40 +197,6 @@ const useAuth = create((set, get) => ({
       return { success: true, user };
       
     } catch (error) {
-      console.warn('Backend register failed, trying offline mode:', error.message);
-      
-      // Fallback: modalità offline
-      if (error.code === 'ERR_NETWORK' || error.message.includes('CORS') || error.message.includes('NetworkError')) {
-        // Crea un utente temporaneo per modalità offline
-        const offlineUser = {
-          id: Date.now(),
-          username: username.toLowerCase().trim(),
-          email: email.toLowerCase().trim(),
-          isOffline: true
-        };
-        
-        // ✅ PULISCI TUTTO PRIMA DI SALVARE I NUOVI DATI
-        USER_LOCAL_KEYS.forEach(key => localStorage.removeItem(key));
-        
-        // Salva utente offline
-        localStorage.setItem('user', JSON.stringify(offlineUser));
-        localStorage.setItem('token', 'offline-token');
-        
-        set({
-          user: offlineUser,
-          token: 'offline-token',
-          isAuthenticated: true,
-          loading: false,
-          error: null
-        });
-        
-        return { 
-          success: true, 
-          user: offlineUser,
-          isOffline: true 
-        };
-      }
-      
       const message = error.response?.data?.message || 'Registrazione fallita';
       set({ error: message, loading: false });
       return { success: false, error: message };

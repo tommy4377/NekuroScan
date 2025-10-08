@@ -7,46 +7,22 @@ export class MangaWorldAPI {
   }
 
   async makeRequest(url) {
-    try {
-      // Prova prima con il proxy
-      const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url,
-          headers: {
-            'User-Agent': 'Mozilla/5.0',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
-            'Referer': this.baseUrl
-          }
-        })
-      });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.error || 'Request failed');
-      return data.data;
-    } catch (error) {
-      console.warn('Proxy failed, trying direct request:', error.message);
-      
-      // Fallback: richiesta diretta (può fallire per CORS)
-      try {
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
-            'Referer': this.baseUrl
-          }
-        });
-        
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return await response.text();
-      } catch (directError) {
-        console.error('Direct request also failed:', directError.message);
-        throw new Error('Impossibile caricare i dati. I server potrebbero essere temporaneamente non disponibili.');
-      }
-    }
+    const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url,
+        headers: {
+          'User-Agent': 'Mozilla/5.0',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
+          'Referer': this.baseUrl
+        }
+      })
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Request failed');
+    return data.data;
   }
 
   parseHTML(html) {

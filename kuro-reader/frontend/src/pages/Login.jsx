@@ -57,21 +57,12 @@ function Login() {
         localStorage.setItem('rememberMe', 'true');
       }
       
-      if (result.isOffline) {
-        toast({ 
-          title: 'Modalità Offline',
-          description: `Accesso effettuato come ${result.user.username} (senza sincronizzazione)`,
-          status: 'warning',
-          duration: 4000
-        });
-      } else {
-        toast({ 
-          title: 'Benvenuto!',
-          description: `Accesso effettuato come ${result.user.username}`,
-          status: 'success',
-          duration: 2000
-        });
-      }
+      toast({ 
+        title: 'Benvenuto!',
+        description: `Accesso effettuato come ${result.user.username}`,
+        status: 'success',
+        duration: 2000
+      });
       
       navigate(from, { replace: true });
     } else {
@@ -134,21 +125,12 @@ function Login() {
     setIsLoading(false);
     
     if (result.success) {
-      if (result.isOffline) {
-        toast({ 
-          title: 'Account Offline Creato!',
-          description: 'Registrazione completata in modalità offline (senza sincronizzazione)',
-          status: 'warning',
-          duration: 4000
-        });
-      } else {
-        toast({ 
-          title: 'Account creato!',
-          description: 'Registrazione completata con successo',
-          status: 'success',
-          duration: 3000
-        });
-      }
+      toast({ 
+        title: 'Account creato!',
+        description: 'Registrazione completata con successo',
+        status: 'success',
+        duration: 3000
+      });
       navigate('/home');
     } else {
       toast({ 
