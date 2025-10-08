@@ -3,9 +3,9 @@ import {
   SimpleGrid, Box, Text, VStack, HStack, Badge, Skeleton
 } from '@chakra-ui/react';
 import MangaCard from './MangaCard';
-import { motion } from 'framer-motion';
+// import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 
-const MotionBox = motion(Box);
+// const Box = motion(Box); // Rimosso per evitare errori React #300
 
 function SearchResults({ results, loading, filter = 'all' }) {
   const getFilteredResults = () => {
@@ -61,14 +61,14 @@ function SearchResults({ results, loading, filter = 'all' }) {
 
       <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
         {filteredResults.map((item, i) => (
-          <MotionBox
+          <Box
             key={`${item.url}-${i}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(i * 0.05, 0.5) }}
           >
             <MangaCard manga={item} />
-          </MotionBox>
+          </Box>
         ))}
       </SimpleGrid>
     </VStack>

@@ -5,7 +5,6 @@ import {
   Button, useToast, Skeleton, IconButton, Tabs, TabList, Tab,
   TabPanels, TabPanel, Badge, Icon, Center
 } from '@chakra-ui/react';
-import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
   FaFire, FaClock, FaStar, FaBookOpen, FaHeart,
@@ -19,8 +18,6 @@ import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { recommendationEngine } from '../utils/recommendations';
 import useAuth from '../hooks/useAuth';
-
-const MotionBox = motion(Box);
 
 // ✅ PULISCE NUMERO CAPITOLO
 const cleanChapterNumber = (chapter) => {
@@ -359,7 +356,7 @@ function Home() {
           >
             <HStack spacing={4} align="start">
               {items.map((item, i) => (
-                <MotionBox
+                <Box
                   key={`${item.url}-${i}`}
                   minW={{ base: '140px', md: '160px' }}
                   maxW={{ base: '140px', md: '160px' }}
@@ -395,7 +392,7 @@ function Home() {
                       {item.continueFrom}
                     </Box>
                   )}
-                </MotionBox>
+                </Box>
               ))}
             </HStack>
           </Box>

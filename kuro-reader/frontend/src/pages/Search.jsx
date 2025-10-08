@@ -10,10 +10,10 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useInView } from 'react-intersection-observer';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
-import { motion } from 'framer-motion';
+// import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import VirtualGrid from '../components/VirtualGrid';
 
-const MotionBox = motion(Box);
+// const Box = motion(Box); // Rimosso per evitare errori React #300
 
 function Search() {
   const [searchParams] = useSearchParams();
@@ -288,20 +288,20 @@ function Search() {
                     minWidth={160}
                     gap={16}
                     renderItem={(item, i) => (
-                      <MotionBox 
+                      <Box 
                         key={`${item.url}-${i}`} 
                         initial={{ opacity: 0, y: 20 }} 
                         animate={{ opacity: 1, y: 0 }} 
                         transition={{ delay: Math.min(i * 0.01, 0.3) }}
                       >
                         <MangaCard manga={item} hideSource />
-                      </MotionBox>
+                      </Box>
                     )}
                   />
                 ) : (
                   <HStack spacing={4} wrap="wrap">
                     {results.map((item, i) => (
-                      <MotionBox 
+                      <Box 
                         key={`${item.url}-${i}`} 
                         flex="1 0 160px"
                         maxW="200px"
@@ -310,7 +310,7 @@ function Search() {
                         transition={{ delay: Math.min(i * 0.05, 1) }}
                       >
                         <MangaCard manga={item} hideSource />
-                      </MotionBox>
+                      </Box>
                     ))}
                   </HStack>
                 )}

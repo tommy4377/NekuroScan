@@ -5,13 +5,13 @@ import {
   Button, useToast, Skeleton, Badge, IconButton, Switch, Center, SimpleGrid
 } from '@chakra-ui/react';
 import { FaClock, FaArrowUp, FaPlus } from 'react-icons/fa';
-import { motion } from 'framer-motion';
+// import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import VirtualGrid from '../components/VirtualGrid';
 
-const MotionBox = motion(Box);
+// const Box = motion(Box); // Rimosso per evitare errori React #300
 
 function Latest() {
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
@@ -185,7 +185,7 @@ function Latest() {
                 minWidth={160}
                 gap={16}
                 renderItem={(item, i) => (
-                  <MotionBox
+                  <Box
                     key={`${item.url}-${i}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -196,7 +196,7 @@ function Latest() {
                       hideSource 
                       showLatestChapter={true}
                     />
-                  </MotionBox>
+                  </Box>
                 )}
               />
             </Box>

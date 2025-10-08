@@ -6,14 +6,14 @@ import {
   Tabs, TabList, Tab, TabPanels, TabPanel
 } from '@chakra-ui/react';
 import { FaFire, FaArrowUp, FaPlus, FaClock, FaHeart } from 'react-icons/fa';
-import { motion } from 'framer-motion';
+// import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import { useNavigate } from 'react-router-dom';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import VirtualGrid from '../components/VirtualGrid';
 
-const MotionBox = motion(Box);
+// const Box = motion(Box); // Rimosso per evitare errori React #300
 
 function Trending() {
   const navigate = useNavigate();
@@ -119,7 +119,7 @@ function Trending() {
           minWidth={160}
           gap={16}
           renderItem={(item, i) => (
-            <MotionBox
+            <Box
               key={`${item.url}-${i}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -141,7 +141,7 @@ function Trending() {
                   🔥 HOT
                 </Badge>
               )}
-            </MotionBox>
+            </Box>
           )}
         />
       );
@@ -150,7 +150,7 @@ function Trending() {
     return (
       <HStack spacing={4} wrap="wrap">
         {items.map((item, i) => (
-          <MotionBox
+          <Box
             key={`${item.url}-${i}`}
             flex="1 0 160px"
             maxW="200px"
@@ -174,7 +174,7 @@ function Trending() {
                 🔥 HOT
               </Badge>
             )}
-          </MotionBox>
+          </Box>
         ))}
       </HStack>
     );

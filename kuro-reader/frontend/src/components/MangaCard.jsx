@@ -1,10 +1,10 @@
 // MangaCard.jsx - FIX ENCODING
 import React, { useState } from 'react';
 import { Box, Image, Text, VStack, Badge, Skeleton } from '@chakra-ui/react';
-import { motion } from 'framer-motion';
+// import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import { useNavigate } from 'react-router-dom';
 
-const MotionBox = motion(Box);
+// const Box = motion(Box); // Rimosso per evitare errori React #300
 
 // FUNZIONE SICURA per encoding URL
 function safeEncodeUrl(url) {
@@ -55,7 +55,7 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
   const shouldShowChapter = cleanChapter && (showLatestChapter || manga.isTrending || manga.isRecent);
 
   return (
-    <MotionBox
+    <Box
       whileHover={{ scale: 1.06, zIndex: 25 }}
       whileTap={{ scale: 0.98 }}
       transition={{ duration: 0.2 }}
@@ -190,7 +190,7 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
           </Text>
         </VStack>
       </VStack>
-    </MotionBox>
+    </Box>
   );
 }
 

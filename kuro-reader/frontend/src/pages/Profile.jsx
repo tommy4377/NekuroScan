@@ -14,7 +14,7 @@ import {
   FaHeart, FaEye, FaUserPlus, FaTwitter, FaDiscord, FaInstagram, FaImage, 
   FaUserFriends, FaBan, FaExclamationTriangle
 } from 'react-icons/fa';
-import { motion } from 'framer-motion';
+// import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import { useNavigate } from 'react-router-dom';
 import MangaCard from '../components/MangaCard';
 import useAuth from '../hooks/useAuth';
@@ -22,7 +22,7 @@ import QRCode from 'qrcode';
 import axios from 'axios';
 import { config } from '../config';
 
-const MotionBox = motion(Box);
+// const Box = motion(Box); // Rimosso per evitare errori React #300
 
 export default function Profile() {
   const toast = useToast();
@@ -823,14 +823,14 @@ export default function Profile() {
                   {libraryData.reading.length > 0 ? (
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                       {libraryData.reading.slice(0, 10).map((manga, i) => (
-                        <MotionBox
+                        <Box
                           key={`reading-${manga.url || i}`}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.05 }}
                         >
                           <MangaCard manga={manga} />
-                        </MotionBox>
+                        </Box>
                       ))}
                     </SimpleGrid>
                   ) : (
@@ -858,14 +858,14 @@ export default function Profile() {
                   {libraryData.completed.length > 0 ? (
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                       {libraryData.completed.slice(0, 10).map((manga, i) => (
-                        <MotionBox
+                        <Box
                           key={`completed-${manga.url || i}`}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.05 }}
                         >
                           <MangaCard manga={manga} />
-                        </MotionBox>
+                        </Box>
                       ))}
                     </SimpleGrid>
                   ) : (
@@ -893,14 +893,14 @@ export default function Profile() {
                   {libraryData.dropped.length > 0 ? (
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                       {libraryData.dropped.slice(0, 10).map((manga, i) => (
-                        <MotionBox
+                        <Box
                           key={`dropped-${manga.url || i}`}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.05 }}
                         >
                           <MangaCard manga={manga} />
-                        </MotionBox>
+                        </Box>
                       ))}
                     </SimpleGrid>
                   ) : (
@@ -928,14 +928,14 @@ export default function Profile() {
                   {libraryData.favorites.length > 0 ? (
                     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                       {libraryData.favorites.slice(0, 10).map((manga, i) => (
-                        <MotionBox
+                        <Box
                           key={`fav-${manga.url || i}`}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.05 }}
                         >
                           <MangaCard manga={manga} />
-                        </MotionBox>
+                        </Box>
                       ))}
                     </SimpleGrid>
                   ) : (

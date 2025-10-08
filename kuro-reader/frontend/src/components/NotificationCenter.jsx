@@ -5,10 +5,10 @@ import {
   DrawerBody, DrawerCloseButton, Button, Icon
 } from '@chakra-ui/react';
 import { FaBell, FaCheck, FaTrash, FaBookOpen } from 'react-icons/fa';
-import { motion, AnimatePresence } from 'framer-motion';
+// import { motion, AnimatePresence } from 'framer-motion'; // Rimosso per evitare errori React #300
 import { useNavigate } from 'react-router-dom';
 
-const MotionBox = motion(Box);
+// const Box = motion(Box); // Rimosso per evitare errori React #300
 
 export function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
@@ -106,7 +106,7 @@ export function NotificationCenter() {
               ) : (
                 <VStack spacing={2} align="stretch">
                   {notifications.map((notif, i) => (
-                    <MotionBox
+                    <Box
                       key={notif.id}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -167,7 +167,7 @@ export function NotificationCenter() {
                           {new Date(notif.timestamp).toLocaleString('it-IT')}
                         </Text>
                       </Box>
-                    </MotionBox>
+                    </Box>
                   ))}
                 </VStack>
               )}

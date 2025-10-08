@@ -11,13 +11,13 @@ import {
   FaTrophy, FaEye, FaClock, FaShare, FaTwitter, FaDiscord,
   FaInstagram, FaGithub, FaTiktok, FaGlobe, FaUserFriends
 } from 'react-icons/fa';
-import { motion } from 'framer-motion';
+// import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import MangaCard from '../components/MangaCard';
 import useAuth from '../hooks/useAuth';
 import axios from 'axios';
 import { config } from '../config';
 
-const MotionBox = motion(Box);
+// const Box = motion(Box); // Rimosso per evitare errori React #300
 
 export default function PublicProfile() {
   const { username } = useParams();
@@ -482,14 +482,14 @@ export default function PublicProfile() {
               {profile.reading?.length > 0 ? (
                 <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                   {profile.reading.map((manga, i) => (
-                    <MotionBox
+                    <Box
                       key={i}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(i * 0.05, 0.5) }}
                     >
                       <MangaCard manga={manga} />
-                    </MotionBox>
+                    </Box>
                   ))}
                 </SimpleGrid>
               ) : (
@@ -506,14 +506,14 @@ export default function PublicProfile() {
               {profile.favorites?.length > 0 ? (
                 <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                   {profile.favorites.map((manga, i) => (
-                    <MotionBox
+                    <Box
                       key={i}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(i * 0.05, 0.5) }}
                     >
                       <MangaCard manga={manga} />
-                    </MotionBox>
+                    </Box>
                   ))}
                 </SimpleGrid>
               ) : (
@@ -530,14 +530,14 @@ export default function PublicProfile() {
               {profile.completed?.length > 0 ? (
                 <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                   {profile.completed.map((manga, i) => (
-                    <MotionBox
+                    <Box
                       key={i}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(i * 0.05, 0.5) }}
                     >
                       <MangaCard manga={manga} />
-                    </MotionBox>
+                    </Box>
                   ))}
                 </SimpleGrid>
               ) : (

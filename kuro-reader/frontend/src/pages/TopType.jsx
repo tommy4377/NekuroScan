@@ -6,13 +6,13 @@ import {
   Button, useToast, Skeleton, Badge, IconButton, Center
 } from '@chakra-ui/react';
 import { FaTrophy, FaArrowUp, FaPlus } from 'react-icons/fa';
-import { motion } from 'framer-motion';
+// import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import VirtualGrid from '../components/VirtualGrid';
 
-const MotionBox = motion(Box);
+// const Box = motion(Box); // Rimosso per evitare errori React #300
 
 function TopType() {
   const { type } = useParams();
@@ -164,7 +164,7 @@ function TopType() {
                 minWidth={160}
                 gap={16}
                 renderItem={(item, i) => (
-                  <MotionBox
+                  <Box
                     key={`${item.url}-${i}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -186,13 +186,13 @@ function TopType() {
                         #{i + 1}
                       </Badge>
                     )}
-                  </MotionBox>
+                  </Box>
                 )}
               />
             ) : (
               <HStack spacing={4} wrap="wrap">
                 {list.map((item, i) => (
-                  <MotionBox
+                  <Box
                     key={`${item.url}-${i}`}
                     flex="1 0 160px"
                     maxW="200px"
@@ -216,7 +216,7 @@ function TopType() {
                         #{i + 1}
                       </Badge>
                     )}
-                  </MotionBox>
+                  </Box>
                 ))}
               </HStack>
             )}

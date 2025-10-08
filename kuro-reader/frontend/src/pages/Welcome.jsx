@@ -15,9 +15,9 @@ import {
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { FaBook, FaSearch, FaBookmark, FaMobileAlt } from 'react-icons/fa';
-import { motion } from 'framer-motion';
+// import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 
-const MotionBox = motion(Box);
+// const Box = motion(Box); // Rimosso per evitare errori React #300
 
 function Welcome() {
   const navigate = useNavigate();
@@ -54,7 +54,7 @@ function Welcome() {
       <Container maxW="container.xl" py={{ base: 6, md: 20 }}>
         <VStack spacing={{ base: 8, md: 12 }} align="center">
           {/* Hero Section - FIX MOBILE */}
-          <MotionBox
+          <Box
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -113,10 +113,10 @@ function Welcome() {
                 </Button>
               </Stack>
             </VStack>
-          </MotionBox>
+          </Box>
 
           {/* Features Grid - FIX MOBILE */}
-          <MotionBox
+          <Box
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.6 }}
@@ -128,7 +128,7 @@ function Welcome() {
               spacing={{ base: 4, md: 6 }}
             >
               {features.map((feature, index) => (
-                <MotionBox
+                <Box
                   key={index}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -165,13 +165,13 @@ function Welcome() {
                       {feature.description}
                     </Text>
                   </VStack>
-                </MotionBox>
+                </Box>
               ))}
             </SimpleGrid>
-          </MotionBox>
+          </Box>
 
           {/* CTA Section - FIX MOBILE */}
-          <MotionBox
+          <Box
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6, duration: 0.6 }}
@@ -222,7 +222,7 @@ function Welcome() {
                 </Button>
               </Stack>
             </VStack>
-          </MotionBox>
+          </Box>
         </VStack>
       </Container>
     </Box>

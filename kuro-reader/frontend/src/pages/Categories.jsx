@@ -8,13 +8,13 @@ import {
 } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
 import { useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+// import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import { FaPlus } from 'react-icons/fa';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import VirtualGrid from '../components/VirtualGrid';
 
-const MotionBox = motion(Box);
+// const Box = motion(Box); // Rimosso per evitare errori React #300
 
 function Categories() {
   const location = useLocation();
@@ -467,14 +467,14 @@ function Categories() {
                     minWidth={160}
                     gap={16}
                     renderItem={(manga, i) => (
-                      <MotionBox
+                      <Box
                         key={manga.url}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: Math.min(i * 0.02, 0.5) }}
                       >
                         <MangaCard manga={manga} hideSource />
-                      </MotionBox>
+                      </Box>
                     )}
                   />
                 </Box>
