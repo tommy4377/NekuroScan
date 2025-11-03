@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import {
   Container, VStack, HStack, Heading, Text, Box, Switch, Select,
-  Button, useToast, Divider, FormControl, FormLabel, Slider,
-  SliderTrack, SliderFilledTrack, SliderThumb, Badge, Radio,
-  RadioGroup, Stack
+  Button, useToast, FormControl, FormLabel, Slider,
+  SliderTrack, SliderFilledTrack, SliderThumb
 } from '@chakra-ui/react';
 import { FaCog, FaSave, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
@@ -16,15 +15,12 @@ export default function Settings() {
   
   // States per le impostazioni
   const [settings, setSettings] = useState({
-    readingMode: localStorage.getItem('preferredReadingMode') || 'single',
-    fitMode: localStorage.getItem('preferredFitMode') || 'height',
+    readingMode: localStorage.getItem('preferredReadingMode') || 'webtoon',
     preloadImages: localStorage.getItem('preloadImages') !== 'false',
     autoSave: localStorage.getItem('autoSave') !== 'false',
     includeAdult: localStorage.getItem('includeAdult') === 'true',
-    theme: localStorage.getItem('theme') || 'dark',
     fontSize: parseInt(localStorage.getItem('fontSize') || '16'),
-    notifications: localStorage.getItem('notifications') !== 'false',
-    language: localStorage.getItem('language') || 'it'
+    notifications: localStorage.getItem('notifications') !== 'false'
   });
 
   const handleSave = () => {
@@ -44,15 +40,12 @@ export default function Settings() {
   const handleReset = () => {
     if (window.confirm('Vuoi davvero ripristinare le impostazioni predefinite?')) {
       const defaultSettings = {
-        readingMode: 'single',
-        fitMode: 'height',
+        readingMode: 'webtoon',
         preloadImages: true,
         autoSave: true,
         includeAdult: false,
-        theme: 'dark',
         fontSize: 16,
-        notifications: true,
-        language: 'it'
+        notifications: true
       };
       
       setSettings(defaultSettings);
@@ -122,19 +115,6 @@ export default function Settings() {
               </Select>
             </FormControl>
 
-            <FormControl>
-              <FormLabel>Adattamento immagine</FormLabel>
-              <Select 
-                value={settings.fitMode}
-                onChange={(e) => setSettings({...settings, fitMode: e.target.value})}
-                bg="gray.700"
-              >
-                <option value="height">Adatta altezza</option>
-                <option value="width">Adatta larghezza</option>
-                <option value="original">Dimensione originale</option>
-              </Select>
-            </FormControl>
-
             <FormControl display="flex" alignItems="center" justifyContent="space-between">
               <FormLabel mb="0">Precarica immagini</FormLabel>
               <Switch 
@@ -175,17 +155,6 @@ export default function Settings() {
               />
             </FormControl>
 
-            <FormControl>
-              <FormLabel>Lingua preferita</FormLabel>
-              <Select 
-                value={settings.language}
-                onChange={(e) => setSettings({...settings, language: e.target.value})}
-                bg="gray.700"
-              >
-                <option value="it">Italiano</option>
-                <option value="en">English</option>
-              </Select>
-            </FormControl>
           </VStack>
         </Box>
 
@@ -193,24 +162,6 @@ export default function Settings() {
         <Box bg="gray.800" p={6} borderRadius="xl">
           <Heading size="md" mb={4}>Interfaccia</Heading>
           <VStack spacing={4} align="stretch">
-            <FormControl>
-              <FormLabel>Tema</FormLabel>
-              <RadioGroup 
-                value={settings.theme}
-                onChange={(value) => setSettings({...settings, theme: value})}
-              >
-                <Stack direction="row" spacing={4}>
-                  <Radio value="dark" colorScheme="purple">Scuro</Radio>
-                  <Radio value="light" colorScheme="purple" isDisabled>
-                    Chiaro (prossimamente)
-                  </Radio>
-                  <Radio value="auto" colorScheme="purple" isDisabled>
-                    Auto (prossimamente)
-                  </Radio>
-                </Stack>
-              </RadioGroup>
-            </FormControl>
-
             <FormControl>
               <FormLabel>Dimensione testo: {settings.fontSize}px</FormLabel>
               <Slider 

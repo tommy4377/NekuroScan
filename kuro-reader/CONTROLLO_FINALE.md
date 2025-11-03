@@ -372,5 +372,33 @@ frontend/src/
 
 ---
 
+## 🔧 ULTIMI FIX APPLICATI
+
+### ✅ UI/UX
+- Sidebar nascosta di default (anche desktop)
+- Emoji rimosse da mobile drawer
+- Logo hover con linea animata (no scale)
+- Tab colors migliorati (gray.400 → white)
+
+### ✅ Settings Puliti
+- Rimosso selector "Adattamento immagine"
+- Rimossa opzione lingua inglese (solo italiano)
+- Rimosso selector tema (solo dark)
+- Default reading mode: webtoon
+
+### ✅ Lists Semplificato
+- Smart Collections rimosse
+- Solo liste personalizzate
+- Struttura JSX corretta
+- Import puliti
+
+### ✅ Ottimizzazioni
+- Preload solo immagini usate (192x192)
+- Import non usati rimossi
+- Linting: 0 errori
+- Build: ✅ OK
+
+---
+
 *Fine controllo completo*
 

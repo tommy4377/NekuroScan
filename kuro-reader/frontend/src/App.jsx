@@ -149,9 +149,10 @@ function AppContent() {
   const user = useAuthStore(state => state.user);
   
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => 
-    localStorage.getItem('sidebarCollapsed') === 'true'
-  );
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebarCollapsed');
+    return saved === 'false' ? false : true; // Default nascosta
+  });
   const toast = useToast();
 
   // Salva stato sidebar
