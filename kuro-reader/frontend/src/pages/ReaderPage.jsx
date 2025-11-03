@@ -175,12 +175,12 @@ function ReaderPage() {
     const newPage = currentPage + delta;
     if (newPage >= 0 && newPage < totalPages) {
       setCurrentPage(newPage);
-    } else if (newPage >= totalPages && autoNextChapter) {
+    } else if (newPage >= totalPages && autoNextChapter && manga?.chapters && chapterIndex < manga.chapters.length - 1) {
       navigateChapter(1);
-    } else if (newPage < 0 && autoNextChapter) {
+    } else if (newPage < 0 && autoNextChapter && chapterIndex > 0) {
       navigateChapter(-1);
     }
-  }, [currentPage, totalPages, autoNextChapter, navigateChapter]);
+  }, [currentPage, totalPages, autoNextChapter, navigateChapter, manga, chapterIndex]);
 
   // ✅ WRAP toggleFullscreen in useCallback per evitare React error #300
   const toggleFullscreen = React.useCallback(() => {
@@ -205,28 +205,32 @@ function ReaderPage() {
         navigate(`/manga/${source}/${mangaId}`);
       }
     } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+      e.preventDefault();
       const step = readingMode === 'double' ? 2 : 1;
-      if (currentPage - step >= 0) {
-        setCurrentPage(currentPage - step);
-      } else if (autoNextChapter) {
+      const newPage = currentPage - step;
+      if (newPage >= 0) {
+        setCurrentPage(newPage);
+      } else if (autoNextChapter && chapterIndex > 0) {
         navigateChapter(-1);
       }
     } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+      e.preventDefault();
       const step = readingMode === 'double' ? 2 : 1;
-      if (currentPage + step < totalPages) {
-        setCurrentPage(currentPage + step);
-      } else if (autoNextChapter) {
+      const newPage = currentPage + step;
+      if (newPage < totalPages) {
+        setCurrentPage(newPage);
+      } else if (autoNextChapter && manga?.chapters && chapterIndex < manga.chapters.length - 1) {
         navigateChapter(1);
       }
     } else if (e.key === ' ') {
       e.preventDefault();
       if (currentPage < totalPages - 1) {
         setCurrentPage(currentPage + 1);
-      } else if (autoNextChapter) {
+      } else if (autoNextChapter && manga?.chapters && chapterIndex < manga.chapters.length - 1) {
         navigateChapter(1);
       }
     }
-  }, [isFullscreen, toggleFullscreen, saveProgress, navigate, source, mangaId, navigateChapter, currentPage, chapter, readingMode, totalPages, autoNextChapter]);
+  }, [isFullscreen, toggleFullscreen, saveProgress, navigate, source, mangaId, navigateChapter, currentPage, chapterIndex, readingMode, totalPages, autoNextChapter, manga]);
 
   // ✅ WRAP handlePageClick in useCallback per evitare React error #300
   const handlePageClick = useCallback((e) => {
@@ -242,7 +246,7 @@ function ReaderPage() {
       const newPage = currentPage - step;
       if (newPage >= 0) {
         setCurrentPage(newPage);
-      } else if (autoNextChapter) {
+      } else if (autoNextChapter && chapterIndex > 0) {
         navigateChapter(-1);
       }
     } 
@@ -251,11 +255,11 @@ function ReaderPage() {
       const newPage = currentPage + step;
       if (newPage < totalPages) {
         setCurrentPage(newPage);
-      } else if (autoNextChapter) {
+      } else if (autoNextChapter && manga?.chapters && chapterIndex < manga.chapters.length - 1) {
         navigateChapter(1);
       }
     }
-  }, [chapter, currentPage, navigateChapter, readingMode, totalPages, autoNextChapter]);
+  }, [chapter, currentPage, chapterIndex, navigateChapter, readingMode, totalPages, autoNextChapter, manga]);
 
   // ========== EFFECTS ==========
   
