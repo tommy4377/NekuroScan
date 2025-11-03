@@ -170,6 +170,8 @@ function ReaderPage() {
   // ========== EFFECTS ==========
   
   useEffect(() => {
+    let isMounted = true;
+    
     const loadData = async () => {
       try {
         setLoading(true);
@@ -181,6 +183,8 @@ function ReaderPage() {
           apiManager.getChapterPages(source, chapterUrl)
         ]);
         
+        if (!isMounted) return;
+        
         setManga(mangaData);
         setChapter(chapterData);
         
@@ -191,6 +195,8 @@ function ReaderPage() {
         }
         
       } catch (error) {
+        if (!isMounted) return;
+        
         console.error('Error loading reader data:', error);
         toast({
           title: 'Errore caricamento',
@@ -199,16 +205,24 @@ function ReaderPage() {
           duration: 3000,
         });
         setTimeout(() => {
-          navigate(`/manga/${source}/${mangaId}`);
+          if (isMounted) {
+            navigate(`/manga/${source}/${mangaId}`);
+          }
         }, 2000);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     if (source && mangaId && chapterId) {
       loadData();
     }
+    
+    return () => {
+      isMounted = false;
+    };
   }, [source, mangaId, chapterId, navigate, toast]);
 
   // ✅ FIX dipendenze useEffect

@@ -778,7 +778,7 @@ function MangaDetails() {
                   <Text fontSize="sm" color="gray.400" mb={2}>Generi:</Text>
                   <Wrap spacing={2}>
                     {manga.genres.slice(0, 10).map((genre, i) => (
-                      <WrapItem key={i}>
+                      <WrapItem key={genre.genre || genre || i}>
                         <Badge 
                           variant="outline" 
                           colorScheme="purple"

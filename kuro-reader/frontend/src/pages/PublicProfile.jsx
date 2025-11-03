@@ -307,7 +307,7 @@ export default function PublicProfile() {
                 {profile.badges?.length > 0 && (
                   <HStack spacing={2}>
                     {profile.badges.map((badge, i) => (
-                      <Tooltip key={i} label={badge}>
+                      <Tooltip key={badge || i} label={badge}>
                         <Badge colorScheme={themeColor}>{badge}</Badge>
                       </Tooltip>
                     ))}
@@ -483,7 +483,7 @@ export default function PublicProfile() {
                 <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                   {profile.reading.map((manga, i) => (
                     <Box
-                      key={i}
+                      key={manga.url || `reading-${i}`}
                     >
                       <MangaCard manga={manga} />
                     </Box>
@@ -504,7 +504,7 @@ export default function PublicProfile() {
                 <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                   {profile.favorites.map((manga, i) => (
                     <Box
-                      key={i}
+                      key={manga.url || `favorites-${i}`}
                     >
                       <MangaCard manga={manga} />
                     </Box>
@@ -525,7 +525,7 @@ export default function PublicProfile() {
                 <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
                   {profile.completed.map((manga, i) => (
                     <Box
-                      key={i}
+                      key={manga.url || `completed-${i}`}
                     >
                       <MangaCard manga={manga} />
                     </Box>

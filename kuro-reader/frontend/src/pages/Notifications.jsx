@@ -171,7 +171,7 @@ export default function Notifications() {
             <VStack align="stretch" spacing={3}>
               {mangaSubscriptions.map((manga, i) => (
                 <HStack
-                  key={i}
+                  key={manga.mangaUrl || `manga-${i}`}
                   p={3}
                   bg="gray.700"
                   borderRadius="md"

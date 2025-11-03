@@ -72,13 +72,13 @@ const AnimatedRoute = ({ children }) => (
   </Box>
 );
 
-// ✅ ROUTES UNIFICATE CON GESTIONE READER
+// ✅ ROUTES UNIFICATE CON GESTIONE READER - FIX React #300
 function AnimatedRoutes() {
   const location = useLocation();
   const isReaderPage = location.pathname.startsWith('/read/');
 
   return (
-    <Routes location={location} key={location.pathname}>
+    <Routes location={location}>
         {/* Reader Route - senza animazioni */}
         <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
         

@@ -211,7 +211,7 @@ function Library() {
     items.length > 0 ? (
       <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
         {items.map((item, i) => (
-          <Box key={i} position="relative">
+          <Box key={item.url || `${listName}-${i}`} position="relative">
             <MangaCard manga={item} />
             <MangaActions manga={item} currentList={listName} />
           </Box>
