@@ -117,34 +117,15 @@ function Navigation() {
                 </HStack>
               </Link>
 
-              <HStack spacing={2} display={{ base: 'none', lg: 'flex' }}>
-                <Menu>
-                  <MenuButton
-                    as={Button}
-                    variant="ghost"
-                    size="sm"
-                    rightIcon={<Box as="span" fontSize="xs">▾</Box>}
-                  >
-                    Esplora
-                  </MenuButton>
-                  <MenuList bg="gray.800" borderColor="gray.700">
-                    <MenuItem icon={<FaFire />} onClick={() => navigate('/trending')}>
-                      Trending
-                    </MenuItem>
-                    <MenuItem icon={<FaStar />} onClick={() => navigate('/popular')}>
-                      Popolari
-                    </MenuItem>
-                    <MenuItem icon={<FaClock />} onClick={() => navigate('/latest')}>
-                      Ultimi Capitoli
-                    </MenuItem>
-                    <MenuItem icon={<BiCategoryAlt />} onClick={() => navigate('/categories')}>
-                      Tutte le Categorie
-                    </MenuItem>
-                  </MenuList>
-                </Menu>
+              <HStack spacing={2} display={{ base: 'none', md: 'flex' }}>
                 <Link to="/library">
                   <Button variant="ghost" leftIcon={<FaBook />} size="sm">
                     Libreria
+                  </Button>
+                </Link>
+                <Link to="/categories">
+                  <Button variant="ghost" leftIcon={<BiCategoryAlt />} size="sm" colorScheme="purple">
+                    Categorie
                   </Button>
                 </Link>
               </HStack>
@@ -289,73 +270,29 @@ function Navigation() {
               <Divider borderColor="gray.700" />
               
               <VStack align="stretch" spacing={2}>
-                <Text fontSize="xs" color="gray.500" px={2} fontWeight="bold" textTransform="uppercase">
-                  Menu Principale
-                </Text>
                 <Link to="/home" onClick={onClose}>
-                  <Button 
-                    variant="ghost" 
-                    justifyContent="flex-start" 
-                    leftIcon={<FaBook />} 
-                    w="100%"
-                    _hover={{ bg: 'whiteAlpha.100', transform: 'translateX(4px)' }}
-                    transition="all 0.2s"
-                  >
+                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaBook />} w="100%">
                     Home
                   </Button>
                 </Link>
                 <Link to="/search" onClick={onClose}>
-                  <Button 
-                    variant="ghost" 
-                    justifyContent="flex-start" 
-                    leftIcon={<SearchIcon />} 
-                    w="100%"
-                    _hover={{ bg: 'whiteAlpha.100', transform: 'translateX(4px)' }}
-                    transition="all 0.2s"
-                  >
+                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<SearchIcon />} w="100%">
                     Cerca
                   </Button>
                 </Link>
-                
-                <Divider borderColor="gray.700" my={2} />
-                
-                <Text fontSize="xs" color="gray.500" px={2} fontWeight="bold" textTransform="uppercase">
-                  Esplora
-                </Text>
                 <Link to="/trending" onClick={onClose}>
-                  <Button 
-                    variant="ghost" 
-                    justifyContent="flex-start" 
-                    leftIcon={<FaFire />} 
-                    w="100%"
-                    _hover={{ bg: 'orange.900', transform: 'translateX(4px)' }}
-                    transition="all 0.2s"
-                  >
+                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaFire />} w="100%">
                     Trending
                   </Button>
                 </Link>
                 <Link to="/popular" onClick={onClose}>
-                  <Button 
-                    variant="ghost" 
-                    justifyContent="flex-start" 
-                    leftIcon={<FaStar />} 
-                    w="100%"
-                    _hover={{ bg: 'yellow.900', transform: 'translateX(4px)' }}
-                    transition="all 0.2s"
-                  >
+                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaStar />} w="100%">
                     Popolari
                   </Button>
                 </Link>
                 <Link to="/latest" onClick={onClose}>
-                  <Button 
-                    variant="ghost" 
-                    justifyContent="flex-start" 
-                    leftIcon={<FaClock />} 
-                    w="100%"
-                    _hover={{ bg: 'blue.900', transform: 'translateX(4px)' }}
-                    transition="all 0.2s"
-                  >
-                    Ultimi Capitoli
+                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaClock />} w="100%">
+                    Ultimi
                   </Button>
                 </Link>
                 <Link to="/categories" onClick={onClose}>
@@ -365,10 +302,8 @@ function Navigation() {
                     leftIcon={<BiCategoryAlt />} 
                     w="100%"
                     colorScheme="purple"
-                    _hover={{ bg: 'purple.900', transform: 'translateX(4px)' }}
-                    transition="all 0.2s"
                   >
-                    Tutte le Categorie
+                    Categorie
                   </Button>
                 </Link>
               </VStack>

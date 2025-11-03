@@ -238,10 +238,17 @@ export class MangaWorldAPI {
         });
       }
 
-      return { url: chapterUrl, pages, type: 'images' };
+      // ✅ VALIDAZIONE: Non restituire un capitolo senza pagine
+      if (!pages || pages.length === 0) {
+        console.error('❌ No pages found for chapter:', chapterUrl);
+        throw new Error('Nessuna pagina trovata per questo capitolo');
+      }
+      
+      console.log('✅ Chapter loaded successfully:', pages.length, 'pages');
+      return { url: chapterUrl, pages, type: 'images', title: '' };
     } catch (error) {
-      console.error('Get chapter error:', error);
-      return null;
+      console.error('❌ Get chapter error:', error);
+      throw error; // ✅ Propaga l'errore invece di restituire null
     }
   }
 

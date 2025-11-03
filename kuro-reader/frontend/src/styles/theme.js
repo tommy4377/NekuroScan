@@ -110,13 +110,13 @@ export const theme = extendTheme({
           tab: {
             borderRadius: 'lg',
             fontWeight: 'semibold',
-            color: 'gray.300',
+            color: 'gray.200',
             bg: 'transparent',
             transition: 'all 0.2s',
             _selected: {
-              bg: 'purple.600',
+              bg: 'whiteAlpha.200',
               color: 'white',
-              boxShadow: '0 4px 12px rgba(139, 92, 246, 0.4)',
+              fontWeight: 'bold',
             },
             _hover: {
               bg: 'whiteAlpha.100',

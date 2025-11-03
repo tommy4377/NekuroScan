@@ -387,22 +387,21 @@ async search(query) {
       
       console.log(`✅ Total pages found: ${pages.length}`);
       
+      // ✅ VALIDAZIONE: Non restituire un capitolo senza pagine
       if (pages.length === 0) {
         console.error('❌ No pages found! HTML snippet:', doc.body?.innerHTML?.substring(0, 1000));
+        throw new Error('Nessuna pagina trovata per questo capitolo');
       }
       
       return {
         url: chapterUrl,
         pages,
-        type: 'images'
+        type: 'images',
+        title: ''
       };
     } catch (error) {
-      console.error('Get chapter error:', error);
-      return {
-        url: chapterUrl,
-        pages: [],
-        type: 'images'
-      };
+      console.error('❌ Get chapter error:', error);
+      throw error; // ✅ Propaga l'errore invece di restituire oggetto vuoto
     }
   }
 
