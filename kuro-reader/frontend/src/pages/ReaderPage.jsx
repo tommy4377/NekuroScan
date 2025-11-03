@@ -1,5 +1,5 @@
 // ✅ READERPAGE.JSX v4.0 - COMPLETO CON TUTTE LE FUNZIONALITÀ
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Box, IconButton, useToast, Image, Spinner, Text, VStack, HStack,
   Drawer, DrawerOverlay, DrawerContent, DrawerBody, DrawerHeader,
@@ -50,18 +50,24 @@ function ReaderPage() {
   const totalPages = chapter?.pages?.length || 0;
   const progressPercentage = totalPages > 0 ? ((currentPage + 1) / totalPages) * 100 : 0;
   
-  // Calcolo pagine da mostrare in base alla modalità
-  const pagesToShow = readingMode === 'double' ? 2 : 1;
-  const currentImages = [];
-  for (let i = 0; i < pagesToShow; i++) {
-    const pageIndex = currentPage + i;
-    if (pageIndex < totalPages) {
-      currentImages.push({
-        url: chapter?.pages?.[pageIndex],
-        index: pageIndex
-      });
+  // Calcolo pagine da mostrare in base alla modalità - MEMOIZED
+  const pagesToShow = useMemo(() => {
+    return readingMode === 'double' ? 2 : 1;
+  }, [readingMode]);
+  
+  const currentImages = useMemo(() => {
+    const images = [];
+    for (let i = 0; i < pagesToShow; i++) {
+      const pageIndex = currentPage + i;
+      if (pageIndex < totalPages) {
+        images.push({
+          url: chapter?.pages?.[pageIndex],
+          index: pageIndex
+        });
+      }
     }
-  }
+    return images;
+  }, [pagesToShow, currentPage, totalPages, chapter]);
   
   // ========== SALVA IMPOSTAZIONI ==========
   useEffect(() => {
@@ -84,42 +90,6 @@ function ReaderPage() {
     localStorage.setItem('scrollSpeed', scrollSpeed.toString());
   }, [scrollSpeed]);
   
-  // Auto-scroll per modalità webtoon
-  useEffect(() => {
-    if (readingMode !== 'webtoon' || !autoScroll || !webtoonScrollRef.current) {
-      if (autoScrollInterval.current) {
-        clearInterval(autoScrollInterval.current);
-        autoScrollInterval.current = null;
-      }
-      return;
-    }
-    
-    const scrollContainer = webtoonScrollRef.current;
-    const pixelsPerSecond = scrollSpeed * 50; // 1=50px/s, 2=100px/s, etc
-    
-    autoScrollInterval.current = setInterval(() => {
-      if (scrollContainer) {
-        scrollContainer.scrollTop += pixelsPerSecond / 60; // 60fps
-        
-        // Check se siamo alla fine
-        const isAtBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop <= scrollContainer.clientHeight + 100;
-        if (isAtBottom && autoNextChapter) {
-          setAutoScroll(false);
-          setTimeout(() => {
-            navigateChapter(1);
-          }, 1000);
-        }
-      }
-    }, 1000 / 60); // 60fps
-    
-    return () => {
-      if (autoScrollInterval.current) {
-        clearInterval(autoScrollInterval.current);
-        autoScrollInterval.current = null;
-      }
-    };
-  }, [autoScroll, readingMode, scrollSpeed, autoNextChapter, navigateChapter]);
-
   // ========== HANDLERS ==========
   
   // ✅ WRAP saveProgress in useCallback per evitare React error #300
@@ -167,18 +137,6 @@ function ReaderPage() {
     }
   }, [manga, chapter, chapterIndex, currentPage, source]);
 
-  // Naviga alla pagina successiva/precedente
-  const changePage = useCallback((delta) => {
-    const newPage = currentPage + delta;
-    if (newPage >= 0 && newPage < totalPages) {
-      setCurrentPage(newPage);
-    } else if (newPage >= totalPages && autoNextChapter) {
-      // Verrà definito dopo
-    } else if (newPage < 0 && autoNextChapter) {
-      // Verrà definito dopo
-    }
-  }, [currentPage, totalPages, autoNextChapter]);
-
   // ✅ WRAP navigateChapter in useCallback per evitare React error #300
   const navigateChapter = useCallback((direction) => {
     if (!manga?.chapters) return;
@@ -211,6 +169,18 @@ function ReaderPage() {
       });
     }
   }, [manga, chapterIndex, saveProgress, navigate, source, mangaId, toast]);
+
+  // Naviga alla pagina successiva/precedente
+  const changePage = useCallback((delta) => {
+    const newPage = currentPage + delta;
+    if (newPage >= 0 && newPage < totalPages) {
+      setCurrentPage(newPage);
+    } else if (newPage >= totalPages && autoNextChapter) {
+      navigateChapter(1);
+    } else if (newPage < 0 && autoNextChapter) {
+      navigateChapter(-1);
+    }
+  }, [currentPage, totalPages, autoNextChapter, navigateChapter]);
 
   // ✅ WRAP toggleFullscreen in useCallback per evitare React error #300
   const toggleFullscreen = React.useCallback(() => {
@@ -399,6 +369,42 @@ function ReaderPage() {
       }
     }
   }, [currentPage, chapter, totalPages, readingMode]);
+
+  // Auto-scroll per modalità webtoon
+  useEffect(() => {
+    if (readingMode !== 'webtoon' || !autoScroll || !webtoonScrollRef.current) {
+      if (autoScrollInterval.current) {
+        clearInterval(autoScrollInterval.current);
+        autoScrollInterval.current = null;
+      }
+      return;
+    }
+    
+    const scrollContainer = webtoonScrollRef.current;
+    const pixelsPerSecond = scrollSpeed * 50; // 1=50px/s, 2=100px/s, etc
+    
+    autoScrollInterval.current = setInterval(() => {
+      if (scrollContainer) {
+        scrollContainer.scrollTop += pixelsPerSecond / 60; // 60fps
+        
+        // Check se siamo alla fine
+        const isAtBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop <= scrollContainer.clientHeight + 100;
+        if (isAtBottom && autoNextChapter) {
+          setAutoScroll(false);
+          setTimeout(() => {
+            navigateChapter(1);
+          }, 1000);
+        }
+      }
+    }, 1000 / 60); // 60fps
+    
+    return () => {
+      if (autoScrollInterval.current) {
+        clearInterval(autoScrollInterval.current);
+        autoScrollInterval.current = null;
+      }
+    };
+  }, [autoScroll, readingMode, scrollSpeed, autoNextChapter, navigateChapter]);
 
   // ✅ FIX dipendenze useEffect
   useEffect(() => {
