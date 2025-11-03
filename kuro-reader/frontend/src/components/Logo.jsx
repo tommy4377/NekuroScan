@@ -29,18 +29,7 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
             filter: 'brightness(1.2)'
           }}
         >
-          {showText ? (
-            <Heading
-              size="lg"
-              bgGradient="linear(to-r, purple.400, pink.400)"
-              bgClip="text"
-              fontWeight="bold"
-              letterSpacing="tight"
-              mb={0}
-            >
-              NeKuro Scan
-            </Heading>
-          ) : imageSrc && showImage ? (
+          {imageSrc && showImage ? (
             <ChakraImage 
               src={imageSrc}
               boxSize={boxSize}
@@ -48,6 +37,7 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
               alt="NeKuro Scan"
               opacity={imageLoaded ? 1 : 0}
               transition="opacity 0.3s"
+              borderRadius="lg"
             />
           ) : (
             <Box
@@ -60,6 +50,7 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
               fontWeight="bold"
               fontSize="xl"
               color="white"
+              boxShadow="md"
             >
               NK
             </Box>

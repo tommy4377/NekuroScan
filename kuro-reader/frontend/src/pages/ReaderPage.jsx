@@ -488,8 +488,23 @@ function ReaderPage() {
       try {
         setLoading(true);
 
-        const chapterUrl = atob(chapterId);
-        const mangaUrl = atob(mangaId);
+        // ✅ VALIDAZIONE ID prima di decodificare
+        if (!chapterId || !mangaId || !source) {
+          throw new Error('Parametri mancanti nell\'URL');
+        }
+
+        let chapterUrl, mangaUrl;
+        
+        try {
+          chapterUrl = atob(chapterId);
+          mangaUrl = atob(mangaId);
+        } catch (decodeError) {
+          console.error('❌ Errore decodifica ID:', decodeError);
+          throw new Error('ID capitolo/manga non valido');
+        }
+
+        console.log('📖 Caricamento capitolo:', chapterUrl);
+        console.log('📚 Caricamento manga:', mangaUrl);
 
         const [mangaData, chapterData] = await Promise.all([
           apiManager.getMangaDetails(mangaUrl, source),
@@ -506,6 +521,8 @@ function ReaderPage() {
         if (!chapterData.pages || !Array.isArray(chapterData.pages) || chapterData.pages.length === 0) {
           throw new Error('Capitolo vuoto o non valido');
         }
+        
+        console.log('✅ Capitolo caricato:', chapterData.pages.length, 'pagine');
         
         setManga(mangaData);
         setChapter(chapterData);
@@ -654,7 +671,8 @@ function ReaderPage() {
 
   // ========== RENDER ==========
   
-  if (loading) {
+  // ✅ CRITICAL: Mostra loading fino a quando non abbiamo TUTTI i dati necessari
+  if (loading || !manga || !chapter) {
     return (
       <Box h="100vh" bg="black" display="flex" alignItems="center" justifyContent="center">
         <VStack spacing={6}>
@@ -678,7 +696,8 @@ function ReaderPage() {
     );
   }
 
-  if (!chapter || !manga || !chapter.pages || !Array.isArray(chapter.pages) || chapter.pages.length === 0) {
+  // ✅ VALIDAZIONE: Controlla che ci siano pagine
+  if (!chapter.pages || !Array.isArray(chapter.pages) || chapter.pages.length === 0) {
       return (
       <Box h="100vh" bg="black" display="flex" alignItems="center" justifyContent="center">
           <VStack spacing={4}>
