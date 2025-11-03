@@ -72,18 +72,23 @@ function ReaderPage() {
   }, [readingMode]);
   
   const currentImages = useMemo(() => {
+    // ✅ Guard: Non calcolare se non abbiamo chapter con pagine
+    if (!chapter?.pages || totalPages === 0) {
+      return [];
+    }
+    
     const images = [];
     for (let i = 0; i < pagesToShow; i++) {
       const pageIndex = currentPage + i;
       if (pageIndex < totalPages) {
         images.push({
-          url: chapter?.pages?.[pageIndex],
+          url: chapter.pages[pageIndex],
           index: pageIndex
         });
       }
     }
     return images;
-  }, [pagesToShow, currentPage, totalPages, chapter]);
+  }, [pagesToShow, currentPage, totalPages, chapter?.pages]);
   
   // ========== SALVA IMPOSTAZIONI ==========
   useEffect(() => {
@@ -424,7 +429,7 @@ function ReaderPage() {
     touchStartX.current = touch.clientX;
     touchStartY.current = touch.clientY;
     touchStartTime.current = Date.now();
-  }, [readingMode]);
+  }, [chapter, readingMode]);
 
   const handleTouchEnd = useCallback((e) => {
     if (!chapter || readingMode === 'webtoon') return;
@@ -477,7 +482,7 @@ function ReaderPage() {
         }
       }
     }
-  }, [readingMode, imageScale, setImageScale, currentPage, totalPages, readingMode, autoNextChapter, chapterIndex, manga, navigateChapter]);
+  }, [chapter, readingMode, imageScale, setImageScale, currentPage, totalPages, autoNextChapter, chapterIndex, manga, navigateChapter]);
 
   // ========== EFFECTS ==========
   

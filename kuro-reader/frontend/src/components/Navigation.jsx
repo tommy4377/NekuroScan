@@ -97,11 +97,9 @@ function Navigation() {
             <IconButton
               size="md"
               aria-label="Menu"
-              display={{ md: 'none' }}
               onClick={onOpen}
-              variant="outline"
+              variant="ghost"
               colorScheme="purple"
-              borderWidth="2px"
               icon={
                 <Box>
                   <Box w="20px" h="2px" bg="currentColor" mb="4px" />
@@ -116,19 +114,6 @@ function Navigation() {
                   <Logo boxSize={logoSize} fontSize={{ base: 'lg', md: '2xl' }} />
                 </HStack>
               </Link>
-
-              <HStack spacing={2} display={{ base: 'none', md: 'flex' }}>
-                <Link to="/library">
-                  <Button variant="ghost" leftIcon={<FaBook />} size="sm">
-                    Libreria
-                  </Button>
-                </Link>
-                <Link to="/categories">
-                  <Button variant="ghost" leftIcon={<BiCategoryAlt />} size="sm" colorScheme="purple">
-                    Categorie
-                  </Button>
-                </Link>
-              </HStack>
             </HStack>
 
             <Box display={{ base: 'none', md: 'block' }} flex={1} maxW="400px" mx={4}>
