@@ -94,15 +94,22 @@ function Navigation() {
         <Container maxW="container.xl">
           <Flex h="60px" alignItems="center" justifyContent="space-between">
             <HStack spacing={{ base: 2, md: 4 }}>
-              <IconButton
-                size="md"
-                icon={isOpen ? <CloseIcon /> : <HamburgerIcon />}
-                aria-label="Menu"
-                display={{ md: 'none' }}
-                onClick={onOpen}
-                variant="ghost"
-                colorScheme="purple"
-              />
+            <IconButton
+              size="md"
+              aria-label="Menu"
+              display={{ md: 'none' }}
+              onClick={onOpen}
+              variant="outline"
+              colorScheme="purple"
+              borderWidth="2px"
+              icon={
+                <Box>
+                  <Box w="20px" h="2px" bg="currentColor" mb="4px" />
+                  <Box w="20px" h="2px" bg="currentColor" mb="4px" />
+                  <Box w="20px" h="2px" bg="currentColor" />
+                </Box>
+              }
+            />
               
               <Link to="/home">
                 <HStack spacing={2} _hover={{ opacity: 0.8 }} transition="all 0.2s">
