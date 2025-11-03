@@ -14,18 +14,20 @@ import { MdPublic } from 'react-icons/md';
 import useAuth from '../hooks/useAuth';
 
 function Navigation() {
+  const location = useLocation();
+  
+  // ✅ FIX React #300: return PRIMA di tutti gli altri hook
+  if (location.pathname.includes('/read/')) return null;
+  
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [query, setQuery] = useState('');
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
   const toast = useToast();
   const { user, logout, persistLocalData } = useAuth();
   
   const isMobile = useBreakpointValue({ base: true, md: false });
   const logoSize = useBreakpointValue({ base: '32px', md: '40px' });
-  
-  if (location.pathname.includes('/read/')) return null;
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
