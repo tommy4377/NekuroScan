@@ -265,27 +265,27 @@ function Navigation() {
               <VStack align="stretch" spacing={2}>
                 <Link to="/home" onClick={onClose}>
                   <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaBook />} w="100%">
-                    🏠 Home
+                    Home
                   </Button>
                 </Link>
                 <Link to="/search" onClick={onClose}>
                   <Button variant="ghost" justifyContent="flex-start" leftIcon={<SearchIcon />} w="100%">
-                    🔍 Cerca
+                    Cerca
                   </Button>
                 </Link>
                 <Link to="/trending" onClick={onClose}>
-                  <Button variant="ghost" justifyContent="flex-start" w="100%">
-                    🔥 Trending
+                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaFire />} w="100%">
+                    Trending
                   </Button>
                 </Link>
                 <Link to="/popular" onClick={onClose}>
-                  <Button variant="ghost" justifyContent="flex-start" w="100%">
-                    ⭐ Popolari
+                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaStar />} w="100%">
+                    Popolari
                   </Button>
                 </Link>
                 <Link to="/latest" onClick={onClose}>
-                  <Button variant="ghost" justifyContent="flex-start" w="100%">
-                    🕐 Ultimi
+                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaClock />} w="100%">
+                    Ultimi
                   </Button>
                 </Link>
                 <Link to="/categories" onClick={onClose}>
@@ -296,7 +296,7 @@ function Navigation() {
                     w="100%"
                     colorScheme="purple"
                   >
-                    📂 Categorie
+                    Categorie
                   </Button>
                 </Link>
               </VStack>

@@ -8,11 +8,11 @@ import {
   Tabs, TabList, Tab, TabPanels, TabPanel, Divider, useDisclosure
 } from '@chakra-ui/react';
 import {
-  FaPlus, FaEdit, FaTrash, FaStar, FaList, FaMagic
+  FaPlus, FaEdit, FaTrash, FaStar, FaList
 } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import customListsManager from '../utils/customLists';
-import smartCollections from '../utils/smartCollections';
+// import smartCollections from '../utils/smartCollections'; // RIMOSSO
 import MangaCard from '../components/MangaCard';
 import EmptyState from '../components/EmptyState';
 
@@ -22,7 +22,6 @@ function Lists() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   
   const [customLists, setCustomLists] = useState([]);
-  const [smartLists, setSmartLists] = useState([]);
   const [selectedList, setSelectedList] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   
@@ -37,7 +36,6 @@ function Lists() {
 
   const loadLists = () => {
     setCustomLists(customListsManager.getAll());
-    setSmartLists(smartCollections.getAll());
   };
 
   const openCreateModal = () => {
@@ -271,9 +269,7 @@ function Lists() {
                   variant="default"
                 />
               )}
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
+        </VStack>
 
       </VStack>
 
