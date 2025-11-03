@@ -2,9 +2,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box, Flex, HStack, IconButton, Button, Input, InputGroup, InputLeftElement,
   useDisclosure, Container, Avatar, Menu, MenuButton, MenuList, MenuItem,
-  MenuDivider, Text, Image, Drawer, DrawerBody, DrawerHeader, DrawerOverlay,
+  MenuDivider, Text, Drawer, DrawerBody, DrawerHeader, DrawerOverlay,
   DrawerContent, DrawerCloseButton, VStack, Divider, useBreakpointValue,
-  Badge, Tooltip, useToast
+  Badge, useToast
 } from '@chakra-ui/react';
 import { HamburgerIcon, CloseIcon, SearchIcon } from '@chakra-ui/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';

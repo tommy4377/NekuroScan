@@ -15,6 +15,7 @@ import {
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { FaBook, FaSearch, FaBookmark, FaMobileAlt } from 'react-icons/fa';
+import Logo from '../components/Logo';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
