@@ -340,111 +340,111 @@ function MangaDetails() {
     }
   };
 
-  // ✅ START READING - VERSIONE CORRETTA CON SYNC IN BACKGROUND
-const startReading = (chapterIndex = 0) => {
-  // ✅ VALIDAZIONE: Se chapterIndex è 0 ma non ci sono capitoli, usa il primo disponibile
-  if (chapterIndex === 0 && manga?.chapters?.length > 0) {
-    chapterIndex = 0; // Il primo capitolo è effettivamente l'indice 0
-  }
-  // VALIDAZIONE CRITICA
-  if (!manga?.chapters || !Array.isArray(manga.chapters)) {
-    toast({
-      title: 'Errore',
-      description: 'Nessun capitolo disponibile',
-      status: 'error',
-      duration: 3000,
-    });
-    return;
-  }
-
-  if (chapterIndex < 0 || chapterIndex >= manga.chapters.length) {
-    toast({
-      title: 'Errore',
-      description: 'Capitolo non valido',
-      status: 'error',
-      duration: 3000,
-    });
-    return;
-  }
-
-  const chapter = manga.chapters[chapterIndex];
-  if (!chapter?.url) {
-    toast({
-      title: 'Errore',
-      description: 'URL capitolo non valido',
-      status: 'error',
-      duration: 3000,
-    });
-    return;
-  }
-
-  try {
-    const chapterId = btoa(chapter.url);
-    
-    // ✅ 1. Salva tutto in localStorage
-    const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-    progress[manga.url] = {
-      chapterId: chapter.url,
-      chapterIndex: chapterIndex,
-      chapterTitle: chapter.title,
-      totalChapters: manga.chapters.length,
-      page: 0,
-      pageIndex: 0,
-      timestamp: new Date().toISOString()
-    };
-    localStorage.setItem('readingProgress', JSON.stringify(progress));
-    
-    const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-    const existingIndex = reading.findIndex(r => r.url === manga.url);
-    
-    const readingItem = {
-      url: manga.url,
-      title: manga.title,
-      cover: manga.coverUrl,
-      type: manga.type,
-      source: manga.source || source,
-      lastChapterIndex: chapterIndex,
-      lastChapterTitle: chapter.title,
-      totalChapters: manga.chapters.length,
-      progress: Math.round(((chapterIndex + 1) / manga.chapters.length) * 100),
-      lastRead: new Date().toISOString()
-    };
-    
-    if (existingIndex !== -1) {
-      reading[existingIndex] = readingItem;
-    } else {
-      reading.unshift(readingItem);
+  // ✅ START READING - WRAPPED IN USECALLBACK TO FIX REACT ERROR #300
+  const startReading = useCallback((chapterIndex = 0) => {
+    // ✅ VALIDAZIONE: Se chapterIndex è 0 ma non ci sono capitoli, usa il primo disponibile
+    if (chapterIndex === 0 && manga?.chapters?.length > 0) {
+      chapterIndex = 0; // Il primo capitolo è effettivamente l'indice 0
     }
-    
-    localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
-    
-    console.log('✅ Data saved locally, starting chapter:', chapterIndex + 1);
-    
-    // ✅ 2. NAVIGATION con React Router
-    navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
-    
-  } catch (error) {
-    console.error('❌ Error starting reading:', error);
-    toast({
-      title: 'Errore navigazione',
-      description: 'Impossibile aprire il capitolo',
-      status: 'error',
-      duration: 3000,
-    });
-  }
-};
+    // VALIDAZIONE CRITICA
+    if (!manga?.chapters || !Array.isArray(manga.chapters)) {
+      toast({
+        title: 'Errore',
+        description: 'Nessun capitolo disponibile',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
 
-  // Continue reading
-  const continueReading = () => {
+    if (chapterIndex < 0 || chapterIndex >= manga.chapters.length) {
+      toast({
+        title: 'Errore',
+        description: 'Capitolo non valido',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+
+    const chapter = manga.chapters[chapterIndex];
+    if (!chapter?.url) {
+      toast({
+        title: 'Errore',
+        description: 'URL capitolo non valido',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+
+    try {
+      const chapterId = btoa(chapter.url);
+      
+      // ✅ 1. Salva tutto in localStorage
+      const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+      progress[manga.url] = {
+        chapterId: chapter.url,
+        chapterIndex: chapterIndex,
+        chapterTitle: chapter.title,
+        totalChapters: manga.chapters.length,
+        page: 0,
+        pageIndex: 0,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem('readingProgress', JSON.stringify(progress));
+      
+      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+      const existingIndex = reading.findIndex(r => r.url === manga.url);
+      
+      const readingItem = {
+        url: manga.url,
+        title: manga.title,
+        cover: manga.coverUrl,
+        type: manga.type,
+        source: manga.source || source,
+        lastChapterIndex: chapterIndex,
+        lastChapterTitle: chapter.title,
+        totalChapters: manga.chapters.length,
+        progress: Math.round(((chapterIndex + 1) / manga.chapters.length) * 100),
+        lastRead: new Date().toISOString()
+      };
+      
+      if (existingIndex !== -1) {
+        reading[existingIndex] = readingItem;
+      } else {
+        reading.unshift(readingItem);
+      }
+      
+      localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
+      
+      console.log('✅ Data saved locally, starting chapter:', chapterIndex + 1);
+      
+      // ✅ 2. NAVIGATION con React Router
+      navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
+      
+    } catch (error) {
+      console.error('❌ Error starting reading:', error);
+      toast({
+        title: 'Errore navigazione',
+        description: 'Impossibile aprire il capitolo',
+        status: 'error',
+        duration: 3000,
+      });
+    }
+  }, [manga, source, id, navigate, toast]);
+
+  // Continue reading - WRAPPED IN USECALLBACK
+  const continueReading = useCallback(() => {
     if (readingProgress && readingProgress.chapterIndex !== undefined) {
       startReading(readingProgress.chapterIndex);
     } else {
       startReading(0);
     }
-  };
+  }, [readingProgress, startReading]);
 
-  // Move to list
-  const moveToList = async (targetList) => {
+  // Move to list - WRAPPED IN USECALLBACK
+  const moveToList = useCallback(async (targetList) => {
     if (!manga) return;
     
     try {
@@ -563,10 +563,10 @@ const startReading = (chapterIndex = 0) => {
     } finally {
       setSyncing(false);
     }
-  };
+  }, [manga, source, user, syncToServer, toast, readingProgress]);
 
-  // Share content
-  const shareContent = async () => {
+  // Share content - WRAPPED IN USECALLBACK
+  const shareContent = useCallback(async () => {
     const shareData = {
       title: manga.title,
       text: `Leggi ${manga.title} su NeKuro Scan`,
@@ -600,11 +600,12 @@ const startReading = (chapterIndex = 0) => {
         console.error('❌ Share error:', err);
       }
     }
-  };
+  }, [manga, toast]);
 
-  const isChapterRead = (chapterIndex) => {
+  // isChapterRead - WRAPPED IN USECALLBACK
+  const isChapterRead = useCallback((chapterIndex) => {
     return completedChapters.includes(chapterIndex);
-  };
+  }, [completedChapters]);
 
   // ========== RENDER ==========
 

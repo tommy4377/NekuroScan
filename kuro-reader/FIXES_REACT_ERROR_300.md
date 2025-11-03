@@ -60,6 +60,17 @@ L'errore React #300 ("Rendered more hooks than during the previous render") si v
 - Tutti gli `useEffect` aggiornati con dipendenze corrette
 - Aggiunto `toast` alle dipendenze del primo `useEffect`
 
+### 7. ✅ MangaDetails.jsx (FIX CRITICO)
+**Problemi:** Funzioni cruciali non wrapped causavano l'errore durante la navigazione al reader
+**Soluzioni:**
+- `startReading` → **wrapped con dipendenze `[manga, source, id, navigate, toast]`** ← CRITICO per la navigazione
+- `continueReading` → wrapped con dipendenze `[readingProgress, startReading]`
+- `moveToList` → wrapped con dipendenze `[manga, source, user, syncToServer, toast, readingProgress]`
+- `shareContent` → wrapped con dipendenze `[manga, toast]`
+- `isChapterRead` → wrapped con dipendenze `[completedChapters]`
+
+**NOTA IMPORTANTE:** `startReading` era la funzione principale che causava l'errore React #300 quando l'utente cliccava su "Inizia a leggere". Questa era NON wrapped e causava re-render infiniti durante la navigazione al ReaderPage.
+
 ## Best Practices Applicate
 
 1. **Sempre wrappare funzioni in `useCallback`** quando:
@@ -98,7 +109,34 @@ Le modifiche garantiscono:
 - Performance migliorate
 - Codice più manutenibile
 
-## Comandi per testare
+## Come deployare le modifiche
+
+### 1. Build locale (per testare)
+```bash
+cd frontend
+npm run build
+```
+
+### 2. Commit e push
+```bash
+git add .
+git commit -m "Fix: React error #300 - wrapped all callbacks in useCallback"
+git push origin main
+```
+
+### 3. Deploy su Render.com
+- Render rileverà automaticamente il push
+- Eseguirà `npm install` e `npm run build`
+- Farà il deploy della nuova versione
+
+### 4. Verifica
+Dopo il deploy, verifica che:
+1. ✅ Non ci siano più errori React #300 nella console del browser
+2. ✅ La navigazione "Inizia a leggere" funzioni correttamente
+3. ✅ Il reader si apra senza errori
+4. ✅ Non ci siano warning sulle dipendenze mancanti
+
+## Come testare in locale
 
 ```bash
 cd frontend
@@ -107,6 +145,9 @@ npm run dev
 
 Verifica che:
 1. Non ci siano più errori React #300 nella console
-2. L'app funzioni correttamente
-3. Non ci siano warning sulle dipendenze mancanti
+2. Clicca su un manga
+3. Clicca su "Inizia a leggere" 
+4. Verifica che il reader si apra correttamente
+5. Naviga tra i capitoli
+6. Verifica che non ci siano errori nella console
 
