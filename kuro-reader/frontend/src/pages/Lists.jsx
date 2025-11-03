@@ -1,18 +1,17 @@
-// 📚 LISTS.JSX - Gestione liste personalizzate e smart collections
+// 📚 LISTS.JSX - Gestione liste personalizzate
 import React, { useState, useEffect } from 'react';
 import {
   Container, VStack, HStack, Heading, Text, Box, Button,
   SimpleGrid, IconButton, useToast, Input, Textarea,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody,
   ModalFooter, ModalCloseButton, Select, Badge, Card, CardBody,
-  Tabs, TabList, Tab, TabPanels, TabPanel, Divider, useDisclosure
+  Divider, useDisclosure
 } from '@chakra-ui/react';
 import {
   FaPlus, FaEdit, FaTrash, FaStar, FaList
 } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import customListsManager from '../utils/customLists';
-// import smartCollections from '../utils/smartCollections'; // RIMOSSO
 import MangaCard from '../components/MangaCard';
 import EmptyState from '../components/EmptyState';
 
@@ -68,7 +67,7 @@ function Lists() {
       }
 
       if (isEditing && selectedList) {
-        customListsManager.update(selectedList.id, {
+        customListsManager.updateList(selectedList.id, {
           name: listName,
           description: listDescription,
           color: listColor
@@ -79,7 +78,11 @@ function Lists() {
           duration: 2000
         });
       } else {
-        customListsManager.create(listName, listDescription, listColor);
+        customListsManager.createList({
+          name: listName,
+          description: listDescription,
+          color: listColor
+        });
         toast({
           title: 'Lista creata',
           status: 'success',
@@ -89,7 +92,6 @@ function Lists() {
 
       loadLists();
       onClose();
-      
     } catch (error) {
       toast({
         title: 'Errore',
@@ -101,55 +103,43 @@ function Lists() {
   };
 
   const handleDelete = (listId) => {
-    if (window.confirm('Vuoi davvero eliminare questa lista?')) {
-      customListsManager.delete(listId);
+    if (window.confirm('Sei sicuro di voler eliminare questa lista?')) {
+      customListsManager.deleteList(listId);
+      loadLists();
       toast({
         title: 'Lista eliminata',
         status: 'info',
         duration: 2000
       });
-      loadLists();
     }
   };
-
-  const colors = [
-    { value: 'purple', label: '💜 Viola' },
-    { value: 'blue', label: '💙 Blu' },
-    { value: 'green', label: '💚 Verde' },
-    { value: 'red', label: '❤️ Rosso' },
-    { value: 'orange', label: '🧡 Arancione' },
-    { value: 'pink', label: '💗 Rosa' },
-    { value: 'teal', label: '💎 Teal' },
-    { value: 'cyan', label: '🩵 Cyan' },
-    { value: 'yellow', label: '💛 Giallo' }
-  ];
 
   const ListCard = ({ list, isCustom }) => (
     <Card
       bg="gray.800"
-      borderRadius="xl"
-      overflow="hidden"
-      border="2px solid"
-      borderColor={`${list.color}.500`}
-      transition="all 0.3s"
-      _hover={{ transform: 'translateY(-4px)', boxShadow: 'xl' }}
+      borderColor="gray.700"
+      borderWidth="1px"
+      _hover={{ borderColor: `${list.color}.500`, transform: 'translateY(-2px)' }}
+      transition="all 0.2s"
       cursor="pointer"
-      onClick={() => navigate(`/list/${list.id}`)}
+      onClick={() => navigate(`/lists/${list.id}`)}
     >
       <CardBody>
         <VStack align="stretch" spacing={3}>
           <HStack justify="space-between">
             <HStack>
-              {list.auto ? <FaMagic color={`var(--chakra-colors-${list.color}-400)`} /> : <FaList />}
-              <Heading size="md">{list.name}</Heading>
+              <Badge colorScheme={list.color || 'purple'}>
+                {list.manga?.length || 0} manga
+              </Badge>
+              {!isCustom && <Badge colorScheme="cyan">Smart</Badge>}
             </HStack>
-            
             {isCustom && (
-              <HStack spacing={1}>
+              <HStack>
                 <IconButton
                   icon={<FaEdit />}
                   size="sm"
                   variant="ghost"
+                  colorScheme={list.color}
                   onClick={(e) => {
                     e.stopPropagation();
                     openEditModal(list);
@@ -171,22 +161,42 @@ function Lists() {
             )}
           </HStack>
 
-          {list.description && (
-            <Text fontSize="sm" color="gray.400" noOfLines={2}>
-              {list.description}
-            </Text>
-          )}
-
-          <HStack>
-            <Badge colorScheme={list.color}>
-              {list.manga.length} manga
-            </Badge>
-            {list.auto && (
-              <Badge colorScheme="cyan" fontSize="xs">
-                Auto
-              </Badge>
+          <VStack align="start" spacing={1}>
+            <Heading size="md">{list.name}</Heading>
+            {list.description && (
+              <Text fontSize="sm" color="gray.400" noOfLines={2}>
+                {list.description}
+              </Text>
             )}
-          </HStack>
+          </VStack>
+
+          {list.manga && list.manga.length > 0 && (
+            <HStack spacing={2} overflow="hidden">
+              {list.manga.slice(0, 4).map((manga, idx) => (
+                <Box
+                  key={idx}
+                  w="50px"
+                  h="70px"
+                  borderRadius="md"
+                  overflow="hidden"
+                  bg="gray.700"
+                >
+                  {manga.cover && (
+                    <img
+                      src={manga.cover}
+                      alt={manga.title}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  )}
+                </Box>
+              ))}
+              {list.manga.length > 4 && (
+                <Text fontSize="xs" color="gray.500">
+                  +{list.manga.length - 4}
+                </Text>
+              )}
+            </HStack>
+          )}
         </VStack>
       </CardBody>
     </Card>
@@ -195,16 +205,13 @@ function Lists() {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
-        
-        {/* Header */}
         <HStack justify="space-between">
           <VStack align="start" spacing={1}>
-            <Heading size="xl">📚 Le Mie Liste</Heading>
+            <Heading size="xl">Le Mie Liste</Heading>
             <Text color="gray.400">
-              Organizza i tuoi manga come preferisci
+              Organizza i tuoi manga in liste personalizzate
             </Text>
           </VStack>
-
           <Button
             leftIcon={<FaPlus />}
             colorScheme="purple"
@@ -214,62 +221,23 @@ function Lists() {
           </Button>
         </HStack>
 
-        <Tabs colorScheme="purple" variant="enclosed">
-          <TabList>
-            <Tab>
-              <HStack>
-                <FaMagic />
-                <Text>Smart Collections</Text>
-                <Badge>{smartLists.length}</Badge>
-              </HStack>
-            </Tab>
-            <Tab>
-              <HStack>
-                <FaList />
-                <Text>Le Mie Liste</Text>
-                <Badge>{customLists.length}</Badge>
-              </HStack>
-            </Tab>
-          </TabList>
-
-          <TabPanels>
-            {/* Tab Smart Collections */}
-            <TabPanel>
-              {smartLists.length > 0 ? (
-                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
-                  {smartLists.map(list => (
-                    <ListCard key={list.id} list={list} isCustom={false} />
-                  ))}
-                </SimpleGrid>
-              ) : (
-                <EmptyState
-                  icon="book"
-                  title="Nessuna collezione smart"
-                  description="Inizia a leggere manga per generare collezioni automatiche"
-                  variant="compact"
-                />
-              )}
-            </TabPanel>
-
-            {/* Tab Liste Custom */}
-            <TabPanel>
-              {customLists.length > 0 ? (
-                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
-                  {customLists.map(list => (
-                    <ListCard key={list.id} list={list} isCustom={true} />
-                  ))}
-                </SimpleGrid>
-              ) : (
-                <EmptyState
-                  icon="bookmark"
-                  title="Nessuna lista personalizzata"
-                  description="Crea liste custom per organizzare i tuoi manga"
-                  actionLabel="Crea prima lista"
-                  onAction={openCreateModal}
-                  variant="default"
-                />
-              )}
-        </VStack>
+        {/* Liste Personalizzate */}
+        {customLists.length > 0 ? (
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+            {customLists.map(list => (
+              <ListCard key={list.id} list={list} isCustom={true} />
+            ))}
+          </SimpleGrid>
+        ) : (
+          <EmptyState
+            icon="bookmark"
+            title="Nessuna lista personalizzata"
+            description="Crea liste custom per organizzare i tuoi manga"
+            actionLabel="Crea prima lista"
+            onAction={openCreateModal}
+            variant="default"
+          />
+        )}
 
       </VStack>
 
@@ -302,10 +270,10 @@ function Lists() {
                 <Textarea
                   value={listDescription}
                   onChange={(e) => setListDescription(e.target.value)}
-                  placeholder="Breve descrizione..."
+                  placeholder="Aggiungi una descrizione..."
                   bg="gray.700"
-                  rows={3}
                   maxLength={200}
+                  rows={3}
                 />
                 <Text fontSize="xs" color="gray.500" mt={1}>
                   {listDescription.length}/200
@@ -319,23 +287,25 @@ function Lists() {
                   onChange={(e) => setListColor(e.target.value)}
                   bg="gray.700"
                 >
-                  {colors.map(c => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
+                  <option value="purple">Viola</option>
+                  <option value="blue">Blu</option>
+                  <option value="green">Verde</option>
+                  <option value="red">Rosso</option>
+                  <option value="pink">Rosa</option>
+                  <option value="orange">Arancione</option>
+                  <option value="teal">Teal</option>
+                  <option value="cyan">Ciano</option>
                 </Select>
               </Box>
             </VStack>
           </ModalBody>
+
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={onClose}>
               Annulla
             </Button>
-            <Button
-              colorScheme="purple"
-              onClick={handleSave}
-              isDisabled={!listName.trim()}
-            >
-              {isEditing ? 'Salva' : 'Crea'}
+            <Button colorScheme={listColor} onClick={handleSave}>
+              {isEditing ? 'Salva Modifiche' : 'Crea Lista'}
             </Button>
           </ModalFooter>
         </ModalContent>
@@ -345,4 +315,3 @@ function Lists() {
 }
 
 export default Lists;
-
