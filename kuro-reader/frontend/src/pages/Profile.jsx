@@ -191,6 +191,15 @@ export default function Profile() {
     }
   }, [user]);
 
+  // Calcola amici veri (mutual follows)
+  const mutualFriends = React.useMemo(() => {
+    if (!friends.followers.length || !friends.following.length) return [];
+    
+    return friends.followers.filter(follower => 
+      friends.following.some(following => following.username === follower.username)
+    );
+  }, [friends.followers, friends.following]);
+
   // ========= EFFECTS =========
   useEffect(() => {
     if (!user) {
@@ -761,8 +770,11 @@ export default function Profile() {
               <Box>
                 <StatLabel fontSize="xs">Amici</StatLabel>
                 <StatNumber fontSize="xl">
-                  {friends.followers.length + friends.following.length}
+                  {mutualFriends.length}
                 </StatNumber>
+                <Text fontSize="xs" color="gray.400">
+                  {friends.followers.length} follower · {friends.following.length} seguiti
+                </Text>
               </Box>
             </HStack>
           </Stat>
@@ -801,7 +813,12 @@ export default function Profile() {
         <Tabs colorScheme="purple" variant="enclosed" index={activeTab} onChange={setActiveTab}>
           <TabList>
             <Tab>La mia Libreria</Tab>
-            <Tab>Amici ({friends.followers.length + friends.following.length})</Tab>
+            <Tab>
+              Connessioni 
+              <Badge ml={2} colorScheme="purple" borderRadius="full">
+                {friends.followers.length + friends.following.length}
+              </Badge>
+            </Tab>
           </TabList>
 
           <TabPanels>
@@ -942,18 +959,49 @@ export default function Profile() {
               {friendsError ? (
                 <Alert status="warning" borderRadius="lg">
                   <AlertIcon />
-                  <AlertTitle>Errore caricamento amici</AlertTitle>
+                  <AlertTitle>Errore caricamento connessioni</AlertTitle>
                   <Button size="sm" ml="auto" onClick={loadFriends}>
                     Riprova
                   </Button>
                 </Alert>
               ) : (
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-                  {/* Followers */}
-                  <Box>
-                    <Heading size="md" mb={4}>
-                      Followers ({friends.followers.length})
-                    </Heading>
+                <VStack spacing={6} align="stretch">
+                  {/* Amici (Mutual) */}
+                  {mutualFriends.length > 0 && (
+                    <Box>
+                      <Heading size="md" mb={4} color="green.400">
+                        💚 Amici ({mutualFriends.length})
+                      </Heading>
+                      <Text fontSize="sm" color="gray.400" mb={3}>
+                        Vi seguite a vicenda
+                      </Text>
+                      <VStack align="stretch" spacing={2} maxH="300px" overflowY="auto">
+                        {mutualFriends.map((friend) => (
+                          <HStack
+                            key={`friend-${friend.id}`}
+                            p={3}
+                            bg="green.900"
+                            borderRadius="lg"
+                            cursor="pointer"
+                            onClick={() => navigate(`/user/${friend.username}`)}
+                            _hover={{ bg: 'green.800' }}
+                            border="1px solid"
+                            borderColor="green.700"
+                          >
+                            <Text fontWeight="bold" flex={1}>{friend.username}</Text>
+                            <Badge colorScheme="green">Amico</Badge>
+                          </HStack>
+                        ))}
+                      </VStack>
+                    </Box>
+                  )}
+                  
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                    {/* Followers */}
+                    <Box>
+                      <Heading size="md" mb={4}>
+                        👥 Followers ({friends.followers.length})
+                      </Heading>
                     <VStack align="stretch" spacing={2} maxH="400px" overflowY="auto">
                       {friends.followers.length > 0 ? (
                         friends.followers.map((follower) => (
@@ -984,11 +1032,11 @@ export default function Profile() {
                     </VStack>
                   </Box>
 
-                  {/* Following */}
-                  <Box>
-                    <Heading size="md" mb={4}>
-                      Seguiti ({friends.following.length})
-                    </Heading>
+                    {/* Following */}
+                    <Box>
+                      <Heading size="md" mb={4}>
+                        ➡️ Seguiti ({friends.following.length})
+                      </Heading>
                     <VStack align="stretch" spacing={2} maxH="400px" overflowY="auto">
                       {friends.following.length > 0 ? (
                         friends.following.map((following) => (
@@ -1017,8 +1065,9 @@ export default function Profile() {
                         </Center>
                       )}
                     </VStack>
-                  </Box>
-                </SimpleGrid>
+                    </Box>
+                  </SimpleGrid>
+                </VStack>
               )}
             </TabPanel>
           </TabPanels>

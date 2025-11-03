@@ -12,6 +12,7 @@ import { FaBook, FaUser, FaBookmark, FaSignInAlt, FaSignOutAlt, FaCog, FaShare, 
 import { BiCategoryAlt } from 'react-icons/bi';
 import { MdPublic } from 'react-icons/md';
 import useAuth from '../hooks/useAuth';
+import Logo from './Logo';
 
 function Navigation() {
   const location = useLocation();
@@ -105,19 +106,7 @@ function Navigation() {
               
               <Link to="/home">
                 <HStack spacing={2} _hover={{ opacity: 0.8 }} transition="all 0.2s">
-                  <Image 
-                    src="/web-app-manifest-512x512.png" 
-                    boxSize={logoSize}
-                    fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23805AD5'/%3E%3C/svg%3E"
-                  />
-                  <Text
-                    fontSize={{ base: 'lg', md: '2xl' }}
-                    fontWeight="bold"
-                    bgGradient="linear(to-r, purple.400, pink.400)"
-                    bgClip="text"
-                  >
-                    NeKuro Scan
-                  </Text>
+                  <Logo boxSize={logoSize} fontSize={{ base: 'lg', md: '2xl' }} />
                 </HStack>
               </Link>
 
@@ -235,15 +224,7 @@ function Navigation() {
           <DrawerCloseButton />
           <DrawerHeader borderBottomWidth="1px" borderColor="gray.700">
             <HStack spacing={2}>
-              <Image src="/web-app-manifest-512x512.png" boxSize="28px" />
-              <Text
-                fontSize="xl"
-                fontWeight="bold"
-                bgGradient="linear(to-r, purple.400, pink.400)"
-                bgClip="text"
-              >
-                NeKuro Scan
-              </Text>
+              <Logo boxSize="28px" fontSize="xl" />
             </HStack>
           </DrawerHeader>
 

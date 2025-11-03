@@ -40,6 +40,7 @@ function MangaDetails() {
   const [completedChapters, setCompletedChapters] = useState([]);
   const [currentStatus, setCurrentStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   // ========== CALLBACKS ==========
 
@@ -342,6 +343,9 @@ function MangaDetails() {
 
   // ✅ START READING - WRAPPED IN USECALLBACK TO FIX REACT ERROR #300
   const startReading = useCallback((chapterIndex = 0) => {
+    // Previeni click multipli
+    if (isNavigating) return;
+    
     // ✅ VALIDAZIONE: Se chapterIndex è 0 ma non ci sono capitoli, usa il primo disponibile
     if (chapterIndex === 0 && manga?.chapters?.length > 0) {
       chapterIndex = 0; // Il primo capitolo è effettivamente l'indice 0
@@ -379,6 +383,8 @@ function MangaDetails() {
     }
 
     try {
+      setIsNavigating(true);
+      
       const chapterId = btoa(chapter.url);
       
       // ✅ 1. Salva tutto in localStorage
@@ -431,8 +437,9 @@ function MangaDetails() {
         status: 'error',
         duration: 3000,
       });
+      setIsNavigating(false);
     }
-  }, [manga, source, id, navigate, toast]);
+  }, [manga, source, id, navigate, toast, isNavigating]);
 
   // Continue reading - WRAPPED IN USECALLBACK
   const continueReading = useCallback(() => {
@@ -811,6 +818,8 @@ function MangaDetails() {
                       boxShadow="lg"
                       _hover={{ transform: 'translateY(-2px)', boxShadow: 'xl' }}
                       transition="all 0.2s"
+                      isLoading={isNavigating}
+                      loadingText="Caricamento..."
                     >
                       Continua Cap. {readingProgress.chapterIndex + 1}
                     </Button>
@@ -831,6 +840,8 @@ function MangaDetails() {
                     boxShadow="lg"
                     _hover={{ transform: 'translateY(-2px)', boxShadow: 'xl' }}
                     transition="all 0.2s"
+                    isLoading={isNavigating}
+                    loadingText="Apertura..."
                   >
                     Inizia a leggere
                   </Button>

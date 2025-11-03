@@ -58,11 +58,9 @@ function Welcome() {
             width="100%"
           >
             <VStack spacing={{ base: 4, md: 6 }} textAlign="center">
-              <Image
-                src="/web-app-manifest-512x512.png"
-                boxSize={{ base: "80px", md: "120px" }}
-                fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23805AD5'/%3E%3C/svg%3E"
-              />
+              <Box boxSize={{ base: "80px", md: "120px" }}>
+                <Logo boxSize={{ base: "80px", md: "120px" }} showText={false} />
+              </Box>
               
               <Heading
                 size={{ base: "lg", md: "2xl" }}

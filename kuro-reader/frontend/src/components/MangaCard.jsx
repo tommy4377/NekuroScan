@@ -18,7 +18,7 @@ function safeEncodeUrl(url) {
   }
 }
 
-function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
+function MangaCard({ manga, hideSource = false, showLatestChapter = false, priority = false }) {
   const navigate = useNavigate();
   const [imageLoaded, setImageLoaded] = useState(false);
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
@@ -108,8 +108,9 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
             width="100%"
             height="100%"
             objectFit="cover"
-            loading="lazy"
+            loading={priority ? "eager" : "lazy"}
             onLoad={() => setImageLoaded(true)}
+            onError={() => setImageLoaded(true)}
             fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280' viewBox='0 0 200 280'%3E%3Crect width='200' height='280' fill='%234A5568'%3E%3C/rect%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23A0AEC0' font-family='sans-serif' font-size='16'%3ENo Image%3C/text%3E%3C/svg%3E"
             style={{ transform: 'translateZ(20px)' }}
           />

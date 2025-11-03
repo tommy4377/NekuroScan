@@ -7,7 +7,7 @@ import {
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  FaFire, FaClock, FaStar, FaBookOpen, FaHeart,
+  FaFire, FaClock, FaBookOpen, FaHeart,
   FaChevronRight, FaSync, FaTrophy, FaDragon, FaArrowRight
 } from 'react-icons/fa';
 import { GiDragonHead } from 'react-icons/gi';
@@ -16,7 +16,6 @@ import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { recommendationEngine } from '../utils/recommendations';
 import useAuth from '../hooks/useAuth';
 
 // ✅ PULISCE NUMERO CAPITOLO
@@ -36,14 +35,6 @@ function Home() {
   
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
   
-  // Carica dati utente per raccomandazioni
-  const [userManga, setUserManga] = useState({
-    reading: [],
-    favorites: [],
-    completed: [],
-    dropped: []
-  });
-  
   // ========= STATE =========
   const [content, setContent] = useState({
     trending: [],
@@ -53,9 +44,7 @@ function Home() {
     topManhwa: [],
     topManhua: [],
     topOneshot: [],
-    continueReading: [],
-    recommendations: [],
-    forYou: []
+    continueReading: []
   });
   
   const [loading, setLoading] = useState(true);
@@ -107,37 +96,6 @@ function Home() {
         continueFrom: item.lastChapterIndex ? `Cap. ${item.lastChapterIndex + 1}` : null
       }));
       
-      // Raccomandazioni "Per te" intelligenti
-      const allContent = {
-        trending: processResult(trendingRes),
-        latest: processResult(latestRes),
-        popular: processResult(popularRes),
-        topManga: processResult(mangaRes),
-        topManhwa: processResult(manhwaRes),
-        topManhua: processResult(manhuaRes),
-        topOneshot: processResult(oneshotRes)
-      };
-      
-      const forYouRecommendations = user ? await generateForYouRecommendations(allContent) : [];
-      
-      // Raccomandazioni tradizionali (fallback)
-      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-      let recommendations = [];
-      if (favorites.length > 0) {
-        try {
-          const genre = favorites[0].genres?.[0]?.genre || 'shounen';
-          const recRes = await statsAPI.searchAdvanced({
-            genres: [genre],
-            sort: 'score',
-            page: 1,
-            includeAdult
-          });
-          recommendations = recRes.results.slice(0, 10);
-        } catch (err) {
-          console.error('Failed to load recommendations:', err);
-        }
-      }
-      
       setContent({
         trending: processResult(trendingRes),
         latest: processResult(latestRes),
@@ -146,9 +104,7 @@ function Home() {
         topManhwa: processResult(manhwaRes),
         topManhua: processResult(manhuaRes),
         topOneshot: processResult(oneshotRes),
-        continueReading: readingWithProgress,
-        recommendations,
-        forYou: forYouRecommendations
+        continueReading: readingWithProgress
       });
       
     } catch (error) {
@@ -165,23 +121,11 @@ function Home() {
     }
   }, [includeAdult, toast, user]);
 
-  // ✅ WRAP loadUserManga in useCallback per evitare React error #300
-  const loadUserManga = useCallback(() => {
-    const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    const completed = JSON.parse(localStorage.getItem('completed') || '[]');
-    const dropped = JSON.parse(localStorage.getItem('dropped') || '[]');
-    
-    setUserManga({ reading, favorites, completed, dropped });
-  }, []);
-
   useEffect(() => {
-    loadUserManga();
     loadAllContent();
     
     // Ascolta aggiornamenti della libreria
     const handleLibraryUpdate = () => {
-      loadUserManga();
       loadAllContent();
     };
     
@@ -190,56 +134,7 @@ function Home() {
     return () => {
       window.removeEventListener('library-updated', handleLibraryUpdate);
     };
-  }, [loadAllContent, loadUserManga]);
-
-  // Genera raccomandazioni "Per te"
-  const generateForYouRecommendations = async (allContent) => {
-    try {
-      // Combina tutti i manga disponibili
-      const allManga = [
-        ...allContent.trending,
-        ...allContent.latest,
-        ...allContent.popular,
-        ...allContent.topManga,
-        ...allContent.topManhwa,
-        ...allContent.topManhua,
-        ...allContent.topOneshot
-      ];
-
-      // Rimuovi duplicati
-      const uniqueManga = allManga.filter((manga, index, self) => 
-        index === self.findIndex(m => m.url === manga.url)
-      );
-
-      // Carica dati utente aggiornati
-      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-      const completed = JSON.parse(localStorage.getItem('completed') || '[]');
-      const dropped = JSON.parse(localStorage.getItem('dropped') || '[]');
-      
-      // Combina tutti i manga dell'utente
-      const allUserManga = [
-        ...reading,
-        ...favorites,
-        ...completed,
-        ...dropped
-      ];
-
-      // Genera raccomandazioni
-      const recommendations = recommendationEngine.generateRecommendations(uniqueManga, allUserManga);
-      
-      console.log('🎯 For You Recommendations generated:', {
-        totalManga: uniqueManga.length,
-        userManga: allUserManga.length,
-        recommendations: recommendations.length
-      });
-      
-      return recommendations.slice(0, 12); // Limita a 12 raccomandazioni
-    } catch (error) {
-      console.error('Error generating recommendations:', error);
-      return [];
-    }
-  };
+  }, [loadAllContent]);
 
   // ✅ WRAP handleRefresh in useCallback per evitare React error #300
   const handleRefresh = useCallback(async () => {
@@ -368,6 +263,7 @@ function Home() {
                     manga={item} 
                     hideSource 
                     showLatestChapter={showLatestChapter}
+                    priority={i < 5}
                   />
                   
                   {showProgress && item.continueFrom && (
@@ -515,14 +411,6 @@ function Home() {
                   <Text display={{ base: 'none', sm: 'block' }}>Top Series</Text>
                 </HStack>
               </Tab>
-              {user && content.forYou.length > 0 && (
-                <Tab>
-                  <HStack spacing={2}>
-                    <FaStar />
-                    <Text display={{ base: 'none', sm: 'block' }}>Per te</Text>
-                  </HStack>
-                </Tab>
-              )}
             </TabList>
             
             <TabPanels>
@@ -597,19 +485,6 @@ function Home() {
                   />
                 </VStack>
               </TabPanel>
-              
-              {/* TAB PER TE */}
-              {user && content.forYou.length > 0 && (
-                <TabPanel px={0} pt={6}>
-                  <ContentSection 
-                    title="Per te" 
-                    icon={FaStar} 
-                    items={content.forYou} 
-                    color="purple" 
-                    emptyMessage="Aggiungi manga alle tue liste per ricevere consigli personalizzati"
-                  />
-                </TabPanel>
-              )}
             </TabPanels>
           </Tabs>
         </Box>
