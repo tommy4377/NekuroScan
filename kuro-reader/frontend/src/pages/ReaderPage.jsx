@@ -37,6 +37,9 @@ function ReaderPage() {
   
   // ========== CALCOLI ==========
   const chapterIndex = parseInt(searchParams.get('chapter') || '0');
+  const currentImage = chapter?.pages?.[currentPage];
+  const totalPages = chapter?.pages?.length || 0;
+  const progressPercentage = totalPages > 0 ? ((currentPage + 1) / totalPages) * 100 : 0;
 
   // ========== HANDLERS ==========
   
@@ -295,10 +298,6 @@ function ReaderPage() {
         </Box>
       );
     }
-
-  const currentImage = chapter.pages?.[currentPage];
-  const totalPages = chapter.pages?.length || 0;
-  const progressPercentage = ((currentPage + 1) / totalPages) * 100;
 
     return (
       <Box
