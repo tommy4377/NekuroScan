@@ -56,9 +56,6 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false }) {
 
   return (
     <Box
-      whileHover={{ scale: 1.06, zIndex: 25 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ duration: 0.2 }}
       cursor="pointer"
       onClick={handleClick}
       height="100%"

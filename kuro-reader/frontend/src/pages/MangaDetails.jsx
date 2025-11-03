@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, Text, Image, VStack, HStack, Button, Badge,
   SimpleGrid, Skeleton, useToast, Flex, IconButton, Wrap, WrapItem,
-  Progress, Tooltip, Menu, MenuButton, MenuList, MenuItem, Divider
+  Progress, Menu, MenuButton, MenuList, MenuItem, Divider
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -806,7 +806,7 @@ function MangaDetails() {
                     <Button
                       colorScheme="green"
                       leftIcon={<FaPlay />}
-                      onClick={continueReading}
+                      onClick={(e) => { e.stopPropagation(); continueReading(); }}
                       size={{ base: 'sm', md: 'md' }}
                       boxShadow="lg"
                       _hover={{ transform: 'translateY(-2px)', boxShadow: 'xl' }}
@@ -814,21 +814,19 @@ function MangaDetails() {
                     >
                       Continua Cap. {readingProgress.chapterIndex + 1}
                     </Button>
-                    <Tooltip label="Ricomincia dall'inizio">
-                      <IconButton
-                        icon={<FaRedo />}
-                        variant="outline"
-                        onClick={() => startReading(0)}
-                        aria-label="Ricomincia"
-                        size={{ base: 'sm', md: 'md' }}
-                      />
-                    </Tooltip>
+                    <IconButton
+                      icon={<FaRedo />}
+                      variant="outline"
+                      onClick={(e) => { e.stopPropagation(); startReading(0); }}
+                      aria-label="Ricomincia dall'inizio"
+                      size={{ base: 'sm', md: 'md' }}
+                    />
                   </>
                 ) : (
                   <Button
                     colorScheme="purple"
                     leftIcon={<FaPlay />}
-                    onClick={() => startReading(0)}
+                    onClick={(e) => { e.stopPropagation(); startReading(0); }}
                     size={{ base: 'sm', md: 'md' }}
                     boxShadow="lg"
                     _hover={{ transform: 'translateY(-2px)', boxShadow: 'xl' }}
@@ -838,58 +836,50 @@ function MangaDetails() {
                   </Button>
                 )}
                 
-                <Tooltip label={isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}>
-                  <IconButton
-                    icon={isFavorite ? <FaHeart /> : <FaBookmark />}
-                    colorScheme={isFavorite ? 'pink' : 'gray'}
-                    variant={isFavorite ? 'solid' : 'outline'}
-                    onClick={toggleFavorite}
-                    aria-label="Preferiti"
-                    size={{ base: 'sm', md: 'md' }}
-                    _hover={{ transform: 'translateY(-2px)' }}
-                    transition="all 0.2s"
-                  />
-                </Tooltip>
+                <IconButton
+                  icon={isFavorite ? <FaHeart /> : <FaBookmark />}
+                  colorScheme={isFavorite ? 'pink' : 'gray'}
+                  variant={isFavorite ? 'solid' : 'outline'}
+                  onClick={toggleFavorite}
+                  aria-label={isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                  size={{ base: 'sm', md: 'md' }}
+                  _hover={{ transform: 'translateY(-2px)' }}
+                  transition="all 0.2s"
+                />
                 
-                <Tooltip label={notificationsEnabled ? 'Disattiva notifiche' : 'Attiva notifiche nuovi capitoli'}>
-                  <IconButton
-                    icon={notificationsEnabled ? <FaBell /> : <FaBellSlash />}
-                    colorScheme={notificationsEnabled ? 'green' : 'gray'}
-                    variant={notificationsEnabled ? 'solid' : 'outline'}
-                    onClick={toggleNotifications}
-                    aria-label="Notifiche"
-                    size={{ base: 'sm', md: 'md' }}
-                    _hover={{ transform: 'translateY(-2px)' }}
-                    transition="all 0.2s"
-                  />
-                </Tooltip>
+                <IconButton
+                  icon={notificationsEnabled ? <FaBell /> : <FaBellSlash />}
+                  colorScheme={notificationsEnabled ? 'green' : 'gray'}
+                  variant={notificationsEnabled ? 'solid' : 'outline'}
+                  onClick={toggleNotifications}
+                  aria-label={notificationsEnabled ? 'Disattiva notifiche' : 'Attiva notifiche nuovi capitoli'}
+                  size={{ base: 'sm', md: 'md' }}
+                  _hover={{ transform: 'translateY(-2px)' }}
+                  transition="all 0.2s"
+                />
                 
-                <Tooltip label="Condividi manga">
-                  <IconButton
-                    icon={<FaShare />}
-                    variant="outline"
-                    aria-label="Condividi"
-                    onClick={shareContent}
-                    size={{ base: 'sm', md: 'md' }}
-                    _hover={{ transform: 'translateY(-2px)' }}
-                    transition="all 0.2s"
-                  />
-                </Tooltip>
+                <IconButton
+                  icon={<FaShare />}
+                  variant="outline"
+                  aria-label="Condividi manga"
+                  onClick={shareContent}
+                  size={{ base: 'sm', md: 'md' }}
+                  _hover={{ transform: 'translateY(-2px)' }}
+                  transition="all 0.2s"
+                />
                 
                 {/* MENU GESTIONE LISTE */}
                 <Menu>
-                  <Tooltip label="Gestisci liste">
-                    <MenuButton
-                      as={IconButton}
-                      icon={<FaEllipsisV />}
-                      variant="outline"
-                      aria-label="Altre opzioni"
-                      size={{ base: 'sm', md: 'md' }}
-                      isLoading={syncing}
-                      _hover={{ transform: 'translateY(-2px)' }}
-                      transition="all 0.2s"
-                    />
-                  </Tooltip>
+                  <MenuButton
+                    as={IconButton}
+                    icon={<FaEllipsisV />}
+                    variant="outline"
+                    aria-label="Gestisci liste"
+                    size={{ base: 'sm', md: 'md' }}
+                    isLoading={syncing}
+                    _hover={{ transform: 'translateY(-2px)' }}
+                    transition="all 0.2s"
+                  />
                   <MenuList bg="gray.800" borderColor="gray.700">
                     {currentStatus !== 'reading' && (
                       <MenuItem 
@@ -975,26 +965,22 @@ function MangaDetails() {
               </Heading>
               
               <HStack spacing={2}>
-                <Tooltip label="Vista lista">
-                  <IconButton
-                    icon={<FaList />}
-                    size="sm"
-                    variant={viewMode === 'list' ? 'solid' : 'ghost'}
-                    colorScheme="purple"
-                    onClick={() => setViewMode('list')}
-                    aria-label="Vista lista"
-                  />
-                </Tooltip>
-                <Tooltip label="Vista griglia">
-                  <IconButton
-                    icon={<FaTh />}
-                    size="sm"
-                    variant={viewMode === 'grid' ? 'solid' : 'ghost'}
-                    colorScheme="purple"
-                    onClick={() => setViewMode('grid')}
-                    aria-label="Vista griglia"
-                  />
-                </Tooltip>
+                <IconButton
+                  icon={<FaList />}
+                  size="sm"
+                  variant={viewMode === 'list' ? 'solid' : 'ghost'}
+                  colorScheme="purple"
+                  onClick={() => setViewMode('list')}
+                  aria-label="Vista lista"
+                />
+                <IconButton
+                  icon={<FaTh />}
+                  size="sm"
+                  variant={viewMode === 'grid' ? 'solid' : 'ghost'}
+                  colorScheme="purple"
+                  onClick={() => setViewMode('grid')}
+                  aria-label="Vista griglia"
+                />
               </HStack>
             </HStack>
 
@@ -1059,11 +1045,9 @@ function MangaDetails() {
                           </Box>
                           
                           {isChapterRead(i) && (
-                            <Tooltip label="Capitolo letto">
-                              <Box>
-                                <FaCheckCircle color="green" />
-                              </Box>
-                            </Tooltip>
+                            <Box title="Capitolo letto">
+                              <FaCheckCircle color="green" />
+                            </Box>
                           )}
                           
                           {currentStatus !== 'completed' && readingProgress?.chapterIndex === i && (

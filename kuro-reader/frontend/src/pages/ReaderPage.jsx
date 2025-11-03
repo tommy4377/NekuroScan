@@ -180,10 +180,11 @@ function ReaderPage() {
         setLoading(true);
 
         const chapterUrl = atob(chapterId);
+        const mangaUrl = atob(mangaId);
 
         const [mangaData, chapterData] = await Promise.all([
-          apiManager.getMangaDetails(source, mangaId),
-          apiManager.getChapterPages(source, chapterUrl)
+          apiManager.getMangaDetails(mangaUrl, source),
+          apiManager.getChapter(chapterUrl, source)
         ]);
         
         if (!isMounted) return;

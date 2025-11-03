@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ChakraProvider, Box, Spinner, Center, VStack, Text, useToast, Button } from '@chakra-ui/react';
 // import { AnimatePresence, motion } from 'framer-motion'; // Rimosso per evitare errori React #300
@@ -9,22 +9,22 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import useAuthStore from './hooks/useAuth';
 
-// Lazy load tutte le pagine per consistenza
-const Welcome = lazy(() => import('./pages/Welcome'));
-const Home = lazy(() => import('./pages/Home'));
-const Search = lazy(() => import('./pages/Search'));
-const MangaDetails = lazy(() => import('./pages/MangaDetails'));
-const ReaderPage = lazy(() => import('./pages/ReaderPage'));
-const Library = lazy(() => import('./components/Library'));
-const Categories = lazy(() => import('./pages/Categories'));
-const Latest = lazy(() => import('./pages/Latest'));
-const Popular = lazy(() => import('./pages/Popular'));
-const Trending = lazy(() => import('./pages/Trending'));
-const Login = lazy(() => import('./pages/Login'));
-const Profile = lazy(() => import('./pages/Profile'));
-const PublicProfile = lazy(() => import('./pages/PublicProfile'));
-const Settings = lazy(() => import('./pages/Settings'));
-const NotFound = lazy(() => import('./pages/NotFound'));
+// ✅ FIX React #300: Tutti i componenti caricati DIRETTAMENTE senza lazy/Suspense
+import ReaderPage from './pages/ReaderPage';
+import Welcome from './pages/Welcome';
+import Home from './pages/Home';
+import Search from './pages/Search';
+import MangaDetails from './pages/MangaDetails';
+import Library from './components/Library';
+import Categories from './pages/Categories';
+import Latest from './pages/Latest';
+import Popular from './pages/Popular';
+import Trending from './pages/Trending';
+import Login from './pages/Login';
+import Profile from './pages/Profile';
+import PublicProfile from './pages/PublicProfile';
+import Settings from './pages/Settings';
+import NotFound from './pages/NotFound';
 
 const PageLoader = () => (
   <Center h="100vh" bg="gray.900">
@@ -65,52 +65,44 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// ✅ ROUTE ANIMATE SOLO PER PAGINE NON-READER - RIMOSSO PER EVITARE ERRORI REACT #300
-const AnimatedRoute = ({ children }) => (
-  <Box>
-    {children}
-  </Box>
-);
-
 // ✅ ROUTES UNIFICATE CON GESTIONE READER - FIX React #300
 function AnimatedRoutes() {
   const location = useLocation();
-  const isReaderPage = location.pathname.startsWith('/read/');
 
   return (
     <Routes location={location}>
-        {/* Reader Route - senza animazioni */}
+        {/* Reader Route - caricato direttamente */}
         <Route path="/read/:source/:mangaId/:chapterId" element={<ReaderPage />} />
         
-        {/* Altre pagine con animazioni */}
-        <Route path="/" element={<AnimatedRoute><Welcome /></AnimatedRoute>} />
-        <Route path="/home" element={<AnimatedRoute><Home /></AnimatedRoute>} />
-        <Route path="/search" element={<AnimatedRoute><Search /></AnimatedRoute>} />
-        <Route path="/manga/:source/:id" element={<AnimatedRoute><MangaDetails /></AnimatedRoute>} />
-        <Route path="/categories" element={<AnimatedRoute><Categories /></AnimatedRoute>} />
-        <Route path="/latest" element={<AnimatedRoute><Latest /></AnimatedRoute>} />
-        <Route path="/popular" element={<AnimatedRoute><Popular /></AnimatedRoute>} />
-        <Route path="/trending" element={<AnimatedRoute><Trending /></AnimatedRoute>} />
-        <Route path="/login" element={<AnimatedRoute><Login /></AnimatedRoute>} />
-        <Route path="/user/:username" element={<AnimatedRoute><PublicProfile /></AnimatedRoute>} />
+        {/* Altre pagine */}
+        <Route path="/" element={<Welcome />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/search" element={<Search />} />
+        <Route path="/manga/:source/:id" element={<MangaDetails />} />
+        <Route path="/categories" element={<Categories />} />
+        <Route path="/latest" element={<Latest />} />
+        <Route path="/popular" element={<Popular />} />
+        <Route path="/trending" element={<Trending />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/user/:username" element={<PublicProfile />} />
         
         <Route path="/library" element={
           <ProtectedRoute>
-            <AnimatedRoute><Library /></AnimatedRoute>
+            <Library />
           </ProtectedRoute>
         } />
         <Route path="/profile" element={
           <ProtectedRoute>
-            <AnimatedRoute><Profile /></AnimatedRoute>
+            <Profile />
           </ProtectedRoute>
         } />
         <Route path="/settings" element={
           <ProtectedRoute>
-            <AnimatedRoute><Settings /></AnimatedRoute>
+            <Settings />
           </ProtectedRoute>
         } />
         
-        <Route path="*" element={<AnimatedRoute><NotFound /></AnimatedRoute>} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
   );
 }
@@ -282,9 +274,7 @@ function AppContent() {
         </Box>
       )}
       
-      <Suspense fallback={<PageLoader />}>
-        <AnimatedRoutes />
-      </Suspense>
+      <AnimatedRoutes />
     </Box>
   );
 }
