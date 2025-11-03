@@ -38,12 +38,12 @@ function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
 
     for (let i = startIndex; i < endIndex; i++) {
       if (chapter.pages[i]) {
-        const img = new Image();
-        img.src = chapter.pages[i];
-        img.onload = () => {
+        const imgElement = document.createElement('img');
+        imgElement.src = chapter.pages[i];
+        imgElement.onload = () => {
           setLoadedImages(prev => ({ ...prev, [i]: true }));
         };
-        img.onerror = () => {
+        imgElement.onerror = () => {
           console.error(`Failed to load image at index ${i}`);
         };
       }

@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Image, Box, Text } from '@chakra-ui/react';
+import { Image as ChakraImage, Box, Text } from '@chakra-ui/react';
 
 const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl' }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageSrc, setImageSrc] = useState(null);
 
   useEffect(() => {
-    // Preload dell'immagine
-    const img = new Image();
-    img.src = '/web-app-manifest-512x512.png';
-    img.onload = () => {
+    // Preload dell'immagine usando HTMLImageElement nativo
+    const imgElement = document.createElement('img');
+    imgElement.src = '/web-app-manifest-512x512.png';
+    imgElement.onload = () => {
       setImageSrc('/web-app-manifest-512x512.png');
       setImageLoaded(true);
     };
-    img.onerror = () => {
+    imgElement.onerror = () => {
       setImageLoaded(true);
     };
   }, []);
@@ -21,7 +21,7 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl' }) => {
   return (
     <>
       {imageSrc ? (
-        <Image 
+        <ChakraImage 
           src={imageSrc}
           boxSize={boxSize}
           alt="NeKuro Scan"

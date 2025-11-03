@@ -353,8 +353,8 @@ function ReaderPage() {
       if (nextPage < totalPages && chapter.pages[nextPage]) {
         const imgUrl = chapter.pages[nextPage];
         if (!preloadedImages.current.has(imgUrl)) {
-          const img = new Image();
-          img.src = imgUrl;
+          const imgElement = document.createElement('img');
+          imgElement.src = imgUrl;
           preloadedImages.current.add(imgUrl);
         }
       }
