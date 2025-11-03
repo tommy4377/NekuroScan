@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, Tabs, TabList, TabPanels, Tab, TabPanel,
   SimpleGrid, Text, VStack, Button, Badge, useToast, HStack,
@@ -23,6 +23,15 @@ function Library() {
   const toast = useToast();
   const { user, syncToServer } = useAuth();
 
+  // ✅ WRAP loadLibrary in useCallback per evitare React error #300
+  const loadLibrary = useCallback(() => {
+    setReading(JSON.parse(localStorage.getItem('reading') || '[]'));
+    setFavorites(JSON.parse(localStorage.getItem('favorites') || '[]'));
+    setHistory(JSON.parse(localStorage.getItem('history') || '[]'));
+    setCompleted(JSON.parse(localStorage.getItem('completed') || '[]'));
+    setDropped(JSON.parse(localStorage.getItem('dropped') || '[]'));
+  }, []);
+
   useEffect(() => {
     loadLibrary();
     
@@ -36,17 +45,10 @@ function Library() {
     return () => {
       window.removeEventListener('library-updated', handleLibraryUpdate);
     };
-  }, []);
+  }, [loadLibrary]);
 
-  const loadLibrary = () => {
-    setReading(JSON.parse(localStorage.getItem('reading') || '[]'));
-    setFavorites(JSON.parse(localStorage.getItem('favorites') || '[]'));
-    setHistory(JSON.parse(localStorage.getItem('history') || '[]'));
-    setCompleted(JSON.parse(localStorage.getItem('completed') || '[]'));
-    setDropped(JSON.parse(localStorage.getItem('dropped') || '[]'));
-  };
-
-  const removeFromList = (listName, item) => {
+  // ✅ WRAP removeFromList in useCallback per evitare React error #300
+  const removeFromList = useCallback((listName, item) => {
     const lists = { reading, favorites, history, completed, dropped };
     const updatedList = lists[listName].filter(i => i.url !== item.url);
     
@@ -61,7 +63,7 @@ function Library() {
     localStorage.setItem(listName, JSON.stringify(updatedList));
     
     // Sync if logged in
-    if (user) {
+    if (user && syncToServer) {
       syncToServer();
     }
     
@@ -71,9 +73,10 @@ function Library() {
       status: 'info',
       duration: 2000,
     });
-  };
+  }, [reading, favorites, history, completed, dropped, user, syncToServer, toast]);
 
-  const moveToList = (fromList, toList, item) => {
+  // ✅ WRAP moveToList in useCallback per evitare React error #300
+  const moveToList = useCallback((fromList, toList, item) => {
     // Remove from source
     const sourceUpdated = JSON.parse(localStorage.getItem(fromList) || '[]')
       .filter(i => i.url !== item.url);
@@ -104,7 +107,7 @@ function Library() {
     loadLibrary();
     
     // Sync if logged in
-    if (user) {
+    if (user && syncToServer) {
       syncToServer();
     }
     
@@ -121,20 +124,22 @@ function Library() {
       status: 'success',
       duration: 2000,
     });
-  };
+  }, [loadLibrary, user, syncToServer, toast]);
 
-  const confirmDelete = (list, item) => {
+  // ✅ WRAP confirmDelete in useCallback per evitare React error #300
+  const confirmDelete = useCallback((list, item) => {
     setSelectedManga({ list, item });
     onOpen();
-  };
+  }, [onOpen]);
 
-  const handleDelete = () => {
+  // ✅ WRAP handleDelete in useCallback per evitare React error #300
+  const handleDelete = useCallback(() => {
     if (selectedManga) {
       removeFromList(selectedManga.list, selectedManga.item);
       setSelectedManga(null);
     }
     onClose();
-  };
+  }, [selectedManga, removeFromList, onClose]);
 
   const MangaActions = ({ manga, currentList }) => (
     <Menu>

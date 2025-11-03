@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useColorMode } from '@chakra-ui/react';
 
 const ThemeContext = createContext();
@@ -15,13 +15,8 @@ export const ThemeProvider = ({ children }) => {
   const { setColorMode } = useColorMode();
   const [currentTheme, setCurrentTheme] = useState('default');
   
-  useEffect(() => {
-    // Load saved theme
-    const savedTheme = localStorage.getItem('appTheme') || 'default';
-    applyTheme(savedTheme);
-  }, []);
-  
-  const applyTheme = (theme) => {
+  // ✅ WRAP applyTheme in useCallback per evitare React error #300
+  const applyTheme = useCallback((theme) => {
     setCurrentTheme(theme);
     localStorage.setItem('appTheme', theme);
     
@@ -49,7 +44,14 @@ export const ThemeProvider = ({ children }) => {
         root.style.setProperty('--chakra-colors-purple-500', '#805ad5');
         root.style.setProperty('--chakra-colors-purple-400', '#9f7aea');
     }
-  };
+  }, []);
+  
+  // ✅ AGGIUNGI applyTheme alle dipendenze
+  useEffect(() => {
+    // Load saved theme
+    const savedTheme = localStorage.getItem('appTheme') || 'default';
+    applyTheme(savedTheme);
+  }, [applyTheme]);
   
   const value = {
     currentTheme,

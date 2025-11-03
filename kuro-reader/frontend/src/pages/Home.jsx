@@ -163,7 +163,17 @@ function Home() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [includeAdult, toast]);
+  }, [includeAdult, toast, user]);
+
+  // ✅ WRAP loadUserManga in useCallback per evitare React error #300
+  const loadUserManga = useCallback(() => {
+    const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    const completed = JSON.parse(localStorage.getItem('completed') || '[]');
+    const dropped = JSON.parse(localStorage.getItem('dropped') || '[]');
+    
+    setUserManga({ reading, favorites, completed, dropped });
+  }, []);
 
   useEffect(() => {
     loadUserManga();
@@ -180,17 +190,7 @@ function Home() {
     return () => {
       window.removeEventListener('library-updated', handleLibraryUpdate);
     };
-  }, [loadAllContent]);
-
-  // Carica dati utente per raccomandazioni
-  const loadUserManga = () => {
-    const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    const completed = JSON.parse(localStorage.getItem('completed') || '[]');
-    const dropped = JSON.parse(localStorage.getItem('dropped') || '[]');
-    
-    setUserManga({ reading, favorites, completed, dropped });
-  };
+  }, [loadAllContent, loadUserManga]);
 
   // Genera raccomandazioni "Per te"
   const generateForYouRecommendations = async (allContent) => {
@@ -241,14 +241,16 @@ function Home() {
     }
   };
 
-  const handleRefresh = async () => {
+  // ✅ WRAP handleRefresh in useCallback per evitare React error #300
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadAllContent();
-  };
+  }, [loadAllContent]);
 
-  const navigateToSection = (path) => {
+  // ✅ WRAP navigateToSection in useCallback per evitare React error #300
+  const navigateToSection = useCallback((path) => {
     navigate(path, { state: { includeAdult } });
-  };
+  }, [navigate, includeAdult]);
 
   // ========= SEZIONE CONTENUTI =========
   const ContentSection = ({ 

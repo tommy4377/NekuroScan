@@ -40,7 +40,8 @@ function ReaderPage() {
 
   // ========== HANDLERS ==========
   
-  const saveProgress = () => {
+  // ✅ WRAP saveProgress in useCallback per evitare React error #300
+  const saveProgress = React.useCallback(() => {
     if (!manga || !chapter) return;
     
     try {
@@ -82,9 +83,10 @@ function ReaderPage() {
     } catch (error) {
       console.error('Error saving progress:', error);
     }
-  };
+  }, [manga, chapter, chapterIndex, currentPage, source]);
 
-  const navigateChapter = (direction) => {
+  // ✅ WRAP navigateChapter in useCallback per evitare React error #300
+  const navigateChapter = React.useCallback((direction) => {
     if (!manga?.chapters) return;
     
     const newIndex = chapterIndex + direction;
@@ -106,9 +108,10 @@ function ReaderPage() {
         navigate(`/manga/${source}/${mangaId}`);
       }, 1200);
     }
-  };
+  }, [manga, chapterIndex, saveProgress, navigate, source, mangaId, toast]);
 
-  const toggleFullscreen = () => {
+  // ✅ WRAP toggleFullscreen in useCallback per evitare React error #300
+  const toggleFullscreen = React.useCallback(() => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen();
       setIsFullscreen(true);
@@ -116,9 +119,10 @@ function ReaderPage() {
       document.exitFullscreen();
       setIsFullscreen(false);
     }
-  };
+  }, []);
 
-  const handleKeyPress = (e) => {
+  // ✅ WRAP handleKeyPress in useCallback per evitare React error #300
+  const handleKeyPress = React.useCallback((e) => {
     if (e.key === 'Escape') {
       if (isFullscreen) {
         toggleFullscreen();
@@ -138,9 +142,10 @@ function ReaderPage() {
         navigateChapter(1);
       }
     }
-  };
+  }, [isFullscreen, toggleFullscreen, saveProgress, navigate, source, mangaId, navigateChapter, currentPage, chapter]);
 
-  const handlePageClick = (e) => {
+  // ✅ WRAP handlePageClick in useCallback per evitare React error #300
+  const handlePageClick = React.useCallback((e) => {
     if (!chapter?.pages) return;
     
     const rect = e.currentTarget.getBoundingClientRect();
@@ -160,7 +165,7 @@ function ReaderPage() {
         navigateChapter(1);
       }
     }
-  };
+  }, [chapter, currentPage, navigateChapter]);
 
   // ========== EFFECTS ==========
   
@@ -206,10 +211,11 @@ function ReaderPage() {
     }
   }, [source, mangaId, chapterId, navigate, toast]);
 
+  // ✅ FIX dipendenze useEffect
   useEffect(() => {
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [currentPage, chapter, isFullscreen]);
+  }, [handleKeyPress]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -241,13 +247,14 @@ function ReaderPage() {
     };
   }, [showControls, currentPage]);
 
+  // ✅ FIX dipendenze useEffect
   useEffect(() => {
     const timeout = setTimeout(() => {
       saveProgress();
     }, 1000);
 
     return () => clearTimeout(timeout);
-  }, [currentPage, chapterIndex]);
+  }, [saveProgress]);
 
   // ========== RENDER ==========
   
@@ -305,7 +312,7 @@ function ReaderPage() {
         <HStack>
           <IconButton
                 icon={<FaChevronLeft />}
-                onClick={() => navigateChapter(-1)}
+                onClick={(e) => { e.stopPropagation(); navigateChapter(-1); }}
                 aria-label="Capitolo precedente"
                 variant="ghost"
             color="white"
@@ -316,7 +323,7 @@ function ReaderPage() {
               </Text>
           <IconButton
                 icon={<FaChevronRight />}
-                onClick={() => navigateChapter(1)}
+                onClick={(e) => { e.stopPropagation(); navigateChapter(1); }}
                 aria-label="Capitolo successivo"
                 variant="ghost"
             color="white"
@@ -330,7 +337,7 @@ function ReaderPage() {
               </Text>
           <IconButton
             icon={<FaCog />}
-            onClick={() => setSettingsOpen(true)}
+            onClick={(e) => { e.stopPropagation(); setSettingsOpen(true); }}
             aria-label="Impostazioni"
                 variant="ghost"
             color="white"
@@ -338,7 +345,7 @@ function ReaderPage() {
           />
           <IconButton
             icon={isFullscreen ? <MdFullscreenExit /> : <MdFullscreen />}
-                onClick={toggleFullscreen}
+                onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
                 aria-label="Schermo intero"
                 variant="ghost"
                 color="white"
@@ -346,7 +353,8 @@ function ReaderPage() {
               />
               <IconButton
                 icon={<FaTimes />}
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   saveProgress();
                   navigate(`/manga/${source}/${mangaId}`);
                 }}

@@ -42,31 +42,34 @@ function Navigation() {
     return undefined;
   }, [user]);
 
-  const handleSearch = (e) => {
+  // ✅ WRAP handleSearch in useCallback per evitare React error #300
+  const handleSearch = React.useCallback((e) => {
     e.preventDefault();
     if (query.trim()) {
       navigate(`/search?q=${encodeURIComponent(query)}`);
       setQuery('');
       onClose();
     }
-  };
+  }, [query, navigate, onClose]);
 
-  const doLogout = async () => {
+  // ✅ WRAP doLogout in useCallback per evitare React error #300
+  const doLogout = React.useCallback(async () => {
     if (user && persistLocalData) {
       await persistLocalData();
     }
     logout();
     navigate('/');
-  };
+  }, [user, persistLocalData, logout, navigate]);
 
-  const shareProfile = () => {
+  // ✅ WRAP shareProfile in useCallback per evitare React error #300
+  const shareProfile = React.useCallback(() => {
     const profileUrl = `${window.location.origin}/user/${user?.username}`;
     navigator.clipboard.writeText(profileUrl).then(() => {
       toast({ title: 'Link copiato!', status: 'success', duration: 2000 });
     }).catch(() => {
       toast({ title: 'Errore nella copia', status: 'error', duration: 2000 });
     });
-  };
+  }, [user, toast]);
 
   return (
     <>

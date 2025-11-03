@@ -1,5 +1,5 @@
-// ✅ PROFILE.JSX v3.5 - ROBUSTO CON ERROR HANDLING COMPLETO
-import React, { useState, useRef, useEffect } from 'react';
+// ✅ PROFILE.JSX v3.6 - FIX REACT ERROR #300
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Container, VStack, HStack, Heading, Text, Avatar, Box, Button, Input,
   FormControl, FormLabel, SimpleGrid, useToast, Switch, Badge, Tabs, TabList, 
@@ -77,45 +77,8 @@ export default function Profile() {
   const profileUrl = user ? `${window.location.origin}/user/${user.username}` : '';
   const { hasCopied, onCopy } = useClipboard(profileUrl);
 
-  // ========= EFFECTS =========
-  useEffect(() => {
-    if (!user) {
-      // Redirect to login if not authenticated
-      toast({
-        title: 'Non autenticato',
-        description: 'Effettua il login per vedere il tuo profilo',
-        status: 'warning',
-        duration: 3000
-      });
-      navigate('/login');
-      return;
-    }
-    
-    loadUserData();
-    loadFriends();
-  }, [user, navigate]);
-
-  useEffect(() => {
-    if (profileData.isPublic && user) {
-      generateQRCode();
-    }
-  }, [profileData.isPublic, user]);
-
-  // Event listener for library updates
-  useEffect(() => {
-    const handler = () => {
-      console.log('📡 Library updated event received');
-      if (user) {
-        loadUserData();
-      }
-    };
-    
-    window.addEventListener('library-updated', handler);
-    return () => window.removeEventListener('library-updated', handler);
-  }, [user]);
-
-  // ========= LOAD DATA WITH ERROR HANDLING =========
-  const loadUserData = async () => {
+  // ========= LOAD DATA WITH ERROR HANDLING - WRAPPED IN USECALLBACK =========
+  const loadUserData = useCallback(async () => {
     if (!user) return;
     
     setDataError(null);
@@ -182,38 +145,37 @@ export default function Profile() {
     } finally {
       setLoadingStats(false);
     }
-  };
+  }, [user]);
 
-  const loadFriends = async () => {
-  if (!user) return;
+  const loadFriends = useCallback(async () => {
+    if (!user) return;
 
-  setFriendsError(null);
+    setFriendsError(null);
 
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
 
-    const [followersRes, followingRes] = await Promise.all([
-      axios.get(`${config.API_URL}/api/user/${user.username}/followers`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).catch(() => ({ data: { followers: [] } })),
-      axios.get(`${config.API_URL}/api/user/${user.username}/following`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).catch(() => ({ data: { following: [] } }))
-    ]);
+      const [followersRes, followingRes] = await Promise.all([
+        axios.get(`${config.API_URL}/api/user/${user.username}/followers`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: { followers: [] } })),
+        axios.get(`${config.API_URL}/api/user/${user.username}/following`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: { following: [] } }))
+      ]);
 
-    setFriends({
-      followers: followersRes.data.followers || [],
-      following: followingRes.data.following || []
-    });
-  } catch (error) {
-    console.error('Error loading friends:', error);
-    setFriendsError('Impossibile caricare gli amici');
-  }
-};
+      setFriends({
+        followers: followersRes.data.followers || [],
+        following: followingRes.data.following || []
+      });
+    } catch (error) {
+      console.error('Error loading friends:', error);
+      setFriendsError('Impossibile caricare gli amici');
+    }
+  }, [user]);
 
-
-  const generateQRCode = async () => {
+  const generateQRCode = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -227,7 +189,44 @@ export default function Profile() {
     } catch (err) {
       console.error('QR generation failed:', err);
     }
-  };
+  }, [user]);
+
+  // ========= EFFECTS =========
+  useEffect(() => {
+    if (!user) {
+      // Redirect to login if not authenticated
+      toast({
+        title: 'Non autenticato',
+        description: 'Effettua il login per vedere il tuo profilo',
+        status: 'warning',
+        duration: 3000
+      });
+      navigate('/login');
+      return;
+    }
+    
+    loadUserData();
+    loadFriends();
+  }, [user, navigate, toast, loadUserData, loadFriends]);
+
+  useEffect(() => {
+    if (profileData.isPublic && user) {
+      generateQRCode();
+    }
+  }, [profileData.isPublic, user, generateQRCode]);
+
+  // Event listener for library updates
+  useEffect(() => {
+    const handler = () => {
+      console.log('📡 Library updated event received');
+      if (user) {
+        loadUserData();
+      }
+    };
+    
+    window.addEventListener('library-updated', handler);
+    return () => window.removeEventListener('library-updated', handler);
+  }, [user, loadUserData]);
 
   // ========= FILE UPLOAD WITH ERROR HANDLING =========
   const handleFileUpload = async (e, type) => {
