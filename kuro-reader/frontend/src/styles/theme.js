@@ -106,6 +106,24 @@ export const theme = extendTheme({
     },
     Tabs: {
       variants: {
+        'soft-rounded': {
+          tab: {
+            borderRadius: 'lg',
+            fontWeight: 'semibold',
+            color: 'gray.300',
+            bg: 'transparent',
+            transition: 'all 0.2s',
+            _selected: {
+              bg: 'purple.600',
+              color: 'white',
+              boxShadow: '0 4px 12px rgba(139, 92, 246, 0.4)',
+            },
+            _hover: {
+              bg: 'whiteAlpha.100',
+              color: 'white',
+            },
+          },
+        },
         enclosed: {
           tab: {
             borderRadius: 'lg lg 0 0',

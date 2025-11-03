@@ -498,6 +498,15 @@ function ReaderPage() {
         
         if (!isMounted) return;
         
+        // ✅ VALIDAZIONE DATI prima di settare lo stato
+        if (!mangaData || !chapterData) {
+          throw new Error('Dati non validi ricevuti dal server');
+        }
+        
+        if (!chapterData.pages || !Array.isArray(chapterData.pages) || chapterData.pages.length === 0) {
+          throw new Error('Capitolo vuoto o non valido');
+        }
+        
         setManga(mangaData);
         setChapter(chapterData);
         
@@ -513,7 +522,7 @@ function ReaderPage() {
         console.error('Error loading reader data:', error);
         toast({
           title: 'Errore caricamento',
-          description: 'Impossibile caricare il capitolo',
+          description: error.message || 'Impossibile caricare il capitolo',
           status: 'error',
           duration: 3000,
         });
@@ -669,11 +678,11 @@ function ReaderPage() {
     );
   }
 
-  if (!chapter || !manga) {
+  if (!chapter || !manga || !chapter.pages || !Array.isArray(chapter.pages) || chapter.pages.length === 0) {
       return (
       <Box h="100vh" bg="black" display="flex" alignItems="center" justifyContent="center">
           <VStack spacing={4}>
-          <Text color="white" fontSize="lg">Capitolo non trovato</Text>
+          <Text color="white" fontSize="lg">Capitolo non trovato o vuoto</Text>
           <Button onClick={() => navigate(`/manga/${source}/${mangaId}`)}>
               Torna al manga
             </Button>

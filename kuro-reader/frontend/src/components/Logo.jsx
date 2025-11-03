@@ -23,22 +23,10 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
       <Link to="/home" style={{ textDecoration: 'none' }}>
         <Box
           display="inline-block"
-          position="relative"
-          pb={1}
+          transition="all 0.2s ease"
           _hover={{
-            '&::after': {
-              width: '100%'
-            }
-          }}
-          _after={{
-            content: '""',
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            width: 0,
-            height: '3px',
-            bgGradient: 'linear(to-r, purple.400, pink.400)',
-            transition: 'width 0.3s ease'
+            transform: 'translateY(-2px)',
+            filter: 'brightness(1.2)'
           }}
         >
           {showText ? (
