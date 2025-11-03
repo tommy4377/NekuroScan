@@ -574,49 +574,23 @@ function ReaderPage() {
     };
   }, [showControls, currentPage]);
 
-  // ⚡ PRELOAD AVANZATO - Immagini successive E capitolo successivo
+  // Preload immagini successive
   useEffect(() => {
-    if (!chapter?.pages) return;
+    if (!chapter?.pages || readingMode === 'webtoon') return;
     
-    // 1. Preload immagini pagine successive (immediate)
-    if (readingMode !== 'webtoon') {
-      const preloadCount = 5; // Aumentato da 3 a 5
-      for (let i = 1; i <= preloadCount; i++) {
-        const nextPage = currentPage + i;
-        if (nextPage < totalPages && chapter.pages[nextPage]) {
-          const imgUrl = chapter.pages[nextPage];
-          if (!preloadedImages.current.has(imgUrl)) {
-            const imgElement = document.createElement('img');
-            imgElement.src = imgUrl;
-            imgElement.loading = 'eager';
-            preloadedImages.current.add(imgUrl);
-          }
+    const preloadCount = 3;
+    for (let i = 1; i <= preloadCount; i++) {
+      const nextPage = currentPage + i;
+      if (nextPage < totalPages && chapter.pages[nextPage]) {
+        const imgUrl = chapter.pages[nextPage];
+        if (!preloadedImages.current.has(imgUrl)) {
+          const imgElement = document.createElement('img');
+          imgElement.src = imgUrl;
+          preloadedImages.current.add(imgUrl);
         }
       }
     }
-    
-    // 2. Prefetch capitolo successivo quando sei vicino alla fine (>80%)
-    const progress = ((currentPage + 1) / totalPages) * 100;
-    if (progress > 80 && manga?.chapters && chapterIndex < manga.chapters.length - 1) {
-      const nextChapter = manga.chapters[chapterIndex + 1];
-      if (nextChapter?.url && !preloadedImages.current.has(`chapter-${nextChapter.url}`)) {
-        preloadedImages.current.add(`chapter-${nextChapter.url}`);
-        
-        // Prefetch in background
-        const prefetchNextChapter = async () => {
-          try {
-            await apiManager.getChapter(nextChapter.url, source);
-            console.log('✅ Next chapter prefetched:', nextChapter.title);
-          } catch (error) {
-            console.log('⚠️ Prefetch failed (non-critical):', error);
-          }
-        };
-        
-        // Delay di 2 secondi per non interferire con la lettura corrente
-        setTimeout(prefetchNextChapter, 2000);
-      }
-    }
-  }, [currentPage, chapter, totalPages, readingMode, manga, chapterIndex, source]);
+  }, [currentPage, totalPages, chapter, readingMode]);
 
   // Auto-scroll per modalità webtoon
   useEffect(() => {
@@ -654,14 +628,20 @@ function ReaderPage() {
     };
   }, [autoScroll, readingMode, scrollSpeed, autoNextChapter, navigateChapter]);
 
-  // ✅ FIX dipendenze useEffect
+  // Salva progresso con debounce
   useEffect(() => {
+    if (!manga || !chapter) return;
+    
     const timeout = setTimeout(() => {
-      saveProgress();
+      try {
+        saveProgress();
+      } catch (error) {
+        console.error('Error saving progress:', error);
+      }
     }, 1000);
 
     return () => clearTimeout(timeout);
-  }, [saveProgress]);
+  }, [currentPage, chapterIndex, manga, chapter, saveProgress]);
 
   // ========== RENDER ==========
   
