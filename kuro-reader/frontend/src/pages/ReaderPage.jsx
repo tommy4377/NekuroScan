@@ -277,48 +277,65 @@ function ReaderPage() {
 
   // ✅ WRAP navigateChapter in useCallback per evitare React error #300
   const navigateChapter = useCallback((direction) => {
-    if (!manga?.chapters) return;
+    if (!manga?.chapters || !Array.isArray(manga.chapters)) return;
     
     const newIndex = chapterIndex + direction;
     
-    if (newIndex >= 0 && newIndex < manga.chapters.length) {
-      saveProgress();
-      const newChapter = manga.chapters[newIndex];
-      const newChapterId = btoa(newChapter.url);
-      setCurrentPage(0); // Reset alla prima pagina
-      navigate(`/read/${source}/${mangaId}/${newChapterId}?chapter=${newIndex}`);
-    } else if (direction > 0) {
-      saveProgress();
+    try {
+      if (newIndex >= 0 && newIndex < manga.chapters.length) {
+        saveProgress();
+        const newChapter = manga.chapters[newIndex];
+        if (!newChapter || !newChapter.url) return;
+        
+        const newChapterId = btoa(newChapter.url);
+        setCurrentPage(0);
+        navigate(`/read/${source}/${mangaId}/${newChapterId}?chapter=${newIndex}`);
+      } else if (direction > 0) {
+        saveProgress();
+        toast({
+          title: 'Manga completato!',
+          description: 'Hai finito di leggere questo manga',
+          status: 'success',
+          duration: 2000,
+        });
+        setTimeout(() => {
+          navigate(`/manga/${source}/${mangaId}`);
+        }, 1200);
+      } else if (direction < 0) {
+        toast({
+          title: 'Primo capitolo',
+          description: 'Sei già al primo capitolo',
+          status: 'info',
+          duration: 1500,
+        });
+      }
+    } catch (error) {
+      console.error('Error navigating chapter:', error);
       toast({
-        title: 'Manga completato!',
-        description: 'Hai finito di leggere questo manga',
-        status: 'success',
-        duration: 2000,
-      });
-      setTimeout(() => {
-        navigate(`/manga/${source}/${mangaId}`);
-      }, 1200);
-    } else if (direction < 0) {
-      toast({
-        title: 'Primo capitolo',
-        description: 'Sei già al primo capitolo',
-        status: 'info',
-        duration: 1500,
+        title: 'Errore navigazione',
+        status: 'error',
+        duration: 2000
       });
     }
   }, [manga, chapterIndex, saveProgress, navigate, source, mangaId, toast]);
 
   // Naviga alla pagina successiva/precedente
   const changePage = useCallback((delta) => {
+    if (!chapter || !chapter.pages) return;
+    
     const newPage = currentPage + delta;
-    if (newPage >= 0 && newPage < totalPages) {
-      setCurrentPage(newPage);
-    } else if (newPage >= totalPages && autoNextChapter && manga?.chapters && chapterIndex < manga.chapters.length - 1) {
-      navigateChapter(1);
-    } else if (newPage < 0 && autoNextChapter && chapterIndex > 0) {
-      navigateChapter(-1);
+    try {
+      if (newPage >= 0 && newPage < totalPages) {
+        setCurrentPage(newPage);
+      } else if (newPage >= totalPages && autoNextChapter && manga?.chapters && Array.isArray(manga.chapters) && chapterIndex < manga.chapters.length - 1) {
+        navigateChapter(1);
+      } else if (newPage < 0 && autoNextChapter && chapterIndex > 0) {
+        navigateChapter(-1);
+      }
+    } catch (error) {
+      console.error('Error changing page:', error);
     }
-  }, [currentPage, totalPages, autoNextChapter, navigateChapter, manga, chapterIndex]);
+  }, [currentPage, totalPages, autoNextChapter, navigateChapter, manga, chapterIndex, chapter]);
 
   // ✅ WRAP toggleFullscreen in useCallback per evitare React error #300
   const toggleFullscreen = React.useCallback(() => {
@@ -401,7 +418,7 @@ function ReaderPage() {
 
   // ✅ Touch Gestures
   const handleTouchStart = useCallback((e) => {
-    if (readingMode === 'webtoon') return;
+    if (!chapter || readingMode === 'webtoon') return;
     
     const touch = e.touches[0];
     touchStartX.current = touch.clientX;
@@ -410,7 +427,7 @@ function ReaderPage() {
   }, [readingMode]);
 
   const handleTouchEnd = useCallback((e) => {
-    if (readingMode === 'webtoon') return;
+    if (!chapter || readingMode === 'webtoon') return;
     
     const touch = e.changedTouches[0];
     const touchEndX = touch.clientX;

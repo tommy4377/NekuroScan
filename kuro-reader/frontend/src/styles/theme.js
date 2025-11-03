@@ -110,17 +110,18 @@ export const theme = extendTheme({
           tab: {
             borderRadius: 'lg lg 0 0',
             fontWeight: 'semibold',
-            color: 'gray.400',
+            color: 'gray.300',
+            bg: 'transparent',
             _selected: {
-              bg: 'purple.900',
-              borderColor: 'purple.500',
-              borderBottom: '2px solid',
-              borderBottomColor: 'purple.500',
-              color: 'white',
+              bg: 'gray.800',
+              borderColor: 'purple.400',
+              borderBottom: '3px solid',
+              borderBottomColor: 'purple.400',
+              color: 'purple.200',
             },
             _hover: {
               bg: 'gray.800',
-              color: 'white',
+              color: 'purple.300',
             },
           },
           tablist: {

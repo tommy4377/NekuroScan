@@ -719,6 +719,15 @@ Status bar dinamico:
 ### Runtime Errors Risolti
 8. ✅ Navigation.jsx - Mancavano import FaFire, FaStar, FaClock
 9. ✅ Tutti gli import icons verificati e corretti
+10. ✅ ReaderPage.jsx - Aggiunti null checks su tutti i callbacks
+11. ✅ Guard clauses `if (!chapter)` in navigateChapter, changePage, handleKeyPress, handleTouchStart, handleTouchEnd
+12. ✅ Try-catch su tutte le operazioni critiche
+
+### UI Improvements Finali
+- ✅ Logo hover: opacity 0.8 invece di underline (più pulito)
+- ✅ Tab colors: purple.200 selected (leggibile)
+- ✅ Hamburger icon: border + hover scale
+- ✅ Settings: solo italiano, solo dark, no fit mode
 
 ---
 
