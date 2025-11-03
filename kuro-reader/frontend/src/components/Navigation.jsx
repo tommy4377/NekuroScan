@@ -8,7 +8,7 @@ import {
 } from '@chakra-ui/react';
 import { HamburgerIcon, CloseIcon, SearchIcon } from '@chakra-ui/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaBook, FaUser, FaBookmark, FaSignInAlt, FaSignOutAlt, FaCog, FaShare, FaUsers, FaBell, FaChartLine, FaDownload, FaList } from 'react-icons/fa';
+import { FaBook, FaUser, FaBookmark, FaSignInAlt, FaSignOutAlt, FaCog, FaShare, FaUsers, FaBell, FaChartLine, FaDownload, FaList, FaFire, FaStar, FaClock } from 'react-icons/fa';
 import { BiCategoryAlt } from 'react-icons/bi';
 import { MdPublic } from 'react-icons/md';
 import useAuth from '../hooks/useAuth';
