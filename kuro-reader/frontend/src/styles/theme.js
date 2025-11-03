@@ -5,11 +5,20 @@ export const theme = extendTheme({
     initialColorMode: 'dark',
     useSystemColorMode: false,
   },
+  fonts: {
+    heading: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+    body: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+  },
   styles: {
     global: {
       body: {
         bg: 'gray.900',
         color: 'white',
+        fontFamily: 'body',
+        fontFeatureSettings: '"liga", "kern"',
+        textRendering: 'optimizeLegibility',
+        WebkitFontSmoothing: 'antialiased',
+        MozOsxFontSmoothing: 'grayscale',
       },
       // ✅ SCROLL BAR PERSONALIZZATA
       '*::-webkit-scrollbar': {
@@ -25,6 +34,17 @@ export const theme = extendTheme({
       },
       '*::-webkit-scrollbar-thumb:hover': {
         background: 'purple.500',
+      },
+      // ✅ BETTER CONTRAST per accessibilità
+      'a': {
+        color: 'purple.300',
+        _hover: {
+          color: 'purple.200',
+          textDecoration: 'underline',
+        },
+      },
+      '.chakra-text': {
+        color: 'gray.100', // Testo più chiaro
       },
     },
   },
@@ -82,6 +102,68 @@ export const theme = extendTheme({
         borderRadius: 'full',  // ✅ badge arrotondati
         px: 3,
         py: 1,
+      },
+    },
+    Tabs: {
+      variants: {
+        enclosed: {
+          tab: {
+            borderRadius: 'lg lg 0 0',
+            fontWeight: 'semibold',
+            _selected: {
+              bg: 'purple.900',
+              borderColor: 'purple.500',
+              borderBottom: '2px solid',
+              borderBottomColor: 'purple.500',
+              color: 'purple.300',
+            },
+            _hover: {
+              bg: 'gray.800',
+            },
+          },
+          tablist: {
+            borderBottom: '2px solid',
+            borderColor: 'gray.700',
+          },
+        },
+      },
+    },
+    Modal: {
+      baseStyle: {
+        dialog: {
+          bg: 'gray.800',
+          borderRadius: '2xl',
+          border: '1px solid',
+          borderColor: 'gray.700',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+        },
+        header: {
+          borderBottom: '1px solid',
+          borderColor: 'gray.700',
+          fontWeight: 'bold',
+          fontSize: 'xl',
+        },
+        footer: {
+          borderTop: '1px solid',
+          borderColor: 'gray.700',
+        },
+        closeButton: {
+          borderRadius: 'full',
+          _hover: {
+            bg: 'gray.700',
+          },
+        },
+      },
+    },
+    Drawer: {
+      baseStyle: {
+        dialog: {
+          bg: 'gray.900',
+        },
+        header: {
+          borderBottom: '1px solid',
+          borderColor: 'gray.700',
+        },
       },
     },
   },

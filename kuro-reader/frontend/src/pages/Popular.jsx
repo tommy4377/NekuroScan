@@ -10,6 +10,7 @@ import { FaHeart, FaArrowUp, FaFire, FaStar, FaTrophy, FaPlus } from 'react-icon
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useInView } from 'react-intersection-observer';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
@@ -34,7 +35,13 @@ function Popular() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [infiniteScrollEnabled, setInfiniteScrollEnabled] = useLocalStorage('infiniteScroll', true);
   const toast = useToast();
+  
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0.1,
+    rootMargin: '200px'
+  });
 
   const tabKeys = ['mostRead', 'topRated', 'trending'];
   const currentKey = tabKeys[activeTab];
@@ -115,6 +122,13 @@ function Popular() {
     loadData(currentKey, 1, true);
   }, [currentKey, includeAdult]);
 
+  // Infinite scroll
+  useEffect(() => {
+    if (inView && infiniteScrollEnabled && hasMore[currentKey] && !loading) {
+      loadData(currentKey, pages[currentKey] + 1);
+    }
+  }, [inView, infiniteScrollEnabled, hasMore, currentKey, loading]);
+
   const handleLoadMore = () => {
     if (!loading && hasMore[currentKey]) {
       loadData(currentKey, pages[currentKey] + 1);
@@ -188,19 +202,26 @@ function Popular() {
       <>
         {renderGrid(currentList)}
         {hasMore[currentKey] && (
-          <Center py={6}>
-            <Button
-              onClick={handleLoadMore}
-              isLoading={loading}
-              loadingText="Caricamento..."
-              colorScheme="purple"
-              size="lg"
-              leftIcon={!loading ? <FaPlus /> : undefined}
-              variant="solid"
-              disabled={loading}
-            >
-              {loading ? 'Caricamento...' : 'Carica altri'}
-            </Button>
+          <Center py={6} ref={infiniteScrollEnabled ? loadMoreRef : null}>
+            {infiniteScrollEnabled && loading ? (
+              <VStack>
+                <Spinner color="purple.500" />
+                <Text fontSize="sm" color="gray.400">Caricamento...</Text>
+              </VStack>
+            ) : !infiniteScrollEnabled ? (
+              <Button
+                onClick={handleLoadMore}
+                isLoading={loading}
+                loadingText="Caricamento..."
+                colorScheme="purple"
+                size="lg"
+                leftIcon={!loading ? <FaPlus /> : undefined}
+                variant="solid"
+                disabled={loading}
+              >
+                {loading ? 'Caricamento...' : 'Carica altri'}
+              </Button>
+            ) : null}
           </Center>
         )}
         {!hasMore[currentKey] && currentList.length > 0 && (

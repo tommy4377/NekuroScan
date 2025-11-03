@@ -4,11 +4,11 @@ import {
   useDisclosure, Container, Avatar, Menu, MenuButton, MenuList, MenuItem,
   MenuDivider, Text, Drawer, DrawerBody, DrawerHeader, DrawerOverlay,
   DrawerContent, DrawerCloseButton, VStack, Divider, useBreakpointValue,
-  Badge, useToast
+  Badge, useToast, Tooltip
 } from '@chakra-ui/react';
 import { HamburgerIcon, CloseIcon, SearchIcon } from '@chakra-ui/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaBook, FaUser, FaBookmark, FaSignInAlt, FaSignOutAlt, FaCog, FaShare, FaUsers, FaBell } from 'react-icons/fa';
+import { FaBook, FaUser, FaBookmark, FaSignInAlt, FaSignOutAlt, FaCog, FaShare, FaUsers, FaBell, FaChartLine, FaDownload, FaList } from 'react-icons/fa';
 import { BiCategoryAlt } from 'react-icons/bi';
 import { MdPublic } from 'react-icons/md';
 import useAuth from '../hooks/useAuth';
@@ -146,15 +146,17 @@ function Navigation() {
             </Box>
 
             <HStack spacing={2}>
-              <IconButton
-                icon={<SearchIcon />}
-                variant="ghost"
-                display={{ base: 'flex', md: 'none' }}
-                onClick={() => navigate('/search')}
-                aria-label="Cerca"
-                size="sm"
-                colorScheme="purple"
-              />
+              <Tooltip label="Cerca manga" placement="bottom">
+                <IconButton
+                  icon={<SearchIcon />}
+                  variant="ghost"
+                  display={{ base: 'flex', md: 'none' }}
+                  onClick={() => navigate('/search')}
+                  aria-label="Cerca"
+                  size="sm"
+                  colorScheme="purple"
+                />
+              </Tooltip>
               
               {user ? (
                 <Menu>
@@ -187,8 +189,17 @@ function Navigation() {
                     <MenuItem icon={<FaBookmark />} onClick={() => navigate('/library')}>
                       I miei manga
                     </MenuItem>
+                    <MenuItem icon={<FaList />} onClick={() => navigate('/lists')}>
+                      Le mie liste
+                    </MenuItem>
+                    <MenuItem icon={<FaChartLine />} onClick={() => navigate('/dashboard')}>
+                      Dashboard
+                    </MenuItem>
                     <MenuItem icon={<FaBell />} onClick={() => navigate('/notifications')}>
                       Notifiche
+                    </MenuItem>
+                    <MenuItem icon={<FaDownload />} onClick={() => navigate('/downloads')}>
+                      Download Offline
                     </MenuItem>
                     {/* Follower/Seguiti gestiti dentro Profilo, voce dedicata rimossa */}
                     <MenuItem icon={<FaCog />} onClick={() => navigate('/settings')}>
@@ -252,9 +263,29 @@ function Navigation() {
               <Divider borderColor="gray.700" />
               
               <VStack align="stretch" spacing={2}>
-                <Link to="/library" onClick={onClose}>
+                <Link to="/home" onClick={onClose}>
                   <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaBook />} w="100%">
-                    La mia Libreria
+                    🏠 Home
+                  </Button>
+                </Link>
+                <Link to="/search" onClick={onClose}>
+                  <Button variant="ghost" justifyContent="flex-start" leftIcon={<SearchIcon />} w="100%">
+                    🔍 Cerca
+                  </Button>
+                </Link>
+                <Link to="/trending" onClick={onClose}>
+                  <Button variant="ghost" justifyContent="flex-start" w="100%">
+                    🔥 Trending
+                  </Button>
+                </Link>
+                <Link to="/popular" onClick={onClose}>
+                  <Button variant="ghost" justifyContent="flex-start" w="100%">
+                    ⭐ Popolari
+                  </Button>
+                </Link>
+                <Link to="/latest" onClick={onClose}>
+                  <Button variant="ghost" justifyContent="flex-start" w="100%">
+                    🕐 Ultimi
                   </Button>
                 </Link>
                 <Link to="/categories" onClick={onClose}>
@@ -265,7 +296,7 @@ function Navigation() {
                     w="100%"
                     colorScheme="purple"
                   >
-                    Esplora Categorie
+                    📂 Categorie
                   </Button>
                 </Link>
               </VStack>

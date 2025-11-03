@@ -1,9 +1,10 @@
 // ✅ HOME.JSX v3.3 - COMPLETO E OTTIMIZZATO
 import React, { useEffect, useState, useCallback } from 'react';
+import PageTransition from '../components/PageTransition';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
   Button, useToast, Skeleton, IconButton, Tabs, TabList, Tab,
-  TabPanels, TabPanel, Badge, Icon, Center
+  TabPanels, TabPanel, Badge, Icon, Center, Select
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -17,6 +18,7 @@ import apiManager from '../api';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import useAuth from '../hooks/useAuth';
+import useGridDensity from '../hooks/useGridDensity';
 
 // ✅ PULISCE NUMERO CAPITOLO
 const cleanChapterNumber = (chapter) => {
@@ -32,6 +34,7 @@ function Home() {
   const navigate = useNavigate();
   const toast = useToast();
   const { user } = useAuth();
+  const { density, setDensity, config: gridConfig, densityOptions } = useGridDensity();
   
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
   
@@ -313,7 +316,8 @@ function Home() {
   }
 
   return (
-    <Container maxW="container.xl" py={8}>
+    <PageTransition>
+      <Container maxW="container.xl" py={8}>
       <VStack spacing={8} align="stretch">
         
         {/* ========= HEADER ========= */}
@@ -516,6 +520,7 @@ function Home() {
         </Box>
       </VStack>
     </Container>
+    </PageTransition>
   );
 }
 

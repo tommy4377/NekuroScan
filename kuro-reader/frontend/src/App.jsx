@@ -5,9 +5,13 @@ import { ChakraProvider, Box, Spinner, Center, VStack, Text, useToast, Button } 
 import { HelmetProvider, Helmet } from 'react-helmet-async';
 import { theme } from './styles/theme';
 import Navigation from './components/Navigation';
+import Sidebar from './components/Sidebar';
+import Breadcrumbs from './components/Breadcrumbs';
+import FloatingActionButton from './components/FloatingActionButton';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import useAuthStore from './hooks/useAuth';
+import statusBar from './utils/statusBar';
 
 // ✅ FIX React #300: Tutti i componenti caricati DIRETTAMENTE senza lazy/Suspense
 import ReaderPage from './pages/ReaderPage';
@@ -26,6 +30,9 @@ import Profile from './pages/Profile';
 import PublicProfile from './pages/PublicProfile';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
+import Dashboard from './pages/Dashboard';
+import Downloads from './pages/Downloads';
+import Lists from './pages/Lists';
 import NotFound from './pages/NotFound';
 
 const PageLoader = () => (
@@ -71,6 +78,11 @@ const ProtectedRoute = ({ children }) => {
 function AnimatedRoutes() {
   const location = useLocation();
 
+  // Aggiorna colore status bar in base alla route
+  useEffect(() => {
+    statusBar.setForRoute(location.pathname);
+  }, [location.pathname]);
+
   return (
     <Routes location={location}>
         {/* Reader Route - caricato direttamente */}
@@ -94,6 +106,11 @@ function AnimatedRoutes() {
             <Library />
           </ProtectedRoute>
         } />
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } />
         <Route path="/profile" element={
           <ProtectedRoute>
             <Profile />
@@ -109,6 +126,16 @@ function AnimatedRoutes() {
             <Notifications />
           </ProtectedRoute>
         } />
+        <Route path="/downloads" element={
+          <ProtectedRoute>
+            <Downloads />
+          </ProtectedRoute>
+        } />
+        <Route path="/lists" element={
+          <ProtectedRoute>
+            <Lists />
+          </ProtectedRoute>
+        } />
         
         <Route path="*" element={<NotFound />} />
       </Routes>
@@ -119,9 +146,18 @@ function AppContent() {
   const initAuth = useAuthStore(state => state.initAuth);
   const startAutoSync = useAuthStore(state => state.startAutoSync);
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const user = useAuthStore(state => state.user);
   
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => 
+    localStorage.getItem('sidebarCollapsed') === 'true'
+  );
   const toast = useToast();
+
+  // Salva stato sidebar
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', sidebarCollapsed.toString());
+  }, [sidebarCollapsed]);
 
   // Gestione routing per URL diretti
   useEffect(() => {
@@ -132,7 +168,7 @@ function AppContent() {
       // Se siamo su una route valida, non fare nulla
       const validRoutes = [
         '/', '/home', '/search', '/categories', '/latest', '/popular', 
-        '/trending', '/login', '/library', '/profile', '/settings', '/notifications'
+        '/trending', '/login', '/library', '/dashboard', '/profile', '/settings', '/notifications', '/downloads'
       ];
       
       const isMangaRoute = path.startsWith('/manga/');
@@ -265,6 +301,11 @@ function AppContent() {
       </Helmet>
       
       <Navigation />
+      <Sidebar 
+        isCollapsed={sidebarCollapsed} 
+        setIsCollapsed={setSidebarCollapsed}
+        user={user}
+      />
       
       {!isOnline && (
         <Box
@@ -282,7 +323,14 @@ function AppContent() {
         </Box>
       )}
       
-      <AnimatedRoutes />
+      <Box ml={{ base: 0, lg: sidebarCollapsed ? '70px' : '250px' }} transition="margin-left 0.3s">
+        <Box maxW="container.xl" mx="auto">
+          <Breadcrumbs />
+        </Box>
+        <AnimatedRoutes />
+      </Box>
+      
+      <FloatingActionButton user={user} />
     </Box>
   );
 }

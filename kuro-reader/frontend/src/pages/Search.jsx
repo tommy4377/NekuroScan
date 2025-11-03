@@ -10,6 +10,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useInView } from 'react-intersection-observer';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
+import searchHistory from '../utils/searchHistory';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
@@ -26,6 +27,8 @@ function Search() {
   const [results, setResults] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [history, setHistory] = useState([]);
   
   // ✅ FIX: Ref per evitare spam
   const loadingRef = useRef(false);
@@ -161,9 +164,19 @@ function Search() {
     performSearch(query, searchMode, nextPage, true);
   };
 
+  // Carica cronologia al mount
+  useEffect(() => {
+    setHistory(searchHistory.getAll());
+  }, []);
+
   const onSubmit = (e) => {
     e.preventDefault();
     if (query.trim() && query.length >= 3) {
+      // Salva nella cronologia
+      searchHistory.add(query.trim());
+      setHistory(searchHistory.getAll());
+      setShowSuggestions(false);
+      
       navigate(`/search?q=${encodeURIComponent(query)}`);
     }
   };
@@ -172,12 +185,36 @@ function Search() {
     const value = e.target.value;
     setQuery(value);
     
+    // Mostra suggerimenti se c'è input
+    if (value.length >= 2) {
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
+    
     // ✅ Non cercare durante la digitazione, solo quando premi invio
     if (value.length === 0) {
       setResults([]);
       setHasMore(true);
       lastSearchRef.current = '';
+      setShowSuggestions(false);
     }
+  };
+
+  const selectSuggestion = (suggestion) => {
+    setQuery(suggestion);
+    setShowSuggestions(false);
+    navigate(`/search?q=${encodeURIComponent(suggestion)}`);
+  };
+
+  const clearHistory = () => {
+    searchHistory.clear();
+    setHistory([]);
+    toast({
+      title: 'Cronologia cancellata',
+      status: 'info',
+      duration: 2000
+    });
   };
 
   const changeSearchMode = (mode) => {
@@ -200,31 +237,109 @@ function Search() {
           <Heading size="xl">Cerca Manga</Heading>
           
           <form onSubmit={onSubmit} style={{ width: '100%' }}>
-            <HStack spacing={4} maxW="600px" mx="auto" w="100%">
-              <InputGroup size="lg">
-                <InputLeftElement pointerEvents="none">
-                  <SearchIcon color="gray.400" />
-                </InputLeftElement>
-                <Input
-                  placeholder="Cerca per titolo (min. 3 caratteri)..."
-                  value={query}
-                  onChange={handleInputChange}
+            <Box maxW="600px" mx="auto" w="100%" position="relative">
+              <HStack spacing={4}>
+                <InputGroup size="lg">
+                  <InputLeftElement pointerEvents="none">
+                    <SearchIcon color="gray.400" />
+                  </InputLeftElement>
+                  <Input
+                    placeholder="Cerca per titolo (min. 3 caratteri)..."
+                    value={query}
+                    onChange={handleInputChange}
+                    onFocus={() => query.length >= 2 && setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    bg="gray.800"
+                    border="none"
+                    _focus={{ bg: 'gray.700', borderColor: 'purple.500' }}
+                    autoFocus
+                  />
+                </InputGroup>
+                <Button 
+                  type="submit" 
+                  size="lg" 
+                  colorScheme="purple" 
+                  isLoading={loading} 
+                  isDisabled={!query.trim() || query.length < 3}
+                >
+                  Cerca
+                </Button>
+              </HStack>
+              
+              {/* Cronologia e Suggerimenti */}
+              {showSuggestions && (query.length >= 2 || history.length > 0) && (
+                <Box
+                  position="absolute"
+                  top="100%"
+                  left={0}
+                  right={0}
+                  mt={2}
                   bg="gray.800"
-                  border="none"
-                  _focus={{ bg: 'gray.700', borderColor: 'purple.500' }}
-                  autoFocus
-                />
-              </InputGroup>
-              <Button 
-                type="submit" 
-                size="lg" 
-                colorScheme="purple" 
-                isLoading={loading} 
-                isDisabled={!query.trim() || query.length < 3}
-              >
-                Cerca
-              </Button>
-            </HStack>
+                  borderRadius="lg"
+                  boxShadow="xl"
+                  zIndex={10}
+                  maxH="300px"
+                  overflowY="auto"
+                  border="1px solid"
+                  borderColor="gray.700"
+                >
+                  <VStack align="stretch" spacing={0}>
+                    {/* Suggerimenti dalla cronologia */}
+                    {query.length >= 2 && searchHistory.getSuggestions(query).map((suggestion, i) => (
+                      <Box
+                        key={i}
+                        px={4}
+                        py={3}
+                        cursor="pointer"
+                        _hover={{ bg: 'gray.700' }}
+                        onClick={() => selectSuggestion(suggestion)}
+                        borderBottom={i < searchHistory.getSuggestions(query).length - 1 ? '1px solid' : 'none'}
+                        borderColor="gray.700"
+                      >
+                        <HStack>
+                          <SearchIcon color="purple.400" size="sm" />
+                          <Text>{suggestion}</Text>
+                        </HStack>
+                      </Box>
+                    ))}
+                    
+                    {/* Cronologia recente */}
+                    {query.length === 0 && history.length > 0 && (
+                      <>
+                        <HStack justify="space-between" px={4} py={2} bg="gray.700">
+                          <Text fontSize="sm" fontWeight="bold" color="gray.400">
+                            Ricerche recenti
+                          </Text>
+                          <Button size="xs" variant="ghost" onClick={clearHistory}>
+                            Cancella
+                          </Button>
+                        </HStack>
+                        {history.slice(0, 10).map((item, i) => (
+                          <Box
+                            key={i}
+                            px={4}
+                            py={3}
+                            cursor="pointer"
+                            _hover={{ bg: 'gray.700' }}
+                            onClick={() => selectSuggestion(item.query)}
+                          >
+                            <HStack justify="space-between">
+                              <HStack>
+                                <SearchIcon color="gray.500" size="sm" />
+                                <Text>{item.query}</Text>
+                              </HStack>
+                              <Text fontSize="xs" color="gray.500">
+                                {new Date(item.timestamp).toLocaleDateString()}
+                              </Text>
+                            </HStack>
+                          </Box>
+                        ))}
+                      </>
+                    )}
+                  </VStack>
+                </Box>
+              )}
+            </Box>
           </form>
           
           <VStack spacing={3}>

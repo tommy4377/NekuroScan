@@ -5,14 +5,18 @@ import {
   Drawer, DrawerOverlay, DrawerContent, DrawerBody, DrawerHeader,
   FormControl, FormLabel, Slider, SliderTrack, SliderFilledTrack,
   SliderThumb, Button, Progress, DrawerCloseButton, Select, Divider,
-  Switch, Badge, Heading
+  Switch, Badge, Heading, Modal, ModalOverlay, ModalContent,
+  ModalHeader, ModalBody, ModalFooter, ModalCloseButton, Textarea
 } from '@chakra-ui/react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
-  FaChevronLeft, FaChevronRight, FaTimes, FaCog, FaBook, FaPlay, FaPause
+  FaChevronLeft, FaChevronRight, FaTimes, FaCog, FaBook, FaPlay, FaPause, FaBookmark, FaRegBookmark, FaStickyNote, FaRegStickyNote
 } from 'react-icons/fa';
 import { MdFullscreen, MdFullscreenExit } from 'react-icons/md';
 import apiManager from '../api';
+import bookmarksManager from '../utils/bookmarks';
+import notesManager from '../utils/notes';
+import chapterCache from '../utils/chapterCache';
 
 function ReaderPage() {
   // ========== HOOKS ESSENZIALI ==========
@@ -37,6 +41,12 @@ function ReaderPage() {
   const [autoNextChapter, setAutoNextChapter] = useState(() => localStorage.getItem('autoNextChapter') === 'true');
   const [autoScroll, setAutoScroll] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(() => parseInt(localStorage.getItem('scrollSpeed') || '2'));
+  const [bookmarks, setBookmarks] = useState([]);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [rotationLock, setRotationLock] = useState(() => localStorage.getItem('rotationLock') === 'true');
+  const [currentNote, setCurrentNote] = useState('');
+  const [hasNote, setHasNote] = useState(false);
+  const [showNoteModal, setShowNoteModal] = useState(false);
   
   // ========== REFS ESSENZIALI ==========
   const containerRef = useRef(null);
@@ -44,6 +54,12 @@ function ReaderPage() {
   const preloadedImages = useRef(new Set());
   const webtoonScrollRef = useRef(null);
   const autoScrollInterval = useRef(null);
+  
+  // Touch/Gesture refs
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const touchStartTime = useRef(0);
+  const lastTapTime = useRef(0);
   
   // ========== CALCOLI ==========
   const chapterIndex = parseInt(searchParams.get('chapter') || '0');
@@ -89,6 +105,128 @@ function ReaderPage() {
   useEffect(() => {
     localStorage.setItem('scrollSpeed', scrollSpeed.toString());
   }, [scrollSpeed]);
+
+  useEffect(() => {
+    localStorage.setItem('rotationLock', rotationLock.toString());
+    
+    // Lock orientamento se supportato
+    if (rotationLock && readingMode !== 'webtoon') {
+      // Blocca in landscape per doppia pagina, portrait per singola
+      const orientation = readingMode === 'double' ? 'landscape' : 'portrait';
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock(orientation).catch(() => {
+          console.log('Orientation lock not supported on this device');
+        });
+      }
+    } else if (screen.orientation && screen.orientation.unlock) {
+      screen.orientation.unlock();
+    }
+    
+    return () => {
+      if (screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock();
+      }
+    };
+  }, [rotationLock, readingMode]);
+
+  // Carica segnalibri e note
+  useEffect(() => {
+    if (manga && chapter) {
+      const chapterBookmarks = bookmarksManager.getByChapter(manga.url, chapter.url);
+      setBookmarks(chapterBookmarks);
+      
+      const isCurrentBookmarked = bookmarksManager.isBookmarked(
+        manga.url, 
+        chapter.url, 
+        currentPage
+      );
+      setIsBookmarked(isCurrentBookmarked);
+      
+      // Carica nota per pagina corrente
+      const existingNote = notesManager.getForPage(manga.url, chapter.url, currentPage);
+      if (existingNote) {
+        setCurrentNote(existingNote.text);
+        setHasNote(true);
+      } else {
+        setCurrentNote('');
+        setHasNote(false);
+      }
+    }
+  }, [manga, chapter, currentPage]);
+
+  // Toggle bookmark
+  const toggleBookmark = useCallback(() => {
+    if (!manga || !chapter) return;
+    
+    if (isBookmarked) {
+      const id = `${manga.url}-${chapter.url}-${currentPage}`;
+      bookmarksManager.removeBookmark(id);
+      setIsBookmarked(false);
+      toast({
+        title: 'Segnalibro rimosso',
+        status: 'info',
+        duration: 2000
+      });
+    } else {
+      bookmarksManager.addBookmark(
+        manga.url,
+        chapter.url,
+        currentPage,
+        `Pagina ${currentPage + 1}`
+      );
+      setIsBookmarked(true);
+      toast({
+        title: 'Segnalibro aggiunto',
+        description: `Pagina ${currentPage + 1}`,
+        status: 'success',
+        duration: 2000
+      });
+    }
+    
+    // Aggiorna lista
+    const updated = bookmarksManager.getByChapter(manga.url, chapter.url);
+    setBookmarks(updated);
+  }, [manga, chapter, currentPage, isBookmarked, toast]);
+
+  // Salva/aggiorna nota
+  const saveNote = useCallback(() => {
+    if (!manga || !chapter || !currentNote.trim()) return;
+    
+    notesManager.saveNote(
+      manga.url,
+      chapter.url,
+      currentPage,
+      currentNote
+    );
+    
+    setHasNote(true);
+    setShowNoteModal(false);
+    
+    toast({
+      title: 'Nota salvata',
+      description: `Pagina ${currentPage + 1}`,
+      status: 'success',
+      duration: 2000
+    });
+  }, [manga, chapter, currentPage, currentNote, toast]);
+
+  // Rimuovi nota
+  const removeNote = useCallback(() => {
+    if (!manga || !chapter) return;
+    
+    const id = `${manga.url}-${chapter.url}-${currentPage}`;
+    notesManager.removeNote(id);
+    
+    setCurrentNote('');
+    setHasNote(false);
+    setShowNoteModal(false);
+    
+    toast({
+      title: 'Nota eliminata',
+      status: 'info',
+      duration: 2000
+    });
+  }, [manga, chapter, currentPage, toast]);
   
   // ========== HANDLERS ==========
   
@@ -261,6 +399,69 @@ function ReaderPage() {
     }
   }, [chapter, currentPage, chapterIndex, navigateChapter, readingMode, totalPages, autoNextChapter, manga]);
 
+  // ✅ Touch Gestures
+  const handleTouchStart = useCallback((e) => {
+    if (readingMode === 'webtoon') return;
+    
+    const touch = e.touches[0];
+    touchStartX.current = touch.clientX;
+    touchStartY.current = touch.clientY;
+    touchStartTime.current = Date.now();
+  }, [readingMode]);
+
+  const handleTouchEnd = useCallback((e) => {
+    if (readingMode === 'webtoon') return;
+    
+    const touch = e.changedTouches[0];
+    const touchEndX = touch.clientX;
+    const touchEndY = touch.clientY;
+    const touchEndTime = Date.now();
+    
+    const deltaX = touchEndX - touchStartX.current;
+    const deltaY = touchEndY - touchStartY.current;
+    const deltaTime = touchEndTime - touchStartTime.current;
+    
+    // Double-tap to zoom
+    if (deltaTime < 300 && Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
+      if (touchEndTime - lastTapTime.current < 300) {
+        // Double tap detected
+        if (imageScale === 100) {
+          setImageScale(200);
+        } else {
+          setImageScale(100);
+        }
+        lastTapTime.current = 0;
+      } else {
+        lastTapTime.current = touchEndTime;
+      }
+      return;
+    }
+    
+    // Swipe gestures
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      // Horizontal swipe
+      if (deltaX > 0) {
+        // Swipe right = previous page
+        const step = readingMode === 'double' ? 2 : 1;
+        const newPage = currentPage - step;
+        if (newPage >= 0) {
+          setCurrentPage(newPage);
+        } else if (autoNextChapter && chapterIndex > 0) {
+          navigateChapter(-1);
+        }
+      } else {
+        // Swipe left = next page
+        const step = readingMode === 'double' ? 2 : 1;
+        const newPage = currentPage + step;
+        if (newPage < totalPages) {
+          setCurrentPage(newPage);
+        } else if (autoNextChapter && manga?.chapters && chapterIndex < manga.chapters.length - 1) {
+          navigateChapter(1);
+        }
+      }
+    }
+  }, [readingMode, imageScale, setImageScale, currentPage, totalPages, readingMode, autoNextChapter, chapterIndex, manga, navigateChapter]);
+
   // ========== EFFECTS ==========
   
   useEffect(() => {
@@ -356,23 +557,49 @@ function ReaderPage() {
     };
   }, [showControls, currentPage]);
 
-  // Preload immagini successive per navigazione più fluida
+  // ⚡ PRELOAD AVANZATO - Immagini successive E capitolo successivo
   useEffect(() => {
-    if (!chapter?.pages || readingMode === 'webtoon') return;
+    if (!chapter?.pages) return;
     
-    const preloadCount = 3;
-    for (let i = 1; i <= preloadCount; i++) {
-      const nextPage = currentPage + i;
-      if (nextPage < totalPages && chapter.pages[nextPage]) {
-        const imgUrl = chapter.pages[nextPage];
-        if (!preloadedImages.current.has(imgUrl)) {
-          const imgElement = document.createElement('img');
-          imgElement.src = imgUrl;
-          preloadedImages.current.add(imgUrl);
+    // 1. Preload immagini pagine successive (immediate)
+    if (readingMode !== 'webtoon') {
+      const preloadCount = 5; // Aumentato da 3 a 5
+      for (let i = 1; i <= preloadCount; i++) {
+        const nextPage = currentPage + i;
+        if (nextPage < totalPages && chapter.pages[nextPage]) {
+          const imgUrl = chapter.pages[nextPage];
+          if (!preloadedImages.current.has(imgUrl)) {
+            const imgElement = document.createElement('img');
+            imgElement.src = imgUrl;
+            imgElement.loading = 'eager';
+            preloadedImages.current.add(imgUrl);
+          }
         }
       }
     }
-  }, [currentPage, chapter, totalPages, readingMode]);
+    
+    // 2. Prefetch capitolo successivo quando sei vicino alla fine (>80%)
+    const progress = ((currentPage + 1) / totalPages) * 100;
+    if (progress > 80 && manga?.chapters && chapterIndex < manga.chapters.length - 1) {
+      const nextChapter = manga.chapters[chapterIndex + 1];
+      if (nextChapter?.url && !preloadedImages.current.has(`chapter-${nextChapter.url}`)) {
+        preloadedImages.current.add(`chapter-${nextChapter.url}`);
+        
+        // Prefetch in background
+        const prefetchNextChapter = async () => {
+          try {
+            await apiManager.getChapter(nextChapter.url, source);
+            console.log('✅ Next chapter prefetched:', nextChapter.title);
+          } catch (error) {
+            console.log('⚠️ Prefetch failed (non-critical):', error);
+          }
+        };
+        
+        // Delay di 2 secondi per non interferire con la lettura corrente
+        setTimeout(prefetchNextChapter, 2000);
+      }
+    }
+  }, [currentPage, chapter, totalPages, readingMode, manga, chapterIndex, source]);
 
   // Auto-scroll per modalità webtoon
   useEffect(() => {
@@ -524,6 +751,22 @@ function ReaderPage() {
 
             <HStack>
           <IconButton
+            icon={isBookmarked ? <FaBookmark /> : <FaRegBookmark />}
+            onClick={(e) => { e.stopPropagation(); toggleBookmark(); }}
+            aria-label="Segnalibro"
+            variant="ghost"
+            color={isBookmarked ? "yellow.400" : "white"}
+            size="sm"
+          />
+          <IconButton
+            icon={hasNote ? <FaStickyNote /> : <FaRegStickyNote />}
+            onClick={(e) => { e.stopPropagation(); setShowNoteModal(true); }}
+            aria-label="Note"
+            variant="ghost"
+            color={hasNote ? "green.400" : "white"}
+            size="sm"
+          />
+          <IconButton
             icon={<FaCog />}
             onClick={(e) => { e.stopPropagation(); setSettingsOpen(true); }}
             aria-label="Impostazioni"
@@ -556,24 +799,38 @@ function ReaderPage() {
         </Box>
       )}
 
-      {/* Progress Bar */}
+      {/* Progress Bar con dettagli */}
       {showControls && (
         <Box
           position="absolute"
           top="50px"
-        left={0}
-        right={0}
-        bg="blackAlpha.800"
-          p={2}
+          left={0}
+          right={0}
+          bg="blackAlpha.900"
+          p={3}
           zIndex={10}
+          backdropFilter="blur(10px)"
         >
-          <Progress
-            value={progressPercentage}
-            colorScheme="purple"
-            size="sm"
-            borderRadius="md"
-          />
-      </Box>
+          <VStack spacing={2}>
+            <HStack w="100%" justify="space-between" px={2}>
+              <Text fontSize="xs" color="gray.400">
+                Progresso capitolo
+              </Text>
+              <Text fontSize="xs" color="white" fontWeight="bold">
+                {currentPage + 1} / {totalPages} pagine ({Math.round(progressPercentage)}%)
+              </Text>
+            </HStack>
+            <Progress
+              value={progressPercentage}
+              colorScheme="purple"
+              size="sm"
+              borderRadius="full"
+              w="100%"
+              hasStripe
+              isAnimated
+            />
+          </VStack>
+        </Box>
       )}
 
       {/* Main Content */}
@@ -978,6 +1235,62 @@ function ReaderPage() {
           </DrawerBody>
         </DrawerContent>
       </Drawer>
+
+      {/* Modal Note */}
+      <Modal isOpen={showNoteModal} onClose={() => setShowNoteModal(false)} size="lg" isCentered>
+        <ModalOverlay />
+        <ModalContent bg="gray.800" color="white">
+          <ModalHeader>
+            <HStack>
+              <FaStickyNote color="var(--chakra-colors-green-400)" />
+              <Text>Nota - Pagina {currentPage + 1}</Text>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <Text fontSize="sm" color="gray.400">
+                {manga?.title} - {chapter?.title || `Capitolo ${chapterIndex + 1}`}
+              </Text>
+              <Textarea
+                value={currentNote}
+                onChange={(e) => setCurrentNote(e.target.value)}
+                placeholder="Scrivi una nota per questa pagina..."
+                rows={6}
+                bg="gray.700"
+                border="1px solid"
+                borderColor="gray.600"
+                _focus={{ borderColor: 'green.400' }}
+              />
+              <Text fontSize="xs" color="gray.500">
+                {currentNote.length}/500 caratteri
+              </Text>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            {hasNote && (
+              <Button
+                colorScheme="red"
+                variant="ghost"
+                mr="auto"
+                onClick={removeNote}
+              >
+                Elimina nota
+              </Button>
+            )}
+            <Button variant="ghost" mr={3} onClick={() => setShowNoteModal(false)}>
+              Annulla
+            </Button>
+            <Button
+              colorScheme="green"
+              onClick={saveNote}
+              isDisabled={!currentNote.trim()}
+            >
+              Salva
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 }

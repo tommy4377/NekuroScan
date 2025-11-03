@@ -3,16 +3,18 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, Text, Image, VStack, HStack, Button, Badge,
   SimpleGrid, Skeleton, useToast, Flex, IconButton, Wrap, WrapItem,
-  Progress, Menu, MenuButton, MenuList, MenuItem, Divider
+  Progress, Menu, MenuButton, MenuList, MenuItem, Divider, Spinner
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   FaBookmark, FaPlay, FaShare, FaHeart, FaList, FaTh, FaRedo,
   FaCheckCircle, FaBell, FaBellSlash, FaPlus, FaCheck, FaBan, FaEllipsisV,
-  FaClock, FaEye, FaBook
+  FaClock, FaEye, FaBook, FaDownload
 } from 'react-icons/fa';
 import apiManager from '../api';
 import useAuth from '../hooks/useAuth';
+import offlineManager from '../utils/offlineManager';
+import shareUtils from '../utils/shareUtils';
 import axios from 'axios';
 import { config } from '../config';
 
@@ -41,6 +43,8 @@ function MangaDetails() {
   const [currentStatus, setCurrentStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [downloadingChapters, setDownloadingChapters] = useState(new Set());
+  const [downloadedChapters, setDownloadedChapters] = useState(new Set());
 
   // ========== CALLBACKS ==========
 
@@ -60,6 +64,18 @@ function MangaDetails() {
       
       setManga(details);
       addToHistory(details);
+      
+      // Carica stato download offline
+      if (details.chapters) {
+        const downloaded = new Set();
+        for (const chapter of details.chapters) {
+          const isDownloaded = await offlineManager.isDownloaded(details.url, chapter.url);
+          if (isDownloaded) {
+            downloaded.add(chapter.url);
+          }
+        }
+        setDownloadedChapters(downloaded);
+      }
       
     } catch (error) {
       console.error('❌ Error loading manga:', error);
@@ -1073,6 +1089,29 @@ function MangaDetails() {
                           <Text fontWeight="medium" noOfLines={1} flex={1}>
                             {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
                           </Text>
+                          
+                          {/* Download offline button */}
+                          {downloadedChapters.has(chapter.url) ? (
+                            <Badge colorScheme="green" fontSize="xs">
+                              <HStack spacing={1}>
+                                <FaCheck size={10} />
+                                <Text>Offline</Text>
+                              </HStack>
+                            </Badge>
+                          ) : (
+                            <IconButton
+                              icon={downloadingChapters.has(chapter.url) ? <Spinner size="xs" /> : <FaDownload />}
+                              size="xs"
+                              variant="ghost"
+                              colorScheme="blue"
+                              aria-label="Scarica offline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                downloadChapterOffline(chapter, i);
+                              }}
+                              isLoading={downloadingChapters.has(chapter.url)}
+                            />
+                          )}
                           
                           {chapter.date && (
                             <Text fontSize="xs" color="gray.400">

@@ -12,6 +12,7 @@ import { useLocation } from 'react-router-dom';
 import { FaPlus } from 'react-icons/fa';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
+import StickyHeader from '../components/StickyHeader';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
@@ -33,7 +34,8 @@ function Categories() {
     includeAdult: false,
     sortBy: 'most_read',
     year: '',
-    status: ''
+    status: '',
+    minChapters: ''
   });
   const [totalLoaded, setTotalLoaded] = useState(0);
   const [pageTitle, setPageTitle] = useState('Esplora Categorie');
@@ -247,7 +249,8 @@ function Categories() {
       includeAdult: false, 
       sortBy: 'most_read', 
       year: '', 
-      status: '' 
+      status: '',
+      minChapters: ''
     });
     setMangaList([]);
     setPage(1);
@@ -268,15 +271,32 @@ function Categories() {
     </Button>
   );
 
-  const filteredManga = mangaList.filter(manga =>
-    !searchQuery || manga.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredManga = mangaList.filter(manga => {
+    // Filtro testo
+    if (searchQuery && !manga.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+    
+    // Filtro capitoli minimi
+    if (filters.minChapters) {
+      const minChaps = parseInt(filters.minChapters);
+      const mangaChaps = manga.chapters?.length || manga.chaptersCount || 0;
+      if (mangaChaps < minChaps) return false;
+    }
+    
+    return true;
+  });
 
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
+        <StickyHeader title={pageTitle} badge={totalLoaded > 0 ? `${totalLoaded} risultati` : null}>
+          <Button size="sm" variant="ghost" onClick={resetFilters}>
+            Reset
+          </Button>
+        </StickyHeader>
+        
         <VStack align="stretch" spacing={4}>
-          <Heading size="xl">{pageTitle}</Heading>
 
           {selectedGenres.length > 0 && (
             <Wrap>
@@ -327,6 +347,20 @@ function Categories() {
               {categories?.years?.map(year => (
                 <option key={year.id} value={year.id}>{year.name}</option>
               ))}
+            </Select>
+
+            <Select
+              maxW="170px"
+              value={filters.minChapters || ''}
+              onChange={(e) => setFilters({...filters, minChapters: e.target.value})}
+              bg="gray.800"
+              placeholder="Capitoli min"
+            >
+              <option value="">Tutti</option>
+              <option value="10">10+ capitoli</option>
+              <option value="50">50+ capitoli</option>
+              <option value="100">100+ capitoli</option>
+              <option value="200">200+ capitoli</option>
             </Select>
 
             <Button 
