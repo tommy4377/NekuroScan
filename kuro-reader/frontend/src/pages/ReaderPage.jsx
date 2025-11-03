@@ -30,9 +30,8 @@ function ReaderPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   
   // Impostazioni salvate
-  const [readingMode, setReadingMode] = useState(() => localStorage.getItem('readingMode') || 'single');
+  const [readingMode, setReadingMode] = useState(() => localStorage.getItem('readingMode') || 'webtoon');
   const [imageScale, setImageScale] = useState(() => parseInt(localStorage.getItem('imageScale') || '100'));
-  const [fitMode, setFitMode] = useState(() => localStorage.getItem('fitMode') || 'height');
   const [brightness, setBrightness] = useState(() => parseInt(localStorage.getItem('brightness') || '100'));
   const [showControls, setShowControls] = useState(true);
   const [autoNextChapter, setAutoNextChapter] = useState(() => localStorage.getItem('autoNextChapter') === 'true');
@@ -72,10 +71,6 @@ function ReaderPage() {
   useEffect(() => {
     localStorage.setItem('imageScale', imageScale.toString());
   }, [imageScale]);
-  
-  useEffect(() => {
-    localStorage.setItem('fitMode', fitMode);
-  }, [fitMode]);
   
   useEffect(() => {
     localStorage.setItem('brightness', brightness.toString());
@@ -593,7 +588,7 @@ function ReaderPage() {
             }
           }}
         >
-          <VStack spacing={1} align="center">
+          <VStack spacing={0} align="center">
             {chapter?.pages?.map((page, i) => (
               <Box 
                 key={i} 
@@ -702,11 +697,7 @@ function ReaderPage() {
                   alt={`Pagina ${img.index + 1}`}
                   maxH="calc(100vh - 120px)"
                   maxW="100%"
-                  objectFit={
-                    fitMode === 'width' ? 'cover' :
-                    fitMode === 'fit' ? 'contain' :
-                    'contain'
-                  }
+                  objectFit="contain"
                   style={{
                     transform: `scale(${imageScale / 100})`,
                     filter: `brightness(${brightness}%)`,
@@ -817,25 +808,6 @@ function ReaderPage() {
               </FormControl>
 
               <Divider />
-
-              {/* Adattamento Immagine */}
-              {readingMode !== 'webtoon' && (
-                <FormControl>
-                  <FormLabel fontWeight="bold">🖼️ Adattamento immagine</FormLabel>
-                  <Select
-                    value={fitMode}
-                    onChange={(e) => setFitMode(e.target.value)}
-                    bg="gray.800"
-                    border="1px solid"
-                    borderColor="gray.700"
-                    _hover={{ borderColor: 'purple.500' }}
-                  >
-                    <option value="height">Adatta Altezza</option>
-                    <option value="width">Adatta Larghezza</option>
-                    <option value="fit">Adatta Schermo</option>
-                  </Select>
-                </FormControl>
-              )}
 
               {/* Scala Immagine */}
               {readingMode !== 'webtoon' && (

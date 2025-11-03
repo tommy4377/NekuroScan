@@ -20,10 +20,12 @@ import Categories from './pages/Categories';
 import Latest from './pages/Latest';
 import Popular from './pages/Popular';
 import Trending from './pages/Trending';
+import TopType from './pages/TopType';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import PublicProfile from './pages/PublicProfile';
 import Settings from './pages/Settings';
+import Notifications from './pages/Notifications';
 import NotFound from './pages/NotFound';
 
 const PageLoader = () => (
@@ -83,6 +85,7 @@ function AnimatedRoutes() {
         <Route path="/latest" element={<Latest />} />
         <Route path="/popular" element={<Popular />} />
         <Route path="/trending" element={<Trending />} />
+        <Route path="/top/:type" element={<TopType />} />
         <Route path="/login" element={<Login />} />
         <Route path="/user/:username" element={<PublicProfile />} />
         
@@ -99,6 +102,11 @@ function AnimatedRoutes() {
         <Route path="/settings" element={
           <ProtectedRoute>
             <Settings />
+          </ProtectedRoute>
+        } />
+        <Route path="/notifications" element={
+          <ProtectedRoute>
+            <Notifications />
           </ProtectedRoute>
         } />
         
@@ -124,7 +132,7 @@ function AppContent() {
       // Se siamo su una route valida, non fare nulla
       const validRoutes = [
         '/', '/home', '/search', '/categories', '/latest', '/popular', 
-        '/trending', '/login', '/library', '/profile', '/settings'
+        '/trending', '/login', '/library', '/profile', '/settings', '/notifications'
       ];
       
       const isMangaRoute = path.startsWith('/manga/');

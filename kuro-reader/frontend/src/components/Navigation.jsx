@@ -8,7 +8,7 @@ import {
 } from '@chakra-ui/react';
 import { HamburgerIcon, CloseIcon, SearchIcon } from '@chakra-ui/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaBook, FaUser, FaBookmark, FaSignInAlt, FaSignOutAlt, FaCog, FaShare, FaUsers } from 'react-icons/fa';
+import { FaBook, FaUser, FaBookmark, FaSignInAlt, FaSignOutAlt, FaCog, FaShare, FaUsers, FaBell } from 'react-icons/fa';
 import { BiCategoryAlt } from 'react-icons/bi';
 import { MdPublic } from 'react-icons/md';
 import useAuth from '../hooks/useAuth';
@@ -186,6 +186,9 @@ function Navigation() {
                     </MenuItem>
                     <MenuItem icon={<FaBookmark />} onClick={() => navigate('/library')}>
                       I miei manga
+                    </MenuItem>
+                    <MenuItem icon={<FaBell />} onClick={() => navigate('/notifications')}>
+                      Notifiche
                     </MenuItem>
                     {/* Follower/Seguiti gestiti dentro Profilo, voce dedicata rimossa */}
                     <MenuItem icon={<FaCog />} onClick={() => navigate('/settings')}>

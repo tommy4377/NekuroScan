@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   Container, VStack, HStack, Heading, Text, Box, Badge, Button,
-  IconButton, useToast, Center, Spinner, Divider
+  IconButton, useToast, Center, Spinner, Divider, Image, SimpleGrid,
+  Tabs, TabList, TabPanels, Tab, TabPanel, Alert, AlertIcon, AlertTitle,
+  AlertDescription
 } from '@chakra-ui/react';
-import { FaBell, FaTrash, FaBellSlash } from 'react-icons/fa';
+import { FaBell, FaTrash, FaBellSlash, FaBookOpen, FaCheckCircle } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import axios from 'axios';
@@ -45,9 +47,14 @@ export default function Notifications() {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       
-      // Get reading list as subscriptions
+      // Get reading list and favorites as subscriptions
       const reading = response.data.reading || [];
-      setMangaSubscriptions(reading.slice(0, 10));
+      const favorites = response.data.favorites || [];
+      
+      // Combina e deduplicazione
+      const all = [...reading, ...favorites];
+      const uniqueMap = new Map(all.map(item => [item.mangaUrl, item]));
+      setMangaSubscriptions(Array.from(uniqueMap.values()));
     } catch (error) {
       console.error('Error loading subscriptions:', error);
     }
@@ -134,93 +141,212 @@ export default function Notifications() {
     );
   }
 
+  const notificationPermission = typeof Notification !== 'undefined' ? Notification.permission : 'denied';
+
   return (
-    <Container maxW="container.md" py={8}>
+    <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
         {/* Header */}
-        <HStack justify="space-between">
+        <HStack justify="space-between" flexWrap="wrap" gap={4}>
           <HStack>
-            <Box p={2} bg="purple.500" borderRadius="lg">
-              <FaBell color="white" size="20" />
+            <Box p={3} bg="purple.500" borderRadius="xl" boxShadow="lg">
+              <FaBell color="white" size="24" />
             </Box>
             <VStack align="start" spacing={0}>
-              <Heading size="lg">Notifiche</Heading>
+              <Heading size="xl">🔔 Notifiche</Heading>
               <Text fontSize="sm" color="gray.400">
-                Gestisci le tue notifiche
+                Resta aggiornato sui tuoi manga preferiti
               </Text>
             </VStack>
           </HStack>
           
-          <Button
-            size="sm"
-            colorScheme="purple"
-            onClick={enableBrowserNotifications}
-            leftIcon={<FaBell />}
-          >
-            Attiva notifiche browser
-          </Button>
+          {notificationPermission === 'granted' ? (
+            <Badge colorScheme="green" fontSize="md" p={2} borderRadius="md">
+              <HStack spacing={2}>
+                <FaCheckCircle />
+                <Text>Notifiche attive</Text>
+              </HStack>
+            </Badge>
+          ) : (
+            <Button
+              size="md"
+              colorScheme="purple"
+              onClick={enableBrowserNotifications}
+              leftIcon={<FaBell />}
+            >
+              Attiva notifiche browser
+            </Button>
+          )}
         </HStack>
 
-        {/* Manga Subscriptions */}
-        {mangaSubscriptions.length > 0 && (
-          <Box bg="gray.800" p={6} borderRadius="lg">
-            <Heading size="md" mb={4}>I tuoi manga seguiti</Heading>
-            <Text fontSize="sm" color="gray.400" mb={4}>
-              Riceverai notifiche quando usciranno nuovi capitoli
-            </Text>
-            <VStack align="stretch" spacing={3}>
-              {mangaSubscriptions.map((manga, i) => (
-                <HStack
-                  key={manga.mangaUrl || `manga-${i}`}
-                  p={3}
-                  bg="gray.700"
-                  borderRadius="md"
-                  justify="space-between"
-                >
-                  <VStack align="start" spacing={0}>
-                    <Text fontWeight="bold" fontSize="sm" noOfLines={1}>
-                      {manga.title}
-                    </Text>
-                    <Text fontSize="xs" color="gray.400">
-                      Ultimo cap. letto: {manga.lastChapterIndex + 1}
-                    </Text>
-                  </VStack>
-                  <IconButton
-                    icon={<FaBellSlash />}
-                    size="sm"
-                    variant="ghost"
-                    colorScheme="red"
-                    aria-label="Disattiva notifiche"
-                    onClick={() => {
-                      toast({
-                        title: 'Sistema in sviluppo',
-                        description: 'Presto potrai gestire le notifiche per singolo manga',
-                        status: 'info',
-                        duration: 2000
-                      });
-                    }}
-                  />
-                </HStack>
-              ))}
-            </VStack>
-          </Box>
-        )}
+        <Tabs colorScheme="purple" variant="enclosed">
+          <TabList>
+            <Tab>
+              <HStack>
+                <FaBell />
+                <Text>Ultime notifiche</Text>
+                {notifications.length > 0 && (
+                  <Badge colorScheme="purple">{notifications.length}</Badge>
+                )}
+              </HStack>
+            </Tab>
+            <Tab>
+              <HStack>
+                <FaBookOpen />
+                <Text>Manga seguiti</Text>
+                <Badge colorScheme="blue">{mangaSubscriptions.length}</Badge>
+              </HStack>
+            </Tab>
+          </TabList>
 
-        {/* Empty State for notifications */}
-        {notifications.length === 0 && (
-          <Center py={12} bg="gray.800" borderRadius="lg">
-            <VStack spacing={4}>
-              <FaBell size={60} color="gray" />
-              <Text fontSize="lg" color="gray.500">
-                Nessuna notifica al momento
-              </Text>
-              <Text fontSize="sm" color="gray.600" textAlign="center" maxW="300px">
-                Quando ci saranno nuovi capitoli dei tuoi manga preferiti, 
-                riceverai una notifica qui
-              </Text>
-            </VStack>
-          </Center>
-        )}
+          <TabPanels>
+            {/* Tab Notifiche */}
+            <TabPanel>
+              {notifications.length === 0 ? (
+                <Center py={16} bg="gray.800" borderRadius="xl">
+                  <VStack spacing={6}>
+                    <Box p={6} bg="purple.900" borderRadius="full">
+                      <FaBell size={60} color="var(--chakra-colors-purple-300)" />
+                    </Box>
+                    <VStack spacing={2}>
+                      <Text fontSize="xl" fontWeight="bold" color="gray.300">
+                        Nessuna notifica al momento
+                      </Text>
+                      <Text fontSize="md" color="gray.500" textAlign="center" maxW="400px">
+                        Quando usciranno nuovi capitoli dei tuoi manga preferiti, 
+                        riceverai una notifica qui
+                      </Text>
+                    </VStack>
+                    <Button
+                      colorScheme="purple"
+                      variant="outline"
+                      onClick={() => navigate('/library')}
+                      leftIcon={<FaBookOpen />}
+                    >
+                      Vai alla libreria
+                    </Button>
+                  </VStack>
+                </Center>
+              ) : (
+                <VStack align="stretch" spacing={3}>
+                  {notifications.map((notif, i) => (
+                    <Box
+                      key={i}
+                      p={4}
+                      bg="gray.800"
+                      borderRadius="lg"
+                      borderLeft="4px solid"
+                      borderColor="purple.500"
+                    >
+                      <HStack justify="space-between">
+                        <VStack align="start" spacing={1}>
+                          <Text fontWeight="bold">{notif.title}</Text>
+                          <Text fontSize="sm" color="gray.400">{notif.description}</Text>
+                          <Text fontSize="xs" color="gray.500">{formatTime(notif.timestamp)}</Text>
+                        </VStack>
+                        <IconButton
+                          icon={<FaTrash />}
+                          size="sm"
+                          variant="ghost"
+                          colorScheme="red"
+                          aria-label="Elimina notifica"
+                        />
+                      </HStack>
+                    </Box>
+                  ))}
+                </VStack>
+              )}
+            </TabPanel>
+
+            {/* Tab Manga Seguiti */}
+            <TabPanel>
+              {mangaSubscriptions.length > 0 ? (
+                <>
+                  <Alert status="info" borderRadius="lg" mb={6}>
+                    <AlertIcon />
+                    <Box>
+                      <AlertTitle>Notifiche automatiche</AlertTitle>
+                      <AlertDescription>
+                        Riceverai notifiche quando usciranno nuovi capitoli di questi {mangaSubscriptions.length} manga
+                      </AlertDescription>
+                    </Box>
+                  </Alert>
+
+                  <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+                    {mangaSubscriptions.map((manga, i) => (
+                      <Box
+                        key={manga.mangaUrl || `manga-${i}`}
+                        bg="gray.800"
+                        borderRadius="lg"
+                        overflow="hidden"
+                        cursor="pointer"
+                        transition="all 0.2s"
+                        _hover={{ transform: 'translateY(-4px)', boxShadow: 'xl' }}
+                        onClick={() => {
+                          const source = manga.source || 'mangaworld';
+                          const encodedUrl = btoa(manga.mangaUrl);
+                          navigate(`/manga/${source}/${encodedUrl}`);
+                        }}
+                      >
+                        <HStack spacing={0} align="stretch">
+                          {manga.cover && (
+                            <Image
+                              src={manga.cover}
+                              alt={manga.title}
+                              w="80px"
+                              h="120px"
+                              objectFit="cover"
+                              fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='120'%3E%3Crect fill='%23333' width='80' height='120'/%3E%3C/svg%3E"
+                            />
+                          )}
+                          <VStack align="start" p={3} spacing={2} flex="1">
+                            <Text fontWeight="bold" fontSize="sm" noOfLines={2}>
+                              {manga.title}
+                            </Text>
+                            {manga.lastChapterIndex !== undefined && (
+                              <Badge colorScheme="purple" fontSize="xs">
+                                Cap. {manga.lastChapterIndex + 1}
+                              </Badge>
+                            )}
+                            <Badge colorScheme="green" fontSize="xs">
+                              <HStack spacing={1}>
+                                <FaBell size={10} />
+                                <Text>Notifiche ON</Text>
+                              </HStack>
+                            </Badge>
+                          </VStack>
+                        </HStack>
+                      </Box>
+                    ))}
+                  </SimpleGrid>
+                </>
+              ) : (
+                <Center py={16} bg="gray.800" borderRadius="xl">
+                  <VStack spacing={6}>
+                    <Box p={6} bg="blue.900" borderRadius="full">
+                      <FaBookOpen size={60} color="var(--chakra-colors-blue-300)" />
+                    </Box>
+                    <VStack spacing={2}>
+                      <Text fontSize="xl" fontWeight="bold" color="gray.300">
+                        Nessun manga seguito
+                      </Text>
+                      <Text fontSize="md" color="gray.500" textAlign="center" maxW="400px">
+                        Aggiungi manga ai preferiti o inizia a leggerli per ricevere notifiche
+                      </Text>
+                    </VStack>
+                    <Button
+                      colorScheme="purple"
+                      onClick={() => navigate('/home')}
+                      leftIcon={<FaBookOpen />}
+                    >
+                      Esplora manga
+                    </Button>
+                  </VStack>
+                </Center>
+              )}
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
       </VStack>
     </Container>
   );
