@@ -12,7 +12,6 @@ import { useLocation } from 'react-router-dom';
 import { FaPlus } from 'react-icons/fa';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
-import VirtualGrid from '../components/VirtualGrid';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
@@ -461,36 +460,41 @@ function Categories() {
               </SimpleGrid>
             ) : filteredManga.length > 0 ? (
               <>
-                <Box>
-                  <VirtualGrid
-                    items={filteredManga}
-                    minWidth={160}
-                    gap={16}
-                    renderItem={(manga, i) => (
-                      <Box
-                        key={manga.url}
-                      >
-                        <MangaCard manga={manga} hideSource />
-                      </Box>
-                    )}
-                  />
-                </Box>
+                <SimpleGrid 
+                  columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} 
+                  spacing={4}
+                  w="100%"
+                >
+                  {filteredManga.map((manga, i) => (
+                    <Box
+                      key={manga.url || `manga-${i}`}
+                      h="100%"
+                    >
+                      <MangaCard 
+                        manga={manga} 
+                        hideSource 
+                        priority={i < 12}
+                      />
+                    </Box>
+                  ))}
+                </SimpleGrid>
 
-                <Center py={6}>
-                  <Button
-                    onClick={loadMoreData}
-                    isLoading={loadingMore}
-                    loadingText="Caricamento..."
-                    colorScheme="purple"
-                    size="lg"
-                    leftIcon={!loadingMore ? <FaPlus /> : undefined}
-                    variant="solid"
-                    disabled={loadingMore || (!hasMore && page > 1)}
-                  >
-                    {loadingMore ? 'Caricamento...' : 
-                     !hasMore && page > 1 ? 'Fine risultati' : 'Carica altri'}
-                  </Button>
-                </Center>
+                {hasMore && (
+                  <Center py={6}>
+                    <Button
+                      onClick={loadMoreData}
+                      isLoading={loadingMore}
+                      loadingText="Caricamento..."
+                      colorScheme="purple"
+                      size="lg"
+                      leftIcon={!loadingMore ? <FaPlus /> : undefined}
+                      variant="solid"
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? 'Caricamento...' : 'Carica altri'}
+                    </Button>
+                  </Center>
+                )}
               </>
             ) : (
               <Box textAlign="center" py={12}>

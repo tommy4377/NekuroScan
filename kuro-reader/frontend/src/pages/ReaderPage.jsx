@@ -9,7 +9,7 @@ import {
 } from '@chakra-ui/react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
-  FaChevronLeft, FaChevronRight, FaTimes, FaCog, FaBook
+  FaChevronLeft, FaChevronRight, FaTimes, FaCog, FaBook, FaPlay, FaPause
 } from 'react-icons/fa';
 import { MdFullscreen, MdFullscreenExit } from 'react-icons/md';
 import apiManager from '../api';
@@ -36,11 +36,15 @@ function ReaderPage() {
   const [brightness, setBrightness] = useState(() => parseInt(localStorage.getItem('brightness') || '100'));
   const [showControls, setShowControls] = useState(true);
   const [autoNextChapter, setAutoNextChapter] = useState(() => localStorage.getItem('autoNextChapter') === 'true');
+  const [autoScroll, setAutoScroll] = useState(false);
+  const [scrollSpeed, setScrollSpeed] = useState(() => parseInt(localStorage.getItem('scrollSpeed') || '2'));
   
   // ========== REFS ESSENZIALI ==========
   const containerRef = useRef(null);
   const controlsTimeoutRef = useRef(null);
   const preloadedImages = useRef(new Set());
+  const webtoonScrollRef = useRef(null);
+  const autoScrollInterval = useRef(null);
   
   // ========== CALCOLI ==========
   const chapterIndex = parseInt(searchParams.get('chapter') || '0');
@@ -80,6 +84,46 @@ function ReaderPage() {
   useEffect(() => {
     localStorage.setItem('autoNextChapter', autoNextChapter.toString());
   }, [autoNextChapter]);
+  
+  useEffect(() => {
+    localStorage.setItem('scrollSpeed', scrollSpeed.toString());
+  }, [scrollSpeed]);
+  
+  // Auto-scroll per modalità webtoon
+  useEffect(() => {
+    if (readingMode !== 'webtoon' || !autoScroll || !webtoonScrollRef.current) {
+      if (autoScrollInterval.current) {
+        clearInterval(autoScrollInterval.current);
+        autoScrollInterval.current = null;
+      }
+      return;
+    }
+    
+    const scrollContainer = webtoonScrollRef.current;
+    const pixelsPerSecond = scrollSpeed * 50; // 1=50px/s, 2=100px/s, etc
+    
+    autoScrollInterval.current = setInterval(() => {
+      if (scrollContainer) {
+        scrollContainer.scrollTop += pixelsPerSecond / 60; // 60fps
+        
+        // Check se siamo alla fine
+        const isAtBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop <= scrollContainer.clientHeight + 100;
+        if (isAtBottom && autoNextChapter) {
+          setAutoScroll(false);
+          setTimeout(() => {
+            navigateChapter(1);
+          }, 1000);
+        }
+      }
+    }, 1000 / 60); // 60fps
+    
+    return () => {
+      if (autoScrollInterval.current) {
+        clearInterval(autoScrollInterval.current);
+        autoScrollInterval.current = null;
+      }
+    };
+  }, [autoScroll, readingMode, scrollSpeed, autoNextChapter, navigateChapter]);
 
   // ========== HANDLERS ==========
   
@@ -426,38 +470,54 @@ function ReaderPage() {
           top={0}
           left={0}
           right={0}
-          bg="blackAlpha.800"
+          bg="blackAlpha.900"
           p={2}
           zIndex={10}
-        transition="opacity 0.3s"
-      >
+          transition="opacity 0.3s"
+          backdropFilter="blur(10px)"
+        >
           <HStack justify="space-between">
-        <HStack>
-          <IconButton
+            <HStack spacing={1}>
+              <IconButton
                 icon={<FaChevronLeft />}
                 onClick={(e) => { e.stopPropagation(); navigateChapter(-1); }}
                 aria-label="Capitolo precedente"
                 variant="ghost"
-            color="white"
+                color="white"
                 size="sm"
               />
-              <Text color="white" fontSize="sm">
-                {chapterIndex + 1} / {manga.chapters?.length}
-              </Text>
-          <IconButton
+              <VStack spacing={0} px={2}>
+                <Text color="white" fontSize="xs" fontWeight="bold">
+                  Cap. {chapterIndex + 1} / {manga.chapters?.length}
+                </Text>
+                {readingMode !== 'webtoon' && (
+                  <Text color="gray.400" fontSize="xs">
+                    Pag. {currentPage + 1} / {totalPages}
+                  </Text>
+                )}
+              </VStack>
+              <IconButton
                 icon={<FaChevronRight />}
                 onClick={(e) => { e.stopPropagation(); navigateChapter(1); }}
                 aria-label="Capitolo successivo"
                 variant="ghost"
-            color="white"
+                color="white"
                 size="sm"
-          />
-        </HStack>
+              />
+              {readingMode === 'webtoon' && (
+                <IconButton
+                  icon={autoScroll ? <FaPause /> : <FaPlay />}
+                  onClick={(e) => { e.stopPropagation(); setAutoScroll(!autoScroll); }}
+                  aria-label={autoScroll ? "Pausa auto-scroll" : "Avvia auto-scroll"}
+                  variant={autoScroll ? "solid" : "ghost"}
+                  colorScheme={autoScroll ? "green" : "gray"}
+                  color="white"
+                  size="sm"
+                />
+              )}
+            </HStack>
 
-        <HStack>
-              <Text color="white" fontSize="sm">
-                {currentPage + 1} / {totalPages}
-              </Text>
+            <HStack>
           <IconButton
             icon={<FaCog />}
             onClick={(e) => { e.stopPropagation(); setSettingsOpen(true); }}
@@ -515,10 +575,11 @@ function ReaderPage() {
       {readingMode === 'webtoon' ? (
         // Modalità Verticale/Webtoon - scroll continuo
         <Box
+          ref={webtoonScrollRef}
           h="100%"
           overflowY="auto"
-          pt={showControls ? "100px" : "20px"}
-          pb="20px"
+          pt={showControls ? "60px" : "20px"}
+          pb="80px"
           css={{
             '&::-webkit-scrollbar': { width: '10px' },
             '&::-webkit-scrollbar-track': { background: '#1a202c' },
@@ -568,6 +629,52 @@ function ReaderPage() {
               </Box>
             ))}
           </VStack>
+          
+          {/* Bottoni navigazione capitoli fissi in basso per webtoon */}
+          <HStack
+            position="fixed"
+            bottom={4}
+            left="50%"
+            transform="translateX(-50%)"
+            spacing={2}
+            bg="blackAlpha.900"
+            p={2}
+            borderRadius="full"
+            border="1px solid"
+            borderColor="whiteAlpha.300"
+            boxShadow="xl"
+            backdropFilter="blur(10px)"
+            zIndex={5}
+          >
+            <IconButton
+              icon={<FaChevronLeft />}
+              onClick={(e) => { e.stopPropagation(); navigateChapter(-1); }}
+              aria-label="Capitolo precedente"
+              variant="ghost"
+              colorScheme="purple"
+              color="white"
+              size="sm"
+              isDisabled={chapterIndex === 0}
+            />
+            <VStack spacing={0} px={3}>
+              <Text color="white" fontSize="xs" fontWeight="bold">
+                Capitolo {chapterIndex + 1}
+              </Text>
+              <Text color="gray.400" fontSize="xs">
+                di {manga.chapters?.length}
+              </Text>
+            </VStack>
+            <IconButton
+              icon={<FaChevronRight />}
+              onClick={(e) => { e.stopPropagation(); navigateChapter(1); }}
+              aria-label="Capitolo successivo"
+              variant="ghost"
+              colorScheme="purple"
+              color="white"
+              size="sm"
+              isDisabled={chapterIndex >= (manga.chapters?.length || 0) - 1}
+            />
+          </HStack>
         </Box>
       ) : (
         // Modalità Pagina Singola/Doppia
@@ -797,6 +904,52 @@ function ReaderPage() {
               <Text fontSize="xs" color="gray.400" mt={-3}>
                 Passa automaticamente al capitolo successivo alla fine
               </Text>
+
+              {/* Auto Scroll per Webtoon */}
+              {readingMode === 'webtoon' && (
+                <>
+                  <Divider />
+                  <FormControl display="flex" alignItems="center" justifyContent="space-between">
+                    <FormLabel htmlFor="auto-scroll" mb={0} fontWeight="bold">
+                      📜 Auto-scroll
+                    </FormLabel>
+                    <Switch
+                      id="auto-scroll"
+                      colorScheme="green"
+                      isChecked={autoScroll}
+                      onChange={(e) => setAutoScroll(e.target.checked)}
+                    />
+                  </FormControl>
+                  <Text fontSize="xs" color="gray.400" mt={-3}>
+                    Scroll automatico in modalità verticale
+                  </Text>
+
+                  {autoScroll && (
+                    <FormControl>
+                      <FormLabel fontWeight="bold">🚀 Velocità scroll: {scrollSpeed}</FormLabel>
+                      <Slider
+                        value={scrollSpeed}
+                        onChange={setScrollSpeed}
+                        min={1}
+                        max={10}
+                        step={1}
+                        colorScheme="green"
+                      >
+                        <SliderTrack bg="gray.700">
+                          <SliderFilledTrack />
+                        </SliderTrack>
+                        <SliderThumb boxSize={6}>
+                          <Box color="green.500" />
+                        </SliderThumb>
+                      </Slider>
+                      <HStack justify="space-between" mt={1}>
+                        <Text fontSize="xs" color="gray.500">Lento</Text>
+                        <Text fontSize="xs" color="gray.500">Veloce</Text>
+                      </HStack>
+                    </FormControl>
+                  )}
+                </>
+              )}
 
               <Divider />
 

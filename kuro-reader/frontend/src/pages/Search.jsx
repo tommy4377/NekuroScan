@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box, Container, Input, InputGroup, InputLeftElement,
   Heading, Text, VStack, HStack, Button, Skeleton, Badge, useToast,
-  ButtonGroup, Center, Spinner
+  ButtonGroup, Center, Spinner, SimpleGrid
 } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -11,7 +11,6 @@ import { useInView } from 'react-intersection-observer';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
-import VirtualGrid from '../components/VirtualGrid';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
@@ -282,32 +281,24 @@ function Search() {
               </HStack>
             ) : (
               <>
-                {results.length > 40 ? (
-                  <VirtualGrid
-                    items={results}
-                    minWidth={160}
-                    gap={16}
-                    renderItem={(item, i) => (
-                      <Box 
-                        key={`${item.url}-${i}`}
-                      >
-                        <MangaCard manga={item} hideSource />
-                      </Box>
-                    )}
-                  />
-                ) : (
-                  <HStack spacing={4} wrap="wrap">
-                    {results.map((item, i) => (
-                      <Box 
-                        key={`${item.url}-${i}`} 
-                        flex="1 0 160px"
-                        maxW="200px"
-                      >
-                        <MangaCard manga={item} hideSource />
-                      </Box>
-                    ))}
-                  </HStack>
-                )}
+                <SimpleGrid 
+                  columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} 
+                  spacing={4}
+                  w="100%"
+                >
+                  {results.map((item, i) => (
+                    <Box 
+                      key={item.url || `search-${i}`}
+                      h="100%"
+                    >
+                      <MangaCard 
+                        manga={item} 
+                        hideSource 
+                        priority={i < 12}
+                      />
+                    </Box>
+                  ))}
+                </SimpleGrid>
                 
                 {hasMore && query && (
                   <Center ref={loadMoreRef} py={4}>

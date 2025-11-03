@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, Text, VStack, HStack,
   Button, useToast, Skeleton, Badge, IconButton, Switch, Center,
-  Tabs, TabList, Tab, TabPanels, TabPanel
+  Tabs, TabList, Tab, TabPanels, TabPanel, SimpleGrid
 } from '@chakra-ui/react';
 import { FaFire, FaArrowUp, FaPlus, FaClock, FaHeart } from 'react-icons/fa';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
@@ -11,7 +11,6 @@ import { useNavigate } from 'react-router-dom';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import VirtualGrid from '../components/VirtualGrid';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
@@ -112,19 +111,25 @@ function Trending() {
   };
 
   const renderGrid = (items) => {
-    if (items.length > 30) {
-      return (
-        <VirtualGrid
-          items={items}
-          minWidth={160}
-          gap={16}
-          renderItem={(item, i) => (
-            <Box
-              key={`${item.url}-${i}`}
-              position="relative"
-            >
-              <MangaCard manga={item} hideSource showLatestChapter={true} />
-              {currentKey === 'trending' && i < 3 && (
+    return (
+      <SimpleGrid 
+        columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} 
+        spacing={4}
+        w="100%"
+      >
+        {items.map((item, i) => (
+          <Box
+            key={item.url || `trending-${i}`}
+            position="relative"
+            h="100%"
+          >
+            <MangaCard 
+              manga={item} 
+              hideSource 
+              showLatestChapter={true}
+              priority={i < 12}
+            />
+            {currentKey === 'trending' && i < 3 && (
                 <Badge
                   position="absolute"
                   top={2}
@@ -138,39 +143,9 @@ function Trending() {
                   🔥 HOT
                 </Badge>
               )}
-            </Box>
-          )}
-        />
-      );
-    }
-
-    return (
-      <HStack spacing={4} wrap="wrap">
-        {items.map((item, i) => (
-          <Box
-            key={`${item.url}-${i}`}
-            flex="1 0 160px"
-            maxW="200px"
-            position="relative"
-          >
-            <MangaCard manga={item} hideSource showLatestChapter={true} />
-            {currentKey === 'trending' && i < 3 && (
-              <Badge
-                position="absolute"
-                top={2}
-                left={2}
-                colorScheme="orange"
-                fontSize="xs"
-                px={2}
-                py={1}
-                zIndex={10}
-              >
-                🔥 HOT
-              </Badge>
-            )}
           </Box>
         ))}
-      </HStack>
+      </SimpleGrid>
     );
   };
 

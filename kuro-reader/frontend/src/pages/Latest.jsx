@@ -9,7 +9,6 @@ import { FaClock, FaArrowUp, FaPlus } from 'react-icons/fa';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import VirtualGrid from '../components/VirtualGrid';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
@@ -179,24 +178,25 @@ function Latest() {
 
         {list.length > 0 ? (
           <>
-            <Box>
-              <VirtualGrid
-                items={list}
-                minWidth={160}
-                gap={16}
-                renderItem={(item, i) => (
-                  <Box
-                    key={`${item.url}-${i}`}
-                  >
-                    <MangaCard 
-                      manga={item} 
-                      hideSource 
-                      showLatestChapter={true}
-                    />
-                  </Box>
-                )}
-              />
-            </Box>
+            <SimpleGrid 
+              columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} 
+              spacing={4}
+              w="100%"
+            >
+              {list.map((item, i) => (
+                <Box
+                  key={item.url || `latest-${i}`}
+                  h="100%"
+                >
+                  <MangaCard 
+                    manga={item} 
+                    hideSource
+                    priority={i < 12} 
+                    showLatestChapter={true}
+                  />
+                </Box>
+              ))}
+            </SimpleGrid>
 
             {hasMore && (
               <Center py={6}>

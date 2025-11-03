@@ -3,14 +3,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, Text, VStack, HStack,
   Button, useToast, Skeleton, Badge, IconButton,
-  Tabs, TabList, Tab, TabPanels, TabPanel, Center
+  Tabs, TabList, Tab, TabPanels, TabPanel, Center, SimpleGrid
 } from '@chakra-ui/react';
 import { FaHeart, FaArrowUp, FaFire, FaStar, FaTrophy, FaPlus } from 'react-icons/fa';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import VirtualGrid from '../components/VirtualGrid';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
@@ -125,48 +124,23 @@ function Popular() {
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
   const renderGrid = (items) => {
-    if (items.length > 30) {
-      return (
-        <VirtualGrid
-          items={items}
-          minWidth={160}
-          gap={16}
-          renderItem={(item, i) => (
-            <Box
-              key={`${item.url}-${i}`}
-              position="relative"
-            >
-              <MangaCard manga={item} hideSource />
-              {i < 3 && pages[currentKey] === 1 && (
-                <Badge
-                  position="absolute"
-                  top={2}
-                  left={2}
-                  colorScheme={i === 0 ? 'yellow' : i === 1 ? 'gray' : 'orange'}
-                  fontSize="sm"
-                  px={2}
-                  py={1}
-                  zIndex={10}
-                >
-                  #{i + 1}
-                </Badge>
-              )}
-            </Box>
-          )}
-        />
-      );
-    }
-
     return (
-      <HStack spacing={4} wrap="wrap">
+      <SimpleGrid 
+        columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} 
+        spacing={4}
+        w="100%"
+      >
         {items.map((item, i) => (
           <Box
-            key={`${item.url}-${i}`}
-            flex="1 0 160px"
-            maxW="200px"
+            key={item.url || `popular-${i}`}
             position="relative"
+            h="100%"
           >
-            <MangaCard manga={item} hideSource />
+            <MangaCard 
+              manga={item} 
+              hideSource 
+              priority={i < 12}
+            />
             {i < 3 && pages[currentKey] === 1 && (
               <Badge
                 position="absolute"
@@ -183,7 +157,7 @@ function Popular() {
             )}
           </Box>
         ))}
-      </HStack>
+      </SimpleGrid>
     );
   };
 

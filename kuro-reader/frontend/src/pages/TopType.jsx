@@ -3,14 +3,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box, Container, Heading, Text, VStack, HStack,
-  Button, useToast, Skeleton, Badge, IconButton, Center
+  Button, useToast, Skeleton, Badge, IconButton, Center, SimpleGrid
 } from '@chakra-ui/react';
 import { FaTrophy, FaArrowUp, FaPlus } from 'react-icons/fa';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import VirtualGrid from '../components/VirtualGrid';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
@@ -158,18 +157,23 @@ function TopType() {
 
         {list.length > 0 ? (
           <>
-            {list.length > 30 ? (
-              <VirtualGrid
-                items={list}
-                minWidth={160}
-                gap={16}
-                renderItem={(item, i) => (
-                  <Box
-                    key={`${item.url}-${i}`}
-                    position="relative"
-                  >
-                    <MangaCard manga={item} hideSource />
-                    {i < 10 && page === 1 && (
+            <SimpleGrid 
+              columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} 
+              spacing={4}
+              w="100%"
+            >
+              {list.map((item, i) => (
+                <Box
+                  key={item.url || `toptype-${i}`}
+                  position="relative"
+                  h="100%"
+                >
+                  <MangaCard 
+                    manga={item} 
+                    hideSource 
+                    priority={i < 12}
+                  />
+                  {i < 10 && page === 1 && (
                       <Badge
                         position="absolute"
                         top={2}
@@ -183,37 +187,9 @@ function TopType() {
                         #{i + 1}
                       </Badge>
                     )}
-                  </Box>
-                )}
-              />
-            ) : (
-              <HStack spacing={4} wrap="wrap">
-                {list.map((item, i) => (
-                  <Box
-                    key={`${item.url}-${i}`}
-                    flex="1 0 160px"
-                    maxW="200px"
-                    position="relative"
-                  >
-                    <MangaCard manga={item} hideSource />
-                    {i < 10 && page === 1 && (
-                      <Badge
-                        position="absolute"
-                        top={2}
-                        left={2}
-                        colorScheme={i < 3 ? 'yellow' : 'purple'}
-                        fontSize="sm"
-                        px={2}
-                        py={1}
-                        zIndex={10}
-                      >
-                        #{i + 1}
-                      </Badge>
-                    )}
-                  </Box>
-                ))}
-              </HStack>
-            )}
+                </Box>
+              ))}
+            </SimpleGrid>
 
             {hasMore && (
               <Center py={6}>
