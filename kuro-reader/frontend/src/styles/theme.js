@@ -11,6 +11,9 @@ export const theme = extendTheme({
   },
   styles: {
     global: {
+      'html': {
+        scrollBehavior: 'smooth',
+      },
       body: {
         bg: 'gray.900',
         color: 'white',
@@ -19,6 +22,10 @@ export const theme = extendTheme({
         textRendering: 'optimizeLegibility',
         WebkitFontSmoothing: 'antialiased',
         MozOsxFontSmoothing: 'grayscale',
+      },
+      // ✅ TRANSIZIONI SMOOTH GLOBALI
+      '*': {
+        transition: 'background-color 0.2s ease, border-color 0.2s ease',
       },
       // ✅ SCROLL BAR PERSONALIZZATA
       '*::-webkit-scrollbar': {
@@ -38,13 +45,23 @@ export const theme = extendTheme({
       // ✅ BETTER CONTRAST per accessibilità
       'a': {
         color: 'purple.300',
+        transition: 'all 0.2s ease',
         _hover: {
           color: 'purple.200',
           textDecoration: 'underline',
+          transform: 'translateX(2px)',
         },
       },
       '.chakra-text': {
         color: 'gray.100', // Testo più chiaro
+      },
+      // ✅ SMOOTH CARDS
+      '.chakra-card, .manga-card': {
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        _hover: {
+          transform: 'translateY(-4px)',
+          boxShadow: '0 20px 25px -5px rgba(139, 92, 246, 0.1), 0 10px 10px -5px rgba(139, 92, 246, 0.04)',
+        },
       },
     },
   },
@@ -83,6 +100,7 @@ export const theme = extendTheme({
       baseStyle: {
         fontWeight: 'semibold',
         borderRadius: 'lg',  // ✅ più arrotondato
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       },
       variants: {
         solid: {
@@ -91,9 +109,24 @@ export const theme = extendTheme({
           _hover: {
             bgGradient: 'linear(to-r, purple.600, pink.600)',
             transform: 'translateY(-2px)',
-            boxShadow: 'lg',
+            boxShadow: '0 10px 15px -3px rgba(139, 92, 246, 0.4), 0 4px 6px -2px rgba(139, 92, 246, 0.2)',
           },
-          transition: 'all 0.2s',
+          _active: {
+            transform: 'translateY(0)',
+          },
+        },
+        ghost: {
+          _hover: {
+            bg: 'whiteAlpha.200',
+            transform: 'translateX(2px)',
+          },
+        },
+        outline: {
+          _hover: {
+            borderColor: 'purple.400',
+            bg: 'whiteAlpha.100',
+            transform: 'translateY(-2px)',
+          },
         },
       },
     },
@@ -102,6 +135,49 @@ export const theme = extendTheme({
         borderRadius: 'full',  // ✅ badge arrotondati
         px: 3,
         py: 1,
+        fontWeight: 'semibold',
+        transition: 'all 0.2s ease',
+      },
+    },
+    Card: {
+      baseStyle: {
+        container: {
+          bg: 'gray.800',
+          borderRadius: 'xl',
+          border: '1px solid',
+          borderColor: 'gray.700',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          _hover: {
+            borderColor: 'purple.500',
+            transform: 'translateY(-4px)',
+            boxShadow: '0 20px 25px -5px rgba(139, 92, 246, 0.1)',
+          },
+        },
+      },
+    },
+    Input: {
+      baseStyle: {
+        field: {
+          transition: 'all 0.2s ease',
+        },
+      },
+      variants: {
+        filled: {
+          field: {
+            _focus: {
+              borderColor: 'purple.400',
+              boxShadow: '0 0 0 1px var(--chakra-colors-purple-400)',
+            },
+          },
+        },
+        outline: {
+          field: {
+            _focus: {
+              borderColor: 'purple.400',
+              boxShadow: '0 0 0 1px var(--chakra-colors-purple-400)',
+            },
+          },
+        },
       },
     },
     Tabs: {

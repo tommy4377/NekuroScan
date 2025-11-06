@@ -6,7 +6,6 @@ import { HelmetProvider, Helmet } from 'react-helmet-async';
 import { theme } from './styles/theme';
 import Navigation from './components/Navigation';
 import Breadcrumbs from './components/Breadcrumbs';
-import FloatingActionButton from './components/FloatingActionButton';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import useAuthStore from './hooks/useAuth';
@@ -315,8 +314,6 @@ function AppContent() {
         </Box>
         <AnimatedRoutes />
       </Box>
-      
-      <FloatingActionButton user={user} />
     </Box>
   );
 }

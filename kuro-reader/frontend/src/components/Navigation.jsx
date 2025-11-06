@@ -256,9 +256,7 @@ function Navigation() {
         <DrawerContent bg="gray.900">
           <DrawerCloseButton />
           <DrawerHeader borderBottomWidth="1px" borderColor="gray.700">
-            <HStack spacing={2}>
-              <Logo boxSize="28px" fontSize="xl" />
-            </HStack>
+            Menu
           </DrawerHeader>
 
           <DrawerBody pt={4}>
@@ -323,43 +321,22 @@ function Navigation() {
               <Divider borderColor="gray.700" />
               
               {user ? (
-                <VStack align="stretch" spacing={3}>
-                  <HStack p={3} bg="gray.800" borderRadius="lg">
-                    <Avatar size="md" name={user.username} src={avatarSrc} />
-                    <VStack align="start" spacing={0}>
-                      <Text fontWeight="bold">{user.username}</Text>
-                      <Text fontSize="xs" color="gray.400">{user.email}</Text>
-                    </VStack>
-                  </HStack>
-                  
-                  <Link to="/profile" onClick={onClose}>
-                    <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaUser />} w="100%">
-                      Il mio profilo
+                <VStack align="stretch" spacing={2}>
+                  <Link to="/library" onClick={onClose}>
+                    <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaBookmark />} w="100%">
+                      La mia libreria
                     </Button>
                   </Link>
-                  <Link to="/profile" onClick={onClose}>
-              <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaUsers />} w="100%">
-                Follower e Seguiti
-               </Button>
-                </Link>
-
-                  <Link to="/settings" onClick={onClose}>
-                    <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaCog />} w="100%">
-                      Impostazioni
+                  <Link to="/notifications" onClick={onClose}>
+                    <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaBell />} w="100%">
+                      Notifiche
                     </Button>
                   </Link>
-                  <Button
-                    variant="ghost"
-                    justifyContent="flex-start"
-                    color="red.400"
-                    leftIcon={<FaSignOutAlt />}
-                    onClick={async () => { 
-                      await doLogout(); 
-                      onClose(); 
-                    }}
-                  >
-                    Logout
-                  </Button>
+                  <Link to="/downloads" onClick={onClose}>
+                    <Button variant="ghost" justifyContent="flex-start" leftIcon={<FaDownload />} w="100%">
+                      Download Offline
+                    </Button>
+                  </Link>
                 </VStack>
               ) : (
                 <VStack spacing={2}>

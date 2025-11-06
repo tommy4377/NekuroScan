@@ -25,15 +25,16 @@ const routeNames = {
 };
 
 function Breadcrumbs() {
+  // ✅ FIX React #300: Chiama TUTTI gli hooks PRIMA di qualsiasi return condizionale
   const location = useLocation();
+  const pathSegments = location.pathname.split('/').filter(Boolean);
   
+  // Return condizionali DOPO tutti gli hooks
   // Nascondi nel reader
   if (location.pathname.includes('/read/')) return null;
   
   // Nascondi in home e welcome
   if (location.pathname === '/' || location.pathname === '/home') return null;
-  
-  const pathSegments = location.pathname.split('/').filter(Boolean);
   
   if (pathSegments.length === 0) return null;
 
