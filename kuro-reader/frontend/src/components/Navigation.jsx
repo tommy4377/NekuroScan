@@ -27,9 +27,7 @@ function Navigation() {
   const isMobile = useBreakpointValue({ base: true, md: false });
   const logoSize = useBreakpointValue({ base: '32px', md: '40px' });
   
-  // Return condizionale DOPO tutti gli hooks
-  if (location.pathname.includes('/read/')) return null;
-
+  // ⚠️ CRITICAL: TUTTI GLI HOOKS DEVONO ESSERE PRIMA DEL RETURN!
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll);
@@ -45,7 +43,6 @@ function Navigation() {
     return undefined;
   }, [user]);
 
-  // ✅ WRAP handleSearch in useCallback per evitare React error #300
   const handleSearch = React.useCallback((e) => {
     e.preventDefault();
     if (query.trim()) {
@@ -55,7 +52,6 @@ function Navigation() {
     }
   }, [query, navigate, onClose]);
 
-  // ✅ WRAP doLogout in useCallback per evitare React error #300
   const doLogout = React.useCallback(async () => {
     if (user && persistLocalData) {
       await persistLocalData();
@@ -64,7 +60,6 @@ function Navigation() {
     navigate('/');
   }, [user, persistLocalData, logout, navigate]);
 
-  // ✅ WRAP shareProfile in useCallback per evitare React error #300
   const shareProfile = React.useCallback(() => {
     const profileUrl = `${window.location.origin}/user/${user?.username}`;
     navigator.clipboard.writeText(profileUrl).then(() => {
@@ -73,6 +68,9 @@ function Navigation() {
       toast({ title: 'Errore nella copia', status: 'error', duration: 2000 });
     });
   }, [user, toast]);
+  
+  // ✅ Return condizionale DOPO tutti gli hooks
+  if (location.pathname.includes('/read/')) return null;
 
   return (
     <>

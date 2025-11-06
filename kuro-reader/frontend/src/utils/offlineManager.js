@@ -63,11 +63,43 @@ class OfflineManager {
 
       for (let i = 0; i < imageUrls.length; i++) {
         try {
-          const response = await fetch(imageUrls[i]);
-          const blob = await response.blob();
+          let response;
+          let blob;
           
-          await this.saveImage(imageUrls[i], blob, chapterId);
-          downloadedImages.push(imageUrls[i]);
+          // TENTATIVO 1: Fetch diretto
+          try {
+            response = await fetch(imageUrls[i], {
+              mode: 'cors',
+              credentials: 'omit'
+            });
+            if (response.ok) {
+              blob = await response.blob();
+            }
+          } catch (directError) {
+            console.log(`Direct fetch failed for image ${i}, trying proxy...`);
+          }
+          
+          // TENTATIVO 2: Tramite proxy se diretto fallisce
+          if (!blob) {
+            try {
+              const proxyUrl = `${window.location.origin.includes('localhost') 
+                ? 'http://localhost:10001' 
+                : 'https://kuro-proxy-server.onrender.com'}/api/image-proxy?url=${encodeURIComponent(imageUrls[i])}`;
+              
+              response = await fetch(proxyUrl);
+              if (response.ok) {
+                blob = await response.blob();
+              }
+            } catch (proxyError) {
+              console.error(`Proxy fetch also failed for image ${i}:`, proxyError);
+              continue; // Salta questa immagine
+            }
+          }
+          
+          if (blob) {
+            await this.saveImage(imageUrls[i], blob, chapterId);
+            downloadedImages.push(imageUrls[i]);
+          }
         } catch (error) {
           console.error(`Failed to download image ${i}:`, error);
         }

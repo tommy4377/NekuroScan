@@ -42,11 +42,12 @@ function ProxiedImage({ src, alt, style, ...props }) {
     setError(false);
     setRetryCount(0);
     
-    // TIMEOUT per caricamento
+    // TIMEOUT per caricamento - NON chiamare handleError qui per evitare problemi hooks
     timeoutRef.current = setTimeout(() => {
-      if (mountedRef.current && loading) {
+      if (mountedRef.current) {
         console.warn('ProxiedImage: Timeout caricamento', src);
-        handleError();
+        setError(true);
+        setLoading(false);
       }
     }, 30000); // 30 secondi timeout
     
