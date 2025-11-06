@@ -219,14 +219,33 @@ async search(query) {
 
   async getChapterDetail(chapterUrl) {
     try {
+      console.log('🔍 Loading adult chapter:', chapterUrl);
+      
       let url = chapterUrl;
       if (!url.startsWith('http')) {
         url = `${this.baseUrl}${url.replace(/^\//, '')}`;
       }
       
-      console.log('Loading adult chapter from:', url);
+      let html;
+      try {
+        html = await this.makeRequest(url);
+      } catch (proxyError) {
+        console.error('❌ Proxy request failed:', proxyError);
+        // Prova a caricare direttamente senza proxy
+        try {
+          const directResponse = await fetch(url);
+          html = await directResponse.text();
+          console.log('✅ Direct request succeeded (bypassing proxy)');
+        } catch (directError) {
+          console.error('❌ Direct request also failed:', directError);
+          throw new Error('Impossibile caricare il capitolo. Il server proxy potrebbe essere offline.');
+        }
+      }
       
-      let html = await this.makeRequest(url);
+      if (!html || typeof html !== 'string') {
+        throw new Error('HTML response is empty or invalid');
+      }
+      
       let doc = this.parseHTML(html);
       
       const pages = [];

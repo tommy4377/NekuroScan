@@ -17,6 +17,7 @@ import apiManager from '../api';
 import bookmarksManager from '../utils/bookmarks';
 import notesManager from '../utils/notes';
 import chapterCache from '../utils/chapterCache';
+import ProxiedImage from '../components/ProxiedImage';
 
 function ReaderPage() {
   // ========== HOOKS ESSENZIALI (SEMPRE CHIAMATI PER PRIMI) ==========
@@ -920,14 +921,13 @@ function ReaderPage() {
                 >
                   {i + 1} / {totalPages}
                 </Box>
-                <Image
+                <ProxiedImage
                   src={page}
                   alt={`Pagina ${i + 1}`}
                   w="100%"
                   style={{
                     filter: `brightness(${brightness}%)`,
                   }}
-                  fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='1200'%3E%3Crect fill='%23333' width='800' height='1200'/%3E%3Ctext fill='%23999' x='50%25' y='50%25' text-anchor='middle'%3ECaricamento...%3C/text%3E%3C/svg%3E"
                 />
               </Box>
             ))}
@@ -1000,7 +1000,7 @@ function ReaderPage() {
               justifyContent="center"
             >
               {img.url ? (
-                <Image
+                <ProxiedImage
                   src={img.url}
                   alt={`Pagina ${img.index + 1}`}
                   maxH="calc(100vh - 120px)"
@@ -1010,7 +1010,6 @@ function ReaderPage() {
                     transform: `scale(${imageScale / 100})`,
                     filter: `brightness(${brightness}%)`,
                   }}
-                  fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='600'%3E%3Crect fill='%23333' width='400' height='600'/%3E%3Ctext fill='%23999' x='50%25' y='50%25' text-anchor='middle'%3ECaricamento...%3C/text%3E%3C/svg%3E"
                 />
               ) : (
                 <VStack spacing={4}>

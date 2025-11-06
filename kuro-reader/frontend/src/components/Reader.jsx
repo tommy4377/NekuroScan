@@ -10,6 +10,7 @@ import {
 } from '@chakra-ui/react';
 import { LazyLoadImage } from 'react-lazy-load-image-component';
 import 'react-lazy-load-image-component/src/effects/blur.css';
+import ProxiedImage from './ProxiedImage';
 
 function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
   const [loadedImages, setLoadedImages] = useState({});
@@ -132,13 +133,12 @@ function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
     return (
       <VStack spacing={0} bg="black">
         {chapter.pages.map((page, i) => (
-          <Box key={i} w="100%" maxW="900px" mx="auto">
+          <Box key={i} w="100%" maxW="900px" mx="auto" position="relative">
             {page ? (
-              <LazyLoadImage
+              <ProxiedImage
                 src={page}
                 alt={`Page ${i + 1}`}
-                effect="blur"
-                width="100%"
+                w="100%"
                 style={{
                   filter: `brightness(${settings?.brightness || 100}%)`,
                 }}
@@ -218,7 +218,7 @@ function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
           justifyContent="center"
         >
           {loadedImages[pageData.index] ? (
-            <Image
+            <ProxiedImage
               src={pageData.url}
               alt={`Page ${pageData.index + 1}`}
               objectFit={settings?.fitMode || 'contain'}

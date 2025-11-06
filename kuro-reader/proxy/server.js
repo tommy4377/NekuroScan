@@ -128,6 +128,49 @@ app.post('/api/parse', async (req, res) => {
   }
 });
 
+// Proxy per immagini (gestione CORS)
+app.get('/api/image-proxy', async (req, res) => {
+  try {
+    const { url } = req.query;
+    
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ success: false, error: 'URL non valido' });
+    }
+    
+    // Valida che sia un'immagine da un dominio autorizzato
+    if (!isAllowedDomain(url)) {
+      return res.status(403).json({ success: false, error: 'Dominio non autorizzato' });
+    }
+    
+    console.log('🖼️ Proxying image:', url);
+    
+    const response = await axios({
+      method: 'GET',
+      url,
+      responseType: 'arraybuffer',
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://www.mangaworld.cx/',
+        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8'
+      },
+      timeout: 30000,
+      maxRedirects: 5
+    });
+    
+    // Invia l'immagine con gli header appropriati
+    res.set({
+      'Content-Type': response.headers['content-type'] || 'image/jpeg',
+      'Cache-Control': 'public, max-age=86400', // Cache 24 ore
+      'Access-Control-Allow-Origin': '*'
+    });
+    
+    res.send(response.data);
+  } catch (error) {
+    console.error('Image proxy error:', error.message);
+    res.status(500).json({ success: false, error: 'Errore caricamento immagine' });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ 

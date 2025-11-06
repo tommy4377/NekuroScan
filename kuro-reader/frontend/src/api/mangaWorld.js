@@ -180,16 +180,38 @@ export class MangaWorldAPI {
 
   async getChapterDetail(chapterUrl) {
     try {
+      console.log('🔍 Loading chapter:', chapterUrl);
+      
       let url = chapterUrl;
       if (!url.includes('style=list')) {
         url = url.includes('?') ? `${chapterUrl}&style=list` : `${chapterUrl}?style=list`;
       }
       
-      const html = await this.makeRequest(url);
+      let html;
+      try {
+        html = await this.makeRequest(url);
+      } catch (proxyError) {
+        console.error('❌ Proxy request failed:', proxyError);
+        // Prova a caricare direttamente senza proxy (potrebbe fallire per CORS)
+        try {
+          const directResponse = await fetch(url);
+          html = await directResponse.text();
+          console.log('✅ Direct request succeeded (bypassing proxy)');
+        } catch (directError) {
+          console.error('❌ Direct request also failed:', directError);
+          throw new Error('Impossibile caricare il capitolo. Il server proxy potrebbe essere offline.');
+        }
+      }
+      
+      if (!html || typeof html !== 'string') {
+        throw new Error('HTML response is empty or invalid');
+      }
+      
       const doc = this.parseHTML(html);
       const pages = [];
       const seenUrls = new Set();
 
+      // Prima prova: cerca immagini nel DOM
       const selectors = [
         '#page img',
         '.page img',
@@ -199,7 +221,8 @@ export class MangaWorldAPI {
         '.reading-content img',
         'img[data-src]',
         'img[data-lazy]',
-        'img.page-image'
+        'img.page-image',
+        '.img-loading'
       ];
       
       for (const sel of selectors) {
@@ -211,44 +234,96 @@ export class MangaWorldAPI {
                        img.dataset?.lazy || 
                        img.dataset?.original ||
                        img.getAttribute('data-src') ||
-                       img.getAttribute('data-lazy');
+                       img.getAttribute('data-lazy') ||
+                       img.getAttribute('data-original');
                        
             if (src && src.startsWith('http') && !seenUrls.has(src)) {
-              seenUrls.add(src);
-              pages.push(src);
+              // Filtra miniature e icone
+              if (!src.includes('thumb') && !src.includes('icon') && !src.includes('logo')) {
+                seenUrls.add(src);
+                pages.push(src);
+              }
             }
           });
-          if (pages.length) break;
+          if (pages.length > 0) {
+            console.log(`✅ Found ${pages.length} images using selector: ${sel}`);
+            break;
+          }
         }
       }
 
-      // Fallback: cerca negli script
+      // Seconda prova: cerca negli script JavaScript
       if (!pages.length) {
+        console.log('🔍 No images found in DOM, searching in scripts...');
         doc.querySelectorAll('script').forEach(script => {
           const content = script.textContent || '';
-          const imageUrlPattern = /["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|gif|webp))["']/gi;
-          let match;
-          while ((match = imageUrlPattern.exec(content)) !== null) {
-            const cleanUrl = match[1];
-            if (cleanUrl && !seenUrls.has(cleanUrl) && !cleanUrl.includes('thumb')) {
-              seenUrls.add(cleanUrl);
-              pages.push(cleanUrl);
+          
+          // Pattern per array di immagini
+          const arrayPattern = /(?:pages|images|imgs)\s*[:=]\s*\[([\s\S]*?)\]/gi;
+          let arrayMatch;
+          while ((arrayMatch = arrayPattern.exec(content)) !== null) {
+            const urlPattern = /["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|gif|webp))["']/gi;
+            let urlMatch;
+            while ((urlMatch = urlPattern.exec(arrayMatch[1])) !== null) {
+              const cleanUrl = urlMatch[1];
+              if (cleanUrl && !seenUrls.has(cleanUrl) && !cleanUrl.includes('thumb')) {
+                seenUrls.add(cleanUrl);
+                pages.push(cleanUrl);
+              }
+            }
+          }
+          
+          // Fallback: cerca tutte le URL di immagini
+          if (!pages.length) {
+            const imageUrlPattern = /["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|gif|webp))["']/gi;
+            let match;
+            while ((match = imageUrlPattern.exec(content)) !== null) {
+              const cleanUrl = match[1];
+              if (cleanUrl && !seenUrls.has(cleanUrl) && !cleanUrl.includes('thumb') && !cleanUrl.includes('icon')) {
+                seenUrls.add(cleanUrl);
+                pages.push(cleanUrl);
+              }
             }
           }
         });
+        
+        if (pages.length > 0) {
+          console.log(`✅ Found ${pages.length} images in scripts`);
+        }
       }
 
-      // ✅ VALIDAZIONE: Non restituire un capitolo senza pagine
+      // ✅ VALIDAZIONE FINALE
       if (!pages || pages.length === 0) {
         console.error('❌ No pages found for chapter:', chapterUrl);
-        throw new Error('Nessuna pagina trovata per questo capitolo');
+        console.error('HTML preview:', html.substring(0, 500));
+        throw new Error('Nessuna pagina trovata per questo capitolo. Il sito potrebbe aver cambiato struttura.');
       }
       
-      console.log('✅ Chapter loaded successfully:', pages.length, 'pages');
-      return { url: chapterUrl, pages, type: 'images', title: '' };
+      // Proxy le immagini per evitare CORS
+      const proxiedPages = pages.map(pageUrl => {
+        // Se l'immagine è da mangaworld, prova a usare il proxy
+        if (pageUrl.includes('mangaworld') || pageUrl.includes('cdn')) {
+          return pageUrl; // Per ora restituisci l'URL originale
+        }
+        return pageUrl;
+      });
+      
+      console.log(`✅ Chapter loaded successfully: ${proxiedPages.length} pages`);
+      return { 
+        url: chapterUrl, 
+        pages: proxiedPages, 
+        type: 'images', 
+        title: '',
+        originalPages: pages // Mantieni anche gli URL originali
+      };
     } catch (error) {
       console.error('❌ Get chapter error:', error);
-      throw error; // ✅ Propaga l'errore invece di restituire null
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        chapterUrl
+      });
+      throw error;
     }
   }
 
