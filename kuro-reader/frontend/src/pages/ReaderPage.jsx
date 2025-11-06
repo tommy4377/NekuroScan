@@ -19,11 +19,14 @@ import notesManager from '../utils/notes';
 import chapterCache from '../utils/chapterCache';
 
 function ReaderPage() {
-  // ========== HOOKS ESSENZIALI ==========
+  // ========== HOOKS ESSENZIALI (SEMPRE CHIAMATI PER PRIMI) ==========
   const { source, mangaId, chapterId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
+  
+  // ✅ VALIDAZIONE PARAMETRI (ma hooks devono essere chiamati prima)
+  const hasValidParams = Boolean(source && mangaId && chapterId);
   
   // ========== STATES CON LOCALSTORAGE ==========
   const [chapter, setChapter] = useState(null);
@@ -490,13 +493,21 @@ function ReaderPage() {
     let isMounted = true;
     
     const loadData = async () => {
+      // ✅ VALIDAZIONE ID prima di decodificare
+      if (!chapterId || !mangaId || !source) {
+        console.error('❌ Parametri mancanti:', { source, mangaId, chapterId });
+        toast({
+          title: 'Errore',
+          description: 'Parametri URL non validi',
+          status: 'error',
+          duration: 3000,
+        });
+        navigate('/home');
+        return;
+      }
+      
       try {
         setLoading(true);
-
-        // ✅ VALIDAZIONE ID prima di decodificare
-        if (!chapterId || !mangaId || !source) {
-          throw new Error('Parametri mancanti nell\'URL');
-        }
 
         let chapterUrl, mangaUrl;
         
