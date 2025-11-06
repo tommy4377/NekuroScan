@@ -6,23 +6,72 @@ export class MangaWorldAPI {
     this.baseUrl = 'https://www.mangaworld.cx/';
   }
 
-  async makeRequest(url) {
-    const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url,
-        headers: {
-          'User-Agent': 'Mozilla/5.0',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
-          'Referer': this.baseUrl
+  async makeRequest(url, retryCount = 0) {
+    const MAX_RETRIES = 2;
+    
+    try {
+      // VALIDAZIONE URL
+      if (!url || typeof url !== 'string' || !url.startsWith('http')) {
+        throw new Error('URL non valido');
+      }
+      
+      const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
+            'Referer': this.baseUrl
+          }
+        }),
+        timeout: 15000
+      });
+      
+      // VALIDAZIONE RISPOSTA HTTP
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error('Accesso negato dal server');
+        } else if (response.status === 404) {
+          throw new Error('Pagina non trovata');
+        } else if (response.status >= 500) {
+          throw new Error('Errore del server');
         }
-      })
-    });
-    const data = await response.json();
-    if (!data.success) throw new Error(data.error || 'Request failed');
-    return data.data;
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // VALIDAZIONE DATI RISPOSTA
+      if (!data || typeof data !== 'object') {
+        throw new Error('Risposta non valida dal proxy');
+      }
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Richiesta fallita');
+      }
+      
+      if (!data.data) {
+        throw new Error('Dati mancanti nella risposta');
+      }
+      
+      return data.data;
+      
+    } catch (error) {
+      console.error(`Errore richiesta (tentativo ${retryCount + 1}):`, error.message);
+      
+      // RETRY AUTOMATICO
+      if (retryCount < MAX_RETRIES && 
+          (error.message.includes('server') || error.message.includes('timeout'))) {
+        console.log(`Retry ${retryCount + 1}/${MAX_RETRIES}...`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+        return this.makeRequest(url, retryCount + 1);
+      }
+      
+      throw error;
+    }
   }
 
   parseHTML(html) {
@@ -32,7 +81,18 @@ export class MangaWorldAPI {
 
   async getMangaFromUrl(url) {
     try {
+      // VALIDAZIONE URL
+      if (!url || !url.includes('mangaworld')) {
+        throw new Error('URL manga non valido');
+      }
+      
       const html = await this.makeRequest(url);
+      
+      // VALIDAZIONE HTML
+      if (!html || typeof html !== 'string' || html.length < 100) {
+        throw new Error('Risposta HTML non valida');
+      }
+      
       const doc = this.parseHTML(html);
 
       // Titolo
@@ -154,26 +214,40 @@ export class MangaWorldAPI {
       // Ordina per numero crescente
       chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
 
-      return {
+      // VALIDAZIONE FINALE
+      if (!title || title === 'Unknown Title') {
+        throw new Error('Titolo manga non trovato');
+      }
+      
+      if (chapters.length === 0) {
+        console.warn('Nessun capitolo trovato per:', url);
+      }
+
+      const result = {
         url,
         title,
-        coverUrl,
-        alternativeTitles: info.alternativeTitles,
-        authors: info.authors,
-        artists: info.artists,
-        genres: info.genres,
-        status: info.status,
-        type: info.type,
-        year: info.year,
-        plot,
+        coverUrl: coverUrl || '',
+        alternativeTitles: info.alternativeTitles || [],
+        authors: info.authors || [],
+        artists: info.artists || [],
+        genres: info.genres || [],
+        status: info.status || 'Sconosciuto',
+        type: info.type || 'Manga',
+        year: info.year || '',
+        plot: plot || 'Nessuna descrizione disponibile',
         chapters,
         chaptersNumber: chapters.length,
         source: 'mangaWorld',
         isAdult: false
       };
+      
+      console.log(`✅ Manga caricato: ${title} (${chapters.length} capitoli)`);
+      
+      return result;
+      
     } catch (error) {
-      console.error('Get manga error:', error);
-      return null;
+      console.error('Errore getMangaFromUrl:', error);
+      throw error; // Propaga l'errore invece di return null
     }
   }
 

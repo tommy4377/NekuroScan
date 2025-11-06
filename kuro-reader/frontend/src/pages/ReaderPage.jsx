@@ -492,16 +492,18 @@ function ReaderPage() {
   
   useEffect(() => {
     let isMounted = true;
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
     
     const loadData = async () => {
-      // ✅ VALIDAZIONE ID prima di decodificare
+      // VALIDAZIONE PARAMETRI
       if (!chapterId || !mangaId || !source) {
-        console.error('❌ Parametri mancanti:', { source, mangaId, chapterId });
+        console.error('Parametri mancanti:', { source, mangaId, chapterId });
         toast({
           title: 'Errore',
-          description: 'Parametri URL non validi',
+          description: 'Link non valido',
           status: 'error',
-          duration: 3000,
+          duration: 2000,
         });
         navigate('/home');
         return;
@@ -512,59 +514,130 @@ function ReaderPage() {
 
         let chapterUrl, mangaUrl;
         
+        // DECODIFICA URL BASE64
         try {
           chapterUrl = atob(chapterId);
           mangaUrl = atob(mangaId);
+          
+          // VALIDAZIONE URL DECODIFICATI
+          if (!chapterUrl.startsWith('http') || !mangaUrl.startsWith('http')) {
+            throw new Error('URL non validi dopo decodifica');
+          }
         } catch (decodeError) {
-          console.error('❌ Errore decodifica ID:', decodeError);
-          throw new Error('ID capitolo/manga non valido');
+          console.error('Errore decodifica:', decodeError);
+          throw new Error('Link corrotto o non valido');
         }
 
-        console.log('📖 Caricamento capitolo:', chapterUrl);
-        console.log('📚 Caricamento manga:', mangaUrl);
+        console.log('Caricamento:', { chapterUrl, mangaUrl });
 
-        const [mangaData, chapterData] = await Promise.all([
-          apiManager.getMangaDetails(mangaUrl, source),
-          apiManager.getChapter(chapterUrl, source)
-        ]);
+        // CARICAMENTO DATI CON RETRY
+        let mangaData, chapterData;
+        
+        try {
+          [mangaData, chapterData] = await Promise.all([
+            apiManager.getMangaDetails(mangaUrl, source).catch(err => {
+              console.error('Errore caricamento manga:', err);
+              return null;
+            }),
+            apiManager.getChapter(chapterUrl, source).catch(err => {
+              console.error('Errore caricamento capitolo:', err);
+              return null;
+            })
+          ]);
+        } catch (err) {
+          console.error('Errore Promise.all:', err);
+          throw new Error('Impossibile contattare il server');
+        }
         
         if (!isMounted) return;
         
-        // ✅ VALIDAZIONE DATI prima di settare lo stato
-        if (!mangaData || !chapterData) {
-          throw new Error('Dati non validi ricevuti dal server');
+        // VALIDAZIONI ROBUSTE
+        if (!mangaData) {
+          throw new Error('Manga non trovato. Il link potrebbe essere scaduto.');
         }
         
-        if (!chapterData.pages || !Array.isArray(chapterData.pages) || chapterData.pages.length === 0) {
-          throw new Error('Capitolo vuoto o non valido');
+        if (!chapterData) {
+          throw new Error('Capitolo non trovato. Potrebbe essere stato rimosso.');
         }
         
-        console.log('✅ Capitolo caricato:', chapterData.pages.length, 'pagine');
+        if (!chapterData.pages || !Array.isArray(chapterData.pages)) {
+          console.error('Formato pages non valido:', chapterData);
+          throw new Error('Formato capitolo non valido');
+        }
         
+        if (chapterData.pages.length === 0) {
+          throw new Error('Capitolo vuoto. Il sito potrebbe aver cambiato struttura.');
+        }
+        
+        // VALIDAZIONE URL IMMAGINI
+        const validPages = chapterData.pages.filter(url => {
+          if (!url || typeof url !== 'string') return false;
+          if (!url.startsWith('http')) return false;
+          return true;
+        });
+        
+        if (validPages.length === 0) {
+          console.error('Nessuna immagine valida trovata:', chapterData.pages);
+          throw new Error('Nessuna immagine valida nel capitolo');
+        }
+        
+        if (validPages.length < chapterData.pages.length) {
+          console.warn(`Trovate solo ${validPages.length}/${chapterData.pages.length} immagini valide`);
+          chapterData.pages = validPages;
+        }
+        
+        console.log(`✅ Caricato: ${chapterData.pages.length} pagine`);
+        
+        // SALVA DATI
         setManga(mangaData);
         setChapter(chapterData);
         
-        const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-        const mangaProgress = progress[mangaData.url];
-        if (mangaProgress && mangaProgress.chapterId === chapterUrl) {
-          setCurrentPage(mangaProgress.page || 0);
+        // RIPRISTINA PROGRESSO
+        try {
+          const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+          const mangaProgress = progress[mangaData.url];
+          if (mangaProgress && mangaProgress.chapterId === chapterUrl) {
+            const savedPage = mangaProgress.page || 0;
+            if (savedPage >= 0 && savedPage < chapterData.pages.length) {
+              setCurrentPage(savedPage);
+            }
+          }
+        } catch (err) {
+          console.error('Errore ripristino progresso:', err);
         }
         
       } catch (error) {
         if (!isMounted) return;
         
-        console.error('Error loading reader data:', error);
+        console.error('Errore caricamento:', error);
+        
+        // RETRY AUTOMATICO
+        if (retryCount < MAX_RETRIES && error.message.includes('server')) {
+          retryCount++;
+          console.log(`Retry ${retryCount}/${MAX_RETRIES}...`);
+          setTimeout(() => {
+            if (isMounted) loadData();
+          }, 2000 * retryCount);
+          return;
+        }
+        
+        // MOSTRA ERRORE ALL'UTENTE
         toast({
-          title: 'Errore caricamento',
+          title: 'Errore',
           description: error.message || 'Impossibile caricare il capitolo',
           status: 'error',
-          duration: 3000,
+          duration: 4000,
+          isClosable: true,
         });
+        
+        // REDIRECT DOPO ERRORE
         setTimeout(() => {
-          if (isMounted) {
+          if (isMounted && mangaId && source) {
             navigate(`/manga/${source}/${mangaId}`);
+          } else {
+            navigate('/home');
           }
-        }, 2000);
+        }, 3000);
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -574,6 +647,8 @@ function ReaderPage() {
 
     if (source && mangaId && chapterId) {
       loadData();
+    } else {
+      navigate('/home');
     }
     
     return () => {

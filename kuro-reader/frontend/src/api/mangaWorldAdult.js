@@ -10,23 +10,55 @@ export class MangaWorldAdultAPI {
     this.baseUrl = 'https://www.mangaworldadult.net/';
   }
 
-  async makeRequest(url) {
-    const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
-          'Referer': this.baseUrl
-        }
-      })
-    });
-    const data = await response.json();
-    if (!data.success) throw new Error(data.error || 'Request failed');
-    return data.data;
+  async makeRequest(url, retryCount = 0) {
+    const MAX_RETRIES = 2;
+    
+    try {
+      if (!url || !url.startsWith('http')) {
+        throw new Error('URL non valido');
+      }
+      
+      const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
+            'Referer': this.baseUrl
+          }
+        }),
+        timeout: 15000
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data || !data.success) {
+        throw new Error(data?.error || 'Richiesta fallita');
+      }
+      
+      if (!data.data) {
+        throw new Error('Dati mancanti');
+      }
+      
+      return data.data;
+      
+    } catch (error) {
+      console.error(`Errore richiesta adult (tentativo ${retryCount + 1}):`, error.message);
+      
+      if (retryCount < MAX_RETRIES && error.message.includes('server')) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+        return this.makeRequest(url, retryCount + 1);
+      }
+      
+      throw error;
+    }
   }
 
   parseHTML(html) {
