@@ -15,11 +15,8 @@ import useAuth from '../hooks/useAuth';
 import Logo from './Logo';
 
 function Navigation() {
+  // ✅ FIX React #300: TUTTI gli hooks DEVONO essere chiamati prima di qualsiasi return condizionale
   const location = useLocation();
-  
-  // ✅ FIX React #300: return PRIMA di tutti gli altri hook
-  if (location.pathname.includes('/read/')) return null;
-  
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [query, setQuery] = useState('');
   const [scrolled, setScrolled] = useState(false);
@@ -29,6 +26,9 @@ function Navigation() {
   
   const isMobile = useBreakpointValue({ base: true, md: false });
   const logoSize = useBreakpointValue({ base: '32px', md: '40px' });
+  
+  // Return condizionale DOPO tutti gli hooks
+  if (location.pathname.includes('/read/')) return null;
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -149,6 +149,33 @@ function Navigation() {
                   colorScheme="purple"
                 />
               </Tooltip>
+              
+              {user && (
+                <>
+                  <Tooltip label="La mia libreria" placement="bottom">
+                    <IconButton
+                      icon={<FaBook />}
+                      variant="ghost"
+                      onClick={() => navigate('/library')}
+                      aria-label="Libreria"
+                      size="sm"
+                      colorScheme="purple"
+                      display={{ base: 'none', md: 'flex' }}
+                    />
+                  </Tooltip>
+                  <Tooltip label="Notifiche" placement="bottom">
+                    <IconButton
+                      icon={<FaBell />}
+                      variant="ghost"
+                      onClick={() => navigate('/notifications')}
+                      aria-label="Notifiche"
+                      size="sm"
+                      colorScheme="purple"
+                      display={{ base: 'none', md: 'flex' }}
+                    />
+                  </Tooltip>
+                </>
+              )}
               
               {user ? (
                 <Menu>

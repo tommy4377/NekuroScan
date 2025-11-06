@@ -5,7 +5,6 @@ import { ChakraProvider, Box, Spinner, Center, VStack, Text, useToast, Button } 
 import { HelmetProvider, Helmet } from 'react-helmet-async';
 import { theme } from './styles/theme';
 import Navigation from './components/Navigation';
-import Sidebar from './components/Sidebar';
 import Breadcrumbs from './components/Breadcrumbs';
 import FloatingActionButton from './components/FloatingActionButton';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -149,16 +148,7 @@ function AppContent() {
   const user = useAuthStore(state => state.user);
   
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    const saved = localStorage.getItem('sidebarCollapsed');
-    return saved === 'false' ? false : true; // Default nascosta
-  });
   const toast = useToast();
-
-  // Salva stato sidebar
-  useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', sidebarCollapsed.toString());
-  }, [sidebarCollapsed]);
 
   // Gestione routing per URL diretti
   useEffect(() => {
@@ -302,11 +292,6 @@ function AppContent() {
       </Helmet>
       
       <Navigation />
-      <Sidebar 
-        isCollapsed={sidebarCollapsed} 
-        setIsCollapsed={setSidebarCollapsed}
-        user={user}
-      />
       
       {!isOnline && (
         <Box
@@ -324,7 +309,7 @@ function AppContent() {
         </Box>
       )}
       
-      <Box ml={{ base: 0, lg: sidebarCollapsed ? '70px' : '250px' }} transition="margin-left 0.3s">
+      <Box>
         <Box maxW="container.xl" mx="auto">
           <Breadcrumbs />
         </Box>

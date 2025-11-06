@@ -630,6 +630,62 @@ function MangaDetails() {
     return completedChapters.includes(chapterIndex);
   }, [completedChapters]);
 
+  // Download chapter offline - WRAPPED IN USECALLBACK
+  const downloadChapterOffline = useCallback(async (chapter, chapterIndex) => {
+    if (!manga || !chapter) return;
+    
+    try {
+      // Aggiungi al set dei download in corso
+      setDownloadingChapters(prev => new Set(prev).add(chapter.url));
+      
+      toast({
+        title: '📥 Download iniziato',
+        description: `Download di ${chapter.title || `Capitolo ${chapterIndex + 1}`}`,
+        status: 'info',
+        duration: 2000
+      });
+      
+      // Scarica il capitolo
+      const result = await offlineManager.downloadChapter(manga, chapter, chapterIndex, source);
+      
+      if (result.success) {
+        // Aggiungi alla lista dei capitoli scaricati
+        setDownloadedChapters(prev => new Set(prev).add(chapter.url));
+        
+        toast({
+          title: '✅ Download completato',
+          description: result.message,
+          status: 'success',
+          duration: 3000
+        });
+        
+        console.log('✅ Chapter downloaded:', chapter.title);
+      } else {
+        toast({
+          title: '❌ Errore download',
+          description: result.error || 'Impossibile scaricare il capitolo',
+          status: 'error',
+          duration: 3000
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error downloading chapter:', error);
+      toast({
+        title: '❌ Errore download',
+        description: error.message || 'Impossibile scaricare il capitolo',
+        status: 'error',
+        duration: 3000
+      });
+    } finally {
+      // Rimuovi dal set dei download in corso
+      setDownloadingChapters(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(chapter.url);
+        return newSet;
+      });
+    }
+  }, [manga, source, toast]);
+
   // ========== RENDER ==========
 
   if (loading) {

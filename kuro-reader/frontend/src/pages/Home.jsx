@@ -386,7 +386,7 @@ function Home() {
           border="1px solid"
           borderColor="gray.700"
         >
-          <Tabs colorScheme="purple" variant="soft-rounded">
+          <Tabs colorScheme="purple" variant="soft-rounded" isLazy>
             <TabList 
               bg="gray.900" 
               p={2} 
@@ -397,19 +397,37 @@ function Home() {
                 scrollbarWidth: 'none'
               }}
             >
-              <Tab>
+              <Tab 
+                _selected={{ 
+                  bg: 'blue.500', 
+                  color: 'white',
+                  boxShadow: 'md'
+                }}
+              >
                 <HStack spacing={2}>
                   <FaClock />
                   <Text display={{ base: 'none', sm: 'block' }}>Aggiornamenti</Text>
                 </HStack>
               </Tab>
-              <Tab>
+              <Tab
+                _selected={{ 
+                  bg: 'pink.500', 
+                  color: 'white',
+                  boxShadow: 'md'
+                }}
+              >
                 <HStack spacing={2}>
                   <FaHeart />
                   <Text display={{ base: 'none', sm: 'block' }}>Popolari</Text>
                 </HStack>
               </Tab>
-              <Tab>
+              <Tab
+                _selected={{ 
+                  bg: 'orange.500', 
+                  color: 'white',
+                  boxShadow: 'md'
+                }}
+              >
                 <HStack spacing={2}>
                   <FaTrophy />
                   <Text display={{ base: 'none', sm: 'block' }}>Top Series</Text>
