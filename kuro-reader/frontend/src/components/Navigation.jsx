@@ -256,7 +256,10 @@ function Navigation() {
         <DrawerContent bg="gray.900">
           <DrawerCloseButton />
           <DrawerHeader borderBottomWidth="1px" borderColor="gray.700">
-            Menu
+            <HStack spacing={2}>
+              <Logo boxSize="32px" fontSize="lg" />
+              <Text fontWeight="bold">Menu</Text>
+            </HStack>
           </DrawerHeader>
 
           <DrawerBody pt={4}>
