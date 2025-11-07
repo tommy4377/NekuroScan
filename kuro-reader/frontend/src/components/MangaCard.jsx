@@ -19,12 +19,12 @@ function safeEncodeUrl(url) {
   }
 }
 
-function MangaCard({ manga, hideSource = false, showLatestChapter = false, priority = false }) {
+const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = false, priority = false }) => {
   const navigate = useNavigate();
   const [imageLoaded, setImageLoaded] = useState(false);
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
 
-  const handleClick = () => {
+  const handleClick = React.useCallback(() => {
     if (!manga?.url) {
       console.error('Invalid manga data:', manga);
       return;
@@ -33,10 +33,9 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false, prior
     const mangaId = safeEncodeUrl(manga.url);
     const source = manga.source || (manga.isAdult ? 'mangaWorldAdult' : 'mangaWorld');
     navigate(`/manga/${source}/${mangaId}`);
-  };
+  }, [manga, navigate]);
 
-  // Resto del componente uguale...
-  const handleMouseMove = (e) => {
+  const handleMouseMove = React.useCallback((e) => {
     const card = e.currentTarget;
     const rect = card.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -46,13 +45,16 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false, prior
     const rotateX = (y - centerY) / 10;
     const rotateY = (centerX - x) / 10;
     setRotation({ x: rotateX, y: rotateY });
-  };
+  }, []);
 
-  const handleMouseLeave = () => {
+  const handleMouseLeave = React.useCallback(() => {
     setRotation({ x: 0, y: 0 });
-  };
+  }, []);
 
-  const cleanChapter = manga.latestChapter?.toString().replace(/cap\.?|capitolo|chapter|ch\.?/i, '').trim();
+  const cleanChapter = React.useMemo(() => 
+    manga.latestChapter?.toString().replace(/cap\.?|capitolo|chapter|ch\.?/i, '').trim()
+  , [manga.latestChapter]);
+  
   const shouldShowChapter = cleanChapter && (showLatestChapter || manga.isTrending || manga.isRecent);
 
   return (
@@ -62,7 +64,7 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false, prior
       height="100%"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      style={{ perspective: '1000px', transformStyle: 'preserve-3d' }}
+      style={{ perspective: '1000px', transformStyle: 'preserve-3d', willChange: 'transform' }}
     >
       <VStack
         bg="gray.800"
@@ -70,7 +72,7 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false, prior
         overflow="hidden"
         spacing={0}
         height="100%"
-        transition="all 0.3s ease"
+        transition="all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
         position="relative"
         border="1px solid"
         borderColor="transparent"
@@ -78,11 +80,12 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false, prior
           bg: 'gray.700',
           borderColor: 'purple.500',
           boxShadow: '0 30px 60px rgba(128, 90, 213, 0.35)',
-          transform: 'translateY(-10px)'
+          transform: 'translateY(-8px) scale(1.02)'
         }}
         style={{
           transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
-          transformStyle: 'preserve-3d'
+          transformStyle: 'preserve-3d',
+          willChange: 'transform'
         }}
       >
         <Box position="relative" width="100%" paddingBottom="140%">
@@ -191,6 +194,8 @@ function MangaCard({ manga, hideSource = false, showLatestChapter = false, prior
       </VStack>
     </Box>
   );
-}
+});
+
+MangaCard.displayName = 'MangaCard';
 
 export default MangaCard;

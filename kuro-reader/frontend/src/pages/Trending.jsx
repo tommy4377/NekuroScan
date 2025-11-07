@@ -13,7 +13,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
-function Trending() {
+const Trending = React.memo(() => {
   const navigate = useNavigate();
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
   const [lists, setLists] = useState({
@@ -281,6 +281,8 @@ function Trending() {
       </VStack>
     </Container>
   );
-}
+});
+
+Trending.displayName = 'Trending';
 
 export default Trending;

@@ -27,10 +27,14 @@
   <!-- Preload solo immagini effettivamente usate -->
   <link rel="preload" as="image" href="/web-app-manifest-192x192.png" />
   
-  <!-- Fix mobile input -->
+  <!-- Fix mobile input + Performance -->
   <style>
     * {
       -webkit-tap-highlight-color: transparent;
+    }
+    html {
+      scroll-behavior: smooth;
+      overflow-x: hidden;
     }
     input, textarea, select {
       font-size: 16px !important;
@@ -42,6 +46,21 @@
       overscroll-behavior-y: none;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
+    /* GPU acceleration per performance */
+    .manga-card, .chakra-button, [data-hover], .chakra-modal__content {
+      will-change: transform;
+      backface-visibility: hidden;
+      transform: translateZ(0);
+    }
+    /* Smooth transitions globali */
+    .chakra-button, .chakra-link, .manga-card {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    /* Loading ottimizzato */
+    .chakra-skeleton {
+      animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
   </style>
 

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Image, Box, Spinner, Text, VStack, Button } from '@chakra-ui/react';
 import { config } from '../config';
 
-function ProxiedImage({ src, alt, style, ...props }) {
+const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
   const [imageSrc, setImageSrc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -144,9 +144,11 @@ function ProxiedImage({ src, alt, style, ...props }) {
           style={{
             ...style,
             opacity: loading ? 0 : 1,
-            transition: 'opacity 0.2s ease-in-out'
+            transition: 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            willChange: 'opacity'
           }}
           loading="lazy"
+          decoding="async"
           w="100%"
           h="100%"
         />
@@ -164,7 +166,9 @@ function ProxiedImage({ src, alt, style, ...props }) {
       )}
     </Box>
   );
-}
+});
+
+ProxiedImage.displayName = 'ProxiedImage';
 
 export default ProxiedImage;
 

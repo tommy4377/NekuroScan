@@ -1,26 +1,24 @@
 // ✨ PAGE TRANSITION - Animazioni transizione tra pagine
 import React from 'react';
 import { Box } from '@chakra-ui/react';
+import { motion } from 'framer-motion';
+
+const MotionBox = motion(Box);
 
 const PageTransition = ({ children }) => {
   return (
-    <Box
-      animation="fadeSlideIn 0.4s ease-out"
-      sx={{
-        '@keyframes fadeSlideIn': {
-          '0%': {
-            opacity: 0,
-            transform: 'translateY(20px)'
-          },
-          '100%': {
-            opacity: 1,
-            transform: 'translateY(0)'
-          }
-        }
+    <MotionBox
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{
+        duration: 0.2,
+        ease: [0.4, 0, 0.2, 1]
       }}
+      style={{ willChange: 'opacity, transform' }}
     >
       {children}
-    </Box>
+    </MotionBox>
   );
 };
 

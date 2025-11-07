@@ -60,30 +60,71 @@ function Home() {
   const checkOfflineStatus = useCallback(async () => {
     // Prima controlla la connessione del browser
     if (!navigator.onLine) {
+      console.log('🔴 Browser offline');
       setIsOffline(true);
       return true;
     }
     
     try {
-      // Prova a pingare il proxy con timeout breve
+      // Tentativo 1: Ping al proxy con timeout
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2500);
+      const timeout = setTimeout(() => controller.abort(), 3000);
       
       const response = await fetch(`${config.PROXY_URL}/health`, {
         signal: controller.signal,
-        cache: 'no-cache'
+        cache: 'no-cache',
+        mode: 'cors'
       });
       
       clearTimeout(timeout);
       
       if (response.ok) {
+        console.log('✅ Proxy raggiungibile');
         setIsOffline(false);
         return false;
-      } else {
-        setIsOffline(true);
-        return true;
       }
-    } catch {
+      
+      // Se non ok, prova un altro endpoint
+      console.warn('⚠️ Proxy health non OK, provo endpoint alternativo...');
+      
+      // Tentativo 2: Prova a fare una richiesta reale
+      const testController = new AbortController();
+      const testTimeout = setTimeout(() => testController.abort(), 3000);
+      
+      const testResponse = await fetch(`${config.PROXY_URL}/api/proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: 'https://www.mangaworld.cx',
+          headers: {}
+        }),
+        signal: testController.signal,
+        cache: 'no-cache'
+      });
+      
+      clearTimeout(testTimeout);
+      
+      if (testResponse.ok) {
+        console.log('✅ Proxy funzionante (test endpoint)');
+        setIsOffline(false);
+        return false;
+      }
+      
+      console.error('❌ Proxy non risponde');
+      setIsOffline(true);
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Errore connessione:', error.message);
+      
+      // Se l'errore è un abort, probabilmente è solo lento, non offline
+      if (error.name === 'AbortError') {
+        console.warn('⚠️ Timeout - server lento, ma potresti essere online');
+        // Non impostare offline immediatamente per timeout
+        setIsOffline(false);
+        return false;
+      }
+      
       setIsOffline(true);
       return true;
     }
@@ -115,7 +156,7 @@ function Home() {
       ] = await Promise.allSettled([
         apiManager.getTrending(includeAdult),
         apiManager.getRecentChapters(includeAdult),
-        statsAPI.getMostFavorites(includeAdult, 1),
+        statsAPI.searchAdvanced({ sort: 'newest', page: 1, includeAdult }), // Trending per popolari
         statsAPI.getTopByType('manga', includeAdult, 1),
         statsAPI.getTopByType('manhwa', includeAdult, 1),
         statsAPI.getTopByType('manhua', includeAdult, 1),
@@ -240,7 +281,7 @@ function Home() {
   }, [navigate, includeAdult]);
 
   // ========= SEZIONE CONTENUTI =========
-  const ContentSection = ({ 
+  const ContentSection = useCallback(({ 
     title, 
     icon, 
     items, 
@@ -386,7 +427,7 @@ function Home() {
         </Box>
       </VStack>
     );
-  };
+  }, [loading, navigateToSection]);
 
   // ========= OFFLINE MODE =========
   if (isOffline || !navigator.onLine) {
@@ -594,14 +635,14 @@ function Home() {
               </Tab>
               <Tab
                 _selected={{ 
-                  bg: 'pink.500', 
+                  bg: 'orange.500', 
                   color: 'white',
                   boxShadow: 'md'
                 }}
               >
                 <HStack spacing={2}>
-                  <FaHeart />
-                  <Text display={{ base: 'none', sm: 'block' }}>Popolari</Text>
+                  <FaFire />
+                  <Text display={{ base: 'none', sm: 'block' }}>Trending</Text>
                 </HStack>
               </Tab>
               <Tab
@@ -649,10 +690,10 @@ function Home() {
               {/* TAB POPOLARI */}
               <TabPanel px={0} pt={6}>
                 <ContentSection 
-                  title="I più letti" 
-                  icon={FaHeart} 
+                  title="Trending" 
+                  icon={FaFire} 
                   items={content.popular} 
-                  color="pink" 
+                  color="orange" 
                   viewAllPath="/popular"
                 />
               </TabPanel>
@@ -660,33 +701,6 @@ function Home() {
               {/* TAB TOP SERIES */}
               <TabPanel px={0} pt={6}>
                 <VStack spacing={6} align="stretch">
-                  <Box
-                    bg="gray.800"
-                    p={{ base: 4, md: 6 }}
-                    borderRadius="xl"
-                    border="1px solid"
-                    borderColor="gray.700"
-                    textAlign="center"
-                    cursor="pointer"
-                    onClick={() => navigate('/categories')}
-                    transition="all 0.3s"
-                    _hover={{
-                      borderColor: 'purple.500',
-                      transform: 'translateY(-2px)',
-                      boxShadow: 'lg'
-                    }}
-                    mb={4}
-                  >
-                    <VStack spacing={3}>
-                      <Heading size={{ base: 'sm', md: 'md' }}>📚 Esplora tutte le categorie</Heading>
-                      <Text color="gray.400" fontSize="sm">
-                        Sfoglia manga, manhwa, manhua e oneshot
-                      </Text>
-                      <Button colorScheme="purple" size="md" rightIcon={<FaArrowRight />}>
-                        Vai alle categorie
-                      </Button>
-                    </VStack>
-                  </Box>
                   <ContentSection 
                     title="Top Manga" 
                     icon={GiDragonHead} 

@@ -12,7 +12,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
-function Latest() {
+const Latest = React.memo(() => {
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
   const [list, setList] = useState([]);
   const [page, setPage] = useState(1);
@@ -257,6 +257,8 @@ function Latest() {
       </VStack>
     </Container>
   );
-}
+});
+
+Latest.displayName = 'Latest';
 
 export default Latest;
