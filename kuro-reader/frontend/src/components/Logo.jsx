@@ -55,31 +55,25 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
               transition="opacity 0.3s"
               boxSize={boxSize}
             >
-              <picture>
-                {/* WebP con srcset ottimizzato */}
-                <source 
-                  type="image/webp"
-                  srcSet="/favicon-96x96.webp 96w, /web-app-manifest-192x192.webp 192w, /web-app-manifest-512x512.webp 512w"
-                  sizes={boxSize}
-                />
-                {/* Fallback PNG */}
-                <img
-                  src={optimalImage.png}
-                  srcSet="/favicon-96x96.png 96w, /web-app-manifest-192x192.png 192w, /web-app-manifest-512x512.png 512w"
-                  sizes={boxSize}
-                  alt="NeKuro Scan"
-                  loading="eager"
-                  fetchpriority="high"
-                  style={{ 
-                    width: boxSize,
-                    height: boxSize,
-                    borderRadius: '0.5rem',
-                    objectFit: 'contain',
-                    imageRendering: '-webkit-optimize-contrast',
-                    display: 'block'
-                  }}
-                />
-              </picture>
+              {/* Usa direttamente l'immagine ottimale - srcset non funziona con sizes fissi */}
+              <img
+                src={optimalImage.webp}
+                alt="NeKuro Scan"
+                loading="eager"
+                fetchpriority="high"
+                onError={(e) => {
+                  // Fallback a PNG se WebP fallisce
+                  e.target.src = optimalImage.png;
+                }}
+                style={{ 
+                  width: boxSize,
+                  height: boxSize,
+                  borderRadius: '0.5rem',
+                  objectFit: 'contain',
+                  imageRendering: '-webkit-optimize-contrast',
+                  display: 'block'
+                }}
+              />
             </Box>
           ) : (
             <Box

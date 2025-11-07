@@ -6,6 +6,7 @@ import { theme } from './styles/theme';
 import Navigation from './components/Navigation';
 import Breadcrumbs from './components/Breadcrumbs';
 import ErrorBoundary from './components/ErrorBoundary';
+import DownloadProgressBar from './components/DownloadProgressBar';
 import { ThemeProvider } from './contexts/ThemeContext';
 import useAuthStore from './hooks/useAuth';
 import statusBar from './utils/statusBar';
@@ -293,6 +294,9 @@ function AppContent() {
       </Helmet>
       
       <Navigation />
+      
+      {/* Download Progress Bar - Global */}
+      <DownloadProgressBar />
       
       {!isOnline && (
         <Box

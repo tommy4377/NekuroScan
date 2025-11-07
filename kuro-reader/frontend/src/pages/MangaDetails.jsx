@@ -16,6 +16,7 @@ import {
 } from 'react-icons/fa';
 import apiManager from '../api';
 import useAuth from '../hooks/useAuth';
+import useDownloadProgress from '../hooks/useDownloadProgress';
 import offlineManager from '../utils/offlineManager';
 import shareUtils from '../utils/shareUtils';
 import axios from 'axios';
@@ -43,6 +44,8 @@ function MangaDetails() {
     syncToServer = null, 
     syncReading = null 
   } = authHook || {};
+  
+  const { addDownload, updateChapterProgress, completeChapter, finishDownload } = useDownloadProgress();
   
   // States
   const [manga, setManga] = useState(null);
@@ -659,16 +662,14 @@ function MangaDetails() {
   const downloadChapterOffline = useCallback(async (chapter, chapterIndex) => {
     if (!manga || !chapter) return;
     
+    const downloadId = `${manga.url}-${chapter.url}`;
+    
     try {
       // Aggiungi al set dei download in corso
       setDownloadingChapters(prev => new Set(prev).add(chapter.url));
       
-      toast({
-        title: '📥 Download iniziato',
-        description: `Caricamento ${chapter.title || `Capitolo ${chapterIndex + 1}`}...`,
-        status: 'info',
-        duration: 2000
-      });
+      // Aggiungi alla barra di progresso
+      addDownload(downloadId, manga.title, 1);
       
       // PRIMA: Carica il capitolo completo con le pagine
       let chapterWithPages;
@@ -682,33 +683,27 @@ function MangaDetails() {
         throw new Error('Capitolo vuoto');
       }
       
-      // POI: Scarica le immagini
+      // POI: Scarica le immagini con progress
       const result = await offlineManager.downloadChapter(
         manga, 
         chapterWithPages, 
         chapterIndex, 
         source,
         (progress) => {
-          if (progress.percentage % 25 === 0) {
-            toast({
-              title: `📥 ${progress.percentage}%`,
-              description: `${progress.current}/${progress.total}`,
-              status: 'info',
-              duration: 1000
-            });
-          }
+          // Aggiorna solo la barra, niente toast
+          updateChapterProgress(
+            downloadId,
+            chapter.title || `Capitolo ${chapterIndex + 1}`,
+            progress.current,
+            progress.total
+          );
         }
       );
       
       if (result.success) {
         setDownloadedChapters(prev => new Set(prev).add(chapter.url));
-        
-        toast({
-          title: result.alreadyDownloaded ? '✅ Già scaricato' : '✅ Completato',
-          description: `${result.downloaded || result.chapter?.size || 0} pagine`,
-          status: 'success',
-          duration: 3000
-        });
+        completeChapter(downloadId);
+        finishDownload(downloadId, 'completed');
         
         localStorage.setItem(`downloaded_${chapter.url}`, 'true');
         window.dispatchEvent(new CustomEvent('downloads-updated'));
@@ -717,11 +712,14 @@ function MangaDetails() {
       }
     } catch (error) {
       console.error('Error downloading chapter:', error);
+      finishDownload(downloadId, 'error');
+      
+      // Solo notifica errore (non più toast ogni 25%)
       toast({
         title: 'Errore download',
         description: error.message,
         status: 'error',
-        duration: 4000,
+        duration: 3000,
         isClosable: true
       });
     } finally {
@@ -731,7 +729,7 @@ function MangaDetails() {
         return newSet;
       });
     }
-  }, [manga, source, toast]);
+  }, [manga, source, toast, addDownload, updateChapterProgress, completeChapter, finishDownload]);
 
   // Download chapters in range
   const downloadRangeChapters = useCallback(async (fromIndex, toIndex) => {
@@ -754,16 +752,12 @@ function MangaDetails() {
     const toDownload = to - from + 1;
     let downloaded = 0;
     let failed = 0;
+    const downloadId = `${manga.url}-range-${Date.now()}`;
     
     setShowDownloadModal(false);
     
-    toast({
-      title: '📥 Download in corso',
-      description: `Scaricando ${toDownload} capitoli (${from + 1} - ${to + 1})...`,
-      status: 'info',
-      duration: 3000,
-      isClosable: false
-    });
+    // Aggiungi alla barra di progresso
+    addDownload(downloadId, manga.title, toDownload);
     
     for (let i = from; i <= to; i++) {
       try {
@@ -777,12 +771,21 @@ function MangaDetails() {
           continue;
         }
         
-        // Scarica
+        // Scarica con progress
         const result = await offlineManager.downloadChapter(
           manga,
           chapterWithPages,
           i,
-          source
+          source,
+          (progress) => {
+            // Aggiorna barra di progresso
+            updateChapterProgress(
+              downloadId,
+              chapter.title || `Capitolo ${i + 1}`,
+              progress.current,
+              progress.total
+            );
+          }
         );
         
         if (result.success && !result.alreadyDownloaded) {
@@ -790,30 +793,30 @@ function MangaDetails() {
           setDownloadedChapters(prev => new Set(prev).add(chapter.url));
         }
         
-        // Progress ogni 5 capitoli o ultimo
-        if ((i - from + 1) % 5 === 0 || i === to) {
-          toast({
-            title: `📥 Progresso: ${i - from + 1}/${toDownload}`,
-            description: `Scaricati: ${downloaded}, Falliti: ${failed}`,
-            status: 'info',
-            duration: 2000
-          });
-        }
+        // Completa capitolo nella barra
+        completeChapter(downloadId);
+        
       } catch (err) {
         failed++;
         console.error(`Failed to download chapter ${i}:`, err);
       }
     }
     
-    toast({
-      title: '✅ Download completato',
-      description: `Scaricati: ${downloaded}/${toDownload}, Falliti: ${failed}`,
-      status: downloaded > 0 ? 'success' : 'error',
-      duration: 5000
-    });
+    // Fine download
+    finishDownload(downloadId, failed === 0 ? 'completed' : 'error');
+    
+    // Solo notifica finale
+    if (downloaded > 0) {
+      toast({
+        title: '✅ Download completato',
+        description: `${downloaded}/${toDownload} capitoli scaricati`,
+        status: 'success',
+        duration: 3000
+      });
+    }
     
     window.dispatchEvent(new CustomEvent('downloads-updated'));
-  }, [manga, source, toast]);
+  }, [manga, source, toast, addDownload, updateChapterProgress, completeChapter, finishDownload]);
 
   // ========== RENDER ==========
 

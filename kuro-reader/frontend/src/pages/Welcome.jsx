@@ -57,11 +57,11 @@ const Welcome = React.memo(() => {
   return (
     <Box 
       position="fixed"
-      top={0}
+      top={{ base: "60px", md: 0 }}
       left={0}
       right={0}
       bottom={0}
-      h="100vh" 
+      h={{ base: "calc(100vh - 60px)", md: "100vh" }}
       bg="gray.900" 
       overflow={{ base: "auto", md: "hidden" }}
       display="flex"
@@ -76,7 +76,7 @@ const Welcome = React.memo(() => {
         alignItems="center"
         justifyContent="center"
       >
-        <VStack spacing={{ base: 8, md: 10 }} align="center" w="100%">
+        <VStack spacing={{ base: 6, md: 10 }} align="center" w="100%">
           {/* Hero Section - FIX MOBILE */}
           <Box
             width="100%"
