@@ -19,6 +19,7 @@ import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import useAuth from '../hooks/useAuth';
 import useGridDensity from '../hooks/useGridDensity';
+import { config } from '../config';
 
 // ✅ PULISCE NUMERO CAPITOLO
 const cleanChapterNumber = (chapter) => {
@@ -52,10 +53,41 @@ function Home() {
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  const [downloadedCount, setDownloadedCount] = useState(0);
+
+  // ========= CHECK OFFLINE =========
+  const checkOfflineStatus = useCallback(async () => {
+    try {
+      // Prova a pingare il proxy
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+      
+      await fetch(`${config.PROXY_URL}/health`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeout);
+      setIsOffline(false);
+      return false;
+    } catch {
+      setIsOffline(true);
+      return true;
+    }
+  }, []);
 
   // ========= LOAD CONTENT =========
   const loadAllContent = useCallback(async () => {
     setLoading(true);
+    
+    // Check se offline
+    const offline = await checkOfflineStatus();
+    
+    if (offline) {
+      // Modalità OFFLINE: mostra solo download
+      setLoading(false);
+      return;
+    }
     
     try {
       // Carica tutto in parallelo
@@ -122,20 +154,36 @@ function Home() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [includeAdult, toast, user]);
+  }, [includeAdult, toast, checkOfflineStatus, user]);
 
   useEffect(() => {
     loadAllContent();
     
-    // Ascolta aggiornamenti della libreria
+    // Conta download offline
+    const loadDownloadCount = async () => {
+      try {
+        const { default: offlineManager } = await import('../utils/offlineManager');
+        const downloads = await offlineManager.getAllDownloaded();
+        setDownloadedCount(downloads.length);
+      } catch (err) {
+        console.log('Offline manager not available');
+      }
+    };
+    
+    loadDownloadCount();
+    
+    // Ascolta aggiornamenti
     const handleLibraryUpdate = () => {
       loadAllContent();
+      loadDownloadCount();
     };
     
     window.addEventListener('library-updated', handleLibraryUpdate);
+    window.addEventListener('downloads-updated', loadDownloadCount);
     
     return () => {
       window.removeEventListener('library-updated', handleLibraryUpdate);
+      window.removeEventListener('downloads-updated', loadDownloadCount);
     };
   }, [loadAllContent]);
 
@@ -298,6 +346,74 @@ function Home() {
       </VStack>
     );
   };
+
+  // ========= OFFLINE MODE =========
+  if (isOffline || !navigator.onLine) {
+    return (
+      <PageTransition>
+        <Container maxW="container.xl" py={8}>
+          <VStack spacing={8} align="stretch">
+            
+            {/* Header offline */}
+            <Box textAlign="center" py={6}>
+              <Badge colorScheme="orange" fontSize="md" px={4} py={2} mb={4}>
+                📡 Modalità Offline
+              </Badge>
+              <Heading size="lg" mb={2}>Manga Scaricati</Heading>
+              <Text color="gray.400">
+                Server non raggiungibile. Accedi ai tuoi manga offline
+              </Text>
+            </Box>
+
+            {/* Card download */}
+            <Box
+              bg="gray.800"
+              borderRadius="xl"
+              p={10}
+              textAlign="center"
+              border="2px dashed"
+              borderColor="purple.500"
+              cursor="pointer"
+              onClick={() => navigate('/downloads')}
+              transition="all 0.3s"
+              _hover={{
+                transform: 'translateY(-8px)',
+                boxShadow: '0 20px 40px rgba(128, 90, 213, 0.4)',
+                borderColor: 'purple.400'
+              }}
+            >
+              <VStack spacing={6}>
+                <Icon as={FaBookOpen} boxSize={20} color="purple.400" />
+                <Heading size="xl">📥 Manga Offline</Heading>
+                <Text color="gray.300" fontSize="xl" fontWeight="bold">
+                  {downloadedCount} {downloadedCount === 1 ? 'capitolo' : 'capitoli'}
+                </Text>
+                <Button 
+                  colorScheme="purple" 
+                  size="lg"
+                  rightIcon={<FaChevronRight />}
+                >
+                  Apri i miei download
+                </Button>
+              </VStack>
+            </Box>
+
+            {/* Info */}
+            <Box bg="gray.800" p={6} borderRadius="lg" textAlign="center">
+              <VStack spacing={2}>
+                <Text color="gray.400" fontSize="sm">
+                  💡 I tuoi manga scaricati sono sempre disponibili offline
+                </Text>
+                <Text color="gray.500" fontSize="xs">
+                  Quando torni online potrai cercare e scaricare nuovi contenuti
+                </Text>
+              </VStack>
+            </Box>
+          </VStack>
+        </Container>
+      </PageTransition>
+    );
+  }
 
   // ========= LOADING STATE =========
   if (loading) {

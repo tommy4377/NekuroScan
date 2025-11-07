@@ -7,8 +7,12 @@ const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/favicon.ico',
+  '/favicon.svg',
+  '/favicon-96x96.png',
   '/web-app-manifest-192x192.png',
-  '/web-app-manifest-512x512.png'
+  '/web-app-manifest-512x512.png',
+  '/apple-touch-icon.png'
 ];
 
 // Install

@@ -58,6 +58,12 @@ function Breadcrumbs() {
         const isLast = index === pathSegments.length - 1;
         const path = '/' + pathSegments.slice(0, index + 1).join('/');
         
+        // Nascondi sources (mangaWorld, mangaWorldAdult, etc)
+        if (segment === 'mangaWorld' || segment === 'mangaWorldAdult' || 
+            segment.toLowerCase().includes('manga') && segment.toLowerCase().includes('world')) {
+          return null;
+        }
+        
         // Per route con parametri (manga, user, etc)
         if (!route) {
           if (segment.length > 20) {
@@ -73,10 +79,13 @@ function Breadcrumbs() {
           );
         }
         
+        // Rendi "manga" e "read" non cliccabili (sono solo parte del path)
+        const isNotClickable = segment === 'manga' || segment === 'read';
+        
         return (
-          <BreadcrumbItem key={index} isCurrentPage={isLast}>
-            {isLast ? (
-              <Text color="white" fontWeight="bold">
+          <BreadcrumbItem key={index} isCurrentPage={isLast || isNotClickable}>
+            {isLast || isNotClickable ? (
+              <Text color={isLast ? 'white' : 'gray.400'} fontWeight={isLast ? 'bold' : 'normal'}>
                 {route.icon && <Icon as={route.icon} mr={1} />}
                 {route.label}
               </Text>
