@@ -18,6 +18,7 @@ import bookmarksManager from '../utils/bookmarks';
 import notesManager from '../utils/notes';
 import chapterCache from '../utils/chapterCache';
 import ProxiedImage from '../components/ProxiedImage';
+import { config } from '../config';
 
 function ReaderPage() {
   // ========== HOOKS ESSENZIALI (SEMPRE CHIAMATI PER PRIMI) ==========
@@ -1116,25 +1117,38 @@ function ReaderPage() {
           {currentImages.map((img) => (
             <Box
               key={img.index}
-              w={readingMode === 'double' ? '50%' : '100%'}
-              h="calc(100vh - 120px)"
+              flex={readingMode === 'double' ? '1' : 'none'}
+              maxW={readingMode === 'double' ? '50%' : '90vw'}
+              maxH="calc(100vh - 140px)"
               display="flex"
               alignItems="center"
               justifyContent="center"
               position="relative"
             >
               {img.url ? (
-                <ProxiedImage
-                  src={img.url}
-                  alt={`Pagina ${img.index + 1}`}
-                  objectFit="contain"
-                  maxH="100%"
+                <Box
                   maxW="100%"
-                  style={{
-                    transform: `scale(${imageScale / 100})`,
-                    filter: `brightness(${brightness}%)`,
-                  }}
-                />
+                  maxH="100%"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Image
+                    src={img.url.includes('cdn.mangaworld') 
+                      ? `${config.PROXY_URL}/api/image-proxy?url=${encodeURIComponent(img.url)}`
+                      : img.url
+                    }
+                    alt={`Pagina ${img.index + 1}`}
+                    maxH="calc(100vh - 140px)"
+                    maxW="100%"
+                    objectFit="contain"
+                    style={{
+                      transform: `scale(${imageScale / 100})`,
+                      filter: `brightness(${brightness}%)`,
+                    }}
+                    loading="lazy"
+                  />
+                </Box>
               ) : (
                 <Spinner size="xl" color="purple.500" />
               )}

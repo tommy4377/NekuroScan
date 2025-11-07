@@ -644,44 +644,66 @@ function MangaDetails() {
       
       toast({
         title: '📥 Download iniziato',
-        description: `Download di ${chapter.title || `Capitolo ${chapterIndex + 1}`}`,
+        description: `Caricamento ${chapter.title || `Capitolo ${chapterIndex + 1}`}...`,
         status: 'info',
         duration: 2000
       });
       
-      // Scarica il capitolo
-      const result = await offlineManager.downloadChapter(manga, chapter, chapterIndex, source);
+      // PRIMA: Carica il capitolo completo con le pagine
+      let chapterWithPages;
+      try {
+        chapterWithPages = await apiManager.getChapter(chapter.url, source);
+      } catch (loadError) {
+        throw new Error('Impossibile caricare: ' + loadError.message);
+      }
+      
+      if (!chapterWithPages || !chapterWithPages.pages || chapterWithPages.pages.length === 0) {
+        throw new Error('Capitolo vuoto');
+      }
+      
+      // POI: Scarica le immagini
+      const result = await offlineManager.downloadChapter(
+        manga, 
+        chapterWithPages, 
+        chapterIndex, 
+        source,
+        (progress) => {
+          if (progress.percentage % 25 === 0) {
+            toast({
+              title: `📥 ${progress.percentage}%`,
+              description: `${progress.current}/${progress.total}`,
+              status: 'info',
+              duration: 1000
+            });
+          }
+        }
+      );
       
       if (result.success) {
-        // Aggiungi alla lista dei capitoli scaricati
         setDownloadedChapters(prev => new Set(prev).add(chapter.url));
         
         toast({
-          title: '✅ Download completato',
-          description: result.message,
+          title: result.alreadyDownloaded ? '✅ Già scaricato' : '✅ Completato',
+          description: `${result.downloaded || result.chapter?.size || 0} pagine`,
           status: 'success',
           duration: 3000
         });
         
-        console.log('✅ Chapter downloaded:', chapter.title);
+        localStorage.setItem(`downloaded_${chapter.url}`, 'true');
+        window.dispatchEvent(new CustomEvent('downloads-updated'));
       } else {
-        toast({
-          title: '❌ Errore download',
-          description: result.error || 'Impossibile scaricare il capitolo',
-          status: 'error',
-          duration: 3000
-        });
+        throw new Error(result.error || 'Download fallito');
       }
     } catch (error) {
-      console.error('❌ Error downloading chapter:', error);
+      console.error('Error downloading chapter:', error);
       toast({
-        title: '❌ Errore download',
-        description: error.message || 'Impossibile scaricare il capitolo',
+        title: 'Errore download',
+        description: error.message,
         status: 'error',
-        duration: 3000
+        duration: 4000,
+        isClosable: true
       });
     } finally {
-      // Rimuovi dal set dei download in corso
       setDownloadingChapters(prev => {
         const newSet = new Set(prev);
         newSet.delete(chapter.url);
