@@ -3,7 +3,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, Text, Image, VStack, HStack, Button, Badge,
   SimpleGrid, Skeleton, useToast, Flex, IconButton, Wrap, WrapItem,
-  Progress, Menu, MenuButton, MenuList, MenuItem, Divider, Spinner
+  Progress, Menu, MenuButton, MenuList, MenuItem, Divider, Spinner,
+  Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalCloseButton, NumberInput, NumberInputField, NumberInputStepper,
+  NumberIncrementStepper, NumberDecrementStepper, FormControl, FormLabel
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -54,6 +57,8 @@ function MangaDetails() {
   const [isNavigating, setIsNavigating] = useState(false);
   const [downloadingChapters, setDownloadingChapters] = useState(new Set());
   const [downloadedChapters, setDownloadedChapters] = useState(new Set());
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadRange, setDownloadRange] = useState({ from: 1, to: 1 });
 
   // ========== CALLBACKS ==========
 
@@ -723,29 +728,39 @@ function MangaDetails() {
     }
   }, [manga, source, toast]);
 
-  // Download ALL chapters
-  const downloadAllChapters = useCallback(async () => {
+  // Download chapters in range
+  const downloadRangeChapters = useCallback(async (fromIndex, toIndex) => {
     if (!manga || !manga.chapters || manga.chapters.length === 0) return;
     
-    const toDownload = manga.chapters.length;
+    // Validazione range
+    const from = Math.max(0, fromIndex - 1); // -1 perché l'utente vede 1-based
+    const to = Math.min(manga.chapters.length - 1, toIndex - 1);
+    
+    if (from > to || from < 0 || to >= manga.chapters.length) {
+      toast({
+        title: '❌ Range non valido',
+        description: `Seleziona un range tra 1 e ${manga.chapters.length}`,
+        status: 'error',
+        duration: 3000
+      });
+      return;
+    }
+    
+    const toDownload = to - from + 1;
     let downloaded = 0;
     let failed = 0;
     
-    const confirmed = window.confirm(
-      `Scaricare tutti i ${toDownload} capitoli? Potrebbe richiedere molto tempo.`
-    );
-    
-    if (!confirmed) return;
+    setShowDownloadModal(false);
     
     toast({
       title: '📥 Download in corso',
-      description: `Scaricando ${toDownload} capitoli...`,
+      description: `Scaricando ${toDownload} capitoli (${from + 1} - ${to + 1})...`,
       status: 'info',
       duration: 3000,
       isClosable: false
     });
     
-    for (let i = 0; i < manga.chapters.length; i++) {
+    for (let i = from; i <= to; i++) {
       try {
         const chapter = manga.chapters[i];
         
@@ -770,10 +785,10 @@ function MangaDetails() {
           setDownloadedChapters(prev => new Set(prev).add(chapter.url));
         }
         
-        // Progress ogni 10 capitoli
-        if ((i + 1) % 10 === 0 || i === manga.chapters.length - 1) {
+        // Progress ogni 5 capitoli o ultimo
+        if ((i - from + 1) % 5 === 0 || i === to) {
           toast({
-            title: `📥 Progresso: ${i + 1}/${toDownload}`,
+            title: `📥 Progresso: ${i - from + 1}/${toDownload}`,
             description: `Scaricati: ${downloaded}, Falliti: ${failed}`,
             status: 'info',
             duration: 2000
@@ -1028,16 +1043,20 @@ function MangaDetails() {
                   </Button>
                 )}
                 
-                <Button
+                <IconButton
+                  icon={<FaDownload />}
                   colorScheme="green"
                   variant="outline"
                   size={{ base: 'sm', md: 'md' }}
-                  leftIcon={<FaDownload />}
-                  onClick={downloadAllChapters}
+                  onClick={() => {
+                    setDownloadRange({ from: 1, to: manga.chapters?.length || 1 });
+                    setShowDownloadModal(true);
+                  }}
                   isDisabled={!manga.chapters || manga.chapters.length === 0}
-                >
-                  Scarica tutto
-                </Button>
+                  aria-label="Scarica capitoli"
+                  _hover={{ transform: 'translateY(-2px)' }}
+                  transition="all 0.2s"
+                />
                 
                 <IconButton
                   icon={isFavorite ? <FaHeart /> : <FaBookmark />}
@@ -1443,6 +1462,135 @@ function MangaDetails() {
         )}
 
       </VStack>
+
+      {/* ========== MODAL DOWNLOAD RANGE ========== */}
+      <Modal 
+        isOpen={showDownloadModal} 
+        onClose={() => setShowDownloadModal(false)}
+        size="md"
+        isCentered
+      >
+        <ModalOverlay bg="blackAlpha.800" backdropFilter="blur(10px)" />
+        <ModalContent bg="gray.800" borderRadius="xl" border="1px solid" borderColor="green.500">
+          <ModalHeader>
+            <HStack spacing={3}>
+              <Box
+                p={2}
+                bg="green.500"
+                borderRadius="lg"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <FaDownload color="white" size="20" />
+              </Box>
+              <VStack align="start" spacing={0}>
+                <Heading size="md">Scarica Capitoli</Heading>
+                <Text fontSize="sm" color="gray.400" fontWeight="normal">
+                  Seleziona il range di capitoli
+                </Text>
+              </VStack>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          
+          <ModalBody pb={6}>
+            <VStack spacing={6}>
+              <FormControl>
+                <FormLabel>
+                  <HStack spacing={2}>
+                    <Text>Dal capitolo</Text>
+                    <Badge colorScheme="green">{downloadRange.from}</Badge>
+                  </HStack>
+                </FormLabel>
+                <NumberInput
+                  min={1}
+                  max={manga?.chapters?.length || 1}
+                  value={downloadRange.from}
+                  onChange={(_, val) => setDownloadRange(prev => ({ ...prev, from: val }))}
+                  bg="gray.900"
+                  borderColor="gray.700"
+                  _hover={{ borderColor: 'green.500' }}
+                  _focus={{ borderColor: 'green.500', boxShadow: '0 0 0 1px var(--chakra-colors-green-500)' }}
+                >
+                  <NumberInputField />
+                  <NumberInputStepper>
+                    <NumberIncrementStepper borderColor="gray.700" />
+                    <NumberDecrementStepper borderColor="gray.700" />
+                  </NumberInputStepper>
+                </NumberInput>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>
+                  <HStack spacing={2}>
+                    <Text>Al capitolo</Text>
+                    <Badge colorScheme="green">{downloadRange.to}</Badge>
+                  </HStack>
+                </FormLabel>
+                <NumberInput
+                  min={downloadRange.from}
+                  max={manga?.chapters?.length || 1}
+                  value={downloadRange.to}
+                  onChange={(_, val) => setDownloadRange(prev => ({ ...prev, to: val }))}
+                  bg="gray.900"
+                  borderColor="gray.700"
+                  _hover={{ borderColor: 'green.500' }}
+                  _focus={{ borderColor: 'green.500', boxShadow: '0 0 0 1px var(--chakra-colors-green-500)' }}
+                >
+                  <NumberInputField />
+                  <NumberInputStepper>
+                    <NumberIncrementStepper borderColor="gray.700" />
+                    <NumberDecrementStepper borderColor="gray.700" />
+                  </NumberInputStepper>
+                </NumberInput>
+              </FormControl>
+
+              <Box 
+                w="100%" 
+                p={4} 
+                bg="green.900" 
+                borderRadius="lg"
+                border="1px solid"
+                borderColor="green.700"
+              >
+                <VStack spacing={2}>
+                  <HStack justify="space-between" w="100%">
+                    <Text fontSize="sm" color="gray.300">Capitoli da scaricare:</Text>
+                    <Badge colorScheme="green" fontSize="md" px={3} py={1}>
+                      {Math.max(0, downloadRange.to - downloadRange.from + 1)}
+                    </Badge>
+                  </HStack>
+                  <Text fontSize="xs" color="gray.400" textAlign="center">
+                    I capitoli saranno disponibili offline
+                  </Text>
+                </VStack>
+              </Box>
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <HStack spacing={3} w="100%">
+              <Button 
+                variant="ghost" 
+                onClick={() => setShowDownloadModal(false)}
+                flex={1}
+              >
+                Annulla
+              </Button>
+              <Button
+                colorScheme="green"
+                onClick={() => downloadRangeChapters(downloadRange.from, downloadRange.to)}
+                flex={1}
+                leftIcon={<FaDownload />}
+                isDisabled={downloadRange.from > downloadRange.to}
+              >
+                Scarica
+              </Button>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Container>
   );
 }
