@@ -1,45 +1,31 @@
 {
-  "name": "kuro-reader",
-  "version": "3.0.0",
-  "type": "module",
+  "name": "kuro-reader-frontend",
+  "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "preinstall": "export PATH=$PATH:$(npm bin)",
+    "preinstall": "if ! command -v patch-package >/dev/null 2>&1; then npm install -g patch-package; fi",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview --port 3000",
-    "start": "vite preview --port 3000",
-    "postinstall": "npx patch-package"
+    "preview": "vite preview",
+    "postinstall": "patch-package || echo 'No patches applied'"
   },
   "dependencies": {
-    "@chakra-ui/icons": "^2.1.0",
-    "@chakra-ui/react": "^2.8.2",
-    "@emotion/react": "^11.11.3",
-    "@emotion/styled": "^11.11.0",
-    "@vitejs/plugin-react": "^4.2.1",
-    "axios": "^1.6.5",
-    "framer-motion": "^10.18.0",
-    "lodash.debounce": "^4.0.8",
+    "@vitejs/plugin-react": "^4.3.2",
+    "lucide-react": "^0.452.0",
     "patch-package": "^8.0.0",
-    "qrcode": "^1.5.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-helmet-async": "^2.0.4",
-    "react-icons": "^5.0.1",
-    "react-intersection-observer": "^9.5.3",
-    "react-lazy-load-image-component": "^1.6.0",
-    "react-router-dom": "^6.21.2",
-    "react-virtualized-auto-sizer": "^1.0.24",
-    "react-window": "^1.8.10",
-    "vite": "^5.0.11",
-    "vite-plugin-pwa": "^0.17.4",
-    "zustand": "^4.4.7"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.7",
+    "socket.io-client": "^4.7.5",
+    "tailwindcss": "^3.4.10"
   },
   "devDependencies": {
-    "@types/react": "^18.2.47",
-    "@types/react-window": "^1.8.8"
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "vite": "^5.4.9"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20 <23"
   }
 }
