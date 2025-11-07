@@ -293,7 +293,8 @@ app.listen(PORT, () => {
   ╠════════════════════════════════════════╣
   ║ Port: ${PORT.toString().padEnd(33)}║
   ║ Environment: ${(process.env.NODE_ENV || 'production').padEnd(26)}║
-  ║ Rate Limit: ${MAX_REQUESTS} req/min${' '.repeat(20)}║
+  ║ Rate Limit: Global ${RATE_LIMITS.global.max}/min${' '.repeat(16)}║
+  ║ Proxy: ${RATE_LIMITS.proxy.max}/min | Images: ${RATE_LIMITS.image.max}/min${' '.repeat(5)}║
   ╚════════════════════════════════════════╝
   `);
 });
