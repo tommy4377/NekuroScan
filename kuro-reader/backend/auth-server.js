@@ -181,7 +181,7 @@ const upload = multer({
 
 // ========= CORS SETUP =========
 const corsOrigins = process.env.NODE_ENV === 'production' 
-  ? ['https://nekuro-scan.onrender.com', 'https://nekuroscan.com']
+  ? ['https://nekuroscan.onrender.com', 'https://nekuroscan.com']
   : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'];
 
 app.use(cors({
@@ -1201,28 +1201,6 @@ app.get('/api/notifications/settings', authenticateToken, requireDatabase, async
     });
   }
 });
-
-// ========= SERVE FRONTEND STATIC FILES (SPA SUPPORT) =========
-if (process.env.NODE_ENV === 'production') {
-  const frontendPath = path.join(__dirname, '../frontend/dist');
-  
-  // Serve static files
-  app.use(express.static(frontendPath, {
-    maxAge: '1d',
-    etag: true
-  }));
-  
-  // SPA fallback - tutte le route non API vanno a index.html
-  app.get('*', (req, res) => {
-    // Ignora le chiamate API
-    if (req.path.startsWith('/api')) {
-      return res.status(404).json({ message: 'Endpoint non trovato' });
-    }
-    res.sendFile(path.join(frontendPath, 'index.html'));
-  });
-  
-  console.log('✅ Frontend static files configured');
-}
 
 // ========= ERROR HANDLER =========
 app.use((err, req, res, next) => {

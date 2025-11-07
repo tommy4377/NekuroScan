@@ -8,7 +8,8 @@ const PORT = process.env.PORT || 10001;
 
 app.use(cors({
   origin: [
-    'https://nekuro-scan.onrender.com',
+    'https://nekuroscan.onrender.com',
+    'https://nekuroscan.com',
     'http://localhost:5173',
     'http://localhost:5174'
   ]

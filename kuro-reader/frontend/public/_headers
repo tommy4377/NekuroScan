@@ -1,7 +1,7 @@
 # HTML - no cache
 /index.html
   Cache-Control: no-cache, no-store, must-revalidate
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: http:; connect-src 'self' https://nekuro-scan-backend.onrender.com https://www.mangaworld.bz https://www.mangaworldadult.net; frame-src 'none'; object-src 'none'; base-uri 'self';
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: http:; connect-src 'self' https://kuro-auth-backend.onrender.com https://www.mangaworld.bz https://www.mangaworldadult.net; frame-src 'none'; object-src 'none'; base-uri 'self';
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   X-XSS-Protection: 1; mode=block
