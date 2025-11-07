@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: nekuro-scan-frontend
+    runtime: static
+    buildCommand: cd kuro-reader/frontend && npm run render-build
+    staticPublishPath: ./kuro-reader/frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
