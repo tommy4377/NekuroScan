@@ -417,7 +417,7 @@ function Dashboard() {
                 <Heading size="md">⚡ Info Rapide</Heading>
                 
                 <HStack justify="space-between">
-                  <Text color="gray.400">Quasi finiti (>80%)</Text>
+                  <Text color="gray.400">Quasi finiti (&gt;80%)</Text>
                   <Badge colorScheme="green">{stats.almostFinished.length}</Badge>
                 </HStack>
                 
