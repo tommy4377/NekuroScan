@@ -7,18 +7,25 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    // Preload dell'immagine WebP
+    // Preload dell'immagine WebP appropriata in base alla dimensione
+    const size = parseInt(boxSize);
+    const imgSrc = size <= 96 
+      ? '/favicon-96x96.webp'
+      : size <= 192
+        ? '/web-app-manifest-192x192.webp'
+        : '/web-app-manifest-512x512.webp';
+    
     const imgElement = new Image();
-    imgElement.src = '/web-app-manifest-512x512.webp';
+    imgElement.src = imgSrc;
     imgElement.onload = () => setImageLoaded(true);
     imgElement.onerror = () => {
       // Fallback a PNG se WebP fallisce
       const pngImg = new Image();
-      pngImg.src = '/web-app-manifest-512x512.png';
+      pngImg.src = imgSrc.replace('.webp', '.png');
       pngImg.onload = () => setImageLoaded(true);
       pngImg.onerror = () => setHasError(true);
     };
-  }, []);
+  }, [boxSize]);
 
   return (
     <Box {...rest}>
@@ -47,17 +54,17 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
               boxSize={boxSize}
             >
               <picture>
-                {/* WebP con srcset per responsive */}
+                {/* WebP con srcset ottimizzato */}
                 <source 
                   type="image/webp"
-                  srcSet="/web-app-manifest-192x192.webp 192w, /web-app-manifest-512x512.webp 512w"
-                  sizes={boxSize}
+                  srcSet="/favicon-96x96.webp 96w, /web-app-manifest-192x192.webp 192w, /web-app-manifest-512x512.webp 512w"
+                  sizes={`(max-width: 96px) 96px, (max-width: 192px) 192px, 512px`}
                 />
                 {/* Fallback PNG */}
                 <img
-                  src="/web-app-manifest-512x512.png"
-                  srcSet="/web-app-manifest-192x192.png 192w, /web-app-manifest-512x512.png 512w"
-                  sizes={boxSize}
+                  src="/favicon-96x96.png"
+                  srcSet="/favicon-96x96.png 96w, /web-app-manifest-192x192.png 192w, /web-app-manifest-512x512.png 512w"
+                  sizes={`(max-width: 96px) 96px, (max-width: 192px) 192px, 512px`}
                   alt="NeKuro Scan"
                   loading="eager"
                   fetchpriority="high"
