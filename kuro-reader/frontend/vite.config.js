@@ -99,20 +99,22 @@ export default defineConfig({
     }),
     // ✅ PERFORMANCE: Compressione Brotli e Gzip
     viteCompression({
-      verbose: true,
+      verbose: false,
       disable: false,
-      threshold: 10240, // 10kb
+      threshold: 10240,
       algorithm: 'brotliCompress',
       ext: '.br',
-      deleteOriginFile: false
+      deleteOriginFile: false,
+      filter: /\.(js|css|json|html)$/i
     }),
     viteCompression({
-      verbose: true,
+      verbose: false,
       disable: false,
       threshold: 10240,
       algorithm: 'gzip',
       ext: '.gz',
-      deleteOriginFile: false
+      deleteOriginFile: false,
+      filter: /\.(js|css|json|html)$/i
     }),
     // ✅ PERFORMANCE: Ottimizzazione immagini automatica
     viteImagemin({
@@ -140,14 +142,14 @@ export default defineConfig({
         quality: 75
       }
     }),
-    // ✅ DEVELOPMENT: Visualizza bundle size
-    visualizer({
+    // ✅ DEVELOPMENT: Visualizza bundle size (solo in dev)
+    process.env.ANALYZE && visualizer({
       filename: './dist/stats.html',
       open: false,
       gzipSize: true,
       brotliSize: true
     })
-  ],
+  ].filter(Boolean),
   publicDir: 'public',
   server: {
     port: 5173,
@@ -171,31 +173,13 @@ export default defineConfig({
         pure_funcs: ['console.log', 'console.info', 'console.debug']
       }
     },
-    // ✅ PERFORMANCE: Chunking ottimizzato
+    // ✅ PERFORMANCE: Chunking semplificato e sicuro
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          if (id.includes('node_modules')) {
-            if (id.includes('react') && !id.includes('react-router') && !id.includes('react-icons')) {
-              return 'react-vendor';
-            }
-            if (id.includes('react-router')) {
-              return 'react-router';
-            }
-            if (id.includes('@chakra-ui')) {
-              return 'chakra-ui';
-            }
-            if (id.includes('@emotion')) {
-              return 'emotion';
-            }
-            if (id.includes('react-icons')) {
-              return 'icons';
-            }
-            if (id.includes('axios') || id.includes('zustand') || id.includes('lodash')) {
-              return 'utils';
-            }
-            return 'vendor';
-          }
+        manualChunks: {
+          'react-core': ['react', 'react-dom', 'react-router-dom'],
+          'chakra': ['@chakra-ui/react', '@chakra-ui/icons', '@emotion/react', '@emotion/styled'],
+          'utils': ['axios', 'zustand', 'lodash.debounce']
         },
         // ✅ PERFORMANCE: Nomi file con hash per cache busting
         chunkFileNames: 'assets/js/[name]-[hash].js',
