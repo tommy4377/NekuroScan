@@ -10,7 +10,8 @@
     "preview": "vite preview --port 3000",
     "start": "vite preview --port 3000",
     "postinstall": "patch-package || echo 'No patches applied'",
-    "analyze": "vite-bundle-visualizer"
+    "analyze": "vite-bundle-visualizer",
+    "test:spa": "node test-spa-routing.js"
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.1.0",
