@@ -32,7 +32,6 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
       setImageSrc(src);
       setLoading(false);
       setError(false);
-      console.log('[ProxiedImage] Using blob URL directly (offline)');
       return;
     }
     
@@ -76,7 +75,7 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
     
     // ✅ Se è blob URL e fallisce, non è un vero errore - potrebbe essere revocato
     if (src && src.startsWith('blob:')) {
-      console.log('[ProxiedImage] Blob URL error (potrebbe essere revocato)');
+      // Blob URL error silenzioso
       setError(true);
       setLoading(false);
       return;
@@ -115,7 +114,7 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
     
     // ✅ Log per blob URLs
     if (src && src.startsWith('blob:')) {
-      console.log('[ProxiedImage] ✅ Blob URL loaded successfully');
+      // Blob URL caricato
     }
   };
 

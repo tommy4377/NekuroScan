@@ -209,34 +209,44 @@ function AppContent() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Service Worker: registrato con requestIdleCallback per non bloccare
     if ('serviceWorker' in navigator && import.meta.env.PROD) {
-      navigator.serviceWorker.register('/sw.js').then(
-        (registration) => {
-          console.log('Service Worker registrato:', registration);
-          
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                toast({
-                  title: 'Nuovo aggiornamento disponibile',
-                  description: 'Ricarica la pagina per aggiornare',
-                  status: 'info',
-                  duration: null,
-                  isClosable: true,
-                  position: 'top',
-                  action: (
-                    <Button size="sm" onClick={() => window.location.reload()}>
-                      Ricarica
-                    </Button>
-                  ),
-                });
-              }
+      const registerSW = () => {
+        navigator.serviceWorker.register('/sw.js', {
+          scope: '/',
+          updateViaCache: 'none' // Forza check aggiornamenti
+        }).then(
+          (registration) => {
+            // Silent success (no console log per performance)
+            
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              newWorker?.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  toast({
+                    title: 'Nuovo aggiornamento disponibile',
+                    description: 'Ricarica la pagina per aggiornare',
+                    status: 'info',
+                    duration: null,
+                    isClosable: true,
+                    position: 'top',
+                  });
+                }
+              });
             });
-          });
-        },
-        (error) => console.error('Service Worker registrazione fallita:', error)
-      );
+          },
+          (error) => {
+            // Silent fail (SW non critico)
+          }
+        );
+      };
+      
+      // Registra quando il browser è idle
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(registerSW);
+      } else {
+        setTimeout(registerSW, 2000);
+      }
     }
 
     const handleUnhandledRejection = (event) => {

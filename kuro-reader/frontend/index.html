@@ -26,17 +26,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://kuro-auth-backend.onrender.com">
   <link rel="preconnect" href="https://kuro-proxy-server.onrender.com">
+  <link rel="dns-prefetch" href="https://kuro-auth-backend.onrender.com">
+  <link rel="dns-prefetch" href="https://kuro-proxy-server.onrender.com">
   
-  <!-- ✅ PERFORMANCE: Preload font critico Inter -->
-  <link rel="preload" href="https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2" as="font" type="font/woff2" crossorigin>
-  
-  <!-- ✅ PERFORMANCE: Font async loading -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
-  
-  <!-- ✅ PERFORMANCE: Preload logo WebP con fallback PNG -->
-  <link rel="preload" as="image" href="/web-app-manifest-512x512.webp" fetchpriority="high" type="image/webp" />
-  <link rel="preload" as="image" href="/web-app-manifest-512x512.png" fetchpriority="low" type="image/png" />
+  <!-- ✅ PERFORMANCE: Font async loading con display=swap per evitare FOIT -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <!-- ✅ CRITICAL CSS: Inline per FCP veloce -->
   <style>
