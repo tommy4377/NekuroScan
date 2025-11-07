@@ -12,7 +12,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   FaBookmark, FaPlay, FaShare, FaHeart, FaList, FaTh, FaRedo,
   FaCheckCircle, FaBell, FaBellSlash, FaPlus, FaCheck, FaBan, FaEllipsisV,
-  FaClock, FaEye, FaBook, FaDownload
+  FaClock, FaEye, FaBook, FaDownload, FaSortNumericDown, FaSortNumericUp
 } from 'react-icons/fa';
 import apiManager from '../api';
 import useAuth from '../hooks/useAuth';
@@ -50,6 +50,7 @@ function MangaDetails() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('chaptersViewMode') || 'list');
+  const [chaptersOrder, setChaptersOrder] = useState(() => localStorage.getItem('chaptersOrder') || 'asc');
   const [readingProgress, setReadingProgress] = useState(null);
   const [completedChapters, setCompletedChapters] = useState([]);
   const [currentStatus, setCurrentStatus] = useState(null);
@@ -240,6 +241,10 @@ function MangaDetails() {
   useEffect(() => {
     localStorage.setItem('chaptersViewMode', viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    localStorage.setItem('chaptersOrder', chaptersOrder);
+  }, [chaptersOrder]);
 
   // ========== HANDLERS ==========
 
@@ -1188,6 +1193,15 @@ function MangaDetails() {
               
               <HStack spacing={2}>
                 <IconButton
+                  icon={chaptersOrder === 'asc' ? <FaSortNumericDown /> : <FaSortNumericUp />}
+                  size="sm"
+                  variant="outline"
+                  colorScheme="purple"
+                  onClick={() => setChaptersOrder(chaptersOrder === 'asc' ? 'desc' : 'asc')}
+                  aria-label={chaptersOrder === 'asc' ? 'Inverti ordine (ultimo → primo)' : 'Ordine normale (primo → ultimo)'}
+                  title={chaptersOrder === 'asc' ? 'Primo → Ultimo' : 'Ultimo → Primo'}
+                />
+                <IconButton
                   icon={<FaList />}
                   size="sm"
                   variant={viewMode === 'list' ? 'solid' : 'ghost'}
@@ -1233,7 +1247,9 @@ function MangaDetails() {
                       }
                     }}
                   >
-                    {(manga.chapters || []).map((chapter, i) => (
+                    {(chaptersOrder === 'asc' ? (manga.chapters || []) : [...(manga.chapters || [])].reverse()).map((chapter, displayIndex) => {
+                      const i = chaptersOrder === 'asc' ? displayIndex : (manga.chapters.length - 1 - displayIndex);
+                      return (
                       <Box
                         key={chapter.url || i}
                       >
@@ -1318,7 +1334,8 @@ function MangaDetails() {
                           )}
                         </HStack>
                       </Box>
-                    ))}
+                      );
+                    })}
                   </VStack>
                 ) : (
                   <SimpleGrid 
@@ -1338,9 +1355,12 @@ function MangaDetails() {
                       }
                     }}
                   >
-                    {(manga.chapters || []).map((chapter, i) => (
+                    {(chaptersOrder === 'asc' ? (manga.chapters || []) : [...(manga.chapters || [])].reverse()).map((chapter, displayIndex) => {
+                      const i = chaptersOrder === 'asc' ? displayIndex : (manga.chapters.length - 1 - displayIndex);
+                      return (
                       <Box
                         key={chapter.url || i}
+                        position="relative"
                       >
                         <Box
                           p={4}
@@ -1355,7 +1375,6 @@ function MangaDetails() {
                           transition="all 0.2s"
                           onClick={() => startReading(i)}
                           textAlign="center"
-                          position="relative"
                           opacity={isChapterRead(i) ? 0.6 : 1}
                           border="2px solid"
                           borderColor={readingProgress?.chapterIndex === i ? 'purple.500' : 'transparent'}
@@ -1392,9 +1411,41 @@ function MangaDetails() {
                           <Text fontSize="xs" fontWeight="medium" noOfLines={2} minH="32px">
                             {chapter.title || `Capitolo ${chapter.chapterNumber ?? (i + 1)}`}
                           </Text>
+                          
+                          {/* Download button per griglia */}
+                          {downloadedChapters.has(chapter.url) ? (
+                            <Badge 
+                              position="absolute" 
+                              bottom={2} 
+                              right={2} 
+                              colorScheme="green" 
+                              fontSize="8px"
+                            >
+                              ✓ Offline
+                            </Badge>
+                          ) : (
+                            <IconButton
+                              icon={downloadingChapters.has(chapter.url) ? <Spinner size="xs" /> : <FaDownload />}
+                              size="xs"
+                              variant="ghost"
+                              colorScheme="green"
+                              position="absolute"
+                              bottom={2}
+                              right={2}
+                              aria-label="Scarica offline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                downloadChapterOffline(chapter, i);
+                              }}
+                              isLoading={downloadingChapters.has(chapter.url)}
+                              opacity={0.7}
+                              _hover={{ opacity: 1, bg: 'green.900' }}
+                            />
+                          )}
                         </Box>
                       </Box>
-                    ))}
+                      );
+                    })}
                   </SimpleGrid>
                 )}
               </>

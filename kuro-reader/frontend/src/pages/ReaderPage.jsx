@@ -699,10 +699,11 @@ function ReaderPage() {
           throw new Error('Capitolo vuoto. Il sito potrebbe aver cambiato struttura.');
         }
         
-        // VALIDAZIONE URL IMMAGINI
+        // VALIDAZIONE URL IMMAGINI (accetta http e blob URLs)
         const validPages = chapterData.pages.filter(url => {
           if (!url || typeof url !== 'string') return false;
-          if (!url.startsWith('http')) return false;
+          // Accetta sia http che blob URLs (per capitoli offline)
+          if (!url.startsWith('http') && !url.startsWith('blob:')) return false;
           return true;
         });
         
@@ -716,7 +717,9 @@ function ReaderPage() {
           chapterData.pages = validPages;
         }
         
-        console.log(`✅ Caricato: ${chapterData.pages.length} pagine`);
+        const isBlobUrl = validPages[0]?.startsWith('blob:');
+        console.log(`✅ Caricato: ${chapterData.pages.length} pagine ${isBlobUrl ? '(offline - blob URLs)' : '(online)'}`);
+
         
         // SALVA DATI
         setManga(mangaData);
