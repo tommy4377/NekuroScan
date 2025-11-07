@@ -254,6 +254,7 @@ function Dashboard() {
               onChange={(e) => setTimeFilter(e.target.value)}
               w="150px"
               size="sm"
+              aria-label="Filtra statistiche per periodo temporale"
             >
               <option value="all">Tutto</option>
               <option value="week">Questa settimana</option>

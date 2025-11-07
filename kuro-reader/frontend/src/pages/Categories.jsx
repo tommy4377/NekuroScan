@@ -341,6 +341,7 @@ function Categories() {
               value={filters.sortBy}
               onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
               bg="gray.800"
+              aria-label="Ordina risultati per"
             >
               <option value="most_read">Più letti</option>
               <option value="newest">Più recenti</option>
@@ -355,6 +356,7 @@ function Categories() {
               onChange={(e) => setFilters({...filters, year: e.target.value})}
               bg="gray.800"
               placeholder="Anno"
+              aria-label="Filtra per anno di pubblicazione"
             >
               {categories?.years?.map(year => (
                 <option key={year.id} value={year.id}>{year.name}</option>
@@ -367,6 +369,7 @@ function Categories() {
               onChange={(e) => setFilters({...filters, minChapters: e.target.value})}
               bg="gray.800"
               placeholder="Capitoli min"
+              aria-label="Filtra per numero minimo di capitoli"
             >
               <option value="">Tutti</option>
               <option value="10">10+ capitoli</option>

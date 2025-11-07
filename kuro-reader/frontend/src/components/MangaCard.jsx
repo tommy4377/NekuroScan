@@ -115,7 +115,7 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
             width="100%"
             height="100%"
             objectFit="cover"
-            loading={priority ? "eager" : "lazy"}
+            loading="lazy"
             decoding="async"
             onLoad={() => setImageLoaded(true)}
             onError={(e) => {

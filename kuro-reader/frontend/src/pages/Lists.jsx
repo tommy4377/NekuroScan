@@ -288,6 +288,7 @@ function Lists() {
                   value={listColor}
                   onChange={(e) => setListColor(e.target.value)}
                   bg="gray.700"
+                  aria-label="Seleziona colore lista"
                 >
                   <option value="purple">Viola</option>
                   <option value="blue">Blu</option>

@@ -184,7 +184,7 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true,
+        drop_console: false,
         drop_debugger: true,
         pure_funcs: ['console.log', 'console.info', 'console.debug'],
         passes: 2
@@ -230,6 +230,7 @@ export default defineConfig({
     minifyIdentifiers: true,
     minifySyntax: true,
     minifyWhitespace: true,
-    drop: ['console', 'debugger']
+    drop: ['debugger']
+    // Non drop 'console' - Terser gestisce selettivamente (mantiene error/warn)
   }
 });
