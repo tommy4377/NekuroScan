@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "preinstall": "export PATH=$PATH:$(npm bin)",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --port 3000",
