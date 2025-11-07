@@ -95,7 +95,7 @@ function AnimatedRoutes() {
         <Route path="/login" element={<Login />} />
         
         {/* Pagine secondarie - lazy loaded */}
-        <Route path="/search" element={<Search />} />
+        <Route path="/search" element={<Navigate to="/categories" replace />} />
         <Route path="/manga/:source/:id" element={<MangaDetails />} />
         <Route path="/categories" element={<Categories />} />
         <Route path="/latest" element={<Latest />} />

@@ -41,7 +41,7 @@ function FloatingActionButton({ user }) {
   };
 
   const actions = [
-    { icon: FaSearch, label: 'Cerca', action: () => navigate('/search'), color: 'blue' },
+    { icon: FaSearch, label: 'Esplora', action: () => navigate('/categories'), color: 'blue' },
     { icon: FaBook, label: 'Libreria', action: () => navigate('/library'), color: 'purple', protected: true },
     { icon: FaRandom, label: 'Random', action: goToRandom, color: 'pink' },
     { icon: FaDownload, label: 'Download', action: () => navigate('/downloads'), color: 'green', protected: true },

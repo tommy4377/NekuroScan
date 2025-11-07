@@ -124,7 +124,7 @@ const Welcome = React.memo(() => {
                   size={{ base: "md", md: "lg" }}
                   variant="outline"
                   colorScheme="purple"
-                  onClick={() => navigate('/search')}
+                  onClick={() => navigate('/categories')}
                   leftIcon={<FaSearch />}
                   width={{ base: "100%", sm: "auto" }}
                 >
