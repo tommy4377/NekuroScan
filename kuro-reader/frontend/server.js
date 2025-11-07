@@ -27,10 +27,16 @@ app.use(compression({
 const requestCounts = new Map();
 const RATE_LIMIT_WINDOW = 60000;
 const MAX_REQUESTS = 300; // 300 req/min per IP
+const INTERNAL_IPS = ['::1', '127.0.0.1', 'localhost', '::ffff:127.0.0.1'];
 
 const rateLimiter = (req, res, next) => {
   const ip = req.ip || req.connection.remoteAddress;
   const now = Date.now();
+  
+  // Skip rate limiting per IP interni
+  if (INTERNAL_IPS.includes(ip)) {
+    return next();
+  }
   
   if (!requestCounts.has(ip)) {
     requestCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });

@@ -248,11 +248,19 @@ const isBlacklisted = (ip) => {
   return false;
 };
 
+// Whitelist IP interni (non rate limit)
+const INTERNAL_IPS = ['::1', '127.0.0.1', 'localhost', '::ffff:127.0.0.1'];
+
 // Rate limiter avanzato con livelli dinamici
 const advancedRateLimiter = (limitType = 'global') => {
   return (req, res, next) => {
     const ip = req.ip || req.connection.remoteAddress;
     const now = Date.now();
+    
+    // Skip rate limiting per IP interni (health checks, localhost)
+    if (INTERNAL_IPS.includes(ip)) {
+      return next();
+    }
     
     // Check blacklist
     if (isBlacklisted(ip)) {
