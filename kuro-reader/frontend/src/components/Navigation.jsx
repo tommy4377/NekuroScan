@@ -121,6 +121,8 @@ function Navigation() {
                     <SearchIcon color="gray.400" />
                   </InputLeftElement>
                   <Input
+                    type="text"
+                    inputMode="search"
                     placeholder="Cerca manga..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -128,8 +130,9 @@ function Navigation() {
                     border="1px solid"
                     borderColor="gray.700"
                     _hover={{ borderColor: 'purple.500' }}
-                    _focus={{ borderColor: 'purple.400', bg: 'gray.700' }}
+                    _focus={{ borderColor: 'purple.400', bg: 'gray.700', outline: 'none' }}
                     borderRadius="full"
+                    fontSize="16px"
                   />
                 </InputGroup>
               </form>
@@ -267,12 +270,16 @@ function Navigation() {
                     <SearchIcon color="gray.400" />
                   </InputLeftElement>
                   <Input
+                    type="text"
+                    inputMode="search"
                     placeholder="Cerca manga..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     bg="gray.800"
-                    border="none"
-                    _focus={{ bg: 'gray.700', borderColor: 'purple.500' }}
+                    border="1px solid"
+                    borderColor="gray.700"
+                    _focus={{ bg: 'gray.700', borderColor: 'purple.500', outline: 'none' }}
+                    fontSize="16px"
                   />
                 </InputGroup>
               </form>

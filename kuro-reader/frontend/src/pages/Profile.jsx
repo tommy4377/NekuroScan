@@ -614,6 +614,8 @@ export default function Profile() {
                     rows={3}
                     width="100%"
                     bg="gray.700"
+                    _focus={{ outline: 'none' }}
+                    fontSize="16px"
                   />
                 ) : (
                   profileData.bio && (

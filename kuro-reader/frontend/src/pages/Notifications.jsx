@@ -305,8 +305,11 @@ export default function Notifications() {
                             borderColor: 'purple.500'
                           }}
                           onClick={() => {
-                            const source = manga.source || 'mangaworld';
-                            const encodedUrl = btoa(manga.mangaUrl);
+                            const source = manga.source || 'mangaWorld';
+                            const encodedUrl = btoa(manga.mangaUrl)
+                              .replace(/\+/g, '-')
+                              .replace(/\//g, '_')
+                              .replace(/=/g, '');
                             navigate(`/manga/${source}/${encodedUrl}`);
                           }}
                         >

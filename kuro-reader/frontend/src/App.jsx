@@ -124,11 +124,7 @@ function AnimatedRoutes() {
             <Notifications />
           </ProtectedRoute>
         } />
-        <Route path="/downloads" element={
-          <ProtectedRoute>
-            <Downloads />
-          </ProtectedRoute>
-        } />
+        <Route path="/downloads" element={<Downloads />} />
         <Route path="/lists" element={
           <ProtectedRoute>
             <Lists />

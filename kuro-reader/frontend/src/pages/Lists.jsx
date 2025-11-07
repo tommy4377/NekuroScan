@@ -274,6 +274,8 @@ function Lists() {
                   bg="gray.700"
                   maxLength={200}
                   rows={3}
+                  _focus={{ outline: 'none' }}
+                  fontSize="16px"
                 />
                 <Text fontSize="xs" color="gray.500" mt={1}>
                   {listDescription.length}/200

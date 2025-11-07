@@ -244,14 +244,18 @@ function Search() {
                     <SearchIcon color="gray.400" />
                   </InputLeftElement>
                   <Input
+                    type="text"
+                    inputMode="search"
                     placeholder="Cerca per titolo (min. 3 caratteri)..."
                     value={query}
                     onChange={handleInputChange}
                     onFocus={() => query.length >= 2 && setShowSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                     bg="gray.800"
-                    border="none"
-                    _focus={{ bg: 'gray.700', borderColor: 'purple.500' }}
+                    border="1px solid"
+                    borderColor="gray.700"
+                    _focus={{ bg: 'gray.700', borderColor: 'purple.500', outline: 'none' }}
+                    fontSize="16px"
                     autoFocus
                   />
                 </InputGroup>

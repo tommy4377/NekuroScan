@@ -401,10 +401,7 @@ export class MangaWorldAPI {
     }
   }
 
-  // frontend/src/api/mangaWorld.js
-// Aggiungi questo metodo nella classe MangaWorldAPI
-
-async search(query) {
+  async search(query) {
   try {
     if (!query || query.trim() === '') return [];
     

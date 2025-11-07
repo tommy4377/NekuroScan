@@ -195,6 +195,9 @@ function Login() {
                       <FormControl isRequired>
                         <FormLabel fontSize="sm">Email o Username</FormLabel>
                         <Input
+                          type="text"
+                          autoComplete="username"
+                          inputMode="text"
                           placeholder="Inserisci email o username"
                           value={loginData.emailOrUsername}
                           onChange={(e) => setLoginData({
@@ -203,9 +206,11 @@ function Login() {
                           })}
                           size="lg"
                           bg="gray.700"
-                          border="none"
+                          border="1px solid"
+                          borderColor="gray.600"
                           _hover={{ bg: 'gray.600' }}
-                          _focus={{ bg: 'gray.600', borderColor: 'purple.500' }}
+                          _focus={{ bg: 'gray.600', borderColor: 'purple.500', outline: 'none' }}
+                          fontSize="16px"
                         />
                       </FormControl>
                       
@@ -214,6 +219,7 @@ function Login() {
                         <InputGroup size="lg">
                           <Input
                             type={showPassword ? 'text' : 'password'}
+                            autoComplete="current-password"
                             placeholder="Inserisci password"
                             value={loginData.password}
                             onChange={(e) => setLoginData({
@@ -221,9 +227,11 @@ function Login() {
                               password: e.target.value
                             })}
                             bg="gray.700"
-                            border="none"
+                            border="1px solid"
+                            borderColor="gray.600"
                             _hover={{ bg: 'gray.600' }}
-                            _focus={{ bg: 'gray.600', borderColor: 'purple.500' }}
+                            _focus={{ bg: 'gray.600', borderColor: 'purple.500', outline: 'none' }}
+                            fontSize="16px"
                           />
                           <InputRightElement>
                             <IconButton
@@ -287,6 +295,9 @@ function Login() {
                       <FormControl isRequired>
                         <FormLabel fontSize="sm">Username</FormLabel>
                         <Input
+                          type="text"
+                          autoComplete="username"
+                          inputMode="text"
                           placeholder="Scegli un username"
                           value={registerData.username}
                           onChange={(e) => setRegisterData({
@@ -295,9 +306,11 @@ function Login() {
                           })}
                           size="lg"
                           bg="gray.700"
-                          border="none"
+                          border="1px solid"
+                          borderColor="gray.600"
                           _hover={{ bg: 'gray.600' }}
-                          _focus={{ bg: 'gray.600', borderColor: 'purple.500' }}
+                          _focus={{ bg: 'gray.600', borderColor: 'purple.500', outline: 'none' }}
+                          fontSize="16px"
                         />
                       </FormControl>
                       
@@ -305,6 +318,8 @@ function Login() {
                         <FormLabel fontSize="sm">Email</FormLabel>
                         <Input
                           type="email"
+                          autoComplete="email"
+                          inputMode="email"
                           placeholder="La tua email"
                           value={registerData.email}
                           onChange={(e) => setRegisterData({
@@ -313,9 +328,11 @@ function Login() {
                           })}
                           size="lg"
                           bg="gray.700"
-                          border="none"
+                          border="1px solid"
+                          borderColor="gray.600"
                           _hover={{ bg: 'gray.600' }}
-                          _focus={{ bg: 'gray.600', borderColor: 'purple.500' }}
+                          _focus={{ bg: 'gray.600', borderColor: 'purple.500', outline: 'none' }}
+                          fontSize="16px"
                         />
                       </FormControl>
                       
@@ -324,6 +341,7 @@ function Login() {
                         <InputGroup size="lg">
                           <Input
                             type={showPassword ? 'text' : 'password'}
+                            autoComplete="new-password"
                             placeholder="Minimo 6 caratteri"
                             value={registerData.password}
                             onChange={(e) => setRegisterData({
@@ -331,9 +349,11 @@ function Login() {
                               password: e.target.value
                             })}
                             bg="gray.700"
-                            border="none"
+                            border="1px solid"
+                            borderColor="gray.600"
                             _hover={{ bg: 'gray.600' }}
-                            _focus={{ bg: 'gray.600', borderColor: 'purple.500' }}
+                            _focus={{ bg: 'gray.600', borderColor: 'purple.500', outline: 'none' }}
+                            fontSize="16px"
                           />
                           <InputRightElement>
                             <IconButton
@@ -341,6 +361,7 @@ function Login() {
                               onClick={() => setShowPassword(!showPassword)}
                               icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
                               aria-label="Mostra password"
+                              size="sm"
                             />
                           </InputRightElement>
                         </InputGroup>
@@ -350,6 +371,7 @@ function Login() {
                         <FormLabel fontSize="sm">Conferma Password</FormLabel>
                         <Input
                           type={showPassword ? 'text' : 'password'}
+                          autoComplete="new-password"
                           placeholder="Ripeti password"
                           value={registerData.confirmPassword}
                           onChange={(e) => setRegisterData({
@@ -358,9 +380,11 @@ function Login() {
                           })}
                           size="lg"
                           bg="gray.700"
-                          border="none"
+                          border="1px solid"
+                          borderColor="gray.600"
                           _hover={{ bg: 'gray.600' }}
-                          _focus={{ bg: 'gray.600', borderColor: 'purple.500' }}
+                          _focus={{ bg: 'gray.600', borderColor: 'purple.500', outline: 'none' }}
+                          fontSize="16px"
                         />
                       </FormControl>
                       

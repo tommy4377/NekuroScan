@@ -455,8 +455,11 @@ function Dashboard() {
                 <Button
                   colorScheme="purple"
                   onClick={() => {
-                    const encoded = btoa(stats.lastRead.url);
-                    navigate(`/manga/${stats.lastRead.source || 'mangaworld'}/${encoded}`);
+                    const encoded = btoa(stats.lastRead.url)
+                      .replace(/\+/g, '-')
+                      .replace(/\//g, '_')
+                      .replace(/=/g, '');
+                    navigate(`/manga/${stats.lastRead.source || 'mangaWorld'}/${encoded}`);
                   }}
                 >
                   Continua a leggere

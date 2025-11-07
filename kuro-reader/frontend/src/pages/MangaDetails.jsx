@@ -18,6 +18,15 @@ import shareUtils from '../utils/shareUtils';
 import axios from 'axios';
 import { config } from '../config';
 
+// Helper: Decode URL-safe base64
+const decodeUrlSafe = (str) => {
+  const fixed = str
+    .replace(/-/g, '+')
+    .replace(/_/g, '/')
+    + '=='.substring(0, (4 - (str.length % 4)) % 4);
+  return atob(fixed);
+};
+
 function MangaDetails() {
   const { source, id } = useParams();
   const navigate = useNavigate();
@@ -52,7 +61,8 @@ function MangaDetails() {
   const loadManga = useCallback(async () => {
     try {
       setLoading(true);
-      const mangaUrl = atob(id);
+      
+      const mangaUrl = decodeUrlSafe(id);
       const details = await apiManager.getMangaDetails(mangaUrl, source);
       
       if (!details) {
@@ -124,7 +134,8 @@ function MangaDetails() {
   const checkFavorite = useCallback(() => {
     try {
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-      const mangaUrl = atob(id);
+      
+      const mangaUrl = decodeUrlSafe(id);
       const isFav = favorites.some(f => f.url === mangaUrl);
       setIsFavorite(isFav);
       console.log('✅ Favorite status:', isFav);
@@ -136,7 +147,7 @@ function MangaDetails() {
   // Check current status
   const checkCurrentStatus = useCallback(() => {
     try {
-      const mangaUrl = atob(id);
+      const mangaUrl = decodeUrlSafe(id);
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       const completed = JSON.parse(localStorage.getItem('completed') || '[]');
       const dropped = JSON.parse(localStorage.getItem('dropped') || '[]');
@@ -162,7 +173,7 @@ function MangaDetails() {
   // Load reading progress
   const loadReadingProgress = useCallback(() => {
     try {
-      const mangaUrl = atob(id);
+      const mangaUrl = decodeUrlSafe(id);
       const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
       const mangaProgress = progress[mangaUrl];
       
@@ -712,6 +723,78 @@ function MangaDetails() {
     }
   }, [manga, source, toast]);
 
+  // Download ALL chapters
+  const downloadAllChapters = useCallback(async () => {
+    if (!manga || !manga.chapters || manga.chapters.length === 0) return;
+    
+    const toDownload = manga.chapters.length;
+    let downloaded = 0;
+    let failed = 0;
+    
+    const confirmed = window.confirm(
+      `Scaricare tutti i ${toDownload} capitoli? Potrebbe richiedere molto tempo.`
+    );
+    
+    if (!confirmed) return;
+    
+    toast({
+      title: '📥 Download in corso',
+      description: `Scaricando ${toDownload} capitoli...`,
+      status: 'info',
+      duration: 3000,
+      isClosable: false
+    });
+    
+    for (let i = 0; i < manga.chapters.length; i++) {
+      try {
+        const chapter = manga.chapters[i];
+        
+        // Carica capitolo
+        const chapterWithPages = await apiManager.getChapter(chapter.url, source);
+        
+        if (!chapterWithPages || !chapterWithPages.pages || chapterWithPages.pages.length === 0) {
+          failed++;
+          continue;
+        }
+        
+        // Scarica
+        const result = await offlineManager.downloadChapter(
+          manga,
+          chapterWithPages,
+          i,
+          source
+        );
+        
+        if (result.success && !result.alreadyDownloaded) {
+          downloaded++;
+          setDownloadedChapters(prev => new Set(prev).add(chapter.url));
+        }
+        
+        // Progress ogni 10 capitoli
+        if ((i + 1) % 10 === 0 || i === manga.chapters.length - 1) {
+          toast({
+            title: `📥 Progresso: ${i + 1}/${toDownload}`,
+            description: `Scaricati: ${downloaded}, Falliti: ${failed}`,
+            status: 'info',
+            duration: 2000
+          });
+        }
+      } catch (err) {
+        failed++;
+        console.error(`Failed to download chapter ${i}:`, err);
+      }
+    }
+    
+    toast({
+      title: '✅ Download completato',
+      description: `Scaricati: ${downloaded}/${toDownload}, Falliti: ${failed}`,
+      status: downloaded > 0 ? 'success' : 'error',
+      duration: 5000
+    });
+    
+    window.dispatchEvent(new CustomEvent('downloads-updated'));
+  }, [manga, source, toast]);
+
   // ========== RENDER ==========
 
   if (loading) {
@@ -944,6 +1027,17 @@ function MangaDetails() {
                     Inizia a leggere
                   </Button>
                 )}
+                
+                <Button
+                  colorScheme="green"
+                  variant="outline"
+                  size={{ base: 'sm', md: 'md' }}
+                  leftIcon={<FaDownload />}
+                  onClick={downloadAllChapters}
+                  isDisabled={!manga.chapters || manga.chapters.length === 0}
+                >
+                  Scarica tutto
+                </Button>
                 
                 <IconButton
                   icon={isFavorite ? <FaHeart /> : <FaBookmark />}

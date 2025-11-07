@@ -1456,7 +1456,8 @@ function ReaderPage() {
                 bg="gray.700"
                 border="1px solid"
                 borderColor="gray.600"
-                _focus={{ borderColor: 'green.400' }}
+                _focus={{ borderColor: 'green.400', outline: 'none' }}
+                fontSize="16px"
               />
               <Text fontSize="xs" color="gray.500">
                 {currentNote.length}/500 caratteri

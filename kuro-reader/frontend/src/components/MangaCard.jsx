@@ -6,14 +6,15 @@ import { useNavigate } from 'react-router-dom';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
-// FUNZIONE SICURA per encoding URL
+// URL-safe base64 encoding
 function safeEncodeUrl(url) {
   try {
-    // Usa btoa direttamente come nel resto dell'app
-    return btoa(url);
+    return btoa(url)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
   } catch (e) {
     console.error('Encoding error:', e);
-    // Fallback: usa solo encodeURIComponent
     return encodeURIComponent(url);
   }
 }

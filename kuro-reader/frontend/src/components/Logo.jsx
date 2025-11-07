@@ -33,11 +33,11 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
             <ChakraImage 
               src={imageSrc}
               boxSize={boxSize}
-              h={height}
               alt="NeKuro Scan"
               opacity={imageLoaded ? 1 : 0}
               transition="opacity 0.3s"
               borderRadius="lg"
+              objectFit="contain"
             />
           ) : (
             <Box
