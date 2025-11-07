@@ -6,8 +6,6 @@ import {
   Heading,
   Text,
   Button,
-  Image,
-  useColorModeValue,
   HStack,
   Icon,
   SimpleGrid,
@@ -16,16 +14,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { FaBook, FaSearch, FaBookmark, FaMobileAlt } from 'react-icons/fa';
 import Logo from '../components/Logo';
-// import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 
-// const Box = motion(Box); // Rimosso per evitare errori React #300
-
-function Welcome() {
+const Welcome = React.memo(() => {
   const navigate = useNavigate();
-  const bgGradient = useColorModeValue(
-    'linear(to-br, purple.400, pink.400)',
-    'linear(to-br, purple.600, pink.600)'
-  );
+  const bgGradient = 'linear(to-br, purple.600, pink.600)';
 
   const features = [
     {
@@ -222,6 +214,8 @@ function Welcome() {
       </Container>
     </Box>
   );
-}
+});
+
+Welcome.displayName = 'Welcome';
 
 export default Welcome;

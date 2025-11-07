@@ -168,9 +168,13 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true, // Rimuovi console.log in produzione
+        drop_console: true,
         drop_debugger: true,
-        pure_funcs: ['console.log', 'console.info', 'console.debug']
+        pure_funcs: ['console.log', 'console.info', 'console.debug'],
+        passes: 2
+      },
+      mangle: {
+        safari10: true
       }
     },
     // ✅ PERFORMANCE: Chunking semplificato e sicuro
@@ -190,9 +194,12 @@ export default defineConfig({
     // ✅ PERFORMANCE: Dimensioni chunk ottimali
     chunkSizeWarningLimit: 500,
     cssCodeSplit: true,
-    assetsInlineLimit: 4096, // 4kb - inline assets più piccoli
-    // ✅ PERFORMANCE: Rimuovi commenti e whitespace
-    minify: 'terser'
+    assetsInlineLimit: 4096,
+    reportCompressedSize: false,
+    modulePreload: {
+      polyfill: false,
+      resolveDependencies: () => []
+    }
   },
   // ✅ PERFORMANCE: Ottimizzazioni resolve
   resolve: {
@@ -203,6 +210,10 @@ export default defineConfig({
   // ✅ PERFORMANCE: Ottimizzazioni esbuild
   esbuild: {
     legalComments: 'none',
-    treeShaking: true
+    treeShaking: true,
+    minifyIdentifiers: true,
+    minifySyntax: true,
+    minifyWhitespace: true,
+    drop: ['console', 'debugger']
   }
 });
