@@ -161,38 +161,11 @@ export default defineConfig({
     // ✅ PERFORMANCE: Chunking ottimizzato
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // React core
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'react-core';
-          }
-          // React Router
-          if (id.includes('node_modules/react-router-dom') || id.includes('node_modules/react-router')) {
-            return 'react-router';
-          }
-          // Chakra UI
-          if (id.includes('node_modules/@chakra-ui') || id.includes('node_modules/@emotion')) {
-            return 'chakra-ui';
-          }
-          // Framer Motion
-          if (id.includes('node_modules/framer-motion')) {
-            return 'framer-motion';
-          }
-          // React Icons (molto pesante, separiamo)
-          if (id.includes('node_modules/react-icons')) {
-            return 'react-icons';
-          }
-          // Utils e librerie piccole
-          if (id.includes('node_modules/axios') || 
-              id.includes('node_modules/zustand') || 
-              id.includes('node_modules/lodash')) {
-            return 'vendor-utils';
-          }
-          // PWA e Helmet
-          if (id.includes('node_modules/react-helmet-async') || 
-              id.includes('node_modules/workbox')) {
-            return 'vendor-pwa';
-          }
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'chakra-vendor': ['@chakra-ui/react', '@emotion/react', '@emotion/styled'],
+          'icons': ['react-icons'],
+          'utils': ['axios', 'zustand', 'lodash.debounce']
         },
         // ✅ PERFORMANCE: Nomi file con hash per cache busting
         chunkFileNames: 'assets/js/[name]-[hash].js',
