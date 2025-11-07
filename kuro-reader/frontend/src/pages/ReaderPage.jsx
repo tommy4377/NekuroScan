@@ -959,8 +959,8 @@ function ReaderPage() {
           transition="opacity 0.3s"
           backdropFilter="blur(10px)"
         >
-          <HStack justify="space-between">
-            <HStack spacing={1}>
+          <HStack justify="space-between" flexWrap="wrap" gap={2}>
+            <HStack spacing={1} flex={{ base: '1 1 auto', md: 'initial' }}>
               <IconButton
                 icon={<FaChevronLeft />}
                 onClick={(e) => { e.stopPropagation(); navigateChapter(-1); }}
@@ -998,21 +998,22 @@ function ReaderPage() {
                   size="sm"
                 />
               )}
+              {/* Badge Offline spostato qui a sinistra */}
+              {isOfflineMode && (
+                <Badge 
+                  colorScheme="orange" 
+                  fontSize={{ base: '8px', md: 'xs' }}
+                  px={{ base: 1, md: 2 }}
+                  py={1}
+                  borderRadius="md"
+                  ml={1}
+                >
+                  📥 Offline
+                </Badge>
+              )}
             </HStack>
 
-            {isOfflineMode && (
-              <Badge 
-                colorScheme="orange" 
-                fontSize="xs"
-                px={2}
-                py={1}
-                borderRadius="md"
-              >
-                📥 Offline
-              </Badge>
-            )}
-
-            <HStack>
+            <HStack spacing={1}>
           <IconButton
             icon={isBookmarked ? <FaBookmark /> : <FaRegBookmark />}
             onClick={(e) => { e.stopPropagation(); toggleBookmark(); }}

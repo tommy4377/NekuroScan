@@ -349,8 +349,16 @@ function Downloads() {
                       <Divider mb={4} />
                       <Wrap spacing={3}>
                         {manga.chapters.map((chapter) => {
-                          // Estrai numero capitolo
-                          const chapterNum = chapter.chapterTitle.match(/\d+(\.\d+)?/)?.[0] || '?';
+                          // Estrai numero capitolo dal titolo O usa l'indice
+                          let chapterNum = chapter.chapterTitle.match(/\d+(\.\d+)?/)?.[0];
+                          
+                          // Se non c'è numero nel titolo, usa l'indice del capitolo
+                          if (!chapterNum && chapter.chapterIndex !== undefined) {
+                            chapterNum = chapter.chapterIndex + 1;
+                          }
+                          
+                          // Fallback a '?'
+                          chapterNum = chapterNum || '?';
                           
                           return (
                             <WrapItem key={chapter.id}>
