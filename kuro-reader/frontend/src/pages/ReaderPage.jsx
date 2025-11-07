@@ -572,31 +572,14 @@ function ReaderPage() {
           if (offlineChapter && offlineChapter.pages && offlineChapter.pages.length > 0) {
             console.log('✅ Capitolo trovato offline!');
             
-            // Converti blob URLs salvati in array di pagine
-            const pages = await Promise.all(
-              offlineChapter.pages.map(async (pageUrl) => {
-                // Se è un blob URL salvato, restituiscilo direttamente
-                if (pageUrl.startsWith('blob:')) {
-                  return pageUrl;
-                }
-                // Se è un URL normale, prova a recuperare il blob da IndexedDB
-                try {
-                  const blobUrl = await offlineManager.getImage(pageUrl);
-                  return blobUrl || pageUrl;
-                } catch (err) {
-                  console.log('Blob non trovato per:', pageUrl);
-                  return pageUrl;
-                }
-              })
-            );
-            
+            // getChapter già restituisce blob URLs pronti!
             chapterData = {
-              pages: pages.filter(Boolean), // Rimuovi eventuali null/undefined
+              pages: offlineChapter.pages, // Già blob URLs
               title: offlineChapter.chapterTitle,
               url: chapterUrl
             };
             
-            console.log(`✅ Capitolo offline caricato: ${chapterData.pages.length} pagine`);
+            console.log(`✅ Capitolo offline caricato: ${chapterData.pages.length} pagine con blob URLs`);
             
             // Prova a recuperare anche i dati del manga da cache locale
             const cachedManga = localStorage.getItem(`manga_${mangaUrl}`);

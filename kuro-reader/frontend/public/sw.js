@@ -12,30 +12,50 @@ const urlsToCache = [
   '/favicon-96x96.png',
   '/web-app-manifest-192x192.png',
   '/web-app-manifest-512x512.png',
-  '/apple-touch-icon.png'
+  '/apple-touch-icon.png',
+  '/site.webmanifest'
 ];
 
 // Install
 self.addEventListener('install', (event) => {
+  console.log('[SW] Installing service worker...');
   self.skipWaiting();
   
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(urlsToCache);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      console.log('[SW] Caching essential resources...');
+      try {
+        // Cache essenziali uno per uno per vedere errori
+        for (const url of urlsToCache) {
+          try {
+            await cache.add(url);
+            console.log(`[SW] ✅ Cached: ${url}`);
+          } catch (err) {
+            console.warn(`[SW] ⚠️ Failed to cache: ${url}`, err.message);
+          }
+        }
+        console.log('[SW] ✅ All essential resources cached');
+      } catch (error) {
+        console.error('[SW] ❌ Cache error:', error);
+      }
     })
   );
 });
 
 // Activate
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating service worker...');
+  
   event.waitUntil(
     Promise.all([
       caches.keys().then((cacheNames) => {
+        console.log('[SW] Cleaning old caches...');
         return Promise.all(
           cacheNames.map((cacheName) => {
             if (cacheName !== CACHE_NAME && 
                 cacheName !== RUNTIME_CACHE && 
                 cacheName !== IMAGE_CACHE) {
+              console.log(`[SW] 🗑️ Deleting old cache: ${cacheName}`);
               return caches.delete(cacheName);
             }
           })
@@ -44,6 +64,8 @@ self.addEventListener('activate', (event) => {
       self.clients.claim()
     ])
   );
+  
+  console.log('[SW] ✅ Service worker activated');
 });
 
 // Fetch with advanced strategies
@@ -101,12 +123,14 @@ async function networkFirst(request) {
   }
 }
 
-// Cache first strategy
+// Cache first strategy (per immagini)
 async function cacheFirst(request, cacheName) {
   const cachedResponse = await caches.match(request);
   
   if (cachedResponse) {
-    // Return cached, but update in background
+    console.log(`[SW] 📦 Cached hit: ${request.url.split('/').pop()}`);
+    
+    // Return cached, but update in background silently
     fetch(request).then(response => {
       if (response && response.status === 200) {
         caches.open(cacheName).then(cache => {
@@ -118,14 +142,18 @@ async function cacheFirst(request, cacheName) {
     return cachedResponse;
   }
   
+  console.log(`[SW] 🌐 Network fetch: ${request.url.split('/').pop()}`);
+  
   try {
     const networkResponse = await fetch(request);
     if (networkResponse && networkResponse.status === 200) {
       const cache = await caches.open(cacheName);
       cache.put(request, networkResponse.clone());
+      console.log(`[SW] ✅ Cached: ${request.url.split('/').pop()}`);
     }
     return networkResponse;
   } catch (error) {
+    console.warn(`[SW] ❌ Failed to fetch: ${request.url}`);
     return new Response('Image not available offline', { status: 503 });
   }
 }

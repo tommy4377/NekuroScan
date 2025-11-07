@@ -149,20 +149,37 @@ class OfflineManager {
         }
       }
 
+      // Scarica anche la cover del manga
+      let mangaCoverBlob = null;
+      const coverUrl = manga.coverUrl || manga.cover;
+      if (coverUrl) {
+        try {
+          const coverResponse = await fetch(coverUrl);
+          if (coverResponse.ok) {
+            mangaCoverBlob = await coverResponse.blob();
+            await this.saveImage(`cover_${manga.url}`, mangaCoverBlob, chapterId);
+            console.log('✅ Cover manga salvata offline');
+          }
+        } catch (coverError) {
+          console.log('⚠️ Cover non salvata:', coverError.message);
+        }
+      }
+
       // Salva metadata capitolo
       const chapterData = {
         id: chapterId,
         mangaUrl: manga.url,
         mangaTitle: manga.title,
-        mangaCover: manga.coverUrl || manga.cover,
+        mangaCover: coverUrl, // Salva URL originale, recupereremo il blob quando serve
         chapterUrl: chapter.url,
         chapterTitle: chapter.title,
         chapterIndex,
         source,
-        pages: imageUrls,
-        downloadedImages,
+        pages: imageUrls, // URL originali
+        downloadedImages, // URL effettivamente scaricati
         downloadDate: new Date().toISOString(),
-        size: downloadedImages.length
+        size: downloadedImages.length,
+        chapters: manga.chapters // Salva lista completa capitoli per navigazione offline
       };
 
       // Salva metadata solo se almeno alcune immagini sono state scaricate
@@ -213,15 +230,70 @@ class OfflineManager {
     });
   }
 
-  // Ottieni capitolo
+  // Ottieni capitolo con blob URLs pronti
   async getChapter(chapterId) {
-    return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORES.CHAPTERS], 'readonly');
-      const store = transaction.objectStore(STORES.CHAPTERS);
-      const request = store.get(chapterId);
+    return new Promise(async (resolve, reject) => {
+      try {
+        const transaction = this.db.transaction([STORES.CHAPTERS], 'readonly');
+        const store = transaction.objectStore(STORES.CHAPTERS);
+        const request = store.get(chapterId);
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+        request.onsuccess = async () => {
+          const chapter = request.result;
+          if (!chapter) {
+            resolve(null);
+            return;
+          }
+          
+          // Converti le immagini in blob URLs
+          const blobPages = [];
+          for (const pageUrl of chapter.pages) {
+            try {
+              const blobUrl = await this.getImage(pageUrl);
+              if (blobUrl) {
+                blobPages.push(blobUrl);
+              } else {
+                console.warn(`⚠️ Blob non trovato per: ${pageUrl}`);
+                blobPages.push(null);
+              }
+            } catch (err) {
+              console.error(`Errore recupero blob:`, err);
+              blobPages.push(null);
+            }
+          }
+          
+          // Filtra solo blob validi
+          const validBlobs = blobPages.filter(Boolean);
+          
+          if (validBlobs.length === 0) {
+            console.error('❌ Nessun blob valido trovato per il capitolo');
+            resolve(null);
+            return;
+          }
+          
+          console.log(`✅ Recuperati ${validBlobs.length}/${chapter.pages.length} blob per capitolo offline`);
+          
+          // Recupera anche la cover se disponibile
+          let coverBlobUrl = chapter.mangaCover;
+          try {
+            const coverBlob = await this.getImage(`cover_${chapter.mangaUrl}`);
+            if (coverBlob) {
+              coverBlobUrl = coverBlob;
+            }
+          } catch (err) {
+            console.log('Cover blob non trovata, uso URL originale');
+          }
+          
+          resolve({
+            ...chapter,
+            pages: validBlobs,
+            mangaCover: coverBlobUrl
+          });
+        };
+        request.onerror = () => reject(request.error);
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 

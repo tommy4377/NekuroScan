@@ -1,4 +1,4 @@
-// 📥 DOWNLOADS.JSX - Gestione Capitoli Offline
+// 📥 DOWNLOADS.JSX v2.0 - Raggruppamento per Manga
 import React, { useState, useEffect } from 'react';
 import {
   Container, VStack, HStack, Heading, Text, Box, Button,
@@ -6,9 +6,11 @@ import {
   Alert, AlertIcon, AlertTitle, AlertDescription, Center,
   Spinner, Stat, StatLabel, StatNumber, StatHelpText, Card,
   CardBody, Image, Divider, useDisclosure, Modal, ModalOverlay,
-  ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton
+  ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton,
+  Accordion, AccordionItem, AccordionButton, AccordionPanel, AccordionIcon,
+  Wrap, WrapItem
 } from '@chakra-ui/react';
-import { FaDownload, FaTrash, FaBook, FaDatabase, FaCheckCircle } from 'react-icons/fa';
+import { FaDownload, FaTrash, FaBook, FaDatabase, FaCheckCircle, FaChevronDown } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import offlineManager from '../utils/offlineManager';
 
@@ -18,9 +20,11 @@ function Downloads() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   
   const [downloads, setDownloads] = useState([]);
+  const [groupedDownloads, setGroupedDownloads] = useState({});
   const [loading, setLoading] = useState(true);
   const [storageInfo, setStorageInfo] = useState(null);
   const [selectedChapter, setSelectedChapter] = useState(null);
+  const [selectedManga, setSelectedManga] = useState(null);
 
   useEffect(() => {
     loadDownloads();
@@ -34,9 +38,52 @@ function Downloads() {
         offlineManager.getStorageInfo()
       ]);
       
-      setDownloads(chapters.sort((a, b) => 
-        new Date(b.downloadDate) - new Date(a.downloadDate)
-      ));
+      // Raggruppa per manga e recupera cover blob
+      const grouped = {};
+      for (const chapter of chapters) {
+        const mangaUrl = chapter.mangaUrl;
+        if (!grouped[mangaUrl]) {
+          // Recupera cover blob se disponibile
+          let coverUrl = chapter.mangaCover;
+          try {
+            const coverBlob = await offlineManager.getImage(`cover_${mangaUrl}`);
+            if (coverBlob) {
+              coverUrl = coverBlob;
+              console.log(`✅ Cover blob recuperata per ${chapter.mangaTitle}`);
+            }
+          } catch (err) {
+            console.log('Cover blob non trovata, uso URL originale');
+          }
+          
+          grouped[mangaUrl] = {
+            mangaUrl,
+            mangaTitle: chapter.mangaTitle,
+            mangaCover: coverUrl,
+            chapters: [],
+            totalPages: 0,
+            lastDownload: chapter.downloadDate
+          };
+        }
+        grouped[mangaUrl].chapters.push(chapter);
+        grouped[mangaUrl].totalPages += chapter.size || 0;
+        
+        // Aggiorna ultima data download
+        if (new Date(chapter.downloadDate) > new Date(grouped[mangaUrl].lastDownload)) {
+          grouped[mangaUrl].lastDownload = chapter.downloadDate;
+        }
+      }
+      
+      // Ordina capitoli all'interno di ogni manga per numero
+      Object.values(grouped).forEach(manga => {
+        manga.chapters.sort((a, b) => {
+          const numA = parseFloat(a.chapterTitle.match(/\d+(\.\d+)?/)?.[0] || '0');
+          const numB = parseFloat(b.chapterTitle.match(/\d+(\.\d+)?/)?.[0] || '0');
+          return numA - numB;
+        });
+      });
+      
+      setDownloads(chapters);
+      setGroupedDownloads(grouped);
       setStorageInfo(storage);
     } catch (error) {
       console.error('Error loading downloads:', error);
@@ -73,6 +120,32 @@ function Downloads() {
     onClose();
   };
 
+  const deleteManga = async (mangaUrl) => {
+    try {
+      const manga = groupedDownloads[mangaUrl];
+      if (!manga) return;
+      
+      for (const chapter of manga.chapters) {
+        await offlineManager.deleteChapter(chapter.id);
+      }
+      
+      toast({
+        title: 'Manga eliminato',
+        description: `${manga.chapters.length} capitoli rimossi`,
+        status: 'success',
+        duration: 2000
+      });
+      loadDownloads();
+    } catch (error) {
+      toast({
+        title: 'Errore eliminazione',
+        status: 'error',
+        duration: 3000
+      });
+    }
+    onClose();
+  };
+
   const clearAll = async () => {
     try {
       await offlineManager.clearAll();
@@ -93,8 +166,21 @@ function Downloads() {
     onClose();
   };
 
-  const openDeleteModal = (chapter) => {
+  const openChapter = (chapter) => {
+    const encodedManga = btoa(chapter.mangaUrl)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+    const encodedChapter = btoa(chapter.chapterUrl)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+    navigate(`/read/${chapter.source}/${encodedManga}/${encodedChapter}?chapter=${chapter.chapterIndex}`);
+  };
+
+  const openDeleteModal = (chapter, manga = null) => {
     setSelectedChapter(chapter);
+    setSelectedManga(manga);
     onOpen();
   };
 
@@ -108,6 +194,8 @@ function Downloads() {
     );
   }
 
+  const mangaCount = Object.keys(groupedDownloads).length;
+
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
@@ -117,7 +205,7 @@ function Downloads() {
           <VStack align="start" spacing={1}>
             <Heading size="xl">📥 Download Offline</Heading>
             <Text color="gray.400">
-              Leggi i tuoi manga anche senza connessione
+              {mangaCount} manga • {downloads.length} capitoli
             </Text>
           </VStack>
 
@@ -129,6 +217,7 @@ function Downloads() {
               leftIcon={<FaTrash />}
               onClick={() => {
                 setSelectedChapter(null);
+                setSelectedManga(null);
                 onOpen();
               }}
             >
@@ -170,110 +259,128 @@ function Downloads() {
         )}
 
         {/* Alert Info */}
-        <Alert status="info" borderRadius="lg">
+        <Alert status="info" borderRadius="lg" bg="blue.900" borderColor="blue.700" border="1px solid">
           <AlertIcon />
           <Box>
             <AlertTitle>Come funziona</AlertTitle>
             <AlertDescription>
               Vai alla pagina di un manga e scarica i capitoli che vuoi leggere offline. 
-              I capitoli saranno disponibili anche senza connessione!
+              Saranno disponibili anche senza connessione!
             </AlertDescription>
           </Box>
         </Alert>
 
-        {/* Lista Download */}
-        {downloads.length > 0 ? (
+        {/* Lista Download Raggruppata */}
+        {mangaCount > 0 ? (
           <>
-            <HStack justify="space-between">
-              <Heading size="md">
-                Capitoli Scaricati ({downloads.length})
-              </Heading>
-              <Badge colorScheme="green" fontSize="md" p={2}>
-                {downloads.reduce((sum, d) => sum + d.size, 0)} pagine totali
-              </Badge>
-            </HStack>
+            <Heading size="md">
+              Manga Scaricati ({mangaCount})
+            </Heading>
 
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
-              {downloads.map((chapter) => (
-                <Card
-                  key={chapter.id}
-                  bg="gray.800"
-                  borderRadius="lg"
-                  overflow="hidden"
-                  transition="all 0.2s"
-                  _hover={{ transform: 'translateY(-4px)', boxShadow: 'xl' }}
-                >
-                  <CardBody p={0}>
-                    <HStack spacing={0} align="stretch">
-                      {/* Cover */}
-                      {chapter.mangaCover && (
+            <Accordion allowMultiple defaultIndex={[0]}>
+              {Object.entries(groupedDownloads)
+                .sort(([, a], [, b]) => new Date(b.lastDownload) - new Date(a.lastDownload))
+                .map(([mangaUrl, manga]) => (
+                <AccordionItem key={mangaUrl} border="none" mb={4}>
+                  <Card bg="gray.800" borderRadius="xl" overflow="hidden">
+                    <AccordionButton
+                      p={0}
+                      _hover={{ bg: 'transparent' }}
+                      _expanded={{ bg: 'transparent' }}
+                    >
+                      <HStack 
+                        w="100%" 
+                        p={4} 
+                        spacing={4} 
+                        align="start"
+                        transition="all 0.2s"
+                        _hover={{ bg: 'gray.750' }}
+                      >
+                        {/* Cover */}
                         <Image
-                          src={chapter.mangaCover}
-                          alt={chapter.mangaTitle}
+                          src={manga.mangaCover}
+                          alt={manga.mangaTitle}
                           w="80px"
                           h="120px"
                           objectFit="cover"
+                          borderRadius="md"
                           fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='120'%3E%3Crect fill='%23333' width='80' height='120'/%3E%3C/svg%3E"
                         />
-                      )}
 
-                      {/* Info */}
-                      <VStack align="start" p={3} spacing={2} flex="1">
-                        <Text fontWeight="bold" fontSize="sm" noOfLines={1}>
-                          {chapter.mangaTitle}
-                        </Text>
-                        <Badge colorScheme="purple" fontSize="xs">
-                          {chapter.chapterTitle}
-                        </Badge>
-                        <HStack spacing={2}>
-                          <Badge colorScheme="green" fontSize="xs">
-                            <HStack spacing={1}>
-                              <FaCheckCircle size={10} />
-                              <Text>{chapter.size} pagine</Text>
-                            </HStack>
-                          </Badge>
-                        </HStack>
-                        <Text fontSize="xs" color="gray.400">
-                          {new Date(chapter.downloadDate).toLocaleDateString()}
-                        </Text>
+                        {/* Info */}
+                        <VStack align="start" spacing={2} flex="1">
+                          <Heading size="md" noOfLines={2}>
+                            {manga.mangaTitle}
+                          </Heading>
+                          
+                          <HStack spacing={2} flexWrap="wrap">
+                            <Badge colorScheme="purple" fontSize="sm">
+                              {manga.chapters.length} {manga.chapters.length === 1 ? 'capitolo' : 'capitoli'}
+                            </Badge>
+                            <Badge colorScheme="green" fontSize="sm">
+                              {manga.totalPages} pagine
+                            </Badge>
+                          </HStack>
+                          
+                          <Text fontSize="xs" color="gray.400">
+                            Ultimo download: {new Date(manga.lastDownload).toLocaleDateString('it-IT')}
+                          </Text>
+                        </VStack>
 
                         {/* Actions */}
-                        <HStack spacing={2} w="100%">
-                          <Button
-                            size="xs"
-                            colorScheme="purple"
-                            leftIcon={<FaBook />}
-                            onClick={() => {
-                              // URL-safe base64
-                              const encodedManga = btoa(chapter.mangaUrl)
-                                .replace(/\+/g, '-')
-                                .replace(/\//g, '_')
-                                .replace(/=/g, '');
-                              const encodedChapter = btoa(chapter.chapterUrl)
-                                .replace(/\+/g, '-')
-                                .replace(/\//g, '_')
-                                .replace(/=/g, '');
-                              navigate(`/read/${chapter.source}/${encodedManga}/${encodedChapter}?chapter=${chapter.chapterIndex}`);
-                            }}
-                            flex="1"
-                          >
-                            Leggi
-                          </Button>
+                        <VStack spacing={2}>
                           <IconButton
-                            size="xs"
+                            icon={<FaTrash />}
                             colorScheme="red"
                             variant="ghost"
-                            icon={<FaTrash />}
-                            onClick={() => openDeleteModal(chapter)}
-                            aria-label="Elimina"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDeleteModal(null, manga);
+                            }}
+                            aria-label="Elimina manga"
                           />
-                        </HStack>
-                      </VStack>
-                    </HStack>
-                  </CardBody>
-                </Card>
+                          <AccordionIcon />
+                        </VStack>
+                      </HStack>
+                    </AccordionButton>
+
+                    <AccordionPanel pb={4} pt={0}>
+                      <Divider mb={4} />
+                      <Wrap spacing={3}>
+                        {manga.chapters.map((chapter) => {
+                          // Estrai numero capitolo
+                          const chapterNum = chapter.chapterTitle.match(/\d+(\.\d+)?/)?.[0] || '?';
+                          
+                          return (
+                            <WrapItem key={chapter.id}>
+                              <Button
+                                size="sm"
+                                colorScheme="purple"
+                                variant="outline"
+                                onClick={() => openChapter(chapter)}
+                                rightIcon={<FaBook />}
+                                _hover={{
+                                  bg: 'purple.900',
+                                  transform: 'translateY(-2px)',
+                                  boxShadow: 'md'
+                                }}
+                                transition="all 0.2s"
+                              >
+                                Cap. {chapterNum}
+                                <Badge ml={2} colorScheme="green" fontSize="xs">
+                                  {chapter.size} pag
+                                </Badge>
+                              </Button>
+                            </WrapItem>
+                          );
+                        })}
+                      </Wrap>
+                    </AccordionPanel>
+                  </Card>
+                </AccordionItem>
               ))}
-            </SimpleGrid>
+            </Accordion>
           </>
         ) : (
           <Center py={20} bg="gray.800" borderRadius="xl">
@@ -304,20 +411,24 @@ function Downloads() {
 
       {/* Modal Conferma */}
       <Modal isOpen={isOpen} onClose={onClose} isCentered>
-        <ModalOverlay />
+        <ModalOverlay bg="blackAlpha.800" backdropFilter="blur(10px)" />
         <ModalContent bg="gray.800">
           <ModalHeader>
-            {selectedChapter ? 'Elimina Capitolo' : 'Elimina Tutto'}
+            {selectedChapter ? 'Elimina Capitolo' : selectedManga ? 'Elimina Manga' : 'Elimina Tutto'}
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             {selectedChapter ? (
               <Text>
-                Vuoi eliminare "{selectedChapter.mangaTitle} - {selectedChapter.chapterTitle}"?
+                Vuoi eliminare "{selectedChapter.mangaTitle} - Cap. {selectedChapter.chapterTitle.match(/\d+(\.\d+)?/)?.[0]}"?
+              </Text>
+            ) : selectedManga ? (
+              <Text>
+                Vuoi eliminare tutti i {selectedManga.chapters.length} capitoli di "{selectedManga.mangaTitle}"?
               </Text>
             ) : (
               <Text>
-                Vuoi eliminare tutti i {downloads.length} capitoli scaricati?
+                Vuoi eliminare tutti i {downloads.length} capitoli scaricati ({mangaCount} manga)?
               </Text>
             )}
           </ModalBody>
@@ -327,7 +438,15 @@ function Downloads() {
             </Button>
             <Button
               colorScheme="red"
-              onClick={() => selectedChapter ? deleteChapter(selectedChapter) : clearAll()}
+              onClick={() => {
+                if (selectedChapter) {
+                  deleteChapter(selectedChapter);
+                } else if (selectedManga) {
+                  deleteManga(selectedManga.mangaUrl);
+                } else {
+                  clearAll();
+                }
+              }}
             >
               Elimina
             </Button>
@@ -339,4 +458,3 @@ function Downloads() {
 }
 
 export default Downloads;
-
