@@ -296,7 +296,11 @@ function ReaderPage() {
         const newChapter = manga.chapters[newIndex];
         if (!newChapter || !newChapter.url) return;
         
-        const newChapterId = btoa(newChapter.url);
+        // URL-safe base64
+        const newChapterId = btoa(newChapter.url)
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=/g, '');
         setCurrentPage(0);
         navigate(`/read/${source}/${mangaId}/${newChapterId}?chapter=${newIndex}`);
       } else if (direction > 0) {
@@ -514,10 +518,21 @@ function ReaderPage() {
 
         let chapterUrl, mangaUrl;
         
-        // DECODIFICA URL BASE64
+        // DECODIFICA URL-SAFE BASE64
         try {
-          chapterUrl = atob(chapterId);
-          mangaUrl = atob(mangaId);
+          // Ripristina i caratteri base64 standard
+          const chapterIdFixed = chapterId
+            .replace(/-/g, '+')
+            .replace(/_/g, '/')
+            + '=='.substring(0, (4 - (chapterId.length % 4)) % 4); // Aggiungi padding
+          
+          const mangaIdFixed = mangaId
+            .replace(/-/g, '+')
+            .replace(/_/g, '/')
+            + '=='.substring(0, (4 - (mangaId.length % 4)) % 4);
+          
+          chapterUrl = atob(chapterIdFixed);
+          mangaUrl = atob(mangaIdFixed);
           
           // VALIDAZIONE URL DECODIFICATI
           if (!chapterUrl.startsWith('http') || !mangaUrl.startsWith('http')) {

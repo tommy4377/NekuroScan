@@ -401,7 +401,11 @@ function MangaDetails() {
     try {
       setIsNavigating(true);
       
-      const chapterId = btoa(chapter.url);
+      // ✅ URL-safe base64 encoding (sostituisce caratteri problematici)
+      const chapterId = btoa(chapter.url)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
       
       // ✅ 1. Salva tutto in localStorage
       const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');

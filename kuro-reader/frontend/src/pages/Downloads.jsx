@@ -244,8 +244,15 @@ function Downloads() {
                             colorScheme="purple"
                             leftIcon={<FaBook />}
                             onClick={() => {
-                              const encodedManga = btoa(chapter.mangaUrl);
-                              const encodedChapter = btoa(chapter.chapterUrl);
+                              // URL-safe base64
+                              const encodedManga = btoa(chapter.mangaUrl)
+                                .replace(/\+/g, '-')
+                                .replace(/\//g, '_')
+                                .replace(/=/g, '');
+                              const encodedChapter = btoa(chapter.chapterUrl)
+                                .replace(/\+/g, '-')
+                                .replace(/\//g, '_')
+                                .replace(/=/g, '');
                               navigate(`/read/${chapter.source}/${encodedManga}/${encodedChapter}?chapter=${chapter.chapterIndex}`);
                             }}
                             flex="1"
