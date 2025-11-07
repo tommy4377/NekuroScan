@@ -37,6 +37,7 @@ function ReaderPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
   
   // Impostazioni salvate
   const [readingMode, setReadingMode] = useState(() => localStorage.getItem('readingMode') || 'webtoon');
@@ -570,28 +571,87 @@ function ReaderPage() {
           
           if (offlineChapter && offlineChapter.pages && offlineChapter.pages.length > 0) {
             console.log('✅ Capitolo trovato offline!');
+            
+            // Converti blob URLs salvati in array di pagine
+            const pages = await Promise.all(
+              offlineChapter.pages.map(async (pageUrl) => {
+                // Se è un blob URL salvato, restituiscilo direttamente
+                if (pageUrl.startsWith('blob:')) {
+                  return pageUrl;
+                }
+                // Se è un URL normale, prova a recuperare il blob da IndexedDB
+                try {
+                  const blobUrl = await offlineManager.getImage(pageUrl);
+                  return blobUrl || pageUrl;
+                } catch (err) {
+                  console.log('Blob non trovato per:', pageUrl);
+                  return pageUrl;
+                }
+              })
+            );
+            
             chapterData = {
-              pages: offlineChapter.pages,
+              pages: pages.filter(Boolean), // Rimuovi eventuali null/undefined
               title: offlineChapter.chapterTitle,
               url: chapterUrl
             };
+            
+            console.log(`✅ Capitolo offline caricato: ${chapterData.pages.length} pagine`);
             
             // Prova a recuperare anche i dati del manga da cache locale
             const cachedManga = localStorage.getItem(`manga_${mangaUrl}`);
             if (cachedManga) {
               try {
                 mangaData = JSON.parse(cachedManga);
+                console.log('✅ Manga caricato da cache');
               } catch (e) {
                 console.log('Cache manga non valida');
               }
             }
             
+            // Se non c'è cache manga ma abbiamo il capitolo, crea un manga fittizio
+            if (!mangaData) {
+              console.log('⚠️ Manga non in cache, creo dati minimi per lettura offline');
+              
+              // Prova a recuperare altri capitoli dello stesso manga da offline storage
+              let offlineChapters = [];
+              try {
+                const allOffline = await offlineManager.getByManga(mangaUrl);
+                offlineChapters = allOffline.map(ch => ({
+                  url: ch.chapterUrl,
+                  title: ch.chapterTitle,
+                  isOffline: true
+                })).sort((a, b) => {
+                  // Ordina per numero capitolo se possibile
+                  const numA = parseInt(a.title.match(/\d+/)?.[0] || '0');
+                  const numB = parseInt(b.title.match(/\d+/)?.[0] || '0');
+                  return numA - numB;
+                });
+              } catch (err) {
+                console.log('Impossibile recuperare capitoli offline');
+              }
+              
+              mangaData = {
+                url: mangaUrl,
+                title: offlineChapter.mangaTitle || 'Manga Offline',
+                cover: offlineChapter.mangaCover || '',
+                chapters: offlineChapters.length > 0 ? offlineChapters : [{ 
+                  url: chapterUrl, 
+                  title: offlineChapter.chapterTitle || 'Capitolo',
+                  isOffline: true
+                }]
+              };
+              
+              console.log(`✅ Creato manga fittizio con ${mangaData.chapters.length} capitoli offline`);
+            }
+            
             fromOffline = true;
+            setIsOfflineMode(true);
             
             // Mostra badge offline
             toast({
               title: '📥 Modalità Offline',
-              description: 'Caricato dai download',
+              description: `Caricato: ${chapterData.pages.length} pagine`,
               status: 'info',
               duration: 2000,
               position: 'top'
@@ -599,10 +659,11 @@ function ReaderPage() {
           }
         } catch (offlineError) {
           console.log('Offline storage non disponibile o capitolo non scaricato:', offlineError.message);
+          setIsOfflineMode(false);
         }
 
         // ========== TENTATIVO 2: CARICA DALLA RETE ==========
-        if (!chapterData || !mangaData) {
+        if (!chapterData) {
           // Controlla se siamo online
           if (!navigator.onLine) {
             throw new Error('⚠️ Offline: Capitolo non disponibile offline. Scaricalo quando torni online.');
@@ -952,6 +1013,18 @@ function ReaderPage() {
                 />
               )}
             </HStack>
+
+            {isOfflineMode && (
+              <Badge 
+                colorScheme="orange" 
+                fontSize="xs"
+                px={2}
+                py={1}
+                borderRadius="md"
+              >
+                📥 Offline
+              </Badge>
+            )}
 
             <HStack>
           <IconButton
