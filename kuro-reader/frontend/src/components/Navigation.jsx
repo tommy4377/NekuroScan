@@ -256,7 +256,6 @@ function Navigation() {
           <DrawerHeader borderBottomWidth="1px" borderColor="gray.700">
             <HStack spacing={2}>
               <Logo boxSize="32px" fontSize="lg" />
-              <Text fontWeight="bold">Menu</Text>
             </HStack>
           </DrawerHeader>
 

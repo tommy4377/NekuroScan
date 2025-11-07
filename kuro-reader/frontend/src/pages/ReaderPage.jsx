@@ -240,7 +240,7 @@ function ReaderPage() {
   // ========== HANDLERS ==========
   
   // ✅ WRAP saveProgress in useCallback per evitare React error #300
-  const saveProgress = React.useCallback(() => {
+  const saveProgress = React.useCallback(async () => {
     if (!manga || !chapter) return;
     
     try {
@@ -277,8 +277,20 @@ function ReaderPage() {
         reading.unshift(readingItem);
       }
       
-      localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
+      const updatedReading = reading.slice(0, 100);
+      localStorage.setItem('reading', JSON.stringify(updatedReading));
       window.dispatchEvent(new CustomEvent('library-updated'));
+      
+      // ✅ SYNC con profilo pubblico se loggato
+      try {
+        const { syncReading } = await import('../hooks/useAuth');
+        if (syncReading) {
+          await syncReading.getState().syncReading(updatedReading);
+        }
+      } catch (syncError) {
+        // Sync fallita ma non critico
+        console.log('Sync failed (offline?):', syncError.message);
+      }
     } catch (error) {
       console.error('Error saving progress:', error);
     }
@@ -826,6 +838,7 @@ function ReaderPage() {
       onMouseMove={() => setShowControls(true)}
       onClick={handlePageClick}
         cursor="pointer"
+        overflow="hidden"
     >
       {/* Top Controls */}
       {showControls && (
@@ -974,6 +987,24 @@ function ReaderPage() {
           overflowY="auto"
           pt={showControls ? "60px" : "20px"}
           pb="80px"
+          onScroll={(e) => {
+            // Traccia quale pagina è visibile durante lo scroll
+            const container = e.target;
+            const scrollTop = container.scrollTop;
+            const images = container.querySelectorAll('.css-1p64fpw');
+            
+            images.forEach((img, index) => {
+              const rect = img.getBoundingClientRect();
+              const containerRect = container.getBoundingClientRect();
+              
+              // Considera visibile se almeno metà dell'immagine è nella viewport
+              if (rect.top < containerRect.height / 2 && rect.bottom > containerRect.height / 2) {
+                if (currentPage !== index) {
+                  setCurrentPage(index);
+                }
+              }
+            });
+          }}
           css={{
             '&::-webkit-scrollbar': { width: '10px' },
             '&::-webkit-scrollbar-track': { background: '#1a202c' },
@@ -994,6 +1025,7 @@ function ReaderPage() {
                 w="100%" 
                 maxW="900px"
                 position="relative"
+                className="css-1p64fpw"
               >
                 {/* Indicatore numero pagina */}
                 <Box
@@ -1079,38 +1111,85 @@ function ReaderPage() {
           pt={showControls ? "100px" : 0}
           gap={4}
           position="relative"
+          overflow="hidden"
         >
           {currentImages.map((img) => (
             <Box
               key={img.index}
-              maxW={readingMode === 'double' ? '50%' : '100%'}
-              maxH="100%"
+              w={readingMode === 'double' ? '50%' : '100%'}
+              h="calc(100vh - 120px)"
               display="flex"
               alignItems="center"
               justifyContent="center"
+              position="relative"
             >
               {img.url ? (
                 <ProxiedImage
                   src={img.url}
                   alt={`Pagina ${img.index + 1}`}
-                  maxH="calc(100vh - 120px)"
-                  maxW="100%"
                   objectFit="contain"
+                  maxH="100%"
+                  maxW="100%"
                   style={{
                     transform: `scale(${imageScale / 100})`,
                     filter: `brightness(${brightness}%)`,
                   }}
                 />
               ) : (
-                <VStack spacing={4}>
-                  <Spinner size="xl" color="purple.500" />
-                  <Text color="white">Caricamento...</Text>
-                </VStack>
+                <Spinner size="xl" color="purple.500" />
               )}
             </Box>
           ))}
           
-          {/* Indicatore Pagina - sempre visibile nella modalità single/double */}
+          {/* Freccia Sinistra */}
+          {currentPage > 0 && (
+            <IconButton
+              icon={<FaChevronLeft size={30} />}
+              position="absolute"
+              left={4}
+              top="50%"
+              transform="translateY(-50%)"
+              bg="blackAlpha.600"
+              color="white"
+              size="lg"
+              borderRadius="full"
+              opacity={showControls ? 0.8 : 0}
+              transition="opacity 0.3s"
+              _hover={{ opacity: 1, bg: 'blackAlpha.800' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                changePage(-pagesToShow);
+              }}
+              aria-label="Pagina precedente"
+              zIndex={5}
+            />
+          )}
+          
+          {/* Freccia Destra */}
+          {currentPage < totalPages - 1 && (
+            <IconButton
+              icon={<FaChevronRight size={30} />}
+              position="absolute"
+              right={4}
+              top="50%"
+              transform="translateY(-50%)"
+              bg="blackAlpha.600"
+              color="white"
+              size="lg"
+              borderRadius="full"
+              opacity={showControls ? 0.8 : 0}
+              transition="opacity 0.3s"
+              _hover={{ opacity: 1, bg: 'blackAlpha.800' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                changePage(pagesToShow);
+              }}
+              aria-label="Pagina successiva"
+              zIndex={5}
+            />
+          )}
+          
+          {/* Indicatore Pagina */}
           <Box
             position="absolute"
             bottom={4}
@@ -1126,37 +1205,10 @@ function ReaderPage() {
             border="1px solid"
             borderColor="whiteAlpha.300"
             boxShadow="lg"
+            zIndex={5}
           >
             {currentPage + 1} / {totalPages}
           </Box>
-          
-          {/* Zone di click indicate */}
-          <Box
-            position="absolute"
-            left={0}
-            top="50%"
-            transform="translateY(-50%)"
-            w="30%"
-            h="60%"
-            opacity={0}
-            transition="opacity 0.2s"
-            _hover={{ opacity: 0.05, bg: 'white' }}
-            pointerEvents="none"
-            borderRadius="r-lg"
-          />
-          <Box
-            position="absolute"
-            right={0}
-            top="50%"
-            transform="translateY(-50%)"
-            w="30%"
-            h="60%"
-            opacity={0}
-            transition="opacity 0.2s"
-            _hover={{ opacity: 0.05, bg: 'white' }}
-            pointerEvents="none"
-            borderRadius="l-lg"
-          />
         </Box>
       )}
 

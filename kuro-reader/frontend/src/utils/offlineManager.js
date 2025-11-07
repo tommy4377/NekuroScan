@@ -45,7 +45,7 @@ class OfflineManager {
   }
 
   // Scarica un capitolo completo offline
-  async downloadChapter(manga, chapter, chapterIndex, source) {
+  async downloadChapter(manga, chapter, chapterIndex, source, onProgress = null) {
     try {
       if (!this.db) await this.initDB();
 
@@ -54,29 +54,56 @@ class OfflineManager {
       // Controlla se già scaricato
       const existing = await this.getChapter(chapterId);
       if (existing) {
-        return { success: true, message: 'Capitolo già scaricato' };
+        return { success: true, message: 'Capitolo già scaricato', alreadyDownloaded: true };
+      }
+
+      // Validazione pagine
+      if (!chapter.pages || !Array.isArray(chapter.pages) || chapter.pages.length === 0) {
+        throw new Error('Nessuna pagina da scaricare');
       }
 
       // Scarica tutte le immagini
-      const imageUrls = chapter.pages || [];
+      const imageUrls = chapter.pages;
       const downloadedImages = [];
+      const errors = [];
 
       for (let i = 0; i < imageUrls.length; i++) {
         try {
+          // Report progress
+          if (onProgress) {
+            onProgress({
+              current: i + 1,
+              total: imageUrls.length,
+              percentage: Math.round(((i + 1) / imageUrls.length) * 100)
+            });
+          }
+          
           let response;
           let blob;
           
-          // TENTATIVO 1: Fetch diretto
+          // TENTATIVO 1: Fetch diretto con timeout
           try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+            
             response = await fetch(imageUrls[i], {
               mode: 'cors',
-              credentials: 'omit'
+              credentials: 'omit',
+              signal: controller.signal
             });
+            
+            clearTimeout(timeout);
+            
             if (response.ok) {
               blob = await response.blob();
+              
+              // Validazione blob
+              if (blob.size === 0) {
+                throw new Error('Empty blob received');
+              }
             }
           } catch (directError) {
-            console.log(`Direct fetch failed for image ${i}, trying proxy...`);
+            console.log(`Direct fetch failed for image ${i + 1}/${imageUrls.length}, trying proxy...`);
           }
           
           // TENTATIVO 2: Tramite proxy se diretto fallisce
@@ -86,12 +113,23 @@ class OfflineManager {
                 ? 'http://localhost:10001' 
                 : 'https://kuro-proxy-server.onrender.com'}/api/image-proxy?url=${encodeURIComponent(imageUrls[i])}`;
               
-              response = await fetch(proxyUrl);
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 20000); // 20s timeout per proxy
+              
+              response = await fetch(proxyUrl, { signal: controller.signal });
+              clearTimeout(timeout);
+              
               if (response.ok) {
                 blob = await response.blob();
+                
+                if (blob.size === 0) {
+                  throw new Error('Empty blob from proxy');
+                }
               }
             } catch (proxyError) {
-              console.error(`Proxy fetch also failed for image ${i}:`, proxyError);
+              const errorMsg = `Proxy fetch failed for image ${i + 1}/${imageUrls.length}: ${proxyError.message}`;
+              console.error(errorMsg);
+              errors.push({ index: i, url: imageUrls[i], error: errorMsg });
               continue; // Salta questa immagine
             }
           }
@@ -99,9 +137,15 @@ class OfflineManager {
           if (blob) {
             await this.saveImage(imageUrls[i], blob, chapterId);
             downloadedImages.push(imageUrls[i]);
+          } else {
+            const errorMsg = `Failed to get blob for image ${i + 1}/${imageUrls.length}`;
+            console.error(errorMsg);
+            errors.push({ index: i, url: imageUrls[i], error: errorMsg });
           }
         } catch (error) {
-          console.error(`Failed to download image ${i}:`, error);
+          const errorMsg = `Failed to download image ${i + 1}/${imageUrls.length}: ${error.message}`;
+          console.error(errorMsg);
+          errors.push({ index: i, url: imageUrls[i], error: error.message });
         }
       }
 
@@ -121,12 +165,22 @@ class OfflineManager {
         size: downloadedImages.length
       };
 
+      // Salva metadata solo se almeno alcune immagini sono state scaricate
+      if (downloadedImages.length === 0) {
+        throw new Error('Nessuna immagine scaricata con successo');
+      }
+      
       await this.saveChapter(chapterData);
 
+      const successRate = (downloadedImages.length / imageUrls.length) * 100;
+      
       return {
         success: true,
-        message: `Scaricato ${downloadedImages.length}/${imageUrls.length} immagini`,
-        chapter: chapterData
+        message: `Scaricato ${downloadedImages.length}/${imageUrls.length} immagini (${Math.round(successRate)}%)`,
+        chapter: chapterData,
+        downloaded: downloadedImages.length,
+        total: imageUrls.length,
+        errors: errors.length > 0 ? errors : undefined
       };
 
     } catch (error) {

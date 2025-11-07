@@ -10,7 +10,6 @@ function ProxiedImage({ src, alt, style, ...props }) {
   const [retryCount, setRetryCount] = useState(0);
   const mountedRef = useRef(true);
   const timeoutRef = useRef(null);
-  const MAX_RETRIES = 3;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -23,33 +22,37 @@ function ProxiedImage({ src, alt, style, ...props }) {
   useEffect(() => {
     // VALIDAZIONE URL
     if (!src || typeof src !== 'string') {
-      console.error('ProxiedImage: src non valido', src);
       setError(true);
       setLoading(false);
       return;
     }
     
     if (!src.startsWith('http')) {
-      console.error('ProxiedImage: URL deve iniziare con http', src);
       setError(true);
       setLoading(false);
       return;
     }
     
     // Reset stato
-    setImageSrc(src);
     setLoading(true);
     setError(false);
     setRetryCount(0);
     
-    // TIMEOUT per caricamento - NON chiamare handleError qui per evitare problemi hooks
+    // Se è cdn.mangaworld.cx, usa DIRETTAMENTE il proxy (evita retry inutili)
+    if (src.includes('cdn.mangaworld')) {
+      const proxyUrl = `${config.PROXY_URL}/api/image-proxy?url=${encodeURIComponent(src)}`;
+      setImageSrc(proxyUrl);
+    } else {
+      setImageSrc(src);
+    }
+    
+    // TIMEOUT per caricamento
     timeoutRef.current = setTimeout(() => {
-      if (mountedRef.current) {
-        console.warn('ProxiedImage: Timeout caricamento', src);
+      if (mountedRef.current && loading) {
         setError(true);
         setLoading(false);
       }
-    }, 30000); // 30 secondi timeout
+    }, 15000); // 15 secondi timeout
     
   }, [src]);
 
@@ -60,44 +63,23 @@ function ProxiedImage({ src, alt, style, ...props }) {
       clearTimeout(timeoutRef.current);
     }
     
-    console.error(`Errore caricamento (tentativo ${retryCount + 1}/${MAX_RETRIES}):`, imageSrc);
-    
-    // RETRY 1: Forza reload con timestamp (evita cache)
-    if (retryCount === 0) {
-      console.log('Retry 1: Cache busting...');
-      const timestamp = Date.now();
-      const newSrc = src.includes('?') 
-        ? `${src}&_t=${timestamp}` 
-        : `${src}?_t=${timestamp}`;
-      
-      setRetryCount(1);
-      setLoading(true);
-      setImageSrc(newSrc);
+    // Se già stiamo usando il proxy e fallisce, non ritentare
+    if (imageSrc && imageSrc.includes('/api/image-proxy')) {
+      setError(true);
+      setLoading(false);
       return;
     }
     
-    // RETRY 2: Prova con crossOrigin diverso
-    if (retryCount === 1) {
-      console.log('Retry 2: Cambiando crossOrigin...');
-      setRetryCount(2);
-      setLoading(true);
-      // Riprova con l'URL originale ma senza crossOrigin
-      setImageSrc(src);
-      return;
-    }
-    
-    // RETRY 3: Usa proxy server (se disponibile)
-    if (retryCount === 2 && config.PROXY_URL) {
-      console.log('Retry 3: Usando proxy...');
+    // UNICO RETRY: Se non è già proxy, usa proxy
+    if (retryCount === 0 && config.PROXY_URL) {
       const proxyUrl = `${config.PROXY_URL}/api/image-proxy?url=${encodeURIComponent(src)}`;
-      setRetryCount(3);
+      setRetryCount(1);
       setLoading(true);
       setImageSrc(proxyUrl);
       return;
     }
     
     // FALLIMENTO TOTALE
-    console.error('ProxiedImage: Tutti i tentativi falliti per:', src);
     setError(true);
     setLoading(false);
   };
@@ -111,10 +93,6 @@ function ProxiedImage({ src, alt, style, ...props }) {
     
     setLoading(false);
     setError(false);
-    
-    if (retryCount > 0) {
-      console.log(`✅ Immagine caricata al tentativo ${retryCount + 1}`);
-    }
   };
 
   const handleRetry = () => {
@@ -138,23 +116,14 @@ function ProxiedImage({ src, alt, style, ...props }) {
         borderColor="gray.700"
         {...props}
       >
-        <VStack spacing={3} p={4}>
-          <Text color="red.400" fontSize="lg" fontWeight="bold">
-            ⚠️ Immagine non disponibile
+        <VStack spacing={2} p={4}>
+          <Text color="red.400" fontSize="sm">
+            ⚠️ Errore
           </Text>
-          <Text color="gray.400" fontSize="sm" textAlign="center">
-            Impossibile caricare l'immagine dopo {MAX_RETRIES} tentativi
-          </Text>
-          {src && (
-            <Text color="gray.600" fontSize="xs" fontFamily="mono" isTruncated maxW="300px">
-              {src}
-            </Text>
-          )}
           <Button 
-            size="sm" 
+            size="xs" 
             colorScheme="purple" 
             onClick={handleRetry}
-            mt={2}
           >
             Riprova
           </Button>
@@ -165,21 +134,7 @@ function ProxiedImage({ src, alt, style, ...props }) {
 
   // STATO LOADING + IMMAGINE
   return (
-    <Box position="relative" {...props}>
-      {loading && (
-        <Box 
-          position="absolute" 
-          top="50%" 
-          left="50%" 
-          transform="translate(-50%, -50%)"
-          zIndex={2}
-          bg="blackAlpha.600"
-          borderRadius="full"
-          p={4}
-        >
-          <Spinner size="xl" color="purple.500" thickness="4px" />
-        </Box>
-      )}
+    <Box position="relative" w="100%" h="100%" {...props}>
       {imageSrc && (
         <Image
           src={imageSrc}
@@ -188,13 +143,24 @@ function ProxiedImage({ src, alt, style, ...props }) {
           onError={handleError}
           style={{
             ...style,
-            opacity: loading ? 0.3 : 1,
-            transition: 'opacity 0.3s ease-in-out'
+            opacity: loading ? 0 : 1,
+            transition: 'opacity 0.2s ease-in-out'
           }}
-          crossOrigin={retryCount === 2 ? undefined : 'anonymous'}
           loading="lazy"
-          fallback={<Box minH="400px" bg="gray.800" />}
+          w="100%"
+          h="100%"
         />
+      )}
+      {loading && (
+        <Box 
+          position="absolute" 
+          top="50%" 
+          left="50%" 
+          transform="translate(-50%, -50%)"
+          zIndex={1}
+        >
+          <Spinner size="lg" color="purple.400" thickness="3px" speed="0.8s" />
+        </Box>
       )}
     </Box>
   );
