@@ -42,33 +42,35 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
         >
           {!hasError && showImage ? (
             <Box
-              as="picture"
               opacity={imageLoaded ? 1 : 0}
               transition="opacity 0.3s"
+              boxSize={boxSize}
             >
-              {/* WebP con srcset per responsive */}
-              <source 
-                type="image/webp"
-                srcSet="/web-app-manifest-192x192.webp 192w, /web-app-manifest-512x512.webp 512w"
-                sizes={boxSize}
-              />
-              {/* Fallback PNG */}
-              <Box
-                as="img"
-                src="/web-app-manifest-512x512.png"
-                srcSet="/web-app-manifest-192x192.png 192w, /web-app-manifest-512x512.png 512w"
-                sizes={boxSize}
-                alt="NeKuro Scan"
-                boxSize={boxSize}
-                borderRadius="lg"
-                objectFit="contain"
-                loading="eager"
-                fetchpriority="high"
-                style={{ 
-                  imageRendering: '-webkit-optimize-contrast',
-                  display: 'block'
-                }}
-              />
+              <picture>
+                {/* WebP con srcset per responsive */}
+                <source 
+                  type="image/webp"
+                  srcSet="/web-app-manifest-192x192.webp 192w, /web-app-manifest-512x512.webp 512w"
+                  sizes={boxSize}
+                />
+                {/* Fallback PNG */}
+                <img
+                  src="/web-app-manifest-512x512.png"
+                  srcSet="/web-app-manifest-192x192.png 192w, /web-app-manifest-512x512.png 512w"
+                  sizes={boxSize}
+                  alt="NeKuro Scan"
+                  loading="eager"
+                  fetchpriority="high"
+                  style={{ 
+                    width: boxSize,
+                    height: boxSize,
+                    borderRadius: '0.5rem',
+                    objectFit: 'contain',
+                    imageRendering: '-webkit-optimize-contrast',
+                    display: 'block'
+                  }}
+                />
+              </picture>
             </Box>
           ) : (
             <Box
