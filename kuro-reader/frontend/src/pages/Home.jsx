@@ -656,6 +656,7 @@ function Home() {
               }}
             >
               <Tab 
+                aria-label="Aggiornamenti - Ultimi capitoli pubblicati"
                 _selected={{ 
                   bg: 'blue.500', 
                   color: 'white',
@@ -668,6 +669,7 @@ function Home() {
                 </HStack>
               </Tab>
               <Tab
+                aria-label="Trending - Manga di tendenza più popolari"
                 _selected={{ 
                   bg: 'orange.500', 
                   color: 'white',
@@ -680,6 +682,7 @@ function Home() {
                 </HStack>
               </Tab>
               <Tab
+                aria-label="Top Series - Classifiche migliori manga"
                 _selected={{ 
                   bg: 'teal.500', 
                   color: 'white',

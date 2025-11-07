@@ -24,6 +24,19 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
   const [imageLoaded, setImageLoaded] = useState(false);
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
 
+  // Ottimizza URL immagine con resize per ridurre payload
+  const optimizedCoverUrl = React.useMemo(() => {
+    const coverUrl = manga.cover || manga.coverUrl;
+    if (!coverUrl) return null;
+    
+    // Aggiungi parametro width per CDN che lo supportano
+    if (coverUrl.includes('cdn.mangaworld')) {
+      const separator = coverUrl.includes('?') ? '&' : '?';
+      return `${coverUrl}${separator}w=300`;
+    }
+    return coverUrl;
+  }, [manga.cover, manga.coverUrl]);
+
   const handleClick = React.useCallback(() => {
     if (!manga?.url) {
       console.error('Invalid manga data:', manga);
@@ -104,7 +117,7 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
             <Skeleton position="absolute" top={0} left={0} width="100%" height="100%" />
           )}
           <Image
-            src={manga.cover || manga.coverUrl}
+            src={optimizedCoverUrl}
             alt={manga.title}
             position="absolute"
             top={0}
@@ -117,8 +130,13 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
             onLoad={() => setImageLoaded(true)}
             onError={(e) => {
               setImageLoaded(true);
-              // Retry con placeholder se l'immagine fallisce
-              e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280' viewBox='0 0 200 280'%3E%3Crect width='200' height='280' fill='%234A5568'%3E%3C/rect%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23A0AEC0' font-family='sans-serif' font-size='16'%3E"+encodeURIComponent(manga.title.substring(0, 20))+ "%3C/text%3E%3C/svg%3E";
+              // Retry senza parametro resize se fallisce
+              if (e.target.src.includes('?w=')) {
+                e.target.src = manga.cover || manga.coverUrl;
+              } else {
+                // Placeholder finale
+                e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280' viewBox='0 0 200 280'%3E%3Crect width='200' height='280' fill='%234A5568'%3E%3C/rect%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23A0AEC0' font-family='sans-serif' font-size='16'%3E"+encodeURIComponent(manga.title.substring(0, 20))+ "%3C/text%3E%3C/svg%3E";
+              }
             }}
             fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280' viewBox='0 0 200 280'%3E%3Crect width='200' height='280' fill='%234A5568'%3E%3C/rect%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23A0AEC0' font-family='sans-serif' font-size='16'%3ENo Image%3C/text%3E%3C/svg%3E"
             style={{ 

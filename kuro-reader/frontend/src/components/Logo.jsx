@@ -6,26 +6,28 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
   const [imageLoaded, setImageLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
+  // Determina l'immagine ottimale in base alla dimensione
+  const getOptimalImage = (size) => {
+    const numSize = parseInt(size);
+    if (numSize <= 96) return { webp: '/favicon-96x96.webp', png: '/favicon-96x96.png' };
+    if (numSize <= 192) return { webp: '/web-app-manifest-192x192.webp', png: '/web-app-manifest-192x192.png' };
+    return { webp: '/web-app-manifest-512x512.webp', png: '/web-app-manifest-512x512.png' };
+  };
+
+  const optimalImage = getOptimalImage(boxSize);
+
   useEffect(() => {
-    // Preload dell'immagine WebP appropriata in base alla dimensione
-    const size = parseInt(boxSize);
-    const imgSrc = size <= 96 
-      ? '/favicon-96x96.webp'
-      : size <= 192
-        ? '/web-app-manifest-192x192.webp'
-        : '/web-app-manifest-512x512.webp';
-    
     const imgElement = new Image();
-    imgElement.src = imgSrc;
+    imgElement.src = optimalImage.webp;
     imgElement.onload = () => setImageLoaded(true);
     imgElement.onerror = () => {
       // Fallback a PNG se WebP fallisce
       const pngImg = new Image();
-      pngImg.src = imgSrc.replace('.webp', '.png');
+      pngImg.src = optimalImage.png;
       pngImg.onload = () => setImageLoaded(true);
       pngImg.onerror = () => setHasError(true);
     };
-  }, [boxSize]);
+  }, [optimalImage.webp, optimalImage.png]);
 
   return (
     <Box {...rest}>
@@ -58,13 +60,13 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
                 <source 
                   type="image/webp"
                   srcSet="/favicon-96x96.webp 96w, /web-app-manifest-192x192.webp 192w, /web-app-manifest-512x512.webp 512w"
-                  sizes={`(max-width: 96px) 96px, (max-width: 192px) 192px, 512px`}
+                  sizes={boxSize}
                 />
                 {/* Fallback PNG */}
                 <img
-                  src="/favicon-96x96.png"
+                  src={optimalImage.png}
                   srcSet="/favicon-96x96.png 96w, /web-app-manifest-192x192.png 192w, /web-app-manifest-512x512.png 512w"
-                  sizes={`(max-width: 96px) 96px, (max-width: 192px) 192px, 512px`}
+                  sizes={boxSize}
                   alt="NeKuro Scan"
                   loading="eager"
                   fetchpriority="high"

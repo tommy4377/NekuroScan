@@ -183,8 +183,8 @@ function Login() {
               variant="soft-rounded"
             >
               <TabList mb={6}>
-                <Tab flex={1}>Accedi</Tab>
-                <Tab flex={1}>Registrati</Tab>
+                <Tab flex={1} aria-label="Accedi con account esistente">Accedi</Tab>
+                <Tab flex={1} aria-label="Registrati per creare un nuovo account">Registrati</Tab>
               </TabList>
               
               <TabPanels>

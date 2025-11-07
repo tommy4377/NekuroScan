@@ -408,10 +408,10 @@ function Categories() {
           ) : (
             <Tabs colorScheme="purple" variant="enclosed">
               <TabList flexWrap="wrap">
-                <Tab>Generi</Tab>
-                <Tab>Tipi</Tab>
-                <Tab>Demographics</Tab>
-                <Tab>Stati</Tab>
+                <Tab aria-label="Generi - Seleziona generi manga">Generi</Tab>
+                <Tab aria-label="Tipi - Seleziona tipo di pubblicazione">Tipi</Tab>
+                <Tab aria-label="Demographics - Target demografico">Demographics</Tab>
+                <Tab aria-label="Stati - Stato di pubblicazione">Stati</Tab>
               </TabList>
 
               <TabPanels>
