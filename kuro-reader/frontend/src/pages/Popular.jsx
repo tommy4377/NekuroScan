@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, Text, VStack, HStack,
   Button, useToast, Skeleton, Badge, IconButton,
-  Tabs, TabList, Tab, TabPanels, TabPanel, Center, SimpleGrid
+  Tabs, TabList, Tab, TabPanels, TabPanel, Center, SimpleGrid, Spinner
 } from '@chakra-ui/react';
 import { FaHeart, FaArrowUp, FaFire, FaStar, FaTrophy, FaPlus } from 'react-icons/fa';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300

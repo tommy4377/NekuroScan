@@ -76,17 +76,27 @@ function Latest() {
           latestChapter: fixChapterNumber(item.latestChapter)
         }));
         
+        // Deduplica più aggressiva basata su URL normalizzato
+        const deduplicatedResults = Array.from(
+          new Map(cleanedResults.map(item => [
+            item.url.toLowerCase().replace(/\/$/, ''), // Normalizza URL
+            item
+          ])).values()
+        );
+        
         setList(prev => {
           if (reset || pageNum === 1) {
-            return cleanedResults;
+            return deduplicatedResults;
           }
-          const existingUrls = new Set(prev.map(item => item.url));
-          const newItems = cleanedResults.filter(item => !existingUrls.has(item.url));
+          const existingUrls = new Set(prev.map(item => item.url.toLowerCase().replace(/\/$/, '')));
+          const newItems = deduplicatedResults.filter(item => 
+            !existingUrls.has(item.url.toLowerCase().replace(/\/$/, ''))
+          );
           return [...prev, ...newItems];
         });
         
         setPage(pageNum);
-        setHasMore(result.hasMore && cleanedResults.length > 0);
+        setHasMore(result.hasMore && deduplicatedResults.length > 0);
       }
     } catch (error) {
       console.error('Error loading latest:', error);

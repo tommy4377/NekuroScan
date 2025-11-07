@@ -2,10 +2,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, Text, VStack, HStack,
-  Button, useToast, Skeleton, Badge, IconButton, Switch, Center,
-  Tabs, TabList, Tab, TabPanels, TabPanel, SimpleGrid
+  Button, useToast, Skeleton, Badge, IconButton, Switch, Center, SimpleGrid
 } from '@chakra-ui/react';
-import { FaFire, FaArrowUp, FaPlus, FaClock, FaHeart } from 'react-icons/fa';
+import { FaFire, FaArrowUp, FaPlus } from 'react-icons/fa';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import { useNavigate } from 'react-router-dom';
 import MangaCard from '../components/MangaCard';
@@ -17,24 +16,18 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 function Trending() {
   const navigate = useNavigate();
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
-  const [activeTab, setActiveTab] = useState(0);
   const [lists, setLists] = useState({
-    trending: [],
-    recentChapters: [],
-    weeklyTop: []
+    trending: []
   });
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showAllItems, setShowAllItems] = useState({
-    trending: false,
-    recentChapters: false,
-    weeklyTop: false
+    trending: false
   });
   
   const toast = useToast();
-  const tabKeys = ['trending', 'recentChapters', 'weeklyTop'];
-  const currentKey = tabKeys[activeTab];
+  const currentKey = 'trending';
 
   useEffect(() => {
     const handleScroll = () => setShowScrollTop(window.scrollY > 500);
@@ -49,33 +42,22 @@ function Trending() {
     }
   }, []);
 
-  const loadData = useCallback(async (type) => {
+  const loadData = useCallback(async () => {
     if (loading) return;
     
     setInitialLoading(true);
     setLoading(true);
     
     try {
-      let result = [];
-      switch(type) {
-        case 'trending':
-          result = await apiManager.getTrending(includeAdult);
-          break;
-        case 'recentChapters':
-          result = await apiManager.getRecentChapters(includeAdult);
-          break;
-        case 'weeklyTop':
-          result = await apiManager.getWeeklyReleases();
-          break;
-      }
+      const result = await apiManager.getTrending(includeAdult);
       if (result && result.length > 0) {
         preCacheImages(result);
-        setLists(prev => ({ ...prev, [type]: result }));
+        setLists({ trending: result });
       } else {
-        setLists(prev => ({ ...prev, [type]: [] }));
+        setLists({ trending: [] });
       }
     } catch (error) {
-      console.error(`Error loading ${type}:`, error);
+      console.error('Error loading trending:', error);
       toast({
         title: 'Errore caricamento',
         description: 'Impossibile caricare i contenuti',
@@ -89,15 +71,15 @@ function Trending() {
   }, [includeAdult, toast, loading, preCacheImages]);
 
   useEffect(() => {
-    loadData(currentKey);
-  }, [currentKey, includeAdult]);
+    loadData();
+  }, [includeAdult]);
 
   const handleShowMore = () => {
     setShowAllItems(prev => ({ ...prev, [currentKey]: true }));
   };
 
   const handleShowLess = () => {
-    setShowAllItems(prev => ({ ...prev, [currentKey]: false }));
+    setShowAllItems({ trending: false });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -105,7 +87,7 @@ function Trending() {
     navigate('/categories', { 
       state: { 
         includeAdult,
-        preset: currentKey === 'trending' ? 'popular' : 'latest'
+        preset: 'popular'
       } 
     });
   };
@@ -251,11 +233,11 @@ function Trending() {
               </Box>
               <VStack align="start" spacing={0}>
                 <Heading size={{ base: 'md', md: 'lg' }}>
-                  Trending & Aggiornamenti
+                  Capitoli in Tendenza
                 </Heading>
                 <HStack spacing={2}>
                   <Text fontSize="sm" color="gray.400">
-                    {lists[currentKey].length} contenuti
+                    {lists.trending.length} contenuti
                   </Text>
                   <Badge colorScheme={includeAdult ? 'pink' : 'blue'}>
                     {includeAdult ? '18+ inclusi' : 'Solo normali'}
@@ -277,48 +259,9 @@ function Trending() {
           </HStack>
         </Box>
 
-        <Tabs 
-          colorScheme="purple" 
-          variant="soft-rounded"
-          onChange={(index) => {
-            setActiveTab(index);
-            setShowAllItems({ trending: false, recentChapters: false, weeklyTop: false });
-          }}
-          defaultIndex={0}
-        >
-          <TabList bg="gray.800" p={2} borderRadius="lg">
-            <Tab>
-              <HStack spacing={2}>
-                <FaFire />
-                <Text display={{ base: 'none', md: 'block' }}>Trending</Text>
-              </HStack>
-            </Tab>
-            <Tab>
-              <HStack spacing={2}>
-                <FaClock />
-                <Text display={{ base: 'none', md: 'block' }}>Ultimi Capitoli</Text>
-              </HStack>
-            </Tab>
-            <Tab>
-              <HStack spacing={2}>
-                <FaHeart />
-                <Text display={{ base: 'none', md: 'block' }}>Top Settimanali</Text>
-              </HStack>
-            </Tab>
-          </TabList>
-          
-          <TabPanels>
-            <TabPanel px={0} pt={6}>
-              {activeTab === 0 && renderContent()}
-            </TabPanel>
-            <TabPanel px={0} pt={6}>
-              {activeTab === 1 && renderContent()}
-            </TabPanel>
-            <TabPanel px={0} pt={6}>
-              {activeTab === 2 && renderContent()}
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
+        <Box pt={6}>
+          {renderContent()}
+        </Box>
 
         {showScrollTop && (
           <IconButton

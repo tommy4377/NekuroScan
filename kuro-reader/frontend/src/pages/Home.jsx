@@ -58,18 +58,31 @@ function Home() {
 
   // ========= CHECK OFFLINE =========
   const checkOfflineStatus = useCallback(async () => {
+    // Prima controlla la connessione del browser
+    if (!navigator.onLine) {
+      setIsOffline(true);
+      return true;
+    }
+    
     try {
-      // Prova a pingare il proxy
+      // Prova a pingare il proxy con timeout breve
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3000);
+      const timeout = setTimeout(() => controller.abort(), 2500);
       
-      await fetch(`${config.PROXY_URL}/health`, {
-        signal: controller.signal
+      const response = await fetch(`${config.PROXY_URL}/health`, {
+        signal: controller.signal,
+        cache: 'no-cache'
       });
       
       clearTimeout(timeout);
-      setIsOffline(false);
-      return false;
+      
+      if (response.ok) {
+        setIsOffline(false);
+        return false;
+      } else {
+        setIsOffline(true);
+        return true;
+      }
     } catch {
       setIsOffline(true);
       return true;
@@ -178,14 +191,42 @@ function Home() {
       loadDownloadCount();
     };
     
+    // Ascolta cambiamenti connessione
+    const handleOnline = () => {
+      console.log('🌐 Connessione ripristinata');
+      setIsOffline(false);
+      toast({
+        title: '🌐 Sei online!',
+        description: 'Connessione ripristinata',
+        status: 'success',
+        duration: 2000
+      });
+      loadAllContent();
+    };
+    
+    const handleOffline = () => {
+      console.log('📡 Connessione persa');
+      setIsOffline(true);
+      toast({
+        title: '📡 Sei offline',
+        description: 'Puoi accedere ai manga scaricati',
+        status: 'warning',
+        duration: 3000
+      });
+    };
+    
     window.addEventListener('library-updated', handleLibraryUpdate);
     window.addEventListener('downloads-updated', loadDownloadCount);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
     
     return () => {
       window.removeEventListener('library-updated', handleLibraryUpdate);
       window.removeEventListener('downloads-updated', loadDownloadCount);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
-  }, [loadAllContent]);
+  }, [loadAllContent, toast]);
 
   // ✅ WRAP handleRefresh in useCallback per evitare React error #300
   const handleRefresh = useCallback(async () => {
@@ -398,15 +439,41 @@ function Home() {
               </VStack>
             </Box>
 
-            {/* Info */}
+            {/* Info e riconnessione */}
             <Box bg="gray.800" p={6} borderRadius="lg" textAlign="center">
-              <VStack spacing={2}>
+              <VStack spacing={4}>
                 <Text color="gray.400" fontSize="sm">
                   💡 I tuoi manga scaricati sono sempre disponibili offline
                 </Text>
                 <Text color="gray.500" fontSize="xs">
                   Quando torni online potrai cercare e scaricare nuovi contenuti
                 </Text>
+                <Button
+                  colorScheme="green"
+                  variant="outline"
+                  onClick={async () => {
+                    const online = await checkOfflineStatus();
+                    if (!online) {
+                      toast({
+                        title: 'Ancora offline',
+                        description: 'Server non raggiungibile. Riprova più tardi.',
+                        status: 'warning',
+                        duration: 3000
+                      });
+                    } else {
+                      toast({
+                        title: 'Connesso!',
+                        description: 'Caricamento contenuti...',
+                        status: 'success',
+                        duration: 2000
+                      });
+                      await loadAllContent();
+                    }
+                  }}
+                  size="md"
+                >
+                  🔄 Riprova connessione
+                </Button>
               </VStack>
             </Box>
           </VStack>
@@ -593,33 +660,56 @@ function Home() {
               {/* TAB TOP SERIES */}
               <TabPanel px={0} pt={6}>
                 <VStack spacing={6} align="stretch">
+                  <Box
+                    bg="gray.800"
+                    p={{ base: 4, md: 6 }}
+                    borderRadius="xl"
+                    border="1px solid"
+                    borderColor="gray.700"
+                    textAlign="center"
+                    cursor="pointer"
+                    onClick={() => navigate('/categories')}
+                    transition="all 0.3s"
+                    _hover={{
+                      borderColor: 'purple.500',
+                      transform: 'translateY(-2px)',
+                      boxShadow: 'lg'
+                    }}
+                    mb={4}
+                  >
+                    <VStack spacing={3}>
+                      <Heading size={{ base: 'sm', md: 'md' }}>📚 Esplora tutte le categorie</Heading>
+                      <Text color="gray.400" fontSize="sm">
+                        Sfoglia manga, manhwa, manhua e oneshot
+                      </Text>
+                      <Button colorScheme="purple" size="md" rightIcon={<FaArrowRight />}>
+                        Vai alle categorie
+                      </Button>
+                    </VStack>
+                  </Box>
                   <ContentSection 
                     title="Top Manga" 
                     icon={GiDragonHead} 
                     items={content.topManga} 
-                    color="orange" 
-                    viewAllPath="/categories"
+                    color="orange"
                   />
                   <ContentSection 
                     title="Top Manhwa" 
                     icon={BiBook} 
                     items={content.topManhwa} 
-                    color="purple" 
-                    viewAllPath="/categories"
+                    color="purple"
                   />
                   <ContentSection 
                     title="Top Manhua" 
                     icon={FaDragon} 
                     items={content.topManhua} 
-                    color="red" 
-                    viewAllPath="/categories"
+                    color="red"
                   />
                   <ContentSection 
                     title="Top Oneshot" 
                     icon={FaBookOpen} 
                     items={content.topOneshot} 
-                    color="green" 
-                    viewAllPath="/categories"
+                    color="green"
                   />
                 </VStack>
               </TabPanel>

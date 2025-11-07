@@ -558,23 +558,81 @@ function ReaderPage() {
 
         console.log('Caricamento:', { chapterUrl, mangaUrl });
 
-        // CARICAMENTO DATI CON RETRY
-        let mangaData, chapterData;
+        // ========== TENTATIVO 1: CARICA DA OFFLINE STORAGE ==========
+        let mangaData = null;
+        let chapterData = null;
+        let fromOffline = false;
         
         try {
-          [mangaData, chapterData] = await Promise.all([
-            apiManager.getMangaDetails(mangaUrl, source).catch(err => {
-              console.error('Errore caricamento manga:', err);
-              return null;
-            }),
-            apiManager.getChapter(chapterUrl, source).catch(err => {
-              console.error('Errore caricamento capitolo:', err);
-              return null;
-            })
-          ]);
-        } catch (err) {
-          console.error('Errore Promise.all:', err);
-          throw new Error('Impossibile contattare il server');
+          const { default: offlineManager } = await import('../utils/offlineManager');
+          const offlineChapterId = `${mangaUrl}-${chapterUrl}`;
+          const offlineChapter = await offlineManager.getChapter(offlineChapterId);
+          
+          if (offlineChapter && offlineChapter.pages && offlineChapter.pages.length > 0) {
+            console.log('✅ Capitolo trovato offline!');
+            chapterData = {
+              pages: offlineChapter.pages,
+              title: offlineChapter.chapterTitle,
+              url: chapterUrl
+            };
+            
+            // Prova a recuperare anche i dati del manga da cache locale
+            const cachedManga = localStorage.getItem(`manga_${mangaUrl}`);
+            if (cachedManga) {
+              try {
+                mangaData = JSON.parse(cachedManga);
+              } catch (e) {
+                console.log('Cache manga non valida');
+              }
+            }
+            
+            fromOffline = true;
+            
+            // Mostra badge offline
+            toast({
+              title: '📥 Modalità Offline',
+              description: 'Caricato dai download',
+              status: 'info',
+              duration: 2000,
+              position: 'top'
+            });
+          }
+        } catch (offlineError) {
+          console.log('Offline storage non disponibile o capitolo non scaricato:', offlineError.message);
+        }
+
+        // ========== TENTATIVO 2: CARICA DALLA RETE ==========
+        if (!chapterData || !mangaData) {
+          // Controlla se siamo online
+          if (!navigator.onLine) {
+            throw new Error('⚠️ Offline: Capitolo non disponibile offline. Scaricalo quando torni online.');
+          }
+          
+          try {
+            console.log('Caricamento dalla rete...');
+            [mangaData, chapterData] = await Promise.all([
+              apiManager.getMangaDetails(mangaUrl, source).catch(err => {
+                console.error('Errore caricamento manga:', err);
+                return null;
+              }),
+              apiManager.getChapter(chapterUrl, source).catch(err => {
+                console.error('Errore caricamento capitolo:', err);
+                return null;
+              })
+            ]);
+            
+            // Cache manga per uso offline futuro
+            if (mangaData) {
+              try {
+                localStorage.setItem(`manga_${mangaUrl}`, JSON.stringify(mangaData));
+              } catch (e) {
+                console.log('Impossibile cachare manga');
+              }
+            }
+          } catch (err) {
+            console.error('Errore Promise.all:', err);
+            throw new Error('Impossibile contattare il server. Sei offline?');
+          }
         }
         
         if (!isMounted) return;
