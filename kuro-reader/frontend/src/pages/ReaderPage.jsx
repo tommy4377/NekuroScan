@@ -19,13 +19,17 @@ import notesManager from '../utils/notes';
 import chapterCache from '../utils/chapterCache';
 import ProxiedImage from '../components/ProxiedImage';
 import { config } from '../config';
+import { encodeSource, decodeSource } from '../utils/sourceMapper';
 
 function ReaderPage() {
   // ========== HOOKS ESSENZIALI (SEMPRE CHIAMATI PER PRIMI) ==========
-  const { source, mangaId, chapterId } = useParams();
+  const { source: encodedSource, mangaId, chapterId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
+  
+  // Decodifica source per uso interno
+  const source = decodeSource(encodedSource);
   
   // ✅ VALIDAZIONE PARAMETRI (ma hooks devono essere chiamati prima)
   const hasValidParams = Boolean(source && mangaId && chapterId);
@@ -316,7 +320,7 @@ function ReaderPage() {
           .replace(/\//g, '_')
           .replace(/=/g, '');
         setCurrentPage(0);
-        navigate(`/read/${source}/${mangaId}/${newChapterId}?chapter=${newIndex}`);
+        navigate(`/read/${encodeSource(source)}/${mangaId}/${newChapterId}?chapter=${newIndex}`);
       } else if (direction > 0) {
         saveProgress();
         toast({
@@ -326,7 +330,7 @@ function ReaderPage() {
           duration: 2000,
         });
         setTimeout(() => {
-          navigate(`/manga/${source}/${mangaId}`);
+          navigate(`/manga/${encodeSource(source)}/${mangaId}`);
         }, 1200);
       } else if (direction < 0) {
         toast({
@@ -766,7 +770,7 @@ function ReaderPage() {
         // REDIRECT DOPO ERRORE
         setTimeout(() => {
           if (isMounted && mangaId && source) {
-            navigate(`/manga/${source}/${mangaId}`);
+            navigate(`/manga/${encodeSource(source)}/${mangaId}`);
           } else {
             navigate('/home');
           }
@@ -1039,7 +1043,7 @@ function ReaderPage() {
             onClick={(e) => {
               e.stopPropagation();
               saveProgress();
-              navigate(`/manga/${source}/${mangaId}`);
+              navigate(`/manga/${encodeSource(source)}/${mangaId}`);
             }}
             aria-label="Chiudi"
             variant="solid"
@@ -1242,7 +1246,7 @@ function ReaderPage() {
                   justifyContent="center"
                 >
                   <Image
-                    src={img.url.includes('cdn.mangaworld') 
+                    src={img.url.includes(atob('Y2RuLm1hbmdhd29ybGQ=')) 
                       ? `${config.PROXY_URL}/api/image-proxy?url=${encodeURIComponent(img.url)}`
                       : img.url
                     }
@@ -1527,7 +1531,7 @@ function ReaderPage() {
                 onClick={(e) => {
                   e.stopPropagation();
                   saveProgress();
-                  navigate(`/manga/${source}/${mangaId}`);
+                  navigate(`/manga/${encodeSource(source)}/${mangaId}`);
                 }}
                 colorScheme="purple"
                 size="lg"

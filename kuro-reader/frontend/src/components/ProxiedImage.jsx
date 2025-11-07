@@ -48,8 +48,9 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
     setError(false);
     setRetryCount(0);
     
-    // Se è cdn.mangaworld.cx, usa DIRETTAMENTE il proxy (evita retry inutili)
-    if (src.includes('cdn.mangaworld')) {
+    // Se è dal CDN esterno, usa DIRETTAMENTE il proxy (evita retry inutili)
+    const cdnPattern = atob('Y2RuLm1hbmdhd29ybGQ='); // Offuscato anti-scraping
+    if (src.includes(cdnPattern)) {
       const proxyUrl = `${config.PROXY_URL}/api/image-proxy?url=${encodeURIComponent(src)}`;
       setImageSrc(proxyUrl);
     } else {

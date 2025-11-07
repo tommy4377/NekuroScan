@@ -21,6 +21,7 @@ import offlineManager from '../utils/offlineManager';
 import shareUtils from '../utils/shareUtils';
 import axios from 'axios';
 import { config } from '../config';
+import { encodeSource, decodeSource } from '../utils/sourceMapper';
 
 // Helper: Decode URL-safe base64
 const decodeUrlSafe = (str) => {
@@ -32,9 +33,12 @@ const decodeUrlSafe = (str) => {
 };
 
 function MangaDetails() {
-  const { source, id } = useParams();
+  const { source: encodedSource, id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  
+  // Decodifica source per uso interno
+  const source = decodeSource(encodedSource);
   
   // ✅ Hook sempre in cima, con fallback sicuro
   const authHook = useAuth();
@@ -471,7 +475,7 @@ function MangaDetails() {
       console.log('✅ Data saved locally, starting chapter:', chapterIndex + 1);
       
       // ✅ 2. NAVIGATION con React Router
-      navigate(`/read/${source}/${id}/${chapterId}?chapter=${chapterIndex}`);
+      navigate(`/read/${encodeSource(source)}/${id}/${chapterId}?chapter=${chapterIndex}`);
       
     } catch (error) {
       console.error('❌ Error starting reading:', error);

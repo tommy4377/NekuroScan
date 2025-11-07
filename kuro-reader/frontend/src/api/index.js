@@ -1,6 +1,7 @@
 // frontend/src/api/index.js
 import { MangaWorldAPI } from './mangaWorld';
 import { MangaWorldAdultAPI } from './mangaWorldAdult';
+import { getBaseUrl } from '../config/sources';
 
 // Cache timeout configuration
 const CACHE_TIMEOUT = 10 * 60 * 1000; // 10 minuti
@@ -229,7 +230,7 @@ class APIManager {
     if (cached) return cached;
 
     try {
-      const base = includeAdult ? 'https://www.mangaworldadult.net' : 'https://www.mangaworld.cx';
+      const base = getBaseUrl(includeAdult ? 'ma' : 'm');
       const html = await this.apis[includeAdult ? 'mangaWorldAdult' : 'mangaWorld'].makeRequest(base);
       const doc = new DOMParser().parseFromString(html, 'text/html');
       
@@ -319,7 +320,7 @@ class APIManager {
     const trending = [];
     
     try {
-      const base = includeAdult ? 'https://www.mangaworldadult.net' : 'https://www.mangaworld.cx';
+      const base = getBaseUrl(includeAdult ? 'ma' : 'm');
       const html = await this.apis[includeAdult ? 'mangaWorldAdult' : 'mangaWorld'].makeRequest(base);
       const doc = new DOMParser().parseFromString(html, 'text/html');
       

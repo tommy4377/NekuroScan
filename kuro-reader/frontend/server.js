@@ -1,4 +1,5 @@
 import express from 'express';
+import compression from 'compression';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -7,6 +8,59 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ========= COMPRESSION (Gzip/Brotli) =========
+// Riduce dimensioni payload fino a 70-80%
+app.use(compression({
+  level: 6, // Bilanciamento velocità/compressione
+  threshold: 1024, // Comprimi solo file > 1KB
+  filter: (req, res) => {
+    // Non comprimere immagini (già compressed)
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
+
+// ========= BASIC RATE LIMITING (Frontend) =========
+const requestCounts = new Map();
+const RATE_LIMIT_WINDOW = 60000;
+const MAX_REQUESTS = 300; // 300 req/min per IP
+
+const rateLimiter = (req, res, next) => {
+  const ip = req.ip || req.connection.remoteAddress;
+  const now = Date.now();
+  
+  if (!requestCounts.has(ip)) {
+    requestCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return next();
+  }
+  
+  const data = requestCounts.get(ip);
+  
+  if (now > data.resetTime) {
+    requestCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return next();
+  }
+  
+  if (data.count >= MAX_REQUESTS) {
+    return res.status(429).send('Troppe richieste, riprova tra poco');
+  }
+  
+  data.count++;
+  next();
+};
+
+// Cleanup ogni 5 minuti
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of requestCounts.entries()) {
+    if (now > data.resetTime) requestCounts.delete(ip);
+  }
+}, 300000);
+
+app.use(rateLimiter);
 
 // Security and performance headers
 app.use((req, res, next) => {

@@ -16,43 +16,142 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '1mb' }));
 
-// ========= RATE LIMITING =========
+// ========= ADVANCED RATE LIMITING & DDoS PROTECTION =========
 const requestCounts = new Map();
-const RATE_LIMIT_WINDOW = 60000;
-const MAX_REQUESTS = 200;
+const ipBlacklist = new Map();
+const suspiciousActivity = new Map();
+const requestTiming = new Map(); // Per rilevare burst rapidi
 
-const rateLimiter = (req, res, next) => {
-  const ip = req.ip || req.connection.remoteAddress;
-  const now = Date.now();
-  
-  if (!requestCounts.has(ip)) {
-    requestCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return next();
-  }
-  
-  const data = requestCounts.get(ip);
-  
-  if (now > data.resetTime) {
-    requestCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return next();
-  }
-  
-  if (data.count >= MAX_REQUESTS) {
-    return res.status(429).json({ success: false, error: 'Troppe richieste' });
-  }
-  
-  data.count++;
-  next();
+const RATE_LIMITS = {
+  global: { window: 60000, max: 200 },  // 200 req/min globale
+  proxy: { window: 60000, max: 120 },   // 120 proxy req/min
+  image: { window: 60000, max: 150 },   // 150 immagini/min
+  burst: { window: 1000, max: 10 }      // Max 10 req/sec (anti-burst)
 };
 
+// Blacklist IP per abusi
+const blacklistIP = (ip, duration = 3600000) => {
+  const until = Date.now() + duration;
+  ipBlacklist.set(ip, until);
+  console.warn(`🚨 PROXY: IP BLACKLISTED ${ip} fino a ${new Date(until).toISOString()}`);
+};
+
+const isBlacklisted = (ip) => {
+  if (ipBlacklist.has(ip)) {
+    const until = ipBlacklist.get(ip);
+    if (Date.now() < until) return true;
+    ipBlacklist.delete(ip);
+  }
+  return false;
+};
+
+// Rileva burst sospetti (troppe richieste troppo velocemente)
+const detectBurst = (ip) => {
+  const now = Date.now();
+  const key = `burst_${ip}`;
+  
+  if (!requestTiming.has(key)) {
+    requestTiming.set(key, [now]);
+    return false;
+  }
+  
+  const timestamps = requestTiming.get(key);
+  // Mantieni solo timestamp dell'ultimo secondo
+  const recentTimestamps = timestamps.filter(t => now - t < 1000);
+  recentTimestamps.push(now);
+  requestTiming.set(key, recentTimestamps);
+  
+  // Se più di 10 richieste in 1 secondo = burst sospetto
+  return recentTimestamps.length > 10;
+};
+
+// Rate limiter avanzato multi-livello
+const advancedRateLimiter = (limitType = 'global') => {
+  return (req, res, next) => {
+    const ip = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
+    
+    // Check blacklist
+    if (isBlacklisted(ip)) {
+      return res.status(403).json({ 
+        success: false,
+        error: 'IP temporaneamente bloccato per attività sospetta' 
+      });
+    }
+    
+    // Rileva burst attacks
+    if (detectBurst(ip)) {
+      const abuseKey = `burst_abuse_${ip}`;
+      const abuseCount = (suspiciousActivity.get(abuseKey) || 0) + 1;
+      suspiciousActivity.set(abuseKey, abuseCount);
+      
+      if (abuseCount >= 3) {
+        blacklistIP(ip, 1800000); // Ban 30 minuti per burst
+        return res.status(429).json({ 
+          success: false, 
+          error: 'Troppe richieste troppo velocemente' 
+        });
+      }
+    }
+    
+    const limit = RATE_LIMITS[limitType] || RATE_LIMITS.global;
+    const key = `${ip}_${limitType}`;
+    
+    if (!requestCounts.has(key)) {
+      requestCounts.set(key, { count: 1, resetTime: now + limit.window });
+      return next();
+    }
+    
+    const data = requestCounts.get(key);
+    
+    if (now > data.resetTime) {
+      requestCounts.set(key, { count: 1, resetTime: now + limit.window });
+      return next();
+    }
+    
+    if (data.count >= limit.max) {
+      const abuseKey = `abuse_${ip}`;
+      const abuseCount = (suspiciousActivity.get(abuseKey) || 0) + 1;
+      suspiciousActivity.set(abuseKey, abuseCount);
+      
+      // Ban dopo 5 violazioni ripetute
+      if (abuseCount >= 5) {
+        blacklistIP(ip);
+        suspiciousActivity.delete(abuseKey);
+      }
+      
+      return res.status(429).json({ 
+        success: false,
+        error: 'Limite richieste raggiunto',
+        retryAfter: Math.ceil((data.resetTime - now) / 1000)
+      });
+    }
+    
+    data.count++;
+    next();
+  };
+};
+
+// Cleanup ogni 5 minuti
 setInterval(() => {
   const now = Date.now();
-  for (const [ip, data] of requestCounts.entries()) {
-    if (now > data.resetTime) requestCounts.delete(ip);
+  
+  for (const [key, data] of requestCounts.entries()) {
+    if (now > data.resetTime) requestCounts.delete(key);
   }
+  
+  for (const [ip, until] of ipBlacklist.entries()) {
+    if (now > until) {
+      ipBlacklist.delete(ip);
+      console.log(`✅ PROXY: IP UNBANNED ${ip}`);
+    }
+  }
+  
+  requestTiming.clear();
+  suspiciousActivity.clear();
 }, 300000);
 
-app.use(rateLimiter);
+app.use(advancedRateLimiter('global'));
 
 // ========= DOMAIN WHITELIST =========
 const ALLOWED_DOMAINS = [
@@ -71,8 +170,8 @@ function isAllowedDomain(url) {
   }
 }
 
-// Proxy per evitare CORS
-app.post('/api/proxy', async (req, res) => {
+// Proxy per evitare CORS (con rate limiting specifico)
+app.post('/api/proxy', advancedRateLimiter('proxy'), async (req, res) => {
   try {
     const { url, method = 'GET', headers = {} } = req.body;
     
@@ -129,8 +228,8 @@ app.post('/api/parse', async (req, res) => {
   }
 });
 
-// Proxy per immagini (gestione CORS)
-app.get('/api/image-proxy', async (req, res) => {
+// Proxy per immagini (gestione CORS con rate limiting specifico)
+app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
   try {
     const { url } = req.query;
     

@@ -217,46 +217,115 @@ const requireDatabase = async (req, res, next) => {
   next();
 };
 
-// ========= RATE LIMITING =========
+// ========= ADVANCED RATE LIMITING & DDoS PROTECTION =========
 const requestCounts = new Map();
-const RATE_LIMIT_WINDOW = 60000; // 1 minuto
-const MAX_REQUESTS = 100; // 100 richieste per minuto
+const ipBlacklist = new Map(); // IP temporaneamente bannati
+const suspiciousActivity = new Map(); // Monitora attività sospette
 
-const rateLimiter = (req, res, next) => {
-  const ip = req.ip || req.connection.remoteAddress;
-  const now = Date.now();
-  
-  if (!requestCounts.has(ip)) {
-    requestCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return next();
-  }
-  
-  const data = requestCounts.get(ip);
-  
-  if (now > data.resetTime) {
-    requestCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return next();
-  }
-  
-  if (data.count >= MAX_REQUESTS) {
-    return res.status(429).json({ message: 'Troppe richieste, riprova tra poco' });
-  }
-  
-  data.count++;
-  next();
+const RATE_LIMITS = {
+  global: { window: 60000, max: 100 }, // 100 req/min globale
+  auth: { window: 300000, max: 10 },   // 10 login/5min (anti brute-force)
+  api: { window: 60000, max: 60 },     // 60 API calls/min
+  strict: { window: 60000, max: 30 }   // 30 req/min per endpoint sensibili
 };
 
-// Pulisci cache rate limit ogni 5 minuti
+// Blacklist IP per abusi gravi
+const blacklistIP = (ip, duration = 3600000) => { // Ban per 1 ora default
+  const until = Date.now() + duration;
+  ipBlacklist.set(ip, until);
+  console.warn(`🚨 IP BLACKLISTED: ${ip} fino a ${new Date(until).toISOString()}`);
+};
+
+// Controlla se IP è bannato
+const isBlacklisted = (ip) => {
+  if (ipBlacklist.has(ip)) {
+    const until = ipBlacklist.get(ip);
+    if (Date.now() < until) {
+      return true;
+    }
+    ipBlacklist.delete(ip);
+  }
+  return false;
+};
+
+// Rate limiter avanzato con livelli dinamici
+const advancedRateLimiter = (limitType = 'global') => {
+  return (req, res, next) => {
+    const ip = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
+    
+    // Check blacklist
+    if (isBlacklisted(ip)) {
+      return res.status(403).json({ 
+        message: 'IP temporaneamente bloccato per troppe richieste' 
+      });
+    }
+    
+    const limit = RATE_LIMITS[limitType] || RATE_LIMITS.global;
+    const key = `${ip}_${limitType}`;
+    
+    if (!requestCounts.has(key)) {
+      requestCounts.set(key, { count: 1, resetTime: now + limit.window });
+      return next();
+    }
+    
+    const data = requestCounts.get(key);
+    
+    // Reset se finestra scaduta
+    if (now > data.resetTime) {
+      requestCounts.set(key, { count: 1, resetTime: now + limit.window });
+      return next();
+    }
+    
+    // Limite raggiunto
+    if (data.count >= limit.max) {
+      // Monitora abusi ripetuti
+      const abuseKey = `abuse_${ip}`;
+      const abuseCount = (suspiciousActivity.get(abuseKey) || 0) + 1;
+      suspiciousActivity.set(abuseKey, abuseCount);
+      
+      // Ban automatico dopo 5 violazioni
+      if (abuseCount >= 5) {
+        blacklistIP(ip);
+        suspiciousActivity.delete(abuseKey);
+      }
+      
+      return res.status(429).json({ 
+        message: 'Troppe richieste, riprova tra poco',
+        retryAfter: Math.ceil((data.resetTime - now) / 1000)
+      });
+    }
+    
+    data.count++;
+    next();
+  };
+};
+
+// Cleanup periodico (ogni 5 minuti)
 setInterval(() => {
   const now = Date.now();
-  for (const [ip, data] of requestCounts.entries()) {
+  
+  // Pulisci rate limits scaduti
+  for (const [key, data] of requestCounts.entries()) {
     if (now > data.resetTime) {
-      requestCounts.delete(ip);
+      requestCounts.delete(key);
     }
   }
+  
+  // Pulisci blacklist scadute
+  for (const [ip, until] of ipBlacklist.entries()) {
+    if (now > until) {
+      ipBlacklist.delete(ip);
+      console.log(`✅ IP UNBANNED: ${ip}`);
+    }
+  }
+  
+  // Reset contatori abusi dopo 10 minuti
+  suspiciousActivity.clear();
 }, 300000);
 
-app.use(rateLimiter);
+// Applica rate limiter globale
+app.use(advancedRateLimiter('global'));
 
 // ========= INPUT SANITIZATION =========
 function sanitizeString(str, maxLength = 500) {
@@ -379,7 +448,7 @@ app.get('/health', async (req, res) => {
 // ========= AUTH ROUTES =========
 
 // REGISTER
-app.post('/api/auth/register', requireDatabase, async (req, res) => {
+app.post('/api/auth/register', advancedRateLimiter('auth'), requireDatabase, async (req, res) => {
   try {
     const { username, email, password } = req.body;
     
@@ -493,7 +562,7 @@ app.post('/api/auth/register', requireDatabase, async (req, res) => {
 });
 
 // LOGIN
-app.post('/api/auth/login', requireDatabase, async (req, res) => {
+app.post('/api/auth/login', advancedRateLimiter('auth'), requireDatabase, async (req, res) => {
   try {
     const { emailOrUsername, password } = req.body;
     

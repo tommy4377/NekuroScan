@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { getBaseUrl } from '../config/sources';
 
 // Generi supportati
 const GENRES = [
@@ -8,7 +9,7 @@ const GENRES = [
   'shounen-ai','slice-of-life','smut','soprannaturale','sport','storico','tragico','yaoi','yuri'
 ];
 
-const BASE = (adult) => adult ? 'https://www.mangaworldadult.net' : 'https://www.mangaworld.cx';
+const BASE = (adult) => getBaseUrl(adult ? 'ma' : 'm');
 
 export class StatsAPI {
   constructor() {

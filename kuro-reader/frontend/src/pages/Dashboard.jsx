@@ -460,7 +460,8 @@ function Dashboard() {
                       .replace(/\+/g, '-')
                       .replace(/\//g, '_')
                       .replace(/=/g, '');
-                    navigate(`/manga/${stats.lastRead.source || 'mangaWorld'}/${encoded}`);
+                    const sourceCode = stats.lastRead.source === 'mangaWorldAdult' ? 'ma' : 'm';
+                    navigate(`/manga/${sourceCode}/${encoded}`);
                   }}
                 >
                   Continua a leggere

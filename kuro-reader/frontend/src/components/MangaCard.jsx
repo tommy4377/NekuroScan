@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Box, Image, Text, VStack, Badge, Skeleton } from '@chakra-ui/react';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import { useNavigate } from 'react-router-dom';
+import { encodeSource } from '../utils/sourceMapper';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
@@ -35,7 +36,8 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
 
     const mangaId = safeEncodeUrl(manga.url);
     const source = manga.source || (manga.isAdult ? 'mangaWorldAdult' : 'mangaWorld');
-    navigate(`/manga/${source}/${mangaId}`);
+    const encodedSource = encodeSource(source);
+    navigate(`/manga/${encodedSource}/${mangaId}`);
   }, [manga, navigate]);
 
   const handleMouseMove = React.useCallback((e) => {

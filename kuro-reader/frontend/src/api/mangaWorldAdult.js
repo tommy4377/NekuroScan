@@ -1,9 +1,11 @@
 import { config } from '../config';
 import { normalizeChapterLabel } from './shared';
+import { getBaseUrl } from '../config/sources';
 
 export class MangaWorldAdultAPI {
   constructor() {
-    this.baseUrl = 'https://www.mangaworldadult.net/';
+    // Offuscato per anti-scraping
+    this.baseUrl = getBaseUrl('ma') + '/';
   }
 
   async makeRequest(url, retryCount = 0) {

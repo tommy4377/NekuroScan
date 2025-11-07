@@ -251,11 +251,6 @@ function AppContent() {
 
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
-    const preconnectLink = document.createElement('link');
-    preconnectLink.rel = 'preconnect';
-    preconnectLink.href = 'https://www.mangaworld.cx';
-    document.head.appendChild(preconnectLink);
-
     return () => {
       if (cleanup) cleanup();
       window.removeEventListener('online', handleOnline);

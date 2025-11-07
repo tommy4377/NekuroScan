@@ -11,6 +11,7 @@ import {
   FaFire, FaClock, FaBookOpen, FaHeart,
   FaChevronRight, FaSync, FaTrophy, FaDragon, FaArrowRight
 } from 'react-icons/fa';
+import { getBaseUrl } from '../config/sources';
 import { GiDragonHead } from 'react-icons/gi';
 import { BiBook } from 'react-icons/bi';
 import MangaCard from '../components/MangaCard';
@@ -95,7 +96,7 @@ function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          url: 'https://www.mangaworld.cx',
+          url: getBaseUrl('m'),
           headers: {}
         }),
         signal: testController.signal,

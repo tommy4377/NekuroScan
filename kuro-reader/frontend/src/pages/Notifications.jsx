@@ -305,12 +305,12 @@ export default function Notifications() {
                             borderColor: 'purple.500'
                           }}
                           onClick={() => {
-                            const source = manga.source || 'mangaWorld';
+                            const sourceCode = manga.source === 'mangaWorldAdult' ? 'ma' : 'm';
                             const encodedUrl = btoa(manga.mangaUrl)
                               .replace(/\+/g, '-')
                               .replace(/\//g, '_')
                               .replace(/=/g, '');
-                            navigate(`/manga/${source}/${encodedUrl}`);
+                            navigate(`/manga/${sourceCode}/${encodedUrl}`);
                           }}
                         >
                           <HStack spacing={0} align="stretch">

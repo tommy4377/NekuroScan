@@ -1,9 +1,11 @@
 import { config } from '../config';
 import { normalizeChapterLabel } from './shared';
+import { getBaseUrl } from '../config/sources';
 
 export class MangaWorldAPI {
   constructor() {
-    this.baseUrl = 'https://www.mangaworld.cx/';
+    // Offuscato per anti-scraping
+    this.baseUrl = getBaseUrl('m') + '/';
   }
 
   async makeRequest(url, retryCount = 0) {
