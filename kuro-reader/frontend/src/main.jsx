@@ -2,37 +2,62 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-// Registra Service Worker
+// Registra Service Worker con gestione aggiornamenti
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/sw.js')
-      .then((registration) => {
-        console.log('✅ Service Worker registrato:', registration);
-        
-        // Forza il pre-cache del logo e risorse critiche
-        if (registration.active) {
-          const criticalUrls = [
-            '/web-app-manifest-192x192.png',
-            '/web-app-manifest-512x512.png',
-            '/favicon.svg',
-            '/apple-touch-icon.png'
-          ];
-          
-          caches.open('NeKuro Scan-v3').then(cache => {
-            criticalUrls.forEach(url => {
-              cache.add(url).then(() => {
-                console.log(`[Cache] ✅ Pre-cached: ${url}`);
-              }).catch(err => {
-                console.warn(`[Cache] ⚠️ Failed to pre-cache: ${url}`, err);
-              });
-            });
-          });
-        }
-      })
-      .catch((err) => {
-        console.error('❌ Service Worker registration failed:', err);
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js', {
+        scope: '/'
       });
+      
+      console.log('✅ Service Worker registrato');
+      
+      // Gestisci aggiornamenti
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        console.log('[SW] Aggiornamento disponibile...');
+        
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('[SW] Nuovo service worker pronto, refresh necessario');
+            // Auto-refresh per aggiornare
+            if (confirm('Nuova versione disponibile! Ricaricare?')) {
+              newWorker.postMessage({ type: 'SKIP_WAITING' });
+              window.location.reload();
+            }
+          }
+        });
+      });
+      
+      // Pre-cache risorse critiche
+      const cache = await caches.open('nekuro-v4');
+      const criticalUrls = [
+        '/web-app-manifest-192x192.png',
+        '/web-app-manifest-512x512.png',
+        '/favicon.svg'
+      ];
+      
+      for (const url of criticalUrls) {
+        try {
+          await cache.add(url);
+          console.log(`[Cache] ✅ ${url}`);
+        } catch (err) {
+          console.warn(`[Cache] Failed: ${url}`);
+        }
+      }
+      
+    } catch (err) {
+      console.error('❌ Service Worker failed:', err);
+    }
+  });
+  
+  // Reload quando il service worker prende controllo
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
   });
 }
 

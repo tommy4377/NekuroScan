@@ -134,14 +134,20 @@ function Home() {
   const loadAllContent = useCallback(async () => {
     setLoading(true);
     
-    // Check se offline
+    // Check se offline - ma NON bloccare se stiamo ricaricando dopo "Riprova"
     const offline = await checkOfflineStatus();
     
     if (offline) {
       // Modalità OFFLINE: mostra solo download
+      console.log('📡 Modalità offline attiva');
+      setIsOffline(true);
       setLoading(false);
       return;
     }
+    
+    // Se arriviamo qui, siamo online
+    console.log('✅ Modalità online');
+    setIsOffline(false);
     
     try {
       // Carica tutto in parallelo
@@ -233,16 +239,33 @@ function Home() {
     };
     
     // Ascolta cambiamenti connessione
-    const handleOnline = () => {
+    const handleOnline = async () => {
       console.log('🌐 Connessione ripristinata');
       setIsOffline(false);
       toast({
         title: '🌐 Sei online!',
-        description: 'Connessione ripristinata',
+        description: 'Ricaricamento automatico...',
         status: 'success',
         duration: 2000
       });
-      loadAllContent();
+      
+      // Aspetta un momento per assicurarsi che la connessione sia stabile
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Verifica che sia davvero online
+      const isReallyOnline = await checkOfflineStatus();
+      if (!isReallyOnline) {
+        console.log('⚠️ Falso positivo online, ancora offline');
+        return;
+      }
+      
+      // Ricarica tutto automaticamente
+      await loadAllContent();
+      
+      // Forza refresh completo per caricare tutte le risorse
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     };
     
     const handleOffline = () => {
@@ -489,9 +512,17 @@ function Home() {
                 <Button
                   colorScheme="green"
                   variant="outline"
+                  isLoading={refreshing}
                   onClick={async () => {
+                    setRefreshing(true);
+                    
+                    // Aspetta un attimo prima di controllare
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
                     const online = await checkOfflineStatus();
+                    
                     if (!online) {
+                      setRefreshing(false);
                       toast({
                         title: 'Ancora offline',
                         description: 'Server non raggiungibile. Riprova più tardi.',
@@ -499,19 +530,22 @@ function Home() {
                         duration: 3000
                       });
                     } else {
+                      // Siamo online! Ricarica TUTTO
                       toast({
-                        title: 'Connesso!',
-                        description: 'Caricamento contenuti...',
+                        title: '🌐 Connesso!',
+                        description: 'Ricaricamento pagina...',
                         status: 'success',
-                        duration: 2000
+                        duration: 1500
                       });
-                      // Ricarica automaticamente
-                      await loadAllContent();
-                      // Forza refresh della pagina per caricare tutto
-                      window.location.reload();
+                      
+                      // Forza refresh completo della pagina
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 1000);
                     }
                   }}
                   size="md"
+                  loadingText="Controllo..."
                 >
                   🔄 Riprova connessione
                 </Button>
