@@ -27,6 +27,16 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
       return;
     }
     
+    // ✅ SE È UN BLOB URL, USALO DIRETTAMENTE (offline)
+    if (src.startsWith('blob:')) {
+      setImageSrc(src);
+      setLoading(false);
+      setError(false);
+      console.log('[ProxiedImage] Using blob URL directly (offline)');
+      return;
+    }
+    
+    // Se non è http, errore
     if (!src.startsWith('http')) {
       setError(true);
       setLoading(false);
@@ -63,6 +73,14 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
       clearTimeout(timeoutRef.current);
     }
     
+    // ✅ Se è blob URL e fallisce, non è un vero errore - potrebbe essere revocato
+    if (src && src.startsWith('blob:')) {
+      console.log('[ProxiedImage] Blob URL error (potrebbe essere revocato)');
+      setError(true);
+      setLoading(false);
+      return;
+    }
+    
     // Se già stiamo usando il proxy e fallisce, non ritentare
     if (imageSrc && imageSrc.includes('/api/image-proxy')) {
       setError(true);
@@ -71,7 +89,7 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
     }
     
     // UNICO RETRY: Se non è già proxy, usa proxy
-    if (retryCount === 0 && config.PROXY_URL) {
+    if (retryCount === 0 && config.PROXY_URL && src) {
       const proxyUrl = `${config.PROXY_URL}/api/image-proxy?url=${encodeURIComponent(src)}`;
       setRetryCount(1);
       setLoading(true);
@@ -93,17 +111,33 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
     
     setLoading(false);
     setError(false);
+    
+    // ✅ Log per blob URLs
+    if (src && src.startsWith('blob:')) {
+      console.log('[ProxiedImage] ✅ Blob URL loaded successfully');
+    }
   };
 
   const handleRetry = () => {
+    // ✅ Per blob URLs, non retry - usa direttamente
+    if (src && src.startsWith('blob:')) {
+      setImageSrc(src);
+      setError(false);
+      setLoading(false);
+      return;
+    }
+    
     setError(false);
     setLoading(true);
     setRetryCount(0);
     setImageSrc(src);
   };
 
-  // STATO ERRORE
-  if (error) {
+  // ✅ Per blob URLs, non mostrare MAI stato errore - sono offline e ok
+  const isBlobUrl = src && src.startsWith('blob:');
+  
+  // STATO ERRORE (ma non per blob URLs)
+  if (error && !isBlobUrl) {
     return (
       <Box 
         bg="gray.800" 
@@ -143,17 +177,17 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
           onError={handleError}
           style={{
             ...style,
-            opacity: loading ? 0 : 1,
+            opacity: (loading && !isBlobUrl) ? 0 : 1,
             transition: 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             willChange: 'opacity'
           }}
-          loading="lazy"
+          loading={isBlobUrl ? "eager" : "lazy"}
           decoding="async"
           w="100%"
           h="100%"
         />
       )}
-      {loading && (
+      {loading && !isBlobUrl && (
         <Box 
           position="absolute" 
           top="50%" 

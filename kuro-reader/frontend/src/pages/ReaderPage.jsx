@@ -1039,23 +1039,26 @@ function ReaderPage() {
           />
           <IconButton
             icon={isFullscreen ? <MdFullscreenExit /> : <MdFullscreen />}
-                onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-                aria-label="Schermo intero"
-                variant="ghost"
-                color="white"
-                size="sm"
-              />
-              <IconButton
-                icon={<FaTimes />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  saveProgress();
-                  navigate(`/manga/${source}/${mangaId}`);
-                }}
-                aria-label="Chiudi"
-                variant="ghost"
+            onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+            aria-label="Schermo intero"
+            variant="ghost"
             color="white"
-                size="sm"
+            size="sm"
+            display={{ base: 'none', md: 'flex' }}
+          />
+          <IconButton
+            icon={<FaTimes />}
+            onClick={(e) => {
+              e.stopPropagation();
+              saveProgress();
+              navigate(`/manga/${source}/${mangaId}`);
+            }}
+            aria-label="Chiudi"
+            variant="solid"
+            colorScheme="red"
+            color="white"
+            size="sm"
+            _hover={{ bg: 'red.600' }}
           />
         </HStack>
       </HStack>
