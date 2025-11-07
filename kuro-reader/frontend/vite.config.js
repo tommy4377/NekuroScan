@@ -9,13 +9,7 @@ export default defineConfig({
   plugins: [
     react({
       // ✅ PERFORMANCE: Fast Refresh ottimizzato
-      fastRefresh: true,
-      babel: {
-        plugins: [
-          // Rimuovi PropTypes in produzione
-          ['babel-plugin-transform-react-remove-prop-types', { removeImport: true }]
-        ]
-      }
+      fastRefresh: true
     }),
     VitePWA({
       registerType: 'prompt',
