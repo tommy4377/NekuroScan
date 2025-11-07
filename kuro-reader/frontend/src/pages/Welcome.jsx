@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Box,
   Container,
@@ -9,7 +9,8 @@ import {
   HStack,
   Icon,
   SimpleGrid,
-  Stack
+  Stack,
+  useBreakpointValue
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { FaBook, FaSearch, FaBookmark, FaMobileAlt } from 'react-icons/fa';
@@ -18,6 +19,17 @@ import Logo from '../components/Logo';
 const Welcome = React.memo(() => {
   const navigate = useNavigate();
   const bgGradient = 'linear(to-br, purple.600, pink.600)';
+  const isDesktop = useBreakpointValue({ base: false, md: true });
+
+  // Blocca scroll su desktop
+  useEffect(() => {
+    if (isDesktop) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = 'auto';
+      };
+    }
+  }, [isDesktop]);
 
   const features = [
     {
@@ -44,16 +56,27 @@ const Welcome = React.memo(() => {
 
   return (
     <Box 
-      minH="100vh" 
+      position="fixed"
+      top={0}
+      left={0}
+      right={0}
+      bottom={0}
       h="100vh" 
       bg="gray.900" 
-      overflow="hidden"
+      overflow={{ base: "auto", md: "hidden" }}
       display="flex"
       alignItems="center"
       justifyContent="center"
     >
-      <Container maxW="container.xl" py={{ base: 6, md: 0 }}>
-        <VStack spacing={{ base: 8, md: 12 }} align="center">
+      <Container 
+        maxW="container.xl" 
+        py={{ base: 6, md: 0 }}
+        h={{ base: "auto", md: "100vh" }}
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <VStack spacing={{ base: 8, md: 10 }} align="center" w="100%">
           {/* Hero Section - FIX MOBILE */}
           <Box
             width="100%"

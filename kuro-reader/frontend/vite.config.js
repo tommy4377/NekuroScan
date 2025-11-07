@@ -30,9 +30,13 @@ export default defineConfig({
         'favicon.ico',
         'favicon.svg', 
         'favicon-96x96.png',
+        'favicon-96x96.webp',
+        'web-app-manifest-192x192.webp',
+        'web-app-manifest-512x512.webp',
         'web-app-manifest-192x192.png',
         'web-app-manifest-512x512.png',
         'apple-touch-icon.png',
+        'apple-touch-icon.webp',
         'site.webmanifest'
       ],
       manifest: {
@@ -47,9 +51,21 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
+            src: '/web-app-manifest-192x192.webp',
+            sizes: '192x192',
+            type: 'image/webp',
+            purpose: 'any maskable'
+          },
+          {
             src: '/web-app-manifest-192x192.png',
             sizes: '192x192',
             type: 'image/png',
+            purpose: 'any maskable'
+          },
+          {
+            src: '/web-app-manifest-512x512.webp',
+            sizes: '512x512',
+            type: 'image/webp',
             purpose: 'any maskable'
           },
           {

@@ -35,8 +35,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
   
-  <!-- ✅ PERFORMANCE: Preload risorse critiche -->
-  <link rel="preload" as="image" href="/favicon-96x96.png" fetchpriority="high" type="image/png" />
+  <!-- ✅ PERFORMANCE: Preload logo WebP con fallback PNG -->
+  <link rel="preload" as="image" href="/web-app-manifest-512x512.webp" fetchpriority="high" type="image/webp" />
+  <link rel="preload" as="image" href="/web-app-manifest-512x512.png" fetchpriority="low" type="image/png" />
   
   <!-- ✅ CRITICAL CSS: Inline per FCP veloce -->
   <style>

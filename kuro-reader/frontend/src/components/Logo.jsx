@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Image as ChakraImage, Box, Text, Heading } from '@chakra-ui/react';
+import { Box } from '@chakra-ui/react';
 import { Link } from 'react-router-dom';
 
 const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '40px', showImage = true, ...rest }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageSrc, setImageSrc] = useState(null);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    const imgElement = document.createElement('img');
-    imgElement.src = '/favicon-96x96.png';
-    imgElement.onload = () => {
-      setImageSrc('/favicon-96x96.png');
-      setImageLoaded(true);
-    };
+    // Preload dell'immagine WebP
+    const imgElement = new Image();
+    imgElement.src = '/web-app-manifest-512x512.webp';
+    imgElement.onload = () => setImageLoaded(true);
     imgElement.onerror = () => {
-      setImageLoaded(true);
+      // Fallback a PNG se WebP fallisce
+      const pngImg = new Image();
+      pngImg.src = '/web-app-manifest-512x512.png';
+      pngImg.onload = () => setImageLoaded(true);
+      pngImg.onerror = () => setHasError(true);
     };
   }, []);
 
@@ -38,20 +40,36 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
             filter: 'brightness(1.2)'
           }}
         >
-          {imageSrc && showImage ? (
-            <ChakraImage 
-              src="/favicon-96x96.png"
-              srcSet="/favicon-96x96.png 96w, /web-app-manifest-192x192.png 192w"
-              sizes={boxSize === '40px' ? '40px' : '56px'}
-              boxSize={boxSize}
-              alt="NeKuro Scan"
+          {!hasError && showImage ? (
+            <Box
+              as="picture"
               opacity={imageLoaded ? 1 : 0}
               transition="opacity 0.3s"
-              borderRadius="lg"
-              objectFit="contain"
-              loading="eager"
-              fetchpriority="high"
-            />
+            >
+              {/* WebP con srcset per responsive */}
+              <source 
+                type="image/webp"
+                srcSet="/web-app-manifest-192x192.webp 192w, /web-app-manifest-512x512.webp 512w"
+                sizes={boxSize}
+              />
+              {/* Fallback PNG */}
+              <Box
+                as="img"
+                src="/web-app-manifest-512x512.png"
+                srcSet="/web-app-manifest-192x192.png 192w, /web-app-manifest-512x512.png 512w"
+                sizes={boxSize}
+                alt="NeKuro Scan"
+                boxSize={boxSize}
+                borderRadius="lg"
+                objectFit="contain"
+                loading="eager"
+                fetchpriority="high"
+                style={{ 
+                  imageRendering: '-webkit-optimize-contrast',
+                  display: 'block'
+                }}
+              />
+            </Box>
           ) : (
             <Box
               boxSize={boxSize}
