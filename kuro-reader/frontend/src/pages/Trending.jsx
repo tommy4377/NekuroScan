@@ -2,9 +2,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, Text, VStack, HStack,
-  Button, useToast, Skeleton, Badge, IconButton, Switch, Center, SimpleGrid
+  Button, useToast, Skeleton, Badge, IconButton, Switch, Center, SimpleGrid, Spinner
 } from '@chakra-ui/react';
-import { FaFire, FaArrowUp, FaPlus } from 'react-icons/fa';
+import { FaFire, FaArrowUp } from 'react-icons/fa';
+import { useInView } from 'react-intersection-observer';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import { useNavigate } from 'react-router-dom';
 import MangaCard from '../components/MangaCard';
@@ -28,6 +29,11 @@ const Trending = React.memo(() => {
   
   const toast = useToast();
   const currentKey = 'trending';
+  
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0.1,
+    rootMargin: '200px'
+  });
 
   useEffect(() => {
     const handleScroll = () => setShowScrollTop(window.scrollY > 500);
@@ -133,16 +139,14 @@ const Trending = React.memo(() => {
 
   const renderContent = () => {
     const currentList = lists[currentKey];
-    const showAll = showAllItems[currentKey];
-    const itemsToShow = showAll ? currentList : currentList.slice(0, 20);
     
     if (initialLoading) {
       return (
-        <HStack spacing={4} wrap="wrap">
+        <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} spacing={4} w="100%">
           {[...Array(20)].map((_, i) => (
-            <Skeleton key={i} height="320px" borderRadius="lg" flex="1 0 160px" />
+            <Skeleton key={i} height="320px" borderRadius="lg" />
           ))}
-        </HStack>
+        </SimpleGrid>
       );
     }
     
@@ -158,57 +162,16 @@ const Trending = React.memo(() => {
     
     return (
       <>
-        {renderGrid(itemsToShow)}
+        {renderGrid(currentList)}
         
-        {currentList.length > 20 && (
-          <Center py={6}>
-            {!showAll ? (
-              <VStack spacing={3}>
-                <Button
-                  onClick={handleShowMore}
-                  colorScheme="purple"
-                  size="lg"
-                  leftIcon={<FaPlus />}
-                  variant="solid"
-                >
-                  Mostra tutti ({currentList.length - 20} rimanenti)
-                </Button>
-                <Button
-                  onClick={navigateToCategories}
-                  variant="outline"
-                  colorScheme="purple"
-                  size="sm"
-                >
-                  Esplora altre categorie
-                </Button>
+        {currentList.length > 0 && (
+          <Center py={6} ref={loadMoreRef}>
+            {loading && (
+              <VStack spacing={2}>
+                <Spinner size="lg" color="orange.500" thickness="3px" />
+                <Text fontSize="sm" color="gray.400">Caricamento...</Text>
               </VStack>
-            ) : (
-              <Button
-                onClick={handleShowLess}
-                colorScheme="gray"
-                size="lg"
-                variant="outline"
-              >
-                Mostra meno
-              </Button>
             )}
-          </Center>
-        )}
-        
-        {currentList.length <= 20 && currentList.length > 0 && (
-          <Center py={6}>
-            <VStack spacing={3}>
-              <Text color="gray.500">
-                Hai visto tutti i {currentList.length} contenuti disponibili
-              </Text>
-              <Button
-                onClick={navigateToCategories}
-                colorScheme="purple"
-                variant="outline"
-              >
-                Esplora altre categorie
-              </Button>
-            </VStack>
           </Center>
         )}
       </>

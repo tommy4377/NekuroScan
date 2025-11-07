@@ -352,9 +352,6 @@ function Home() {
 
               <VStack align="start" spacing={0}>
                 <Heading size={{ base: 'sm', md: 'md' }}>{title}</Heading>
-                <Text fontSize="xs" color="gray.400">
-                  {items.length} disponibili
-                </Text>
               </VStack>
             </HStack>
             {viewAllPath && (
@@ -508,7 +505,10 @@ function Home() {
                         status: 'success',
                         duration: 2000
                       });
+                      // Ricarica automaticamente
                       await loadAllContent();
+                      // Forza refresh della pagina per caricare tutto
+                      window.location.reload();
                     }
                   }}
                   size="md"
@@ -647,7 +647,7 @@ function Home() {
               </Tab>
               <Tab
                 _selected={{ 
-                  bg: 'orange.500', 
+                  bg: 'teal.500', 
                   color: 'white',
                   boxShadow: 'md'
                 }}

@@ -2,9 +2,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Container, Heading, Text, VStack, HStack,
-  Button, useToast, Skeleton, Badge, IconButton, Switch, Center, SimpleGrid
+  Button, useToast, Skeleton, Badge, IconButton, Switch, Center, SimpleGrid, Spinner
 } from '@chakra-ui/react';
-import { FaClock, FaArrowUp, FaPlus } from 'react-icons/fa';
+import { FaClock, FaArrowUp } from 'react-icons/fa';
+import { useInView } from 'react-intersection-observer';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
@@ -22,6 +23,11 @@ const Latest = React.memo(() => {
   const [showScrollTop, setShowScrollTop] = useState(false);
   
   const toast = useToast();
+  
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0.1,
+    rootMargin: '200px'
+  });
 
   useEffect(() => {
     const handleScroll = () => {
@@ -117,11 +123,12 @@ const Latest = React.memo(() => {
     loadData(1, true);
   }, [includeAdult]);
 
-  const handleLoadMore = () => {
-    if (!loading && hasMore) {
+  // Infinite scroll
+  useEffect(() => {
+    if (inView && hasMore && !loading && list.length > 0) {
       loadData(page + 1);
     }
-  };
+  }, [inView, hasMore, loading, list.length]);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -209,19 +216,13 @@ const Latest = React.memo(() => {
             </SimpleGrid>
 
             {hasMore && (
-              <Center py={6}>
-                <Button
-                  onClick={handleLoadMore}
-                  isLoading={loading}
-                  loadingText="Caricamento..."
-                  colorScheme="purple"
-                  size="lg"
-                  leftIcon={!loading ? <FaPlus /> : undefined}
-                  variant="solid"
-                  disabled={loading}
-                >
-                  {loading ? 'Caricamento...' : 'Carica altri'}
-                </Button>
+              <Center py={6} ref={loadMoreRef}>
+                {loading && (
+                  <VStack spacing={2}>
+                    <Spinner size="lg" color="purple.500" thickness="3px" />
+                    <Text fontSize="sm" color="gray.400">Caricamento...</Text>
+                  </VStack>
+                )}
               </Center>
             )}
             

@@ -3,9 +3,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box, Container, Heading, Text, VStack, HStack,
-  Button, useToast, Skeleton, Badge, IconButton, Center, SimpleGrid
+  Button, useToast, Skeleton, Badge, IconButton, Center, SimpleGrid, Spinner
 } from '@chakra-ui/react';
-import { FaTrophy, FaArrowUp, FaPlus } from 'react-icons/fa';
+import { FaTrophy, FaArrowUp } from 'react-icons/fa';
+import { useInView } from 'react-intersection-observer';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
@@ -13,7 +14,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
-function TopType() {
+const TopType = React.memo(() => {
   const { type } = useParams();
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
   const [list, setList] = useState([]);
@@ -23,6 +24,11 @@ function TopType() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const toast = useToast();
+  
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0.1,
+    rootMargin: '200px'
+  });
 
   useEffect(() => {
     const handleScroll = () => {
@@ -90,11 +96,12 @@ function TopType() {
     loadData(1, true);
   }, [type, includeAdult]);
 
-  const handleLoadMore = () => {
-    if (!loading && hasMore) {
+  // Infinite scroll
+  useEffect(() => {
+    if (inView && hasMore && !loading && list.length > 0) {
       loadData(page + 1);
     }
-  };
+  }, [inView, hasMore, loading, list.length]);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -192,19 +199,13 @@ function TopType() {
             </SimpleGrid>
 
             {hasMore && (
-              <Center py={6}>
-                <Button
-                  onClick={handleLoadMore}
-                  isLoading={loading}
-                  loadingText="Caricamento..."
-                  colorScheme="purple"
-                  size="lg"
-                  leftIcon={!loading ? <FaPlus /> : undefined}
-                  variant="solid"
-                  disabled={loading}
-                >
-                  {loading ? 'Caricamento...' : 'Carica altri'}
-                </Button>
+              <Center py={6} ref={loadMoreRef}>
+                {loading && (
+                  <VStack spacing={2}>
+                    <Spinner size="lg" color="purple.500" thickness="3px" />
+                    <Text fontSize="sm" color="gray.400">Caricamento...</Text>
+                  </VStack>
+                )}
               </Center>
             )}
             
@@ -240,6 +241,8 @@ function TopType() {
       </VStack>
     </Container>
   );
-}
+});
+
+TopType.displayName = 'TopType';
 
 export default TopType;

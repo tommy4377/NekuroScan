@@ -46,13 +46,13 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
       setImageSrc(src);
     }
     
-    // TIMEOUT per caricamento
+    // TIMEOUT per caricamento più lungo
     timeoutRef.current = setTimeout(() => {
       if (mountedRef.current && loading) {
         setError(true);
         setLoading(false);
       }
-    }, 15000); // 15 secondi timeout
+    }, 25000); // 25 secondi timeout - alcune immagini sono lente
     
   }, [src]);
 

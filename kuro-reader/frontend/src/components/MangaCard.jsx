@@ -113,10 +113,19 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
             height="100%"
             objectFit="cover"
             loading={priority ? "eager" : "lazy"}
+            decoding="async"
             onLoad={() => setImageLoaded(true)}
-            onError={() => setImageLoaded(true)}
+            onError={(e) => {
+              setImageLoaded(true);
+              // Retry con placeholder se l'immagine fallisce
+              e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280' viewBox='0 0 200 280'%3E%3Crect width='200' height='280' fill='%234A5568'%3E%3C/rect%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23A0AEC0' font-family='sans-serif' font-size='16'%3E"+encodeURIComponent(manga.title.substring(0, 20))+ "%3C/text%3E%3C/svg%3E";
+            }}
             fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280' viewBox='0 0 200 280'%3E%3Crect width='200' height='280' fill='%234A5568'%3E%3C/rect%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23A0AEC0' font-family='sans-serif' font-size='16'%3ENo Image%3C/text%3E%3C/svg%3E"
-            style={{ transform: 'translateZ(20px)' }}
+            style={{ 
+              transform: 'translateZ(20px)',
+              transition: 'opacity 0.3s ease',
+              opacity: imageLoaded ? 1 : 0
+            }}
           />
 
           {/* Riflesso dinamico */}
