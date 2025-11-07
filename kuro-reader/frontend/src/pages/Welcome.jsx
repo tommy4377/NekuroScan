@@ -51,8 +51,16 @@ function Welcome() {
   ];
 
   return (
-    <Box minH="100vh" bg="gray.900">
-      <Container maxW="container.xl" py={{ base: 6, md: 20 }}>
+    <Box 
+      minH="100vh" 
+      h="100vh" 
+      bg="gray.900" 
+      overflow="hidden"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <Container maxW="container.xl" py={{ base: 6, md: 0 }}>
         <VStack spacing={{ base: 8, md: 12 }} align="center">
           {/* Hero Section - FIX MOBILE */}
           <Box

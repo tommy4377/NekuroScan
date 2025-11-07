@@ -1,10 +1,22 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import viteCompression from 'vite-plugin-compression';
+import viteImagemin from 'vite-plugin-imagemin';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig({
   plugins: [
-    react(),
+    react({
+      // ✅ PERFORMANCE: Fast Refresh ottimizzato
+      fastRefresh: true,
+      babel: {
+        plugins: [
+          // Rimuovi PropTypes in produzione
+          ['babel-plugin-transform-react-remove-prop-types', { removeImport: true }]
+        ]
+      }
+    }),
     VitePWA({
       registerType: 'prompt',
       includeAssets: [
@@ -77,6 +89,56 @@ export default defineConfig({
         enabled: true,
         type: 'module'
       }
+    }),
+    // ✅ PERFORMANCE: Compressione Brotli e Gzip
+    viteCompression({
+      verbose: true,
+      disable: false,
+      threshold: 10240, // 10kb
+      algorithm: 'brotliCompress',
+      ext: '.br',
+      deleteOriginFile: false
+    }),
+    viteCompression({
+      verbose: true,
+      disable: false,
+      threshold: 10240,
+      algorithm: 'gzip',
+      ext: '.gz',
+      deleteOriginFile: false
+    }),
+    // ✅ PERFORMANCE: Ottimizzazione immagini automatica
+    viteImagemin({
+      gifsicle: {
+        optimizationLevel: 7,
+        interlaced: false
+      },
+      optipng: {
+        optimizationLevel: 7
+      },
+      mozjpeg: {
+        quality: 80
+      },
+      pngquant: {
+        quality: [0.7, 0.8],
+        speed: 4
+      },
+      svgo: {
+        plugins: [
+          { name: 'removeViewBox', active: false },
+          { name: 'removeEmptyAttrs', active: true }
+        ]
+      },
+      webp: {
+        quality: 75
+      }
+    }),
+    // ✅ DEVELOPMENT: Visualizza bundle size
+    visualizer({
+      filename: './dist/stats.html',
+      open: false,
+      gzipSize: true,
+      brotliSize: true
     })
   ],
   publicDir: 'public',
@@ -92,14 +154,61 @@ export default defineConfig({
   },
   build: {
     sourcemap: false,
+    // ✅ PERFORMANCE: Target moderni per bundle più piccoli
+    target: 'es2020',
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Rimuovi console.log in produzione
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug']
+      }
+    },
+    // ✅ PERFORMANCE: Chunking ottimizzato
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'chakra-vendor': ['@chakra-ui/react', '@emotion/react', '@emotion/styled'],
-          'utils': ['axios', 'zustand', 'lodash.debounce']
-        }
+        manualChunks: (id) => {
+          // React core
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'react-core';
+          }
+          // React Router
+          if (id.includes('node_modules/react-router-dom') || id.includes('node_modules/react-router')) {
+            return 'react-router';
+          }
+          // Chakra UI
+          if (id.includes('node_modules/@chakra-ui') || id.includes('node_modules/@emotion')) {
+            return 'chakra-ui';
+          }
+          // Framer Motion
+          if (id.includes('node_modules/framer-motion')) {
+            return 'framer-motion';
+          }
+          // React Icons (molto pesante, separiamo)
+          if (id.includes('node_modules/react-icons')) {
+            return 'react-icons';
+          }
+          // Utils e librerie piccole
+          if (id.includes('node_modules/axios') || 
+              id.includes('node_modules/zustand') || 
+              id.includes('node_modules/lodash')) {
+            return 'vendor-utils';
+          }
+          // PWA e Helmet
+          if (id.includes('node_modules/react-helmet-async') || 
+              id.includes('node_modules/workbox')) {
+            return 'vendor-pwa';
+          }
+        },
+        // ✅ PERFORMANCE: Nomi file con hash per cache busting
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
       }
-    }
+    },
+    // ✅ PERFORMANCE: Dimensioni chunk ottimali
+    chunkSizeWarningLimit: 1000,
+    cssCodeSplit: true,
+    assetsInlineLimit: 4096 // 4kb - inline assets più piccoli
   }
 });

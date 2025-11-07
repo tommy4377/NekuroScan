@@ -8,8 +8,8 @@ import {
 } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
 import { useLocation } from 'react-router-dom';
+import { useInView } from 'react-intersection-observer';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
-import { FaPlus } from 'react-icons/fa';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import StickyHeader from '../components/StickyHeader';
@@ -42,6 +42,11 @@ function Categories() {
   const [currentPreset, setCurrentPreset] = useState(null);
   
   const loadingRef = useRef(false);
+  
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0.1,
+    rootMargin: '200px'
+  });
 
   useEffect(() => {
     loadCategories();
@@ -75,6 +80,13 @@ function Categories() {
       loadPresetData(location.state.type, 1, true);
     }
   }, [location.state, filters.includeAdult]);
+
+  // Infinite scroll trigger
+  useEffect(() => {
+    if (inView && hasMore && !loadingRef.current && mangaList.length > 0) {
+      loadMoreData();
+    }
+  }, [inView, hasMore, mangaList.length]);
 
   const loadCategories = async () => {
     setLoadingCats(true);
@@ -514,19 +526,19 @@ function Categories() {
                 </SimpleGrid>
 
                 {hasMore && (
-                  <Center py={6}>
-                    <Button
-                      onClick={loadMoreData}
-                      isLoading={loadingMore}
-                      loadingText="Caricamento..."
-                      colorScheme="purple"
-                      size="lg"
-                      leftIcon={!loadingMore ? <FaPlus /> : undefined}
-                      variant="solid"
-                      disabled={loadingMore}
-                    >
-                      {loadingMore ? 'Caricamento...' : 'Carica altri'}
-                    </Button>
+                  <Center py={6} ref={loadMoreRef}>
+                    {loadingMore && (
+                      <VStack spacing={2}>
+                        <Spinner size="lg" color="purple.500" thickness="3px" />
+                        <Text fontSize="sm" color="gray.400">Caricamento...</Text>
+                      </VStack>
+                    )}
+                  </Center>
+                )}
+                
+                {!hasMore && mangaList.length > 20 && (
+                  <Center py={4}>
+                    <Text color="gray.500">Hai raggiunto la fine</Text>
                   </Center>
                 )}
               </>

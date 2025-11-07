@@ -2,25 +2,27 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-// Registra Service Worker con gestione aggiornamenti
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
+// ✅ PERFORMANCE: Service Worker registrato dopo idle per non bloccare
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  // Usa requestIdleCallback per registrare SW quando il browser è idle
+  const registerSW = async () => {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js', {
-        scope: '/'
+        scope: '/',
+        updateViaCache: 'none' // Sempre controlla aggiornamenti
       });
       
-      console.log('✅ Service Worker registrato');
+      if (import.meta.env.DEV) {
+        console.log('✅ Service Worker registrato');
+      }
       
       // Gestisci aggiornamenti
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
-        console.log('[SW] Aggiornamento disponibile...');
         
-        newWorker.addEventListener('statechange', () => {
+        newWorker?.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            console.log('[SW] Nuovo service worker pronto, refresh necessario');
-            // Auto-refresh per aggiornare
+            // Mostra notifica di aggiornamento (gestito in App.jsx)
             if (confirm('Nuova versione disponibile! Ricaricare?')) {
               newWorker.postMessage({ type: 'SKIP_WAITING' });
               window.location.reload();
@@ -29,27 +31,34 @@ if ('serviceWorker' in navigator) {
         });
       });
       
-      // Pre-cache risorse critiche
-      const cache = await caches.open('nekuro-v4');
-      const criticalUrls = [
-        '/web-app-manifest-192x192.png',
-        '/web-app-manifest-512x512.png',
-        '/favicon.svg'
-      ];
-      
-      for (const url of criticalUrls) {
-        try {
-          await cache.add(url);
-          console.log(`[Cache] ✅ ${url}`);
-        } catch (err) {
-          console.warn(`[Cache] Failed: ${url}`);
-        }
+      // ✅ PERFORMANCE: Pre-cache risorse critiche in background
+      if ('caches' in window) {
+        requestIdleCallback(() => {
+          caches.open('nekuro-v4').then(cache => {
+            const criticalUrls = [
+              '/web-app-manifest-192x192.png',
+              '/favicon.svg'
+            ];
+            criticalUrls.forEach(url => cache.add(url).catch(() => {}));
+          });
+        });
       }
       
     } catch (err) {
-      console.error('❌ Service Worker failed:', err);
+      // Silently fail in production
+      if (import.meta.env.DEV) {
+        console.error('❌ Service Worker failed:', err);
+      }
     }
-  });
+  };
+  
+  // Registra dopo che la pagina è completamente caricata e idle
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(registerSW, { timeout: 2000 });
+  } else {
+    // Fallback per browser che non supportano requestIdleCallback
+    window.addEventListener('load', () => setTimeout(registerSW, 1000));
+  }
   
   // Reload quando il service worker prende controllo
   let refreshing = false;

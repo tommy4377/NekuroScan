@@ -152,17 +152,18 @@ function Search() {
     };
   }, [searchParams, searchMode, performSearch]);
 
-  useEffect(() => {
-    if (inView && hasMore && !loadingRef.current && results.length > 0 && query) {
-      loadMore();
-    }
-  }, [inView, hasMore, results.length, query]);
-
   const loadMore = () => {
     if (loadingRef.current || !hasMore) return;
     const nextPage = page + 1;
     performSearch(query, searchMode, nextPage, true);
   };
+
+  // Infinite scroll trigger
+  useEffect(() => {
+    if (inView && hasMore && !loadingRef.current && results.length > 0 && query && query.length >= 3) {
+      loadMore();
+    }
+  }, [inView, hasMore, results.length, query]);
 
   // Carica cronologia al mount
   useEffect(() => {
@@ -420,21 +421,19 @@ function Search() {
                 </SimpleGrid>
                 
                 {hasMore && query && (
-                  <Center ref={loadMoreRef} py={4}>
-                    {loadingMore ? (
-                      <HStack>
-                        <Spinner color="purple.500" />
-                        <Text>Caricamento...</Text>
-                      </HStack>
-                    ) : (
-                      <Button
-                        colorScheme="purple"
-                        variant="outline"
-                        onClick={loadMore}
-                      >
-                        Carica altri
-                      </Button>
+                  <Center ref={loadMoreRef} py={6}>
+                    {loadingMore && (
+                      <VStack spacing={2}>
+                        <Spinner size="lg" color="purple.500" thickness="3px" />
+                        <Text fontSize="sm" color="gray.400">Caricamento...</Text>
+                      </VStack>
                     )}
+                  </Center>
+                )}
+                
+                {!hasMore && results.length > 20 && (
+                  <Center py={4}>
+                    <Text color="gray.500">Hai raggiunto la fine</Text>
                   </Center>
                 )}
               </>

@@ -2,9 +2,11 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <!-- ✅ ACCESSIBILITÀ: Rimosso user-scalable=no per permettere zoom -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
   <meta name="theme-color" content="#805AD5" />
-  <meta name="description" content="NeKuro Scan - Il miglior lettore di manga e novel online" />
+  <meta name="description" content="NeKuro Scan - Il miglior lettore di manga e novel online. Leggi gratuitamente migliaia di titoli." />
+  <meta name="keywords" content="manga, manhwa, manhua, lettore manga, manga online, light novel" />
   
   <!-- PWA Meta Tags -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -19,15 +21,18 @@
   <!-- Manifest -->
   <link rel="manifest" href="/manifest.json" />
   
-  <!-- Google Fonts - Inter per leggibilità -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <!-- ✅ PERFORMANCE: Preconnect e preload font Google -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preload" href="https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2" as="font" type="font/woff2" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
   
-  <!-- Preload logo e immagini critiche -->
-  <link rel="preload" as="image" href="/web-app-manifest-192x192.png" fetchpriority="high" />
-  <link rel="preload" as="image" href="/favicon.svg" />
-  <link rel="preload" as="image" href="/apple-touch-icon.png" />
+  <!-- ✅ PERFORMANCE: Preload risorse critiche -->
+  <link rel="preload" as="image" href="/web-app-manifest-192x192.png" fetchpriority="high" type="image/png" />
+  <link rel="preload" as="image" href="/favicon.svg" fetchpriority="high" type="image/svg+xml" />
+  <link rel="dns-prefetch" href="https://cdn.mangaworld.cx" />
+  <link rel="dns-prefetch" href="https://www.mangaworld.cx" />
   
   <!-- Fix mobile input + Performance -->
   <style>
@@ -69,8 +74,13 @@
   <title>NeKuro Scan - Manga Reader</title>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.jsx"></script>
+  <!-- ✅ ACCESSIBILITÀ: Semantic HTML con landmark ARIA -->
+  <header role="banner" style="display: none;"></header>
+  <main role="main" id="root"></main>
+  <footer role="contentinfo" style="display: none;"></footer>
+  
+  <!-- ✅ PERFORMANCE: Script con defer per non bloccare rendering -->
+  <script type="module" src="/src/main.jsx" defer></script>
 </body>
 </html>
 
