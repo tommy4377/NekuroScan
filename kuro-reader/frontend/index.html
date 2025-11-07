@@ -35,8 +35,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
   
-  <!-- ✅ PERFORMANCE: Preload solo logo critico -->
-  <link rel="preload" as="image" href="/favicon.svg" fetchpriority="high" type="image/svg+xml" />
+  <!-- ✅ PERFORMANCE: Preload logo ottimizzato -->
+  <link rel="preload" as="image" href="/favicon-96x96.png" fetchpriority="high" type="image/png" />
   
   <!-- ✅ CRITICAL CSS: Inline per FCP veloce -->
   <style>
@@ -111,8 +111,8 @@
   <main role="main" id="root"></main>
   <footer role="contentinfo" style="display: none;"></footer>
   
-  <!-- ✅ PERFORMANCE: Script con defer per non bloccare rendering -->
-  <script type="module" src="/src/main.jsx" defer></script>
+  <!-- ✅ PERFORMANCE: Script senza defer per caricamento immediato -->
+  <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
 

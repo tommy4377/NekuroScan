@@ -8,8 +8,15 @@ import { visualizer } from 'rollup-plugin-visualizer';
 export default defineConfig({
   // ✅ PERFORMANCE: Ottimizzazioni build
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', '@chakra-ui/react'],
-    exclude: ['@chakra-ui/icons']
+    include: [
+      'react', 
+      'react-dom', 
+      'react-router-dom', 
+      '@chakra-ui/react',
+      '@emotion/react',
+      '@emotion/styled'
+    ],
+    exclude: []
   },
   plugins: [
     react({
@@ -17,7 +24,8 @@ export default defineConfig({
       fastRefresh: true
     }),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
+      injectRegister: null,
       includeAssets: [
         'favicon.ico',
         'favicon.svg', 
@@ -166,12 +174,28 @@ export default defineConfig({
     // ✅ PERFORMANCE: Chunking ottimizzato
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          'react-router': ['react-router-dom'],
-          'chakra-ui': ['@chakra-ui/react', '@chakra-ui/icons'],
-          'emotion': ['@emotion/react', '@emotion/styled'],
-          'utils': ['axios', 'zustand', 'lodash.debounce']
+        manualChunks: (id) => {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') && !id.includes('react-router') && !id.includes('react-icons')) {
+              return 'react-vendor';
+            }
+            if (id.includes('react-router')) {
+              return 'react-router';
+            }
+            if (id.includes('@chakra-ui')) {
+              return 'chakra-ui';
+            }
+            if (id.includes('@emotion')) {
+              return 'emotion';
+            }
+            if (id.includes('react-icons')) {
+              return 'icons';
+            }
+            if (id.includes('axios') || id.includes('zustand') || id.includes('lodash')) {
+              return 'utils';
+            }
+            return 'vendor';
+          }
         },
         // ✅ PERFORMANCE: Nomi file con hash per cache busting
         chunkFileNames: 'assets/js/[name]-[hash].js',
