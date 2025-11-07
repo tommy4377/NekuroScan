@@ -7,31 +7,26 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      strategies: 'injectManifest',
+      srcDir: 'public',
+      filename: 'sw.js',
+      injectManifest: {
+        injectionPoint: undefined
+      },
       includeAssets: [
         'favicon.ico',
+        'favicon.svg',
+        'favicon-96x96.png',
         'web-app-manifest-192x192.png',
         'web-app-manifest-512x512.png',
-        'apple-touch-icon.png'
+        'apple-touch-icon.png',
+        'site.webmanifest'
       ],
-      manifest: false, // Use the manifest.json from public folder
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          }
-        ]
+      manifest: false, // Use custom manifest.json
+      injectRegister: false, // Usiamo registrazione custom in main.jsx
+      devOptions: {
+        enabled: true,
+        type: 'module'
       }
     })
   ],

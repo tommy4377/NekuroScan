@@ -232,13 +232,15 @@ class OfflineManager {
 
   // Ottieni capitolo con blob URLs pronti
   async getChapter(chapterId) {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const transaction = this.db.transaction([STORES.CHAPTERS], 'readonly');
-        const store = transaction.objectStore(STORES.CHAPTERS);
-        const request = store.get(chapterId);
+    if (!this.db) await this.initDB();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([STORES.CHAPTERS], 'readonly');
+      const store = transaction.objectStore(STORES.CHAPTERS);
+      const request = store.get(chapterId);
 
-        request.onsuccess = async () => {
+      request.onsuccess = async () => {
+        try {
           const chapter = request.result;
           if (!chapter) {
             resolve(null);
@@ -289,11 +291,12 @@ class OfflineManager {
             pages: validBlobs,
             mangaCover: coverBlobUrl
           });
-        };
-        request.onerror = () => reject(request.error);
-      } catch (error) {
-        reject(error);
-      }
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      request.onerror = () => reject(request.error);
     });
   }
 

@@ -24,8 +24,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   
-  <!-- Preload solo immagini effettivamente usate -->
-  <link rel="preload" as="image" href="/web-app-manifest-192x192.png" />
+  <!-- Preload logo e immagini critiche -->
+  <link rel="preload" as="image" href="/web-app-manifest-192x192.png" fetchpriority="high" />
+  <link rel="preload" as="image" href="/favicon.svg" />
+  <link rel="preload" as="image" href="/apple-touch-icon.png" />
   
   <!-- Fix mobile input + Performance -->
   <style>
