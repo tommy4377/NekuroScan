@@ -21,51 +21,83 @@
   <!-- Manifest -->
   <link rel="manifest" href="/manifest.json" />
   
-  <!-- ✅ PERFORMANCE: Preconnect e preload font Google -->
+  <!-- ✅ PERFORMANCE: Preconnect DNS per risorse esterne -->
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.mangaworld.cx">
+  <link rel="dns-prefetch" href="https://www.mangaworld.cx">
+  <link rel="dns-prefetch" href="https://nekuro-scan-backend.onrender.com">
+  
+  <!-- ✅ PERFORMANCE: Preload font critico Inter -->
   <link rel="preload" href="https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2" as="font" type="font/woff2" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
   
-  <!-- ✅ PERFORMANCE: Preload risorse critiche -->
-  <link rel="preload" as="image" href="/web-app-manifest-192x192.png" fetchpriority="high" type="image/png" />
+  <!-- ✅ PERFORMANCE: Font async loading -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
+  
+  <!-- ✅ PERFORMANCE: Preload solo logo critico -->
   <link rel="preload" as="image" href="/favicon.svg" fetchpriority="high" type="image/svg+xml" />
-  <link rel="dns-prefetch" href="https://cdn.mangaworld.cx" />
-  <link rel="dns-prefetch" href="https://www.mangaworld.cx" />
   
-  <!-- Fix mobile input + Performance -->
+  <!-- ✅ CRITICAL CSS: Inline per FCP veloce -->
   <style>
-    * {
+    /* Reset e base */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
       -webkit-tap-highlight-color: transparent;
     }
+    
     html {
       scroll-behavior: smooth;
       overflow-x: hidden;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
+    
+    body {
+      margin: 0;
+      background-color: #1A202C;
+      color: #E2E8F0;
+      overscroll-behavior-y: none;
+      min-height: 100vh;
+    }
+    
+    /* Root container */
+    #root {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* Loading state */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    
+    /* Ottimizzazioni input mobile */
     input, textarea, select {
       font-size: 16px !important;
       -webkit-appearance: none;
-      -moz-appearance: none;
       appearance: none;
     }
-    body {
-      overscroll-behavior-y: none;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      text-rendering: optimizeLegibility;
-    }
-    /* GPU acceleration per performance */
-    .manga-card, .chakra-button, [data-hover], .chakra-modal__content {
+    
+    /* GPU acceleration */
+    .manga-card, [data-hover] {
       will-change: transform;
       backface-visibility: hidden;
       transform: translateZ(0);
     }
-    /* Smooth transitions globali */
-    .chakra-button, .chakra-link, .manga-card {
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Skeleton animation */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
     }
-    /* Loading ottimizzato */
     .chakra-skeleton {
       animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }

@@ -6,6 +6,11 @@ import viteImagemin from 'vite-plugin-imagemin';
 import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig({
+  // ✅ PERFORMANCE: Ottimizzazioni build
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', '@chakra-ui/react'],
+    exclude: ['@chakra-ui/icons']
+  },
   plugins: [
     react({
       // ✅ PERFORMANCE: Fast Refresh ottimizzato
@@ -162,9 +167,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'chakra-vendor': ['@chakra-ui/react', '@emotion/react', '@emotion/styled'],
-          'icons': ['react-icons'],
+          'react-vendor': ['react', 'react-dom'],
+          'react-router': ['react-router-dom'],
+          'chakra-ui': ['@chakra-ui/react', '@chakra-ui/icons'],
+          'emotion': ['@emotion/react', '@emotion/styled'],
           'utils': ['axios', 'zustand', 'lodash.debounce']
         },
         // ✅ PERFORMANCE: Nomi file con hash per cache busting
@@ -174,8 +180,21 @@ export default defineConfig({
       }
     },
     // ✅ PERFORMANCE: Dimensioni chunk ottimali
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 500,
     cssCodeSplit: true,
-    assetsInlineLimit: 4096 // 4kb - inline assets più piccoli
+    assetsInlineLimit: 4096, // 4kb - inline assets più piccoli
+    // ✅ PERFORMANCE: Rimuovi commenti e whitespace
+    minify: 'terser'
+  },
+  // ✅ PERFORMANCE: Ottimizzazioni resolve
+  resolve: {
+    alias: {
+      '@': '/src'
+    }
+  },
+  // ✅ PERFORMANCE: Ottimizzazioni esbuild
+  esbuild: {
+    legalComments: 'none',
+    treeShaking: true
   }
 });

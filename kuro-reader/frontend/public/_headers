@@ -1,20 +1,52 @@
-/*
-  # Content Security Policy
+# HTML - no cache
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: http:; connect-src 'self' https://nekuro-scan-backend.onrender.com https://www.mangaworld.bz https://www.mangaworldadult.net; frame-src 'none'; object-src 'none'; base-uri 'self';
-  
-  # Security Headers
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   X-XSS-Protection: 1; mode=block
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(), camera=()
-  
-  # Cache Control
-  Cache-Control: public, max-age=31536000, immutable
 
+# Service Worker - no cache
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  
 /service-worker.js
   Cache-Control: no-cache, no-store, must-revalidate
 
-/index.html
-  Cache-Control: no-cache, no-store, must-revalidate
+# JavaScript - cache 1 anno con hash
+/assets/js/*
+  Cache-Control: public, max-age=31536000, immutable
+  Content-Type: application/javascript
+  
+# CSS - cache 1 anno con hash
+/assets/css/*
+  Cache-Control: public, max-age=31536000, immutable
+  Content-Type: text/css
+
+# Immagini - cache 1 anno
+/assets/img/*
+  Cache-Control: public, max-age=31536000, immutable
+  
+# Fonts - cache 1 anno
+/assets/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+  
+# Icone e manifest - cache 1 settimana
+/*.png
+  Cache-Control: public, max-age=604800
+  
+/*.ico
+  Cache-Control: public, max-age=604800
+  
+/*.svg
+  Cache-Control: public, max-age=604800
+  
+/manifest.json
+  Cache-Control: public, max-age=604800
+
+# Tutti gli altri static assets
+/*
+  Cache-Control: public, max-age=3600
 
