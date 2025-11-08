@@ -24,29 +24,30 @@ export const initSentry = () => {
   
   try {
     // Dynamic import per non bloccare l'app se Sentry non è installato
-    import('@sentry/react').then(SentryModule => {
-      Sentry = SentryModule;
-      
-      Sentry.init({
-        dsn,
-        integrations: [
-          Sentry.browserTracingIntegration(),
-          Sentry.replayIntegration({
-            maskAllText: true, // Privacy: maschera testo sensibile
-            blockAllMedia: true, // Privacy: blocca media
-          }),
-        ],
+    import('@sentry/react')
+      .then(SentryModule => {
+        Sentry = SentryModule;
         
-        // Performance Monitoring
-        tracesSampleRate: 0.1, // 10% delle transazioni (evita sovraccarico)
-        
-        // Session Replay
-        replaysSessionSampleRate: 0.1, // 10% delle sessioni normali
-        replaysOnErrorSampleRate: 1.0, // 100% delle sessioni con errori
-        
-        // Environment
-        environment: 'production',
-        release: `nekuro-scan@${import.meta.env.VITE_APP_VERSION || '1.0.0'}`,
+        Sentry.init({
+          dsn,
+          integrations: [
+            Sentry.browserTracingIntegration(),
+            Sentry.replayIntegration({
+              maskAllText: true, // Privacy: maschera testo sensibile
+              blockAllMedia: true, // Privacy: blocca media
+            }),
+          ],
+          
+          // Performance Monitoring
+          tracesSampleRate: 0.1, // 10% delle transazioni (evita sovraccarico)
+          
+          // Session Replay
+          replaysSessionSampleRate: 0.1, // 10% delle sessioni normali
+          replaysOnErrorSampleRate: 1.0, // 100% delle sessioni con errori
+          
+          // Environment
+          environment: 'production',
+          release: `nekuro-scan@${import.meta.env.VITE_APP_VERSION || '1.0.0'}`,
         
         // Filtra errori comuni non critici
         beforeSend(event, hint) {

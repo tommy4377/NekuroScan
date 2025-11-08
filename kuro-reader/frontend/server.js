@@ -105,8 +105,14 @@ app.use(rateLimiter);
 
 // Security and performance headers
 app.use((req, res, next) => {
-  // Content-Type per HTML (risolve Best Practices warning)
-  if (req.path === '/' || !req.path.includes('.')) {
+  // Content-Type per TUTTI i file HTML (risolve Best Practices warning)
+  // Applica a: /, /home, /categories, index.html, offline.html, etc.
+  const isHtmlRoute = req.path === '/' || 
+                      req.path.endsWith('.html') || 
+                      !req.path.includes('.') || 
+                      req.accepts('html');
+  
+  if (isHtmlRoute) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
   }
   
@@ -167,6 +173,8 @@ app.get('*', (req, res) => {
     return res.status(404).send('Not Found');
   }
   
+  // Assicura Content-Type con charset per index.html
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
