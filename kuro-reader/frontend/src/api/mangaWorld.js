@@ -371,8 +371,6 @@ export class MangaWorldAPI {
             }
           }
         });
-        
-        }
       }
 
       // ✅ VALIDAZIONE FINALE
