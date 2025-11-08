@@ -187,7 +187,7 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true, // Rimuove TUTTI i console.*
+        drop_console: false, // NON rimuovere console (serve per error handling)
         drop_debugger: true,
         pure_funcs: [
           'console.log',
@@ -196,8 +196,8 @@ export default defineConfig({
           'console.trace'
         ],
         // Mantieni console.error e console.warn per logging critico
-        passes: 3, // Aumentato per migliore ottimizzazione
-        unsafe: false, // Evita ottimizzazioni aggressive che possono rompere codice
+        passes: 2, // Ridotto per evitare ottimizzazioni troppo aggressive
+        unsafe: false,
         unsafe_comps: false,
         unsafe_math: false,
         unsafe_proto: false
@@ -240,10 +240,10 @@ export default defineConfig({
         entryFileNames: 'assets/js/[name]-[hash].js',
         assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
       },
-      // Tree shaking aggressive
+      // Tree shaking moderato (non troppo aggressivo)
       treeshake: {
-        moduleSideEffects: false,
-        propertyReadSideEffects: false,
+        moduleSideEffects: 'no-external', // Mantieni side effects per node_modules
+        propertyReadSideEffects: true, // Alcune librerie usano getters con side effects
         tryCatchDeoptimization: false
       }
     },
@@ -270,7 +270,7 @@ export default defineConfig({
     minifyIdentifiers: true,
     minifySyntax: true,
     minifyWhitespace: true,
-    drop: ['console', 'debugger'], // Drop console e debugger in dev/build
+    drop: ['debugger'], // Drop solo debugger, NON console (serve per error handling)
     pure: ['console.log', 'console.info', 'console.debug'], // Mark come side-effect-free
     logLevel: 'error', // Solo errori in console build
     logOverride: { 'this-is-undefined-in-esm': 'silent' } // Silente warning comuni
