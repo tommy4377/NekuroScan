@@ -1,6 +1,6 @@
 // frontend/src/api/index.js
-import { SourceAPI } from './mangaWorld';
-import { SourceAdultAPI } from './mangaWorldAdult';
+import { MangaWorldAPI } from './mangaWorld';
+import { MangaWorldAdultAPI } from './mangaWorldAdult';
 import { getBaseUrl } from '../config/sources';
 
 // Cache timeout configuration
@@ -9,8 +9,8 @@ const CACHE_TIMEOUT = 10 * 60 * 1000; // 10 minuti
 class APIManager {
   constructor() {
     this.apis = {
-      mangaWorld: new SourceAPI(),
-      mangaWorldAdult: new SourceAdultAPI()
+      mangaWorld: new MangaWorldAPI(),
+      mangaWorldAdult: new MangaWorldAdultAPI()
     };
     
     this.cache = new Map();
