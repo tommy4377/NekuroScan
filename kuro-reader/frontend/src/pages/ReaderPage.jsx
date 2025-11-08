@@ -359,13 +359,32 @@ function ReaderPage() {
   }, [currentPage, totalPages, navigateChapter, manga, chapterIndex, chapter]);
 
   // ✅ WRAP toggleFullscreen in useCallback per evitare React error #300
-  const toggleFullscreen = React.useCallback(() => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
+  const toggleFullscreen = React.useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        // Richiedi fullscreen sull'intero documento
+        await document.documentElement.requestFullscreen();
+        // Su mobile, blocca anche l'orientamento se possibile
+        if (screen.orientation && screen.orientation.lock) {
+          try {
+            await screen.orientation.lock('landscape').catch(() => {});
+          } catch (e) {
+            // Ignore orientation lock errors
+          }
+        }
+        setIsFullscreen(true);
+        // Nascondi i controlli dopo essere entrato in fullscreen
+        setShowControls(false);
+      } else {
+        await document.exitFullscreen();
+        // Sblocca l'orientamento
+        if (screen.orientation && screen.orientation.unlock) {
+          screen.orientation.unlock();
+        }
+        setIsFullscreen(false);
+      }
+    } catch (err) {
+      console.error('Fullscreen error:', err);
     }
   }, []);
 
@@ -422,26 +441,32 @@ function ReaderPage() {
   const handlePageClick = useCallback((e) => {
     if (!chapter?.pages || readingMode === 'webtoon') return;
     
+    // In fullscreen mobile, il click al centro mostra/nasconde i controlli
+    // I click sui lati cambiano pagina
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const width = rect.width;
     const step = readingMode === 'double' ? 2 : 1;
     
     // Click sinistra = pagina precedente
-    if (clickX < width * 0.3) {
+    if (clickX < width * 0.25) {
       const newPage = currentPage - step;
       if (newPage >= 0) {
         setCurrentPage(newPage);
       }
     } 
     // Click destra = pagina successiva
-    else if (clickX > width * 0.7) {
+    else if (clickX > width * 0.75) {
       const newPage = currentPage + step;
       if (newPage < totalPages) {
         setCurrentPage(newPage);
       }
     }
-  }, [chapter, currentPage, chapterIndex, navigateChapter, readingMode, totalPages, manga]);
+    // Click al centro in fullscreen = toggle controlli
+    else if (isFullscreen) {
+      setShowControls(prev => !prev);
+    }
+  }, [chapter, currentPage, readingMode, totalPages, isFullscreen]);
 
   // ✅ Touch Gestures
   const handleTouchStart = useCallback((e) => {
@@ -779,7 +804,13 @@ function ReaderPage() {
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const isNowFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(isNowFullscreen);
+      
+      // Se usciamo dal fullscreen, mostra i controlli automaticamente
+      if (!isNowFullscreen) {
+        setShowControls(true);
+      }
     };
     
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -923,8 +954,8 @@ function ReaderPage() {
         bg="black"
         position="relative"
       ref={containerRef}
-      onMouseMove={() => setShowControls(true)}
-      onTouchStart={() => setShowControls(true)}
+      onMouseMove={() => !isFullscreen && setShowControls(true)}
+      onTouchStart={() => !isFullscreen && setShowControls(true)}
       onClick={handlePageClick}
         cursor="pointer"
         overflow="hidden"
@@ -944,7 +975,7 @@ function ReaderPage() {
         >
           <HStack justify="space-between">
             {/* Nav capitolo solo all'ultima pagina */}
-            {(currentPage >= totalPages - 1 || readingMode === 'webtoon') && (
+            {currentPage >= totalPages - 1 && (
               <HStack spacing={1}>
                 <IconButton
                   icon={<FaChevronLeft />}
@@ -967,18 +998,19 @@ function ReaderPage() {
                   color="white"
                   size="sm"
                 />
-                {readingMode === 'webtoon' && (
-                  <IconButton
-                    icon={autoScroll ? <FaPause /> : <FaPlay />}
-                    onClick={(e) => { e.stopPropagation(); setAutoScroll(!autoScroll); }}
-                    aria-label={autoScroll ? "Pausa auto-scroll" : "Avvia auto-scroll"}
-                    variant={autoScroll ? "solid" : "ghost"}
-                    colorScheme={autoScroll ? "green" : "gray"}
-                    color="white"
-                    size="sm"
-                  />
-                )}
               </HStack>
+            )}
+            {/* Auto-scroll button sempre visibile per webtoon */}
+            {readingMode === 'webtoon' && (
+              <IconButton
+                icon={autoScroll ? <FaPause /> : <FaPlay />}
+                onClick={(e) => { e.stopPropagation(); setAutoScroll(!autoScroll); }}
+                aria-label={autoScroll ? "Pausa auto-scroll" : "Avvia auto-scroll"}
+                variant={autoScroll ? "solid" : "ghost"}
+                colorScheme={autoScroll ? "green" : "gray"}
+                color="white"
+                size="sm"
+              />
             )}
 
             <HStack>
@@ -1117,19 +1149,22 @@ function ReaderPage() {
                 position="relative"
                 className="css-1p64fpw"
               >
-                {/* Indicatore numero pagina */}
+                {/* Indicatore numero pagina - quasi trasparente */}
                 <Box
                   position="absolute"
                   top={4}
                   left={4}
-                  bg="blackAlpha.700"
-                  color="white"
+                  bg="blackAlpha.300"
+                  color="whiteAlpha.600"
                   px={3}
                   py={1}
                   borderRadius="full"
                   fontSize="xs"
                   fontWeight="bold"
                   zIndex={1}
+                  opacity={0.4}
+                  transition="opacity 0.2s"
+                  _hover={{ opacity: 0.9 }}
                 >
                   {i + 1} / {totalPages}
                 </Box>
@@ -1145,51 +1180,53 @@ function ReaderPage() {
             ))}
           </VStack>
           
-          {/* Bottoni navigazione capitoli fissi in basso per webtoon */}
-          <HStack
-            position="fixed"
-            bottom={4}
-            left="50%"
-            transform="translateX(-50%)"
-            spacing={2}
-            bg="blackAlpha.900"
-            p={2}
-            borderRadius="full"
-            border="1px solid"
-            borderColor="whiteAlpha.300"
-            boxShadow="xl"
-            backdropFilter="blur(10px)"
-            zIndex={5}
-          >
-            <IconButton
-              icon={<FaChevronLeft />}
-              onClick={(e) => { e.stopPropagation(); navigateChapter(-1); }}
-              aria-label="Capitolo precedente"
-              variant="ghost"
-              colorScheme="purple"
-              color="white"
-              size="sm"
-              isDisabled={chapterIndex === 0}
-            />
-            <VStack spacing={0} px={3}>
-              <Text color="white" fontSize="xs" fontWeight="bold">
-                Capitolo {chapterIndex + 1}
-              </Text>
-              <Text color="gray.400" fontSize="xs">
-                di {manga.chapters?.length}
-              </Text>
-            </VStack>
-            <IconButton
-              icon={<FaChevronRight />}
-              onClick={(e) => { e.stopPropagation(); navigateChapter(1); }}
-              aria-label="Capitolo successivo"
-              variant="ghost"
-              colorScheme="purple"
-              color="white"
-              size="sm"
-              isDisabled={chapterIndex >= (manga.chapters?.length || 0) - 1}
-            />
-          </HStack>
+          {/* Bottoni navigazione capitoli fissi in basso per webtoon - solo alla fine */}
+          {currentPage >= totalPages - 3 && (
+            <HStack
+              position="fixed"
+              bottom={4}
+              left="50%"
+              transform="translateX(-50%)"
+              spacing={2}
+              bg="blackAlpha.900"
+              p={2}
+              borderRadius="full"
+              border="1px solid"
+              borderColor="whiteAlpha.300"
+              boxShadow="xl"
+              backdropFilter="blur(10px)"
+              zIndex={5}
+            >
+              <IconButton
+                icon={<FaChevronLeft />}
+                onClick={(e) => { e.stopPropagation(); navigateChapter(-1); }}
+                aria-label="Capitolo precedente"
+                variant="ghost"
+                colorScheme="purple"
+                color="white"
+                size="sm"
+                isDisabled={chapterIndex === 0}
+              />
+              <VStack spacing={0} px={3}>
+                <Text color="white" fontSize="xs" fontWeight="bold">
+                  Capitolo {chapterIndex + 1}
+                </Text>
+                <Text color="gray.400" fontSize="xs">
+                  di {manga.chapters?.length}
+                </Text>
+              </VStack>
+              <IconButton
+                icon={<FaChevronRight />}
+                onClick={(e) => { e.stopPropagation(); navigateChapter(1); }}
+                aria-label="Capitolo successivo"
+                variant="ghost"
+                colorScheme="purple"
+                color="white"
+                size="sm"
+                isDisabled={chapterIndex >= (manga.chapters?.length || 0) - 1}
+              />
+            </HStack>
+          )}
         </Box>
       ) : (
         // Modalità Pagina Singola/Doppia
@@ -1292,23 +1329,26 @@ function ReaderPage() {
             />
           )}
           
-          {/* Indicatore Pagina */}
+          {/* Indicatore Pagina - quasi trasparente */}
           <Box
             position="absolute"
             bottom={4}
             left="50%"
             transform="translateX(-50%)"
-            bg="blackAlpha.800"
-            color="white"
+            bg="blackAlpha.300"
+            color="whiteAlpha.700"
             px={4}
             py={2}
             borderRadius="full"
             fontSize="sm"
             fontWeight="bold"
             border="1px solid"
-            borderColor="whiteAlpha.300"
+            borderColor="whiteAlpha.200"
             boxShadow="lg"
             zIndex={5}
+            opacity={0.5}
+            transition="opacity 0.2s"
+            _hover={{ opacity: 1, bg: 'blackAlpha.800' }}
           >
             {currentPage + 1} / {totalPages}
           </Box>

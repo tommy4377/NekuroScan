@@ -58,7 +58,7 @@ function Breadcrumbs() {
         const isLast = index === pathSegments.length - 1;
         const path = '/' + pathSegments.slice(0, index + 1).join('/');
         
-        // Nascondi sources (mangaWorld, mangaWorldAdult, m, ma etc)
+        // Nascondi identificatori di source interni
         if (segment === 'mangaWorld' || segment === 'mangaWorldAdult' || 
             segment === 'm' || segment === 'ma' ||
             segment.toLowerCase().includes('manga') && segment.toLowerCase().includes('world')) {

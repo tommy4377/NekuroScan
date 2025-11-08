@@ -382,8 +382,8 @@ export class MangaWorldAPI {
       
       // Proxy le immagini per evitare CORS
       const proxiedPages = pages.map(pageUrl => {
-        // Se l'immagine è da mangaworld, prova a usare il proxy
-        if (pageUrl.includes('mangaworld') || pageUrl.includes('cdn')) {
+        // Usa il proxy per le immagini CDN
+        if (pageUrl.includes('cdn')) {
           return pageUrl; // Per ora restituisci l'URL originale
         }
         return pageUrl;

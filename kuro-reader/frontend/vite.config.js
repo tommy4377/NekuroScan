@@ -185,13 +185,36 @@ export default defineConfig({
     minify: 'esbuild',
     rollupOptions: {
       output: {
-        manualChunks: undefined
+        // ✅ PERFORMANCE: Code splitting per ridurre bundle size iniziale
+        manualChunks: (id) => {
+          // Vendor chunks separati per librerie grandi
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'react-vendor';
+            }
+            if (id.includes('@chakra-ui') || id.includes('@emotion')) {
+              return 'chakra-vendor';
+            }
+            if (id.includes('framer-motion')) {
+              return 'framer-vendor';
+            }
+            // Altre librerie in un vendor separato
+            return 'vendor';
+          }
+          // Separa le pagine in chunk dinamici
+          if (id.includes('/pages/')) {
+            const pageName = id.split('/pages/')[1]?.split('.')[0];
+            if (pageName) {
+              return `page-${pageName}`;
+            }
+          }
+        }
       }
     },
     // ✅ PERFORMANCE: Dimensioni chunk ottimali
     chunkSizeWarningLimit: 1000,
     cssCodeSplit: true,
-    assetsInlineLimit: 8192,
+    assetsInlineLimit: 4096, // Ridotto per evitare bundle troppo grandi
     reportCompressedSize: false,
     modulePreload: {
       polyfill: true
@@ -205,7 +228,11 @@ export default defineConfig({
   },
   // ✅ PERFORMANCE: Ottimizzazioni esbuild
   esbuild: {
-    drop: ['debugger'],
-    legalComments: 'none'
+    drop: ['debugger', 'console'],
+    legalComments: 'none',
+    minifyIdentifiers: true,
+    minifySyntax: true,
+    minifyWhitespace: true,
+    treeShaking: true
   }
 });

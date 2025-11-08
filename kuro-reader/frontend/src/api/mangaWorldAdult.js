@@ -224,9 +224,6 @@ export class MangaWorldAdultAPI {
     }
   }
 
-  // frontend/src/api/mangaWorldAdult.js
-// Aggiungi questo metodo nella classe MangaWorldAdultAPI
-
 async search(query) {
   try {
     if (!query || query.trim() === '') return [];

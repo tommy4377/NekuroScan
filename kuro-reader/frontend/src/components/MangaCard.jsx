@@ -1,11 +1,8 @@
-// MangaCard.jsx - FIX ENCODING
+// MangaCard.jsx - Optimized
 import React, { useState } from 'react';
 import { Box, Image, Text, VStack, Badge, Skeleton } from '@chakra-ui/react';
-// import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import { useNavigate } from 'react-router-dom';
 import { encodeSource } from '../utils/sourceMapper';
-
-// const Box = motion(Box); // Rimosso per evitare errori React #300
 
 // URL-safe base64 encoding
 function safeEncodeUrl(url) {
@@ -58,7 +55,7 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
         overflow="hidden"
         spacing={0}
         height="100%"
-        transition="transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+        transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
         position="relative"
         border="1px solid"
         borderColor="transparent"
@@ -66,7 +63,7 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
           bg: 'gray.700',
           borderColor: 'purple.500',
           boxShadow: '0 20px 40px rgba(128, 90, 213, 0.3)',
-          transform: 'translate3d(0, -6px, 0)'
+          transform: 'scale(1.05)'
         }}
       >
         <Box position="relative" width="100%" paddingBottom="140%" bg="gray.800">
