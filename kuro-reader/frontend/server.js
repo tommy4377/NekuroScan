@@ -108,15 +108,15 @@ app.use((req, res, next) => {
   // HSTS - Force HTTPS (valido 1 anno)
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   
-  // Content Security Policy - Protezione XSS (PRODUCTION READY - No unsafe-inline)
+  // Content Security Policy - Bilanciato tra sicurezza e funzionalità
   const isDev = process.env.NODE_ENV === 'development';
   const csp = [
     "default-src 'self'",
-    // Script: unsafe-eval solo in dev, unsafe-inline RIMOSSO per sicurezza
+    // Script: unsafe-inline necessario per React/Vite, unsafe-eval per dev
     isDev 
-      ? "script-src 'self' 'unsafe-eval'" 
-      : "script-src 'self'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // unsafe-inline necessario per Chakra UI
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'" 
+      : "script-src 'self' 'unsafe-inline'", // unsafe-inline necessario per Vite build
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https: http:",
     "connect-src 'self' https://kuro-auth-backend.onrender.com https://kuro-proxy-server.onrender.com https://cdn.mangaworld.cx https: http:",

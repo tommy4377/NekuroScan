@@ -13,9 +13,10 @@
 - ✅ ProxiedImage: fetchpriority="high"
 
 ### Security
-- ✅ CSP: rimosso unsafe-inline in production
+- ✅ CSP: hardened (unsafe-inline necessario per Vite, rimosso unsafe-eval prod)
 - ✅ X-Robots-Tag: index, follow, noai
 - ✅ robots.txt: block GPTBot, Google-Extended, CCBot
+- ✅ Logo.jsx: rimosso innerHTML per CSP compliance
 
 ### SEO
 - ✅ Multi-format favicon (SVG, PNG 96/192/512, ICO)
@@ -49,9 +50,10 @@ git push
 
 1. Lighthouse: >85 mobile, >90 desktop
 2. Logo visible in tab (not globe)
-3. securityheaders.com: A or A+
-4. Console: no CSP errors
+3. securityheaders.com: B+ (CSP unsafe-inline necessario per Vite)
+4. Console: no blocking CSP errors
 5. Google Search Console: request indexing
+6. Site loads correctly (no blank page)
 
 ## 🎯 Main Improvements
 

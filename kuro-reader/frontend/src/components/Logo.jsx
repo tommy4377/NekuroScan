@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Box } from '@chakra-ui/react';
 import { Link } from 'react-router-dom';
 
 const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '40px', showImage = true, ...rest }) => {
+  const [imageError, setImageError] = useState(false);
+  
   // Determina l'immagine ottimale in base alla dimensione
   const getOptimalImage = (size) => {
     const numSize = parseInt(size);
@@ -32,12 +34,12 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
             transform: 'translate3d(0, -2px, 0)'
           }}
         >
-          {showImage ? (
+          {showImage && !imageError ? (
             <img
               src={optimalImage}
               alt="NeKuro Scan"
               loading="eager"
-              fetchpriority="high"
+              fetchPriority="high"
               width={boxSize}
               height={boxSize}
               style={{ 
@@ -47,25 +49,7 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
                 objectFit: 'contain',
                 display: 'block'
               }}
-              onError={(e) => {
-                // Fallback to NK text
-                e.target.style.display = 'none';
-                e.target.parentElement.innerHTML = `
-                  <div style="
-                    width: ${boxSize};
-                    height: ${boxSize};
-                    background: #805AD5;
-                    border-radius: 0.5rem;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-weight: bold;
-                    font-size: 1.25rem;
-                    color: white;
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                  ">NK</div>
-                `;
-              }}
+              onError={() => setImageError(true)}
             />
           ) : (
             <Box
