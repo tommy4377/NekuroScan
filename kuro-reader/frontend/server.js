@@ -103,19 +103,8 @@ setInterval(() => {
 
 app.use(rateLimiter);
 
-// Security and performance headers
+// Security and performance headers (NO Content-Type qui, gestito da express.static + fallback)
 app.use((req, res, next) => {
-  // Content-Type per TUTTI i file HTML (risolve Best Practices warning)
-  // Applica a: /, /home, /categories, index.html, offline.html, etc.
-  const isHtmlRoute = req.path === '/' || 
-                      req.path.endsWith('.html') || 
-                      !req.path.includes('.') || 
-                      req.accepts('html');
-  
-  if (isHtmlRoute) {
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  }
-  
   // HSTS - Force HTTPS (valido 1 anno)
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   
@@ -173,7 +162,7 @@ app.get('*', (req, res) => {
     return res.status(404).send('Not Found');
   }
   
-  // Assicura Content-Type con charset per index.html
+  // Imposta Content-Type con charset UTF-8 per HTML (Best Practice)
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
