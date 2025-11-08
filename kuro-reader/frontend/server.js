@@ -125,22 +125,18 @@ app.use((req, res, next) => {
   // HSTS - Force HTTPS (valido 1 anno)
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   
-  // Content Security Policy - Protezione XSS
+  // Content Security Policy - PERMISSIVA per debugging
   const csp = [
-    "default-src 'self'",
+    "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: http:",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com data:",
+    "style-src 'self' 'unsafe-inline' https:",
+    "font-src 'self' https: data:",
     "img-src 'self' data: blob: https: http:",
-    "connect-src 'self' https://kuro-auth-backend.onrender.com https://kuro-proxy-server.onrender.com https://cdn.mangaworld.cx https: http:",
-    "media-src 'self' blob: data:",
+    "connect-src 'self' https: http: ws: wss:",
+    "media-src 'self' blob: data: https: http:",
     "worker-src 'self' blob:",
     "frame-src 'none'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'"
-    // ✅ Rimosso upgrade-insecure-requests - può causare problemi su Render
+    "object-src 'none'"
   ].join('; ');
   res.setHeader('Content-Security-Policy', csp);
   

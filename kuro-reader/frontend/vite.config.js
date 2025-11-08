@@ -6,7 +6,7 @@ import viteImagemin from 'vite-plugin-imagemin';
 import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig({
-  // ✅ PERFORMANCE: Ottimizzazioni build
+  base: '/',
   optimizeDeps: {
     include: [
       'react', 
@@ -25,7 +25,7 @@ export default defineConfig({
     }),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: null,
+      injectRegister: false, // Disabilita auto-register per debugging
       includeAssets: [
         'favicon.ico',
         'favicon.svg', 
@@ -116,25 +116,25 @@ export default defineConfig({
         type: 'module'
       }
     }),
-    // ✅ PERFORMANCE: Compressione Brotli e Gzip
-    viteCompression({
-      verbose: false,
-      disable: false,
-      threshold: 10240,
-      algorithm: 'brotliCompress',
-      ext: '.br',
-      deleteOriginFile: false,
-      filter: /\.(js|css|json|html)$/i
-    }),
-    viteCompression({
-      verbose: false,
-      disable: false,
-      threshold: 10240,
-      algorithm: 'gzip',
-      ext: '.gz',
-      deleteOriginFile: false,
-      filter: /\.(js|css|json|html)$/i
-    }),
+    // Compressione disabilitata per debugging
+    // viteCompression({
+    //   verbose: false,
+    //   disable: false,
+    //   threshold: 10240,
+    //   algorithm: 'brotliCompress',
+    //   ext: '.br',
+    //   deleteOriginFile: false,
+    //   filter: /\.(js|css|json|html)$/i
+    // }),
+    // viteCompression({
+    //   verbose: false,
+    //   disable: false,
+    //   threshold: 10240,
+    //   algorithm: 'gzip',
+    //   ext: '.gz',
+    //   deleteOriginFile: false,
+    //   filter: /\.(js|css|json|html)$/i
+    // }),
     // ✅ PERFORMANCE: Ottimizzazione immagini automatica (opzionale per evitare errori build)
     ...(process.env.SKIP_IMAGE_OPTIMIZATION !== 'true' ? [viteImagemin({
       gifsicle: {
@@ -181,70 +181,16 @@ export default defineConfig({
     }
   },
   build: {
-    sourcemap: false,
-    // ✅ PERFORMANCE: Target moderni per bundle più piccoli
+    sourcemap: true, // Abilita sourcemap per debugging
     target: 'es2020',
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: false, // NON rimuovere console (serve per error handling)
-        drop_debugger: true,
-        pure_funcs: [
-          'console.log',
-          'console.info',
-          'console.debug',
-          'console.trace'
-        ],
-        // Mantieni console.error e console.warn per logging critico
-        passes: 2, // Ridotto per evitare ottimizzazioni troppo aggressive
-        unsafe: false,
-        unsafe_comps: false,
-        unsafe_math: false,
-        unsafe_proto: false
-      },
-      mangle: {
-        safari10: true,
-        properties: false // Non mangle properties per evitare bug
-      },
-      format: {
-        comments: false, // Rimuovi commenti
-        preamble: '/* NeKuro Scan - Optimized Build */'
-      }
-    },
-    // ✅ PERFORMANCE: Chunking ottimizzato per tree shaking
+    minify: 'esbuild', // Usa esbuild (più affidabile di terser)
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // React core libs
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) {
-            return 'react-core';
+          if (id.includes('node_modules')) {
+            return 'vendor';
           }
-          // Chakra UI - split in chunks più piccoli
-          if (id.includes('@chakra-ui')) {
-            return 'chakra';
-          }
-          if (id.includes('@emotion')) {
-            return 'emotion';
-          }
-          // Utilities
-          if (id.includes('axios') || id.includes('zustand')) {
-            return 'utils';
-          }
-          // Lazy loaded pages stay separate
-          if (id.includes('/pages/') && !id.includes('Welcome') && !id.includes('Home') && !id.includes('Login')) {
-            return 'pages-lazy';
-          }
-        },
-        // ✅ PERFORMANCE: Nomi file con hash per cache busting
-        chunkFileNames: 'assets/js/[name]-[hash].js',
-        entryFileNames: 'assets/js/[name]-[hash].js',
-        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
-      },
-      // Tree shaking moderato (non troppo aggressivo)
-      treeshake: {
-        moduleSideEffects: 'no-external', // Mantieni side effects per node_modules
-        propertyReadSideEffects: true, // Alcune librerie usano getters con side effects
-        tryCatchDeoptimization: false
+        }
       }
     },
     // ✅ PERFORMANCE: Dimensioni chunk ottimali
@@ -252,10 +198,7 @@ export default defineConfig({
     cssCodeSplit: true,
     assetsInlineLimit: 4096,
     reportCompressedSize: false,
-    modulePreload: {
-      polyfill: false,
-      resolveDependencies: () => []
-    }
+    modulePreload: true // Abilita module preload (necessario per Vite)
   },
   // ✅ PERFORMANCE: Ottimizzazioni resolve
   resolve: {
@@ -265,14 +208,6 @@ export default defineConfig({
   },
   // ✅ PERFORMANCE: Ottimizzazioni esbuild
   esbuild: {
-    legalComments: 'none',
-    treeShaking: true,
-    minifyIdentifiers: true,
-    minifySyntax: true,
-    minifyWhitespace: true,
-    drop: ['debugger'], // Drop solo debugger, NON console (serve per error handling)
-    pure: ['console.log', 'console.info', 'console.debug'], // Mark come side-effect-free
-    logLevel: 'error', // Solo errori in console build
-    logOverride: { 'this-is-undefined-in-esm': 'silent' } // Silente warning comuni
+    drop: ['debugger']
   }
 });
