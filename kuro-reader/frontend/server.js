@@ -2,12 +2,29 @@ import express from 'express';
 import compression from 'compression';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { existsSync, readdirSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ✅ DEBUG: Verifica che dist/ esista
+const distPath = path.join(__dirname, 'dist');
+console.log('🔍 Checking dist directory...');
+console.log('📁 Current directory:', __dirname);
+console.log('📁 Dist path:', distPath);
+console.log('✓ Dist exists:', existsSync(distPath));
+
+if (existsSync(distPath)) {
+  const files = readdirSync(distPath);
+  console.log('📄 Files in dist:', files.length, 'files');
+  console.log('📄 First 10 files:', files.slice(0, 10).join(', '));
+} else {
+  console.error('❌ ERROR: dist/ directory not found!');
+  console.error('⚠️  Make sure to run "npm run build" before starting the server');
+}
 
 // Trust proxy per ottenere vero IP client dietro Render/Cloudflare
 app.set('trust proxy', true);
@@ -122,8 +139,8 @@ app.use((req, res, next) => {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'",
-    "upgrade-insecure-requests"
+    "frame-ancestors 'none'"
+    // ✅ Rimosso upgrade-insecure-requests - può causare problemi su Render
   ].join('; ');
   res.setHeader('Content-Security-Policy', csp);
   
@@ -148,27 +165,99 @@ app.use((req, res, next) => {
 });
 
 // Serve i file statici dalla cartella dist
-app.use(express.static(path.join(__dirname, 'dist'), {
-  etag: true,
-  maxAge: 0 // Gestito da header sopra
-}));
-
-// SPA Fallback: solo per route HTML, non per file statici o API
-app.get('*', (req, res) => {
-  // Non fare fallback per file con estensione o percorsi speciali
-  const fileExtensionPattern = /\.(js|css|png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|eot|json|xml|txt)$/;
+if (existsSync(distPath)) {
+  app.use(express.static(distPath, {
+    etag: true,
+    maxAge: 0 // Gestito da header sopra
+  }));
   
-  if (fileExtensionPattern.test(req.path) || 
-      req.path.includes('/robots.txt') || 
-      req.path.includes('/sitemap.xml') ||
-      req.path.includes('/manifest')) {
-    return res.status(404).send('Not Found');
-  }
-  
-  // Imposta Content-Type con charset UTF-8 per HTML (Best Practice)
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-});
+  // SPA Fallback: solo per route HTML, non per file statici o API
+  app.get('*', (req, res) => {
+    // Non fare fallback per file con estensione o percorsi speciali
+    const fileExtensionPattern = /\.(js|css|png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|eot|json|xml|txt)$/;
+    
+    if (fileExtensionPattern.test(req.path) || 
+        req.path.includes('/robots.txt') || 
+        req.path.includes('/sitemap.xml') ||
+        req.path.includes('/manifest')) {
+      return res.status(404).send('Not Found');
+    }
+    
+    const indexPath = path.join(distPath, 'index.html');
+    if (existsSync(indexPath)) {
+      // Imposta Content-Type con charset UTF-8 per HTML (Best Practice)
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.sendFile(indexPath);
+    } else {
+      res.status(500).send('Error: index.html not found in dist/');
+    }
+  });
+} else {
+  // ❌ Fallback se dist non esiste - mostra errore chiaro
+  app.get('*', (req, res) => {
+    res.status(500).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Build Error</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            background: #1a202c; 
+            color: #e2e8f0; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+          }
+          .container { 
+            max-width: 600px; 
+            background: #2d3748; 
+            padding: 40px; 
+            border-radius: 12px;
+            text-align: center;
+          }
+          h1 { color: #f56565; margin-bottom: 20px; }
+          code { 
+            background: #1a202c; 
+            padding: 2px 8px; 
+            border-radius: 4px; 
+            font-size: 14px;
+          }
+          .info { 
+            text-align: left; 
+            background: #1a202c; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin-top: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>⚠️ Build Error</h1>
+          <p>The <code>dist/</code> directory was not found.</p>
+          <div class="info">
+            <p><strong>On Render, make sure:</strong></p>
+            <ul>
+              <li><code>Build Command</code>: npm install && npm run build</li>
+              <li><code>Start Command</code>: npm start</li>
+              <li>Check the build logs for errors</li>
+            </ul>
+            <p style="margin-top: 15px;"><strong>If imagemin fails, add this environment variable:</strong></p>
+            <code>SKIP_IMAGE_OPTIMIZATION=true</code>
+          </div>
+          <p style="margin-top: 20px; font-size: 12px; color: #a0aec0;">
+            Current directory: ${__dirname}
+          </p>
+        </div>
+      </body>
+      </html>
+    `);
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`✅ NeKuro Scan frontend server avviato su porta ${PORT}`);

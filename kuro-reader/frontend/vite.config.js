@@ -135,8 +135,8 @@ export default defineConfig({
       deleteOriginFile: false,
       filter: /\.(js|css|json|html)$/i
     }),
-    // ✅ PERFORMANCE: Ottimizzazione immagini automatica
-    viteImagemin({
+    // ✅ PERFORMANCE: Ottimizzazione immagini automatica (opzionale per evitare errori build)
+    ...(process.env.SKIP_IMAGE_OPTIMIZATION !== 'true' ? [viteImagemin({
       gifsicle: {
         optimizationLevel: 7,
         interlaced: false
@@ -160,7 +160,7 @@ export default defineConfig({
       webp: {
         quality: 75
       }
-    }),
+    })] : []),
     // ✅ DEVELOPMENT: Visualizza bundle size (solo in dev)
     process.env.ANALYZE && visualizer({
       filename: './dist/stats.html',
