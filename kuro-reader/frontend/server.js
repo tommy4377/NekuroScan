@@ -108,8 +108,24 @@ app.use((req, res, next) => {
   // HSTS - Force HTTPS (valido 1 anno)
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   
-  // CSP TEMPORANEAMENTE DISABILITATO per diagnosi
-  // TODO: Riabilitare dopo fix rendering
+  // Content Security Policy - Protezione XSS
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' data: blob: https: http:",
+    "connect-src 'self' https://kuro-auth-backend.onrender.com https://kuro-proxy-server.onrender.com https://cdn.mangaworld.cx https: http:",
+    "media-src 'self' blob: data:",
+    "worker-src 'self' blob:",
+    "frame-src 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "upgrade-insecure-requests"
+  ].join('; ');
+  res.setHeader('Content-Security-Policy', csp);
   
   // Security headers
   res.setHeader('X-Frame-Options', 'DENY');
@@ -137,16 +153,6 @@ app.use(express.static(path.join(__dirname, 'dist'), {
   maxAge: 0 // Gestito da header sopra
 }));
 
-// Health check per diagnostics
-app.get('/healthz', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    env: process.env.NODE_ENV,
-    distExists: require('fs').existsSync(path.join(__dirname, 'dist')),
-    indexExists: require('fs').existsSync(path.join(__dirname, 'dist', 'index.html'))
-  });
-});
-
 // SPA Fallback: solo per route HTML, non per file statici o API
 app.get('*', (req, res) => {
   // Non fare fallback per file con estensione o percorsi speciali
@@ -159,19 +165,9 @@ app.get('*', (req, res) => {
     return res.status(404).send('Not Found');
   }
   
-  // Verifica che index.html esista
-  const indexPath = path.join(__dirname, 'dist', 'index.html');
-  if (!require('fs').existsSync(indexPath)) {
-    return res.status(500).send(`
-      <h1>Build Error</h1>
-      <p>dist/index.html not found. Please run: npm run build</p>
-      <p>Path: ${indexPath}</p>
-    `);
-  }
-  
   // Imposta Content-Type con charset UTF-8 per HTML (Best Practice)
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.sendFile(indexPath);
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 app.listen(PORT, () => {
