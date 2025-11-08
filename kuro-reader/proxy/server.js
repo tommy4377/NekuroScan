@@ -24,12 +24,17 @@ const requestCounts = new Map();
 const ipBlacklist = new Map();
 const suspiciousActivity = new Map();
 const requestTiming = new Map(); // Per rilevare burst rapidi
+const ipFirstSeen = new Map(); // Track prima richiesta IP (grace period)
 
+// Rate limiting proxy più conservativo
+// - Immagini lazy load: ~20-30 immagini alla volta
+// - API proxy: parsing HTML ogni 2-3 sec
+// - Bot detection: >5 req/sec simultanee
 const RATE_LIMITS = {
-  global: { window: 60000, max: 200 },  // 200 req/min globale
-  proxy: { window: 60000, max: 120 },   // 120 proxy req/min
-  image: { window: 60000, max: 150 },   // 150 immagini/min
-  burst: { window: 1000, max: 10 }      // Max 10 req/sec (anti-burst)
+  global: { window: 60000, max: 120 }, // 120 req/min = 2 req/sec
+  proxy: { window: 60000, max: 60 },   // 60 proxy req/min = 1 req/sec (HTML parsing)
+  image: { window: 60000, max: 100 },  // 100 immagini/min (lazy load batch)
+  burst: { window: 1000, max: 5 }      // Max 5 req/sec (anti-burst più stretto)
 };
 
 // Blacklist IP per abusi
@@ -64,8 +69,8 @@ const detectBurst = (ip) => {
   recentTimestamps.push(now);
   requestTiming.set(key, recentTimestamps);
   
-  // Se più di 10 richieste in 1 secondo = burst sospetto
-  return recentTimestamps.length > 10;
+  // Se più di 5 richieste in 1 secondo = burst sospetto (ridotto per essere più conservativo)
+  return recentTimestamps.length > 5;
 };
 
 // Whitelist IP interni (non rate limit)
@@ -94,13 +99,21 @@ const advancedRateLimiter = (limitType = 'global') => {
       });
     }
     
-    // Rileva burst attacks
-    if (detectBurst(ip)) {
+    // Grace period: primi 10 secondi più permissivi per primo caricamento pagina
+    if (!ipFirstSeen.has(ip)) {
+      ipFirstSeen.set(ip, now);
+    }
+    const ipAge = now - ipFirstSeen.get(ip);
+    const isNewConnection = ipAge < 10000; // 10 secondi grace period
+    
+    // Rileva burst attacks (ma solo se molto aggressivi e non in grace period)
+    if (!isNewConnection && detectBurst(ip)) {
       const abuseKey = `burst_abuse_${ip}`;
       const abuseCount = (suspiciousActivity.get(abuseKey) || 0) + 1;
       suspiciousActivity.set(abuseKey, abuseCount);
       
-      if (abuseCount >= 3) {
+      // Ban solo dopo 5 burst ripetuti (non 3) per evitare falsi positivi
+      if (abuseCount >= 5) {
         blacklistIP(ip, 1800000); // Ban 30 minuti per burst
         return res.status(429).json({ 
           success: false, 
@@ -129,20 +142,37 @@ const advancedRateLimiter = (limitType = 'global') => {
       const abuseCount = (suspiciousActivity.get(abuseKey) || 0) + 1;
       suspiciousActivity.set(abuseKey, abuseCount);
       
-      // Ban dopo 5 violazioni ripetute
-      if (abuseCount >= 5) {
+      // Ban dopo 3 violazioni ripetute (ridotto da 5)
+      if (abuseCount >= 3) {
         blacklistIP(ip);
         suspiciousActivity.delete(abuseKey);
       }
       
+      // Log per debugging
+      const retryAfter = Math.ceil((data.resetTime - now) / 1000);
+      console.warn(`⚠️ Proxy rate limit: IP ${ip}, type ${limitType}, ${data.count}/${limit.max}, retry in ${retryAfter}s`);
+      
+      // Standard HTTP headers
+      res.setHeader('Retry-After', retryAfter.toString());
+      res.setHeader('X-RateLimit-Limit', limit.max.toString());
+      res.setHeader('X-RateLimit-Remaining', '0');
+      res.setHeader('X-RateLimit-Reset', Math.ceil(data.resetTime / 1000).toString());
+      
       return res.status(429).json({ 
         success: false,
         error: 'Limite richieste raggiunto',
-        retryAfter: Math.ceil((data.resetTime - now) / 1000)
+        retryAfter
       });
     }
     
     data.count++;
+    
+    // Aggiungi headers informativi per tutte le richieste
+    const remaining = Math.max(0, limit.max - data.count);
+    res.setHeader('X-RateLimit-Limit', limit.max.toString());
+    res.setHeader('X-RateLimit-Remaining', remaining.toString());
+    res.setHeader('X-RateLimit-Reset', Math.ceil(data.resetTime / 1000).toString());
+    
     next();
   };
 };
@@ -164,6 +194,13 @@ setInterval(() => {
   
   requestTiming.clear();
   suspiciousActivity.clear();
+  
+  // Pulisci ipFirstSeen per IP non visti da più di 1 ora
+  for (const [ip, firstSeen] of ipFirstSeen.entries()) {
+    if (now - firstSeen > 3600000) {
+      ipFirstSeen.delete(ip);
+    }
+  }
 }, 300000);
 
 app.use(advancedRateLimiter('global'));

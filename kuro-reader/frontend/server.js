@@ -26,13 +26,24 @@ app.use(compression({
   }
 }));
 
-// ========= BASIC RATE LIMITING (Frontend) =========
+// ========= SMART RATE LIMITING (Frontend) =========
+// Best practices: 60-120 req/min per utente normale
 const requestCounts = new Map();
 const RATE_LIMIT_WINDOW = 60000;
-const MAX_REQUESTS = 300; // 300 req/min per IP
+const MAX_REQUESTS = 120; // 120 req/min = 2 req/sec (realistico per uso normale)
 const INTERNAL_IPS = ['::1', '127.0.0.1', 'localhost', '::ffff:127.0.0.1'];
 
+// Assets statici esclusi dal rate limiting
+const isStaticAsset = (path) => {
+  return /\.(js|css|png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|eot|json|xml|txt)$/.test(path);
+};
+
 const rateLimiter = (req, res, next) => {
+  // Skip assets statici (già cached)
+  if (isStaticAsset(req.path)) {
+    return next();
+  }
+  
   // Ottieni vero IP client (supporta X-Forwarded-For, X-Real-IP)
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
              req.headers['x-real-ip'] || 
@@ -58,10 +69,27 @@ const rateLimiter = (req, res, next) => {
   }
   
   if (data.count >= MAX_REQUESTS) {
+    // Log per debugging
+    const retryAfter = Math.ceil((data.resetTime - now) / 1000);
+    console.warn(`⚠️ Frontend rate limit: IP ${ip}, ${data.count}/${MAX_REQUESTS}, retry in ${retryAfter}s`);
+    
+    // Standard HTTP Retry-After header
+    res.setHeader('Retry-After', retryAfter.toString());
+    res.setHeader('X-RateLimit-Limit', MAX_REQUESTS.toString());
+    res.setHeader('X-RateLimit-Remaining', '0');
+    res.setHeader('X-RateLimit-Reset', Math.ceil(data.resetTime / 1000).toString());
+    
     return res.status(429).send('Troppe richieste, riprova tra poco');
   }
   
   data.count++;
+  
+  // Aggiungi headers informativi per tutte le richieste
+  const remaining = Math.max(0, MAX_REQUESTS - data.count);
+  res.setHeader('X-RateLimit-Limit', MAX_REQUESTS.toString());
+  res.setHeader('X-RateLimit-Remaining', remaining.toString());
+  res.setHeader('X-RateLimit-Reset', Math.ceil(data.resetTime / 1000).toString());
+  
   next();
 };
 
