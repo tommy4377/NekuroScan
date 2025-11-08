@@ -184,13 +184,28 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: false,
+        drop_console: true, // Rimuove TUTTI i console.*
         drop_debugger: true,
-        pure_funcs: ['console.log', 'console.info', 'console.debug'],
-        passes: 2
+        pure_funcs: [
+          'console.log',
+          'console.info',
+          'console.debug',
+          'console.trace'
+        ],
+        // Mantieni console.error e console.warn per logging critico
+        passes: 3, // Aumentato per migliore ottimizzazione
+        unsafe: false, // Evita ottimizzazioni aggressive che possono rompere codice
+        unsafe_comps: false,
+        unsafe_math: false,
+        unsafe_proto: false
       },
       mangle: {
-        safari10: true
+        safari10: true,
+        properties: false // Non mangle properties per evitare bug
+      },
+      format: {
+        comments: false, // Rimuovi commenti
+        preamble: '/* NeKuro Scan - Optimized Build */'
       }
     },
     // ✅ PERFORMANCE: Chunking semplificato e sicuro
@@ -230,7 +245,9 @@ export default defineConfig({
     minifyIdentifiers: true,
     minifySyntax: true,
     minifyWhitespace: true,
-    drop: ['debugger']
-    // Non drop 'console' - Terser gestisce selettivamente (mantiene error/warn)
+    drop: ['console', 'debugger'], // Drop console e debugger in dev/build
+    pure: ['console.log', 'console.info', 'console.debug'], // Mark come side-effect-free
+    logLevel: 'error', // Solo errori in console build
+    logOverride: { 'this-is-undefined-in-esm': 'silent' } // Silente warning comuni
   }
 });

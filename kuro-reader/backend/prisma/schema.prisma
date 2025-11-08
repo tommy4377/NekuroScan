@@ -38,6 +38,9 @@ model user_profile {
   badges        String[] @default([])
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  
+  @@index([isPublic]) // Performance: filtro profili pubblici
+  @@index([viewCount]) // Performance: sorting per popolarità
 }
 
 model user_follows {
@@ -59,6 +62,8 @@ model user_favorites {
   user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
   favorites String   @db.Text
   updatedAt DateTime @updatedAt
+  
+  @@index([updatedAt]) // Performance: sorting sync recenti
 }
 
 model reading_progress {
@@ -74,6 +79,9 @@ model reading_progress {
 
   @@unique([userId, mangaUrl])
   @@index([userId])
+  @@index([mangaUrl]) // Performance: lookup veloce per manga
+  @@index([updatedAt]) // Performance: sorting per recenti
+  @@index([userId, updatedAt]) // Composite: user + recenti (query comune)
 }
 
 model user_library {
@@ -85,4 +93,6 @@ model user_library {
   dropped   String?  @db.Text
   history   String?  @db.Text
   updatedAt DateTime @updatedAt
+  
+  @@index([updatedAt]) // Performance: sorting sync recenti
 }

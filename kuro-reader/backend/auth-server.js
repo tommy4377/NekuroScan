@@ -1051,6 +1051,132 @@ app.get('/api/profile/:username', async (req, res) => {
   }
 });
 
+// EXPORT USER DATA (GDPR COMPLIANCE) - Complete data export in JSON format
+app.get('/api/user/export', authenticateToken, requireDatabase, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Fetch all user data
+    const [user, profile, favorites, library, readingProgress, follows] = await executeWithRetry(async () => {
+      return await Promise.all([
+        prisma.user.findUnique({ where: { id: userId } }),
+        prisma.user_profile.findUnique({ where: { userId } }),
+        prisma.user_favorites.findUnique({ where: { userId } }),
+        prisma.user_library.findUnique({ where: { userId } }),
+        prisma.reading_progress.findMany({ 
+          where: { userId },
+          orderBy: { updatedAt: 'desc' }
+        }),
+        prisma.user_follows.findMany({ 
+          where: { 
+            OR: [
+              { followerId: userId },
+              { followingId: userId }
+            ]
+          },
+          include: {
+            follower: { select: { username: true, email: true } },
+            following: { select: { username: true, email: true } }
+          }
+        })
+      ]);
+    });
+    
+    // Get notification settings
+    let notificationSettings = [];
+    try {
+      notificationSettings = await prisma.$queryRaw`
+        SELECT "mangaUrl", "mangaTitle", "enabled", "createdAt"
+        FROM "manga_notifications" 
+        WHERE "userId" = ${userId}
+      `;
+    } catch (err) {
+      console.log('No notification settings found');
+    }
+    
+    // Format complete export
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      exportType: 'GDPR Data Export',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      },
+      profile: profile ? {
+        displayName: profile.displayName,
+        bio: profile.bio,
+        avatarUrl: profile.avatarUrl,
+        bannerUrl: profile.bannerUrl,
+        isPublic: profile.isPublic,
+        socialLinks: profile.socialLinks,
+        viewCount: profile.viewCount,
+        badges: profile.badges,
+        createdAt: profile.createdAt,
+        updatedAt: profile.updatedAt
+      } : null,
+      library: {
+        favorites: favorites ? JSON.parse(favorites.favorites) : [],
+        reading: library ? JSON.parse(library.reading || '[]') : [],
+        completed: library ? JSON.parse(library.completed || '[]') : [],
+        dropped: library ? JSON.parse(library.dropped || '[]') : [],
+        history: library ? JSON.parse(library.history || '[]') : [],
+        lastSyncAt: library?.updatedAt
+      },
+      readingProgress: readingProgress.map(p => ({
+        mangaUrl: p.mangaUrl,
+        mangaTitle: p.mangaTitle,
+        chapterIndex: p.chapterIndex,
+        pageIndex: p.pageIndex,
+        totalPages: p.totalPages,
+        lastReadAt: p.updatedAt
+      })),
+      social: {
+        following: follows
+          .filter(f => f.followerId === userId)
+          .map(f => ({
+            username: f.following.username,
+            followedAt: f.createdAt
+          })),
+        followers: follows
+          .filter(f => f.followingId === userId)
+          .map(f => ({
+            username: f.follower.username,
+            followedAt: f.createdAt
+          }))
+      },
+      notifications: notificationSettings.map(n => ({
+        mangaUrl: n.mangaUrl,
+        mangaTitle: n.mangaTitle,
+        enabled: n.enabled,
+        subscribedAt: n.createdAt
+      })),
+      metadata: {
+        totalMangaRead: (library ? JSON.parse(library.reading || '[]').length : 0) + (library ? JSON.parse(library.completed || '[]').length : 0),
+        totalFavorites: favorites ? JSON.parse(favorites.favorites).length : 0,
+        totalFollowers: follows.filter(f => f.followingId === userId).length,
+        totalFollowing: follows.filter(f => f.followerId === userId).length,
+        accountAge: Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+      }
+    };
+    
+    // Set headers for file download
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="nekuroscan-data-export-${user.username}-${new Date().toISOString().split('T')[0]}.json"`);
+    
+    res.json(exportData);
+    
+  } catch (error) {
+    console.error('Export data error:', error);
+    res.status(500).json({ 
+      message: 'Errore esportazione dati',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // FOLLOW/UNFOLLOW USER
 app.post('/api/user/follow/:username', authenticateToken, requireDatabase, async (req, res) => {
   try {

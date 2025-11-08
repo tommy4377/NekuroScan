@@ -11,7 +11,9 @@ import BannedNotice from './components/BannedNotice';
 import { ThemeProvider } from './contexts/ThemeContext';
 import useAuthStore from './hooks/useAuth';
 import useRateLimitDetector from './hooks/useRateLimitDetector';
+import { useMigrateFromLocalStorage } from './hooks/useIndexedDB';
 import statusBar from './utils/statusBar';
+import { initSentry, setUser as setSentryUser, clearUser as clearSentryUser } from './utils/sentry';
 
 // ✅ PERFORMANCE: Caricamento immediato solo per pagine critiche
 import Welcome from './pages/Welcome';
@@ -156,6 +158,23 @@ function AppContent() {
   
   // Rate limit detection
   const { isBanned, banReason, retryAfter, resetBan } = useRateLimitDetector();
+  
+  // ✅ INDEXEDDB: Migrate from localStorage (one-time, automatic)
+  const { migrated, migrating } = useMigrateFromLocalStorage();
+  
+  // ✅ SENTRY: Initialize error tracking (solo in production)
+  useEffect(() => {
+    initSentry();
+  }, []);
+  
+  // ✅ SENTRY: Sync user context quando l'utente fa login/logout
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setSentryUser(user);
+    } else {
+      clearSentryUser();
+    }
+  }, [isAuthenticated, user]);
 
   // Gestione routing per URL diretti
   useEffect(() => {

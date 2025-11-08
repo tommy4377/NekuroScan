@@ -1,12 +1,14 @@
-// ✅ SERVICE WORKER - NeKuro Scan
-const CACHE_NAME = 'nekuro-v4';
-const RUNTIME_CACHE = 'runtime-v4';
-const IMAGE_CACHE = 'images-v4';
+// ✅ SERVICE WORKER - NeKuro Scan v5 (with offline page)
+const CACHE_NAME = 'nekuro-v5';
+const RUNTIME_CACHE = 'runtime-v5';
+const IMAGE_CACHE = 'images-v5';
+const OFFLINE_PAGE = '/offline.html';
 
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/offline.html', // ✅ Offline page
   '/favicon.ico',
   '/favicon.svg',
   '/favicon-96x96.png',
@@ -124,7 +126,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
-  // Default - Network first
+  // Default - Network first with offline fallback
   event.respondWith(
     fetch(request)
       .then(response => {
@@ -135,7 +137,17 @@ self.addEventListener('fetch', (event) => {
       })
       .catch(() => {
         return caches.match(request).then(cached => {
-          return cached || caches.match('/index.html');
+          if (cached) {
+            return cached;
+          }
+          
+          // Se è una navigazione HTML e non è in cache, mostra offline page
+          if (request.mode === 'navigate' || request.destination === 'document') {
+            return caches.match(OFFLINE_PAGE);
+          }
+          
+          // Altrimenti prova index.html come fallback
+          return caches.match('/index.html');
         });
       })
   );
