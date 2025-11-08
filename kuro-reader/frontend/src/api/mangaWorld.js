@@ -23,9 +23,16 @@ export class MangaWorldAPI {
         body: JSON.stringify({
           url,
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
             'Referer': this.baseUrl
           }
         }),
@@ -39,6 +46,11 @@ export class MangaWorldAPI {
           throw new Error(`RATE_LIMIT:${retryAfter}`);
         } else if (response.status === 403) {
           throw new Error('BANNED:Accesso negato');
+        } else if (response.status === 502) {
+          // 502 = sito target bloccato, non nostro rate limit
+          throw new Error('Il sito sorgente ha temporaneamente bloccato le richieste. Riprova tra qualche minuto.');
+        } else if (response.status === 504) {
+          throw new Error('Timeout: server sorgente non risponde');
         } else if (response.status === 404) {
           throw new Error('Pagina non trovata');
         } else if (response.status >= 500) {

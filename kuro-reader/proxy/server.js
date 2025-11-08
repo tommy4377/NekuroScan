@@ -2,6 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import https from 'https';
+
+// Configure axios defaults
+axios.defaults.maxRedirects = 10;
+axios.defaults.validateStatus = (status) => status < 600;
 
 const app = express();
 const PORT = process.env.PORT || 10001;
@@ -18,6 +23,23 @@ app.use(cors({
   ]
 }));
 app.use(express.json({ limit: '1mb' }));
+
+// ========= USER AGENT ROTATION (Anti-Block) =========
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15'
+];
+
+const getRandomUserAgent = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+
+// Delay random per sembrare più umano (anti-bot)
+const humanDelay = () => new Promise(resolve => {
+  const delay = Math.random() * 300 + 100; // 100-400ms random
+  setTimeout(resolve, delay);
+});
 
 // ========= ADVANCED RATE LIMITING & DDoS PROTECTION =========
 const requestCounts = new Map();
@@ -252,26 +274,105 @@ app.post('/api/proxy', advancedRateLimiter('proxy'), async (req, res) => {
       return res.status(400).json({ success: false, error: 'Metodo HTTP non valido' });
     }
     
-    // Sanitize headers (solo headers safe, no injection)
+    // Headers più "umani" per evitare blocco anti-bot (con rotation)
     const safeHeaders = {
-      'User-Agent': headers['User-Agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Accept': headers['Accept'] || 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': headers['Accept-Language'] || 'it-IT,it;q=0.9,en;q=0.8',
-      'Referer': headers['Referer']
+      'User-Agent': headers['User-Agent'] || getRandomUserAgent(),
+      'Accept': headers['Accept'] || 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': headers['Accept-Language'] || 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'DNT': '1',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Referer': headers['Referer'],
+      'Cache-Control': 'max-age=0'
     };
+    
+    // Rimuovi headers undefined
+    Object.keys(safeHeaders).forEach(key => {
+      if (safeHeaders[key] === undefined) delete safeHeaders[key];
+    });
+    
+    // Delay casuale per sembrare umano
+    await humanDelay();
     
     const response = await axios({
       method: sanitizedMethod,
       url,
       headers: safeHeaders,
-      timeout: 20000,
-      maxRedirects: 5,
-      maxContentLength: 50 * 1024 * 1024, // Max 50MB response
-      validateStatus: (status) => status < 600 // Accetta anche 4xx/5xx per gestirli
+      timeout: 30000, // Aumentato a 30s
+      maxRedirects: 10, // Aumentato per seguire redirect
+      maxContentLength: 50 * 1024 * 1024,
+      validateStatus: (status) => status < 600,
+      decompress: true,
+      httpsAgent: new https.Agent({
+        rejectUnauthorized: false,
+        keepAlive: true // Riusa connessioni
+      }),
+      withCredentials: false // No cookies cross-origin
     });
+    
+    // Gestisci errori HTTP dal sito target
+    if (response.status === 403) {
+      console.error(`❌ Sito target blocca richiesta (403): ${url}`);
+      
+      // Retry con User-Agent diverso dopo delay
+      console.log('🔄 Retry con User-Agent diverso...');
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s
+      
+      const retryResponse = await axios({
+        method: sanitizedMethod,
+        url,
+        headers: {
+          ...safeHeaders,
+          'User-Agent': getRandomUserAgent() // Nuovo UA
+        },
+        timeout: 30000,
+        maxRedirects: 10,
+        maxContentLength: 50 * 1024 * 1024,
+        validateStatus: (status) => status < 600,
+        decompress: true,
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: false,
+          keepAlive: true
+        })
+      });
+      
+      // Se ancora 403, arrenditi
+      if (retryResponse.status === 403) {
+        return res.status(502).json({ 
+          success: false, 
+          error: 'Il sito target ha bloccato la richiesta. Riprova più tardi.',
+          sourceBlocked: true
+        });
+      }
+      
+      // Altrimenti usa la retry response
+      return res.json({ success: true, data: retryResponse.data, headers: retryResponse.headers });
+    }
+    
+    if (response.status >= 400) {
+      console.error(`⚠️ HTTP ${response.status} da ${url}`);
+      return res.status(502).json({ 
+        success: false, 
+        error: `Il sito target ha risposto con errore ${response.status}`
+      });
+    }
     
     res.json({ success: true, data: response.data, headers: response.headers });
   } catch (error) {
+    console.error('❌ Proxy error:', error.message);
+    
+    // Distingui tra errori di rete e errori HTTP
+    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+      return res.status(504).json({ 
+        success: false, 
+        error: 'Impossibile raggiungere il sito target. Server temporaneamente non disponibile.' 
+      });
+    }
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -326,32 +427,89 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
     
     console.log('🖼️ Proxying image:', url);
     
+    // Delay casuale per sembrare umano (solo per prime 5 immagini per non rallentare troppo)
+    const shouldDelay = Math.random() < 0.3; // 30% chance
+    if (shouldDelay) await humanDelay();
+    
     const response = await axios({
       method: 'GET',
       url,
       responseType: 'arraybuffer',
       headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://www.mangaworld.cx/',
-        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8'
+        'User-Agent': getRandomUserAgent(),
+        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        'Accept-Language': 'it-IT,it;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Referer': url.includes('mangaworld') ? 'https://www.mangaworld.cx/' : '',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Sec-Fetch-Dest': 'image',
+        'Sec-Fetch-Mode': 'no-cors',
+        'Sec-Fetch-Site': 'cross-site'
       },
       timeout: 30000,
-      maxRedirects: 5,
-      maxContentLength: 10 * 1024 * 1024, // Max 10MB per immagine
-      validateStatus: (status) => status < 600 // Gestisci anche errori
+      maxRedirects: 10,
+      maxContentLength: 10 * 1024 * 1024,
+      validateStatus: (status) => status < 600,
+      decompress: true,
+      httpsAgent: new https.Agent({
+        rejectUnauthorized: false,
+        keepAlive: true
+      })
     });
+    
+    // Gestisci errori HTTP per immagini
+    if (response.status === 403 || response.status === 404) {
+      console.error(`❌ Immagine non disponibile (${response.status}): ${url}`);
+      // Ritorna placeholder SVG invece di errore
+      const placeholder = Buffer.from(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280" viewBox="0 0 200 280">
+          <rect width="200" height="280" fill="#2D3748"/>
+          <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#A0AEC0" font-family="sans-serif" font-size="14">
+            Immagine non disponibile
+          </text>
+        </svg>`,
+        'utf-8'
+      );
+      return res.set('Content-Type', 'image/svg+xml').send(placeholder);
+    }
+    
+    if (response.status >= 400) {
+      console.error(`⚠️ HTTP ${response.status} per immagine: ${url}`);
+      const placeholder = Buffer.from(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280" viewBox="0 0 200 280">
+          <rect width="200" height="280" fill="#2D3748"/>
+          <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#A0AEC0" font-family="sans-serif" font-size="12">
+            Errore ${response.status}
+          </text>
+        </svg>`,
+        'utf-8'
+      );
+      return res.set('Content-Type', 'image/svg+xml').send(placeholder);
+    }
     
     // Invia l'immagine con gli header appropriati
     res.set({
       'Content-Type': response.headers['content-type'] || 'image/jpeg',
-      'Cache-Control': 'public, max-age=86400', // Cache 24 ore
-      'Access-Control-Allow-Origin': '*'
+      'Cache-Control': 'public, max-age=86400',
+      'Access-Control-Allow-Origin': '*',
+      'X-Content-Type-Options': 'nosniff'
     });
-    
     res.send(response.data);
+    
   } catch (error) {
-    console.error('Image proxy error:', error.message);
-    res.status(500).json({ success: false, error: 'Errore caricamento immagine' });
+    console.error('❌ Image proxy error:', error.message);
+    // Ritorna placeholder anche per errori di rete
+    const placeholder = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280" viewBox="0 0 200 280">
+        <rect width="200" height="280" fill="#2D3748"/>
+        <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#A0AEC0" font-family="sans-serif" font-size="14">
+          Errore caricamento
+        </text>
+      </svg>`,
+      'utf-8'
+    );
+    res.set('Content-Type', 'image/svg+xml').send(placeholder);
   }
 });
 
