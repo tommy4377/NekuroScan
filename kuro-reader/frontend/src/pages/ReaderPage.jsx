@@ -125,9 +125,8 @@ function ReaderPage() {
       // Blocca in landscape per doppia pagina, portrait per singola
       const orientation = readingMode === 'double' ? 'landscape' : 'portrait';
       if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock(orientation).catch(() => {
-          console.log('Orientation lock not supported on this device');
-        });
+        screen.orientation.lock(orientation).catch(() => {});
+
       }
     } else if (screen.orientation && screen.orientation.unlock) {
       screen.orientation.unlock();
@@ -291,7 +290,6 @@ function ReaderPage() {
         }
       } catch (syncError) {
         // Sync fallita ma non critico
-        console.log('Sync failed (offline?):', syncError.message);
       }
     } catch (error) {
       console.error('Error saving progress:', error);
@@ -554,9 +552,6 @@ function ReaderPage() {
           console.error('Errore decodifica:', decodeError);
           throw new Error('Link corrotto o non valido');
         }
-
-        console.log('Caricamento:', { chapterUrl, mangaUrl });
-
         // ========== TENTATIVO 1: CARICA DA OFFLINE STORAGE ==========
         let mangaData = null;
         let chapterData = null;
@@ -568,7 +563,6 @@ function ReaderPage() {
           const offlineChapter = await offlineManager.getChapter(offlineChapterId);
           
           if (offlineChapter && offlineChapter.pages && offlineChapter.pages.length > 0) {
-            console.log('✅ Capitolo trovato offline!');
             
             // getChapter già restituisce blob URLs pronti!
             chapterData = {
@@ -577,22 +571,18 @@ function ReaderPage() {
               url: chapterUrl
             };
             
-            console.log(`✅ Capitolo offline caricato: ${chapterData.pages.length} pagine con blob URLs`);
-            
             // Prova a recuperare anche i dati del manga da cache locale
             const cachedManga = localStorage.getItem(`manga_${mangaUrl}`);
             if (cachedManga) {
               try {
                 mangaData = JSON.parse(cachedManga);
-                console.log('✅ Manga caricato da cache');
               } catch (e) {
-                console.log('Cache manga non valida');
+                // Cache manga non valida
               }
             }
             
             // Se non c'è cache manga ma abbiamo il capitolo, crea un manga fittizio
             if (!mangaData) {
-              console.log('⚠️ Manga non in cache, creo dati minimi per lettura offline');
               
               // Prova a recuperare altri capitoli dello stesso manga da offline storage
               let offlineChapters = [];
@@ -609,7 +599,7 @@ function ReaderPage() {
                   return numA - numB;
                 });
               } catch (err) {
-                console.log('Impossibile recuperare capitoli offline');
+                // Impossibile recuperare capitoli offline
               }
               
               mangaData = {
@@ -622,8 +612,6 @@ function ReaderPage() {
                   isOffline: true
                 }]
               };
-              
-              console.log(`✅ Creato manga fittizio con ${mangaData.chapters.length} capitoli offline`);
             }
             
             fromOffline = true;
@@ -639,7 +627,6 @@ function ReaderPage() {
             });
           }
         } catch (offlineError) {
-          console.log('Offline storage non disponibile o capitolo non scaricato:', offlineError.message);
           setIsOfflineMode(false);
         }
 
@@ -651,7 +638,6 @@ function ReaderPage() {
           }
           
           try {
-            console.log('Caricamento dalla rete...');
             [mangaData, chapterData] = await Promise.all([
               apiManager.getMangaDetails(mangaUrl, source).catch(err => {
                 console.error('Errore caricamento manga:', err);
@@ -668,7 +654,7 @@ function ReaderPage() {
               try {
                 localStorage.setItem(`manga_${mangaUrl}`, JSON.stringify(mangaData));
               } catch (e) {
-                console.log('Impossibile cachare manga');
+                // Impossibile cachare manga
               }
             }
           } catch (err) {
@@ -716,7 +702,6 @@ function ReaderPage() {
         }
         
         const isBlobUrl = validPages[0]?.startsWith('blob:');
-        console.log(`✅ Caricato: ${chapterData.pages.length} pagine ${isBlobUrl ? '(offline - blob URLs)' : '(online)'}`);
 
         
         // SALVA DATI
@@ -745,7 +730,6 @@ function ReaderPage() {
         // RETRY AUTOMATICO
         if (retryCount < MAX_RETRIES && error.message.includes('server')) {
           retryCount++;
-          console.log(`Retry ${retryCount}/${MAX_RETRIES}...`);
           setTimeout(() => {
             if (isMounted) loadData();
           }, 2000 * retryCount);

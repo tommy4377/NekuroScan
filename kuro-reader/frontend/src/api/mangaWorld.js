@@ -83,7 +83,6 @@ export class MangaWorldAPI {
       // RETRY AUTOMATICO
       if (retryCount < MAX_RETRIES && 
           (error.message.includes('server') || error.message.includes('timeout'))) {
-        console.log(`Retry ${retryCount + 1}/${MAX_RETRIES}...`);
         await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
         return this.makeRequest(url, retryCount + 1);
       }
@@ -259,8 +258,6 @@ export class MangaWorldAPI {
         isAdult: false
       };
       
-      console.log(`✅ Manga caricato: ${title} (${chapters.length} capitoli)`);
-      
       return result;
       
     } catch (error) {
@@ -272,7 +269,6 @@ export class MangaWorldAPI {
 
   async getChapterDetail(chapterUrl) {
     try {
-      console.log('🔍 Loading chapter:', chapterUrl);
       
       let url = chapterUrl;
       if (!url.includes('style=list')) {
@@ -288,7 +284,6 @@ export class MangaWorldAPI {
         try {
           const directResponse = await fetch(url);
           html = await directResponse.text();
-          console.log('✅ Direct request succeeded (bypassing proxy)');
         } catch (directError) {
           console.error('❌ Direct request also failed:', directError);
           throw new Error('Impossibile caricare il capitolo. Il server proxy potrebbe essere offline.');
@@ -338,7 +333,6 @@ export class MangaWorldAPI {
             }
           });
           if (pages.length > 0) {
-            console.log(`✅ Found ${pages.length} images using selector: ${sel}`);
             break;
           }
         }
@@ -346,7 +340,6 @@ export class MangaWorldAPI {
 
       // Seconda prova: cerca negli script JavaScript
       if (!pages.length) {
-        console.log('🔍 No images found in DOM, searching in scripts...');
         doc.querySelectorAll('script').forEach(script => {
           const content = script.textContent || '';
           
@@ -379,8 +372,6 @@ export class MangaWorldAPI {
           }
         });
         
-        if (pages.length > 0) {
-          console.log(`✅ Found ${pages.length} images in scripts`);
         }
       }
 
@@ -400,7 +391,6 @@ export class MangaWorldAPI {
         return pageUrl;
       });
       
-      console.log(`✅ Chapter loaded successfully: ${proxiedPages.length} pages`);
       return { 
         url: chapterUrl, 
         pages: proxiedPages, 

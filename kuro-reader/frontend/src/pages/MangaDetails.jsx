@@ -82,8 +82,6 @@ function MangaDetails() {
         throw new Error('Manga non trovato');
       }
       
-      console.log('✅ Manga loaded:', details.title);
-      console.log('✅ Chapters:', details.chapters?.length || 0);
       
       setManga(details);
       addToHistory(details);
@@ -137,7 +135,6 @@ function MangaDetails() {
       history.unshift(historyItem);
       localStorage.setItem('history', JSON.stringify(history.slice(0, 100)));
       
-      console.log('✅ Added to history:', mangaDetails.title);
     } catch (error) {
       console.error('❌ Error adding to history:', error);
     }
@@ -151,7 +148,6 @@ function MangaDetails() {
       const mangaUrl = decodeUrlSafe(id);
       const isFav = favorites.some(f => f.url === mangaUrl);
       setIsFavorite(isFav);
-      console.log('✅ Favorite status:', isFav);
     } catch (error) {
       console.error('❌ Error checking favorite:', error);
     }
@@ -167,16 +163,12 @@ function MangaDetails() {
       
       if (completed.some(m => m.url === mangaUrl)) {
         setCurrentStatus('completed');
-        console.log('✅ Status: Completato');
       } else if (dropped.some(m => m.url === mangaUrl)) {
         setCurrentStatus('dropped');
-        console.log('✅ Status: Droppato');
       } else if (reading.some(m => m.url === mangaUrl)) {
         setCurrentStatus('reading');
-        console.log('✅ Status: In lettura');
       } else {
         setCurrentStatus(null);
-        console.log('✅ Status: Nessuno');
       }
     } catch (error) {
       console.error('❌ Error checking status:', error);
@@ -204,7 +196,6 @@ function MangaDetails() {
           setCompletedChapters(completed);
         }
         
-        console.log('✅ Reading progress loaded:', mangaProgress);
       }
     } catch (error) {
       console.error('❌ Error loading progress:', error);
@@ -226,7 +217,6 @@ function MangaDetails() {
       const notificationSettings = response.data.notificationSettings || [];
       const isEnabled = notificationSettings.some(n => n.mangaUrl === manga.url);
       setNotificationsEnabled(isEnabled);
-      console.log('✅ Notifications enabled:', isEnabled);
     } catch (error) {
       console.error('❌ Error checking notifications:', error);
     }
@@ -271,7 +261,6 @@ function MangaDetails() {
           duration: 2000
         });
         
-        console.log('✅ Removed from favorites');
       } else {
         const mangaToSave = {
           url: manga.url,
@@ -292,7 +281,6 @@ function MangaDetails() {
           duration: 2000
         });
         
-        console.log('✅ Added to favorites');
       }
       
       localStorage.setItem('favorites', JSON.stringify(updated));
@@ -372,7 +360,6 @@ function MangaDetails() {
           duration: 2000
         });
         
-        console.log('✅ Notifications toggled:', newStatus);
       }
     } catch (error) {
       console.error('❌ Error toggling notifications:', error);
@@ -472,7 +459,6 @@ function MangaDetails() {
       
       localStorage.setItem('reading', JSON.stringify(reading.slice(0, 100)));
       
-      console.log('✅ Data saved locally, starting chapter:', chapterIndex + 1);
       
       // ✅ 2. NAVIGATION con React Router
       navigate(`/read/${encodeSource(source)}/${id}/${chapterId}?chapter=${chapterIndex}`);
@@ -562,17 +548,14 @@ function MangaDetails() {
               });
             }
             
-            console.log('✅ Manga marked as completed');
             
           } else if (targetList === 'dropped') {
             newItem.droppedAt = new Date().toISOString();
-            console.log('✅ Manga marked as dropped');
             
           } else if (targetList === 'reading') {
             newItem.lastRead = new Date().toISOString();
             newItem.progress = readingProgress ? 
               Math.round(((readingProgress.chapterIndex + 1) / manga.chapters.length) * 100) : 0;
-            console.log('✅ Manga added to reading list');
           }
           
           targetItems.unshift(newItem);
@@ -585,7 +568,6 @@ function MangaDetails() {
       if (user && syncToServer && typeof syncToServer === 'function') {
         try {
           await syncToServer();
-          console.log('✅ Data synced to server');
         } catch (e) {
           console.error('❌ Sync to server failed:', e);
         }
@@ -631,7 +613,6 @@ function MangaDetails() {
     try {
       if (navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
         await navigator.share(shareData);
-        console.log('✅ Shared via Web Share API');
       } else {
         await navigator.clipboard.writeText(window.location.href);
         toast({
@@ -640,7 +621,6 @@ function MangaDetails() {
           status: 'success',
           duration: 2000
         });
-        console.log('✅ Link copied to clipboard');
       }
     } catch (error) {
       try {
@@ -650,7 +630,6 @@ function MangaDetails() {
           status: 'success',
           duration: 2000
         });
-        console.log('✅ Link copied to clipboard (fallback)');
       } catch (err) {
         console.error('❌ Share error:', err);
       }

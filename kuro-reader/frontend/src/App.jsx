@@ -192,7 +192,6 @@ function AppContent() {
       const isValidRoute = validRoutes.includes(path) || isMangaRoute || isUserRoute;
       
       if (!isValidRoute && path !== '/') {
-        console.log('⚠️ Invalid route detected, redirecting to home');
         // Non fare redirect automatico, lascia che NotFound gestisca
       }
     };
