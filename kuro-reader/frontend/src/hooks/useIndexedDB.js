@@ -77,15 +77,12 @@ export const useMigrateFromLocalStorage = () => {
 
       try {
         setMigrating(true);
-        console.log('🔄 Starting localStorage → IndexedDB migration...');
         
         await dbManager.migrateFromLocalStorage();
         
         // Mark migration as complete
         localStorage.setItem(migrationKey, 'true');
         setMigrated(true);
-        
-        console.log('✅ Migration completed successfully!');
       } catch (err) {
         console.error('❌ Migration failed:', err);
         // Non bloccare l'app se la migrazione fallisce

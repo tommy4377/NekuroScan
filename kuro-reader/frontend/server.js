@@ -10,20 +10,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ DEBUG: Verifica che dist/ esista
 const distPath = path.join(__dirname, 'dist');
-console.log('🔍 Checking dist directory...');
-console.log('📁 Current directory:', __dirname);
-console.log('📁 Dist path:', distPath);
-console.log('✓ Dist exists:', existsSync(distPath));
-
-if (existsSync(distPath)) {
-  const files = readdirSync(distPath);
-  console.log('📄 Files in dist:', files.length, 'files');
-  console.log('📄 First 10 files:', files.slice(0, 10).join(', '));
-} else {
-  console.error('❌ ERROR: dist/ directory not found!');
-  console.error('⚠️  Make sure to run "npm run build" before starting the server');
+if (!existsSync(distPath)) {
+  console.error('ERROR: dist/ directory not found. Run "npm run build" first.');
 }
 
 // Trust proxy per ottenere vero IP client dietro Render/Cloudflare
@@ -125,18 +114,21 @@ app.use((req, res, next) => {
   // HSTS - Force HTTPS (valido 1 anno)
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   
-  // Content Security Policy - PERMISSIVA per debugging
+  // Content Security Policy
   const csp = [
-    "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: http:",
+    "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-    "style-src 'self' 'unsafe-inline' https:",
-    "font-src 'self' https: data:",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https: http:",
-    "connect-src 'self' https: http: ws: wss:",
-    "media-src 'self' blob: data: https: http:",
+    "connect-src 'self' https://kuro-auth-backend.onrender.com https://kuro-proxy-server.onrender.com https://cdn.mangaworld.cx https: http:",
+    "media-src 'self' blob: data:",
     "worker-src 'self' blob:",
     "frame-src 'none'",
-    "object-src 'none'"
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'"
   ].join('; ');
   res.setHeader('Content-Security-Policy', csp);
   

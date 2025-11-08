@@ -18,7 +18,6 @@ export const initSentry = () => {
   const isProd = import.meta.env.PROD;
   
   if (!dsn || !isProd) {
-    console.log('📊 Sentry: Disabled (no DSN or not in production)');
     return false;
   }
   
@@ -99,9 +98,8 @@ export const initSentry = () => {
       });
       
       isInitialized = true;
-      console.log('📊 Sentry: Initialized successfully');
     }).catch(err => {
-      console.warn('📊 Sentry: Failed to initialize', err.message);
+      console.warn('Sentry: Failed to initialize', err.message);
     });
     
     return true;
@@ -126,7 +124,6 @@ export const captureError = (error, context = {}) => {
 // Helper per catturare messaggi custom
 export const captureMessage = (message, level = 'info', context = {}) => {
   if (!isInitialized || !Sentry) {
-    console.log(`Message (Sentry not available) [${level}]:`, message, context);
     return;
   }
   

@@ -81,7 +81,6 @@ function Home() {
       clearTimeout(timeout);
       
       if (response.ok) {
-        console.log('✅ Proxy raggiungibile');
         setIsOffline(false);
         return false;
       }
@@ -148,7 +147,6 @@ function Home() {
     }
     
     // Se arriviamo qui, siamo online
-    console.log('✅ Modalità online');
     setIsOffline(false);
     
     try {
@@ -228,7 +226,7 @@ function Home() {
         const downloads = await offlineManager.getAllDownloaded();
         setDownloadedCount(downloads.length);
       } catch (err) {
-        console.log('Offline manager not available');
+        // Offline manager not available
       }
     };
     

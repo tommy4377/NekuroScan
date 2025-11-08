@@ -180,7 +180,6 @@ function AppContent() {
   useEffect(() => {
     const handleDirectUrl = () => {
       const path = window.location.pathname;
-      console.log('🔍 Current path:', path);
       
       // Se siamo su una route valida, non fare nulla
       const validRoutes = [

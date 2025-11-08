@@ -25,7 +25,7 @@ export default defineConfig({
     }),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: false, // Disabilita auto-register per debugging
+      injectRegister: null,
       includeAssets: [
         'favicon.ico',
         'favicon.svg', 
@@ -116,25 +116,24 @@ export default defineConfig({
         type: 'module'
       }
     }),
-    // Compressione disabilitata per debugging
-    // viteCompression({
-    //   verbose: false,
-    //   disable: false,
-    //   threshold: 10240,
-    //   algorithm: 'brotliCompress',
-    //   ext: '.br',
-    //   deleteOriginFile: false,
-    //   filter: /\.(js|css|json|html)$/i
-    // }),
-    // viteCompression({
-    //   verbose: false,
-    //   disable: false,
-    //   threshold: 10240,
-    //   algorithm: 'gzip',
-    //   ext: '.gz',
-    //   deleteOriginFile: false,
-    //   filter: /\.(js|css|json|html)$/i
-    // }),
+    viteCompression({
+      verbose: false,
+      disable: false,
+      threshold: 10240,
+      algorithm: 'brotliCompress',
+      ext: '.br',
+      deleteOriginFile: false,
+      filter: /\.(js|css|json|html)$/i
+    }),
+    viteCompression({
+      verbose: false,
+      disable: false,
+      threshold: 10240,
+      algorithm: 'gzip',
+      ext: '.gz',
+      deleteOriginFile: false,
+      filter: /\.(js|css|json|html)$/i
+    }),
     // ✅ PERFORMANCE: Ottimizzazione immagini automatica (opzionale per evitare errori build)
     ...(process.env.SKIP_IMAGE_OPTIMIZATION !== 'true' ? [viteImagemin({
       gifsicle: {
@@ -181,12 +180,18 @@ export default defineConfig({
     }
   },
   build: {
-    sourcemap: true, // Abilita sourcemap per debugging
+    sourcemap: false,
     target: 'es2020',
-    minify: 'esbuild', // Usa esbuild (più affidabile di terser)
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: (id) => {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) {
+            return 'react';
+          }
+          if (id.includes('@chakra-ui') || id.includes('@emotion')) {
+            return 'chakra';
+          }
           if (id.includes('node_modules')) {
             return 'vendor';
           }
