@@ -998,55 +998,55 @@ function ReaderPage() {
             )}
 
             <HStack>
-          <IconButton
-            icon={isBookmarked ? <FaBookmark /> : <FaRegBookmark />}
-            onClick={(e) => { e.stopPropagation(); toggleBookmark(); }}
-            aria-label="Segnalibro"
-            variant="ghost"
-            color={isBookmarked ? "yellow.400" : "white"}
-            size="sm"
-          />
-          <IconButton
-            icon={hasNote ? <FaStickyNote /> : <FaRegStickyNote />}
-            onClick={(e) => { e.stopPropagation(); setShowNoteModal(true); }}
-            aria-label="Note"
-            variant="ghost"
-            color={hasNote ? "green.400" : "white"}
-            size="sm"
-          />
-          <IconButton
-            icon={<FaCog />}
-            onClick={(e) => { e.stopPropagation(); setSettingsOpen(true); }}
-            aria-label="Impostazioni"
+              <IconButton
+                icon={isBookmarked ? <FaBookmark /> : <FaRegBookmark />}
+                onClick={(e) => { e.stopPropagation(); toggleBookmark(); }}
+                aria-label="Segnalibro"
                 variant="ghost"
-            color="white"
+                color={isBookmarked ? "yellow.400" : "white"}
                 size="sm"
-          />
-          <IconButton
-            icon={isFullscreen ? <MdFullscreenExit /> : <MdFullscreen />}
-            onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-            aria-label="Schermo intero"
-            variant="ghost"
-            color="white"
-            size="sm"
-            display={{ base: 'none', md: 'flex' }}
-          />
-          <IconButton
-            icon={<FaTimes />}
-            onClick={(e) => {
-              e.stopPropagation();
-              saveProgress();
-              navigate(`/manga/${encodeSource(source)}/${mangaId}`);
-            }}
-            aria-label="Chiudi"
-            variant="solid"
-            colorScheme="red"
-            color="white"
-            size="sm"
-            _hover={{ bg: 'red.600' }}
-          />
-        </HStack>
-      </HStack>
+              />
+              <IconButton
+                icon={hasNote ? <FaStickyNote /> : <FaRegStickyNote />}
+                onClick={(e) => { e.stopPropagation(); setShowNoteModal(true); }}
+                aria-label="Note"
+                variant="ghost"
+                color={hasNote ? "green.400" : "white"}
+                size="sm"
+              />
+              <IconButton
+                icon={<FaCog />}
+                onClick={(e) => { e.stopPropagation(); setSettingsOpen(true); }}
+                aria-label="Impostazioni"
+                variant="ghost"
+                color="white"
+                size="sm"
+              />
+              <IconButton
+                icon={isFullscreen ? <MdFullscreenExit /> : <MdFullscreen />}
+                onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+                aria-label="Schermo intero"
+                variant="ghost"
+                color="white"
+                size="sm"
+                display={{ base: 'none', md: 'flex' }}
+              />
+              <IconButton
+                icon={<FaTimes />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  saveProgress();
+                  navigate(`/manga/${encodeSource(source)}/${mangaId}`);
+                }}
+                aria-label="Chiudi"
+                variant="solid"
+                colorScheme="red"
+                color="white"
+                size="sm"
+                _hover={{ bg: 'red.600' }}
+              />
+            </HStack>
+          </HStack>
         </Box>
       )}
 
