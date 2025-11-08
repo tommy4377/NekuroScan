@@ -983,18 +983,19 @@ function ReaderPage() {
                   color="white"
                   size="sm"
                 />
-              {readingMode === 'webtoon' && (
-                <IconButton
-                  icon={autoScroll ? <FaPause /> : <FaPlay />}
-                  onClick={(e) => { e.stopPropagation(); setAutoScroll(!autoScroll); }}
-                  aria-label={autoScroll ? "Pausa auto-scroll" : "Avvia auto-scroll"}
-                  variant={autoScroll ? "solid" : "ghost"}
-                  colorScheme={autoScroll ? "green" : "gray"}
-                  color="white"
-                  size="sm"
-                />
-              )}
-            </HStack>
+                {readingMode === 'webtoon' && (
+                  <IconButton
+                    icon={autoScroll ? <FaPause /> : <FaPlay />}
+                    onClick={(e) => { e.stopPropagation(); setAutoScroll(!autoScroll); }}
+                    aria-label={autoScroll ? "Pausa auto-scroll" : "Avvia auto-scroll"}
+                    variant={autoScroll ? "solid" : "ghost"}
+                    colorScheme={autoScroll ? "green" : "gray"}
+                    color="white"
+                    size="sm"
+                  />
+                )}
+              </HStack>
+            )}
 
             <HStack>
           <IconButton
