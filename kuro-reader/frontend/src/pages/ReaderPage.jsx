@@ -48,7 +48,6 @@ function ReaderPage() {
   const [imageScale, setImageScale] = useState(() => parseInt(localStorage.getItem('imageScale') || '100'));
   const [brightness, setBrightness] = useState(() => parseInt(localStorage.getItem('brightness') || '100'));
   const [showControls, setShowControls] = useState(true);
-  const [autoNextChapter, setAutoNextChapter] = useState(() => localStorage.getItem('autoNextChapter') === 'true');
   const [autoScroll, setAutoScroll] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(() => parseInt(localStorage.getItem('scrollSpeed') || '2'));
   const [bookmarks, setBookmarks] = useState([]);
@@ -113,9 +112,6 @@ function ReaderPage() {
     localStorage.setItem('brightness', brightness.toString());
   }, [brightness]);
   
-  useEffect(() => {
-    localStorage.setItem('autoNextChapter', autoNextChapter.toString());
-  }, [autoNextChapter]);
   
   useEffect(() => {
     localStorage.setItem('scrollSpeed', scrollSpeed.toString());
@@ -358,15 +354,11 @@ function ReaderPage() {
     try {
       if (newPage >= 0 && newPage < totalPages) {
         setCurrentPage(newPage);
-      } else if (newPage >= totalPages && autoNextChapter && manga?.chapters && Array.isArray(manga.chapters) && chapterIndex < manga.chapters.length - 1) {
-        navigateChapter(1);
-      } else if (newPage < 0 && autoNextChapter && chapterIndex > 0) {
-        navigateChapter(-1);
       }
     } catch (error) {
       console.error('Error changing page:', error);
     }
-  }, [currentPage, totalPages, autoNextChapter, navigateChapter, manga, chapterIndex, chapter]);
+  }, [currentPage, totalPages, navigateChapter, manga, chapterIndex, chapter]);
 
   // ✅ WRAP toggleFullscreen in useCallback per evitare React error #300
   const toggleFullscreen = React.useCallback(() => {
@@ -383,6 +375,22 @@ function ReaderPage() {
   const handleKeyPress = useCallback((e) => {
     if (readingMode === 'webtoon') return; // Webtoon usa scroll nativo
     
+    // ✅ CRITICAL FIX: Disabilita hotkeys se utente sta digitando o modal aperto
+    const isTyping = e.target.tagName === 'INPUT' || 
+                     e.target.tagName === 'TEXTAREA' || 
+                     e.target.isContentEditable;
+    const isModalOpen = showNoteModal || settingsOpen;
+    
+    if (isTyping || isModalOpen) {
+      // Solo ESC funziona per chiudere
+      if (e.key === 'Escape' && (showNoteModal || settingsOpen)) {
+        e.preventDefault();
+        setShowNoteModal(false);
+        setSettingsOpen(false);
+      }
+      return;
+    }
+    
     if (e.key === 'Escape') {
       if (isFullscreen) {
         toggleFullscreen();
@@ -396,8 +404,6 @@ function ReaderPage() {
       const newPage = currentPage - step;
       if (newPage >= 0) {
         setCurrentPage(newPage);
-      } else if (autoNextChapter && chapterIndex > 0) {
-        navigateChapter(-1);
       }
     } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
       e.preventDefault();
@@ -405,18 +411,14 @@ function ReaderPage() {
       const newPage = currentPage + step;
       if (newPage < totalPages) {
         setCurrentPage(newPage);
-      } else if (autoNextChapter && manga?.chapters && chapterIndex < manga.chapters.length - 1) {
-        navigateChapter(1);
       }
     } else if (e.key === ' ') {
       e.preventDefault();
       if (currentPage < totalPages - 1) {
         setCurrentPage(currentPage + 1);
-      } else if (autoNextChapter && manga?.chapters && chapterIndex < manga.chapters.length - 1) {
-        navigateChapter(1);
       }
     }
-  }, [isFullscreen, toggleFullscreen, saveProgress, navigate, source, mangaId, navigateChapter, currentPage, chapterIndex, readingMode, totalPages, autoNextChapter, manga]);
+  }, [isFullscreen, toggleFullscreen, saveProgress, navigate, source, mangaId, navigateChapter, currentPage, chapterIndex, readingMode, totalPages, manga, showNoteModal, settingsOpen]);
 
   // ✅ WRAP handlePageClick in useCallback per evitare React error #300
   const handlePageClick = useCallback((e) => {
@@ -432,8 +434,6 @@ function ReaderPage() {
       const newPage = currentPage - step;
       if (newPage >= 0) {
         setCurrentPage(newPage);
-      } else if (autoNextChapter && chapterIndex > 0) {
-        navigateChapter(-1);
       }
     } 
     // Click destra = pagina successiva
@@ -441,11 +441,9 @@ function ReaderPage() {
       const newPage = currentPage + step;
       if (newPage < totalPages) {
         setCurrentPage(newPage);
-      } else if (autoNextChapter && manga?.chapters && chapterIndex < manga.chapters.length - 1) {
-        navigateChapter(1);
       }
     }
-  }, [chapter, currentPage, chapterIndex, navigateChapter, readingMode, totalPages, autoNextChapter, manga]);
+  }, [chapter, currentPage, chapterIndex, navigateChapter, readingMode, totalPages, manga]);
 
   // ✅ Touch Gestures
   const handleTouchStart = useCallback((e) => {
@@ -494,8 +492,6 @@ function ReaderPage() {
         const newPage = currentPage - step;
         if (newPage >= 0) {
           setCurrentPage(newPage);
-        } else if (autoNextChapter && chapterIndex > 0) {
-          navigateChapter(-1);
         }
       } else {
         // Swipe left = next page
@@ -503,12 +499,10 @@ function ReaderPage() {
         const newPage = currentPage + step;
         if (newPage < totalPages) {
           setCurrentPage(newPage);
-        } else if (autoNextChapter && manga?.chapters && chapterIndex < manga.chapters.length - 1) {
-          navigateChapter(1);
         }
       }
     }
-  }, [chapter, readingMode, imageScale, setImageScale, currentPage, totalPages, autoNextChapter, chapterIndex, manga, navigateChapter]);
+  }, [chapter, readingMode, imageScale, setImageScale, currentPage, totalPages, chapterIndex, manga, navigateChapter]);
 
   // ========== EFFECTS ==========
   
@@ -866,7 +860,7 @@ function ReaderPage() {
         
         // Check se siamo alla fine
         const isAtBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop <= scrollContainer.clientHeight + 100;
-        if (isAtBottom && autoNextChapter) {
+        if (isAtBottom) {
           setAutoScroll(false);
           setTimeout(() => {
             navigateChapter(1);
@@ -881,7 +875,7 @@ function ReaderPage() {
         autoScrollInterval.current = null;
       }
     };
-  }, [autoScroll, readingMode, scrollSpeed, autoNextChapter, navigateChapter]);
+  }, [autoScroll, readingMode, scrollSpeed, navigateChapter]);
 
   // Salva progresso con debounce
   useEffect(() => {
@@ -1433,24 +1427,6 @@ function ReaderPage() {
                   <Text fontSize="xs" color="gray.500">150%</Text>
                 </HStack>
               </FormControl>
-
-              <Divider />
-
-              {/* Auto Next Chapter */}
-              <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                <FormLabel htmlFor="auto-next" mb={0} fontWeight="bold">
-                  ⏭️ Capitolo automatico
-                </FormLabel>
-                <Switch
-                  id="auto-next"
-                  colorScheme="purple"
-                  isChecked={autoNextChapter}
-                  onChange={(e) => setAutoNextChapter(e.target.checked)}
-                />
-              </FormControl>
-              <Text fontSize="xs" color="gray.400" mt={-3}>
-                Passa automaticamente al capitolo successivo alla fine
-              </Text>
 
               {/* Auto Scroll per Webtoon */}
               {readingMode === 'webtoon' && (

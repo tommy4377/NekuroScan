@@ -6,6 +6,9 @@ import * as cheerio from 'cheerio';
 const app = express();
 const PORT = process.env.PORT || 10001;
 
+// Trust proxy per ottenere vero IP client
+app.set('trust proxy', true);
+
 app.use(cors({
   origin: [
     'https://nekuroscan.onrender.com',
@@ -71,7 +74,11 @@ const INTERNAL_IPS = ['::1', '127.0.0.1', 'localhost', '::ffff:127.0.0.1'];
 // Rate limiter avanzato multi-livello
 const advancedRateLimiter = (limitType = 'global') => {
   return (req, res, next) => {
-    const ip = req.ip || req.connection.remoteAddress;
+    // Ottieni vero IP client (supporta X-Forwarded-For, X-Real-IP)
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+               req.headers['x-real-ip'] || 
+               req.ip || 
+               req.connection.remoteAddress;
     const now = Date.now();
     
     // Skip rate limiting per IP interni (health checks, localhost)
