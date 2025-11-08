@@ -185,17 +185,7 @@ export default defineConfig({
     minify: 'esbuild',
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) {
-            return 'react';
-          }
-          if (id.includes('@chakra-ui') || id.includes('@emotion')) {
-            return 'chakra';
-          }
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
-        }
+        manualChunks: undefined
       }
     },
     // ✅ PERFORMANCE: Dimensioni chunk ottimali
