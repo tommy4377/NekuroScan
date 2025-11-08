@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 import {
   Box,
   Container,
@@ -47,9 +48,18 @@ const Welcome = React.memo(() => {
   ];
 
   return (
-    <Box 
-      position="fixed"
-      top={{ base: "60px", md: 0 }}
+    <>
+      <Helmet>
+        <title>Benvenuto - NeKuro Scan | Lettore Manga Online Gratuito</title>
+        <meta name="description" content="Benvenuto su NeKuro Scan - Il miglior lettore di manga online gratuito. Esplora migliaia di titoli, salva i tuoi preferiti e leggi offline." />
+        <link rel="canonical" href="https://nekuroscan.onrender.com/" />
+        <meta property="og:title" content="NeKuro Scan - Lettore Manga Online Gratuito" />
+        <meta property="og:description" content="Leggi manga gratuitamente con il miglior lettore online" />
+        <meta property="og:url" content="https://nekuroscan.onrender.com/" />
+      </Helmet>
+      <Box 
+        position="fixed"
+        top={{ base: "60px", md: 0 }}
       left={0}
       right={0}
       bottom={0}
@@ -228,6 +238,7 @@ const Welcome = React.memo(() => {
         </VStack>
       </Container>
     </Box>
+    </>
   );
 });
 

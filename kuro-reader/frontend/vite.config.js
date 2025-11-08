@@ -37,7 +37,10 @@ export default defineConfig({
         'web-app-manifest-512x512.png',
         'apple-touch-icon.png',
         'apple-touch-icon.webp',
-        'site.webmanifest'
+        'site.webmanifest',
+        'robots.txt',
+        'sitemap.xml',
+        'offline.html'
       ],
       manifest: {
         name: 'NeKuro Scan - Manga Reader',

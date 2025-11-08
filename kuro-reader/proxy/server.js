@@ -3,7 +3,7 @@ import cors from 'cors';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import https from 'https';
-import sharp from 'sharp';
+// import sharp from 'sharp'; // DISABILITATO: Causava timeout e rallentamenti severi
 
 // Configure axios defaults
 axios.defaults.maxRedirects = 10;
@@ -46,12 +46,12 @@ const suspiciousActivity = new Map();
 const requestTiming = new Map(); // Per rilevare burst rapidi
 const ipFirstSeen = new Map(); // Track prima richiesta IP (grace period)
 
-// Rate limiting più permissivo - solo anti-bot aggressivi
+// Rate limiting MOLTO permissivo per immagini (bottleneck principale)
 const RATE_LIMITS = {
-  global: { window: 60000, max: 300 }, // 300 req/min = 5 req/sec
-  proxy: { window: 60000, max: 180 },  // 180 proxy req/min = 3 req/sec
-  image: { window: 60000, max: 240 },  // 240 immagini/min = 4 req/sec
-  burst: { window: 1000, max: 15 }     // Max 15 req/sec (solo veri bot)
+  global: { window: 60000, max: 600 }, // 600 req/min = 10 req/sec
+  proxy: { window: 60000, max: 300 },  // 300 proxy req/min = 5 req/sec
+  image: { window: 60000, max: 600 },  // 600 immagini/min = 10 req/sec (AUMENTATO 2.5x)
+  burst: { window: 1000, max: 30 }     // Max 30 req/sec burst
 };
 
 // Blacklist IP per abusi
@@ -432,58 +432,14 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
       return res.set('Content-Type', 'image/svg+xml').send(placeholder);
     }
     
-    // ✅ OPTIMIZATION: Sharp compression OPZIONALE (solo se richiesto con ?optimize=true)
-    // DISABILITATO di default perché troppo lento (timeout issues)
-    const shouldOptimize = req.query.optimize === 'true';
-    const contentType = response.headers['content-type'] || '';
-    const isImage = contentType.startsWith('image/') && !contentType.includes('svg');
-    
-    // Sharp SOLO se esplicitamente richiesto E immagine grande (>500KB)
-    if (shouldOptimize && isImage && response.data.length > 500 * 1024) {
-      try {
-        const width = parseInt(req.query.w) || null;
-        const height = parseInt(req.query.h) || null;
-        const quality = parseInt(req.query.q) || 85;
-        
-        let sharpInstance = sharp(response.data, { 
-          failOnError: false, // Non fallire su immagini corrotte
-          limitInputPixels: 268402689 // Max 16K pixels
-        });
-        
-        if (width || height) {
-          sharpInstance = sharpInstance.resize(width, height, {
-            fit: 'inside',
-            withoutEnlargement: true,
-            kernel: 'lanczos3' // Veloce
-          });
-        }
-        
-        // WebP con effort basso per velocità
-        const optimizedImage = await sharpInstance
-          .webp({ quality, effort: 1, smartSubsample: true }) // Effort 1 = VELOCE
-          .timeout({ seconds: 5 }) // Max 5s per Sharp
-          .toBuffer();
-        
-        res.set({
-          'Content-Type': 'image/webp',
-          'Cache-Control': 'public, max-age=2592000, immutable',
-          'Access-Control-Allow-Origin': '*',
-          'X-Content-Type-Options': 'nosniff',
-          'X-Image-Optimized': 'true'
-        });
-        
-        return res.send(optimizedImage);
-      } catch (sharpError) {
-        // Fallback silente a immagine originale
-      }
-    }
-    
-    // DEFAULT: Serve immagine originale SENZA processing (veloce)
+    // Serve immagine originale SENZA processing (massima velocità)
+    // Sharp compression RIMOSSA per evitare timeout critici
     res.set({
       'Content-Type': response.headers['content-type'] || 'image/jpeg',
-      'Cache-Control': 'public, max-age=2592000, immutable', // Cache lunga
+      'Cache-Control': 'public, max-age=2592000, immutable', // Cache lunga: 30 giorni
       'Access-Control-Allow-Origin': '*',
-      'X-Content-Type-Options': 'nosniff'
+      'X-Content-Type-Options': 'nosniff',
+      'X-Proxy-Pass': 'true' // Indica che è passata tramite proxy
     });
     res.send(response.data);
     

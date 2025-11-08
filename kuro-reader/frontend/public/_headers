@@ -46,6 +46,17 @@
 /manifest.json
   Cache-Control: public, max-age=604800
 
+# SEO files - cache breve per aggiornamenti frequenti
+/sitemap.xml
+  Cache-Control: public, max-age=3600
+  
+/robots.txt
+  Cache-Control: public, max-age=86400
+
+# Offline page - cache media
+/offline.html
+  Cache-Control: public, max-age=604800
+
 # Tutti gli altri static assets
 /*
   Cache-Control: public, max-age=3600

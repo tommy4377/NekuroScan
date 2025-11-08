@@ -178,7 +178,7 @@ function Home() {
             ? result.value 
             : result.value?.results || [];
           
-          return data.slice(0, 15).map(item => ({
+          return data.slice(0, 8).map(item => ({ // RIDOTTO: 15 → 8 per evitare overload
             ...item,
             latestChapter: cleanChapterNumber(item.latestChapter)
           }));
@@ -188,7 +188,7 @@ function Home() {
       
       // Continua a leggere
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
-      const readingWithProgress = reading.slice(0, 10).map(item => ({
+      const readingWithProgress = reading.slice(0, 6).map(item => ({ // RIDOTTO: 10 → 6
         ...item,
         continueFrom: item.lastChapterIndex ? `Cap. ${item.lastChapterIndex + 1}` : null
       }));
