@@ -211,18 +211,40 @@ export default defineConfig({
         preamble: '/* NeKuro Scan - Optimized Build */'
       }
     },
-    // ✅ PERFORMANCE: Chunking semplificato e sicuro
+    // ✅ PERFORMANCE: Chunking ottimizzato per tree shaking
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-core': ['react', 'react-dom', 'react-router-dom'],
-          'chakra': ['@chakra-ui/react', '@chakra-ui/icons', '@emotion/react', '@emotion/styled'],
-          'utils': ['axios', 'zustand', 'lodash.debounce']
+        manualChunks: (id) => {
+          // React core libs
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) {
+            return 'react-core';
+          }
+          // Chakra UI - split in chunks più piccoli
+          if (id.includes('@chakra-ui')) {
+            return 'chakra';
+          }
+          if (id.includes('@emotion')) {
+            return 'emotion';
+          }
+          // Utilities
+          if (id.includes('axios') || id.includes('zustand')) {
+            return 'utils';
+          }
+          // Lazy loaded pages stay separate
+          if (id.includes('/pages/') && !id.includes('Welcome') && !id.includes('Home') && !id.includes('Login')) {
+            return 'pages-lazy';
+          }
         },
         // ✅ PERFORMANCE: Nomi file con hash per cache busting
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
         assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
+      },
+      // Tree shaking aggressive
+      treeshake: {
+        moduleSideEffects: false,
+        propertyReadSideEffects: false,
+        tryCatchDeoptimization: false
       }
     },
     // ✅ PERFORMANCE: Dimensioni chunk ottimali

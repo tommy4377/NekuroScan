@@ -9,6 +9,8 @@
   <meta name="keywords" content="manga, manhwa, manhua, lettore manga, manga online, light novel" />
   <meta name="author" content="NeKuro Scan Team" />
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="rating" content="general" />
+  <meta name="audience" content="all" />
   
   <!-- Google Search Console Verification -->
   <meta name="google-site-verification" content="eXUGA8f0fYhcYwlfIJiPCMyHYLwRnushERDBGXU2JWY" />
@@ -41,11 +43,14 @@
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "NeKuro Scan",
+    "alternateName": "NeKuro Manga Reader",
     "url": "https://nekuroscan.onrender.com",
     "description": "Lettore di manga, manhwa e light novel online gratuito con funzionalità avanzate e modalità offline",
     "applicationCategory": "Entertainment",
     "operatingSystem": "Any",
     "browserRequirements": "Requires JavaScript. Requires HTML5.",
+    "contentRating": "General Audience",
+    "inLanguage": "it-IT",
     "offers": {
       "@type": "Offer",
       "price": "0",
@@ -65,7 +70,17 @@
       "Liste personalizzate",
       "Notifiche nuovi capitoli",
       "PWA installabile"
-    ]
+    ],
+    "publisher": {
+      "@type": "Organization",
+      "name": "NeKuro Scan Team",
+      "url": "https://nekuroscan.onrender.com"
+    },
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://nekuroscan.onrender.com/categories?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
   }
   </script>
   
@@ -75,9 +90,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="NeKuro Scan">
   
-  <!-- Icons -->
-  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <!-- Icons - Multiple formats for better compatibility -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/web-app-manifest-192x192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/web-app-manifest-512x512.png" />
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   
   <!-- Manifest -->
   <link rel="manifest" href="/manifest.json" />
@@ -87,8 +106,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://kuro-auth-backend.onrender.com">
   <link rel="preconnect" href="https://kuro-proxy-server.onrender.com">
+  <link rel="preconnect" href="https://cdn.mangaworld.cx">
   <link rel="dns-prefetch" href="https://kuro-auth-backend.onrender.com">
   <link rel="dns-prefetch" href="https://kuro-proxy-server.onrender.com">
+  <link rel="dns-prefetch" href="https://cdn.mangaworld.cx">
   
   <!-- ✅ PERFORMANCE: Font preload + async per eliminare render-blocking -->
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -155,14 +176,15 @@
       appearance: none;
     }
     
-    /* GPU acceleration ottimizzato - will-change solo su hover */
+    /* GPU acceleration ottimizzato - Composited animations */
     .manga-card {
       backface-visibility: hidden;
-      transform: translateZ(0);
+      transform: translate3d(0, 0, 0);
     }
     
-    .manga-card:hover, [data-hover]:hover {
-      will-change: transform; /* Solo quando serve */
+    .manga-card:hover {
+      transform: translate3d(0, -4px, 0);
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
     /* Skeleton animation */

@@ -179,10 +179,11 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
             ...style,
             opacity: (loading && !isBlobUrl) ? 0 : 1,
             transition: 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            willChange: 'opacity'
+            transform: 'translate3d(0, 0, 0)'
           }}
           loading={isBlobUrl ? "eager" : "lazy"}
           decoding="async"
+          fetchpriority={props.priority ? "high" : "auto"}
           w="100%"
           h="100%"
         />

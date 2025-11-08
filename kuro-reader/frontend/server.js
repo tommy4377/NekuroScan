@@ -108,14 +108,18 @@ app.use((req, res, next) => {
   // HSTS - Force HTTPS (valido 1 anno)
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   
-  // Content Security Policy - Protezione XSS
+  // Content Security Policy - Protezione XSS (PRODUCTION READY - No unsafe-inline)
+  const isDev = process.env.NODE_ENV === 'development';
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // unsafe-eval necessario per React dev, unsafe-inline per Chakra UI
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    // Script: unsafe-eval solo in dev, unsafe-inline RIMOSSO per sicurezza
+    isDev 
+      ? "script-src 'self' 'unsafe-eval'" 
+      : "script-src 'self'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // unsafe-inline necessario per Chakra UI
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https: http:",
-    "connect-src 'self' https://kuro-auth-backend.onrender.com https://kuro-proxy-server.onrender.com https: http:",
+    "connect-src 'self' https://kuro-auth-backend.onrender.com https://kuro-proxy-server.onrender.com https://cdn.mangaworld.cx https: http:",
     "media-src 'self' blob: data:",
     "worker-src 'self' blob:",
     "frame-src 'none'",
@@ -124,7 +128,7 @@ app.use((req, res, next) => {
     "form-action 'self'",
     "frame-ancestors 'none'",
     "upgrade-insecure-requests"
-  ].join('; ');
+  ].filter(Boolean).join('; ');
   res.setHeader('Content-Security-Policy', csp);
   
   // Security headers
@@ -133,6 +137,9 @@ app.use((req, res, next) => {
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  
+  // X-Robots-Tag - Whitelist tutti i crawler tranne Google-Extended (AI training)
+  res.setHeader('X-Robots-Tag', 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1, noai, noimageai');
   
   // Cache per file statici
   if (req.path.match(/\.(js|css|png|jpg|jpeg|gif|webp|svg|woff|woff2|ttf|eot|ico)$/)) {

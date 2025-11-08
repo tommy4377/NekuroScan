@@ -672,11 +672,13 @@ function Home() {
             >
               <Tab 
                 aria-label="Aggiornamenti - Ultimi capitoli pubblicati"
+                color="gray.200"
                 _selected={{ 
                   bg: 'blue.500', 
                   color: 'white',
                   boxShadow: 'md'
                 }}
+                _hover={{ color: 'white' }}
               >
                 <HStack spacing={2}>
                   <FaClock />
@@ -685,11 +687,13 @@ function Home() {
               </Tab>
               <Tab
                 aria-label="Trending - Manga di tendenza più popolari"
+                color="gray.200"
                 _selected={{ 
                   bg: 'orange.500', 
                   color: 'white',
                   boxShadow: 'md'
                 }}
+                _hover={{ color: 'white' }}
               >
                 <HStack spacing={2}>
                   <FaFire />
@@ -698,11 +702,13 @@ function Home() {
               </Tab>
               <Tab
                 aria-label="Top Series - Classifiche migliori manga"
+                color="gray.200"
                 _selected={{ 
                   bg: 'teal.500', 
                   color: 'white',
                   boxShadow: 'md'
                 }}
+                _hover={{ color: 'white' }}
               >
                 <HStack spacing={2}>
                   <FaTrophy />
