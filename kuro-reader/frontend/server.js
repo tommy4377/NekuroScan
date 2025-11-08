@@ -108,32 +108,27 @@ app.use((req, res, next) => {
   // HSTS - Force HTTPS (valido 1 anno)
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   
-  // Content Security Policy - Bilanciato tra sicurezza e funzionalità
-  const isDev = process.env.NODE_ENV === 'development';
-  
-  // Script policy separata per evitare duplicati
-  const scriptSrc = isDev 
-    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'" 
-    : "script-src 'self' 'unsafe-inline'";
-  
+  // Content Security Policy - Permissivo per compatibilità Vite/React
   const csp = [
     "default-src 'self'",
-    scriptSrc,
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https: http:",
-    "connect-src 'self' https://kuro-auth-backend.onrender.com https://kuro-proxy-server.onrender.com https://cdn.mangaworld.cx https: http:",
+    "connect-src 'self' https://kuro-auth-backend.onrender.com https://kuro-proxy-server.onrender.com https://cdn.mangaworld.cx https: http: ws: wss:",
     "media-src 'self' blob: data:",
     "worker-src 'self' blob:",
-    "frame-src 'none'",
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-    "upgrade-insecure-requests"
+    "form-action 'self'"
   ].join('; ');
   
-  res.setHeader('Content-Security-Policy', csp);
+  // Solo in production, CSP più restrittivo causa problemi - usa report-only
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Content-Security-Policy-Report-Only', csp);
+  } else {
+    res.setHeader('Content-Security-Policy', csp);
+  }
   
   // Security headers
   res.setHeader('X-Frame-Options', 'DENY');
