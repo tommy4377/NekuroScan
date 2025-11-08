@@ -93,11 +93,14 @@
       appearance: none;
     }
     
-    /* GPU acceleration */
-    .manga-card, [data-hover] {
-      will-change: transform;
+    /* GPU acceleration ottimizzato - will-change solo su hover */
+    .manga-card {
       backface-visibility: hidden;
       transform: translateZ(0);
+    }
+    
+    .manga-card:hover, [data-hover]:hover {
+      will-change: transform; /* Solo quando serve */
     }
     
     /* Skeleton animation */

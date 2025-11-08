@@ -1,14 +1,13 @@
-# HTML - no cache
+# 
+# Security headers sono gestiti dinamicamente da server.js per evitare duplicati
+# Questo file mantiene solo configurazioni cache per assets statici
+#
+
+# HTML - No cache
 /index.html
   Cache-Control: no-cache, no-store, must-revalidate
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https: http:; connect-src 'self' https://kuro-auth-backend.onrender.com https://kuro-proxy-server.onrender.com https://cdn.mangaworld.cx https://www.mangaworld.bz https://www.mangaworldadult.net; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';
-  X-Frame-Options: DENY
-  X-Content-Type-Options: nosniff
-  X-XSS-Protection: 1; mode=block
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: geolocation=(), microphone=(), camera=()
 
-# Service Worker - no cache
+# Service Worker - No cache
 /sw.js
   Cache-Control: no-cache, no-store, must-revalidate
   
@@ -18,12 +17,10 @@
 # JavaScript - cache 1 anno con hash
 /assets/js/*
   Cache-Control: public, max-age=31536000, immutable
-  Content-Type: application/javascript
   
 # CSS - cache 1 anno con hash
 /assets/css/*
   Cache-Control: public, max-age=31536000, immutable
-  Content-Type: text/css
 
 # Immagini - cache 1 anno
 /assets/img/*
@@ -35,6 +32,9 @@
   
 # Icone e manifest - cache 1 settimana
 /*.png
+  Cache-Control: public, max-age=604800
+  
+/*.webp
   Cache-Control: public, max-age=604800
   
 /*.ico
@@ -49,4 +49,3 @@
 # Tutti gli altri static assets
 /*
   Cache-Control: public, max-age=3600
-
