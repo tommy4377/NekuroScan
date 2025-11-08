@@ -14,17 +14,30 @@ export function useRateLimitDetector() {
       try {
         const response = await originalFetch(...args);
         
-        // Rileva 429 (Too Many Requests) o 403 (Banned)
+        // Rileva 429 (Too Many Requests) o 403 (Banned) - MA SOLO DAL NOSTRO SERVER
+        // 502 = sito sorgente blocca, NON siamo noi che banniamo
         if (response.status === 429 || response.status === 403) {
-          const retryHeader = response.headers.get('Retry-After');
-          const retrySeconds = retryHeader ? parseInt(retryHeader) : 60;
+          // Controlla se è il NOSTRO rate limit (avrà X-RateLimit headers)
+          const hasRateLimitHeaders = response.headers.get('X-RateLimit-Limit') !== null;
           
-          setRetryAfter(retrySeconds);
-          setBanReason(response.status === 403 ? 'blacklisted' : 'rate-limit');
-          setIsBanned(true);
+          // Se è dal sito sorgente (502 wrapped), NON mostrare ban
+          const contentType = response.headers.get('Content-Type') || '';
+          const isJsonError = contentType.includes('application/json');
           
-          // Log per debugging
-          console.warn(`🚨 Rate limit detected: ${response.status}, retry after ${retrySeconds}s`);
+          if (hasRateLimitHeaders || (response.status === 429 && isJsonError)) {
+            const retryHeader = response.headers.get('Retry-After');
+            const retrySeconds = retryHeader ? parseInt(retryHeader) : 60;
+            
+            setRetryAfter(retrySeconds);
+            setBanReason(response.status === 403 ? 'blacklisted' : 'rate-limit');
+            setIsBanned(true);
+            
+            // Log per debugging
+            console.warn(`🚨 SEI STATO BANNATO (${response.status}), retry after ${retrySeconds}s`);
+          } else {
+            // È un 403 dal sito sorgente, non nostro ban
+            console.warn(`⚠️ Sito sorgente blocca (403), NON sei bannato`);
+          }
         }
         
         return response;

@@ -27,10 +27,10 @@ app.use(compression({
 }));
 
 // ========= SMART RATE LIMITING (Frontend) =========
-// Best practices: 60-120 req/min per utente normale
+// Permissivo - solo anti-bot aggressivi
 const requestCounts = new Map();
 const RATE_LIMIT_WINDOW = 60000;
-const MAX_REQUESTS = 120; // 120 req/min = 2 req/sec (realistico per uso normale)
+const MAX_REQUESTS = 300; // 300 req/min = 5 req/sec
 const INTERNAL_IPS = ['::1', '127.0.0.1', 'localhost', '::ffff:127.0.0.1'];
 
 // Assets statici esclusi dal rate limiting

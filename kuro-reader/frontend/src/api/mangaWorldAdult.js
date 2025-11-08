@@ -43,9 +43,11 @@ export class MangaWorldAdultAPI {
           const retryAfter = response.headers.get('Retry-After') || '60';
           throw new Error(`RATE_LIMIT:${retryAfter}`);
         } else if (response.status === 403) {
+          // 403 = TU sei bannato dal nostro server
           throw new Error('BANNED:Accesso negato');
         } else if (response.status === 502) {
-          throw new Error('Il sito sorgente ha temporaneamente bloccato le richieste. Riprova tra qualche minuto.');
+          // 502 = sito sorgente blocca IL PROXY (non te!)
+          throw new Error('Il sito sorgente sta temporaneamente bloccando le richieste. Riprova tra 1-2 minuti.');
         } else if (response.status === 504) {
           throw new Error('Timeout: server sorgente non risponde');
         }

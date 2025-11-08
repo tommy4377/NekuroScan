@@ -226,15 +226,12 @@ const ipBlacklist = new Map(); // IP temporaneamente bannati
 const suspiciousActivity = new Map(); // Monitora attività sospette
 const ipFirstSeen = new Map(); // Track prima richiesta IP (grace period)
 
-// Rate limiting realistico basato su comportamento umano:
-// - Umano normale: 1-2 req/sec = 60-120 req/min
-// - Umano veloce: 2-3 req/sec = 120-180 req/min  
-// - Bot/Scraper: >5 req/sec = 300+ req/min (da bannare)
+// Rate limiting più permissivo - solo anti-bot aggressivi
 const RATE_LIMITS = {
-  global: { window: 60000, max: 60 },  // 60 req/min = 1 req/sec (sicuro)
-  auth: { window: 300000, max: 5 },    // 5 login/5min (anti brute-force più stretto)
-  api: { window: 60000, max: 40 },     // 40 API calls/min 
-  strict: { window: 60000, max: 20 }   // 20 req/min per endpoint sensibili
+  global: { window: 60000, max: 180 }, // 180 req/min = 3 req/sec
+  auth: { window: 300000, max: 10 },   // 10 login/5min
+  api: { window: 60000, max: 120 },    // 120 API calls/min = 2 req/sec
+  strict: { window: 60000, max: 60 }   // 60 req/min
 };
 
 // Blacklist IP per abusi gravi
@@ -309,8 +306,8 @@ const advancedRateLimiter = (limitType = 'global') => {
       const abuseCount = (suspiciousActivity.get(abuseKey) || 0) + 1;
       suspiciousActivity.set(abuseKey, abuseCount);
       
-      // Ban automatico dopo 3 violazioni (ridotto da 5)
-      if (abuseCount >= 3) {
+      // Ban automatico dopo 5 violazioni (non 3, troppo aggressivo)
+      if (abuseCount >= 5) {
         blacklistIP(ip);
         suspiciousActivity.delete(abuseKey);
       }

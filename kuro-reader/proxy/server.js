@@ -35,11 +35,8 @@ const USER_AGENTS = [
 
 const getRandomUserAgent = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 
-// Delay random per sembrare più umano (anti-bot)
-const humanDelay = () => new Promise(resolve => {
-  const delay = Math.random() * 300 + 100; // 100-400ms random
-  setTimeout(resolve, delay);
-});
+// Delay solo se necessario (dopo 403)
+const waitBeforeRetry = (ms = 1000) => new Promise(resolve => setTimeout(resolve, ms));
 
 // ========= ADVANCED RATE LIMITING & DDoS PROTECTION =========
 const requestCounts = new Map();
@@ -48,15 +45,12 @@ const suspiciousActivity = new Map();
 const requestTiming = new Map(); // Per rilevare burst rapidi
 const ipFirstSeen = new Map(); // Track prima richiesta IP (grace period)
 
-// Rate limiting proxy più conservativo
-// - Immagini lazy load: ~20-30 immagini alla volta
-// - API proxy: parsing HTML ogni 2-3 sec
-// - Bot detection: >5 req/sec simultanee
+// Rate limiting più permissivo - solo anti-bot aggressivi
 const RATE_LIMITS = {
-  global: { window: 60000, max: 120 }, // 120 req/min = 2 req/sec
-  proxy: { window: 60000, max: 60 },   // 60 proxy req/min = 1 req/sec (HTML parsing)
-  image: { window: 60000, max: 100 },  // 100 immagini/min (lazy load batch)
-  burst: { window: 1000, max: 5 }      // Max 5 req/sec (anti-burst più stretto)
+  global: { window: 60000, max: 300 }, // 300 req/min = 5 req/sec
+  proxy: { window: 60000, max: 180 },  // 180 proxy req/min = 3 req/sec
+  image: { window: 60000, max: 240 },  // 240 immagini/min = 4 req/sec
+  burst: { window: 1000, max: 15 }     // Max 15 req/sec (solo veri bot)
 };
 
 // Blacklist IP per abusi
@@ -125,24 +119,8 @@ const advancedRateLimiter = (limitType = 'global') => {
     if (!ipFirstSeen.has(ip)) {
       ipFirstSeen.set(ip, now);
     }
-    const ipAge = now - ipFirstSeen.get(ip);
-    const isNewConnection = ipAge < 10000; // 10 secondi grace period
     
-    // Rileva burst attacks (ma solo se molto aggressivi e non in grace period)
-    if (!isNewConnection && detectBurst(ip)) {
-      const abuseKey = `burst_abuse_${ip}`;
-      const abuseCount = (suspiciousActivity.get(abuseKey) || 0) + 1;
-      suspiciousActivity.set(abuseKey, abuseCount);
-      
-      // Ban solo dopo 5 burst ripetuti (non 3) per evitare falsi positivi
-      if (abuseCount >= 5) {
-        blacklistIP(ip, 1800000); // Ban 30 minuti per burst
-        return res.status(429).json({ 
-          success: false, 
-          error: 'Troppe richieste troppo velocemente' 
-        });
-      }
-    }
+    // Burst detector DISABILITATO - troppo aggressivo per caricamenti normali con lazy load
     
     const limit = RATE_LIMITS[limitType] || RATE_LIMITS.global;
     const key = `${ip}_${limitType}`;
@@ -164,8 +142,8 @@ const advancedRateLimiter = (limitType = 'global') => {
       const abuseCount = (suspiciousActivity.get(abuseKey) || 0) + 1;
       suspiciousActivity.set(abuseKey, abuseCount);
       
-      // Ban dopo 3 violazioni ripetute (ridotto da 5)
-      if (abuseCount >= 3) {
+      // Ban dopo 5 violazioni ripetute (non 3, troppo aggressivo)
+      if (abuseCount >= 5) {
         blacklistIP(ip);
         suspiciousActivity.delete(abuseKey);
       }
@@ -295,9 +273,6 @@ app.post('/api/proxy', advancedRateLimiter('proxy'), async (req, res) => {
       if (safeHeaders[key] === undefined) delete safeHeaders[key];
     });
     
-    // Delay casuale per sembrare umano
-    await humanDelay();
-    
     const response = await axios({
       method: sanitizedMethod,
       url,
@@ -316,41 +291,13 @@ app.post('/api/proxy', advancedRateLimiter('proxy'), async (req, res) => {
     
     // Gestisci errori HTTP dal sito target
     if (response.status === 403) {
-      console.error(`❌ Sito target blocca richiesta (403): ${url}`);
-      
-      // Retry con User-Agent diverso dopo delay
-      console.log('🔄 Retry con User-Agent diverso...');
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s
-      
-      const retryResponse = await axios({
-        method: sanitizedMethod,
-        url,
-        headers: {
-          ...safeHeaders,
-          'User-Agent': getRandomUserAgent() // Nuovo UA
-        },
-        timeout: 30000,
-        maxRedirects: 10,
-        maxContentLength: 50 * 1024 * 1024,
-        validateStatus: (status) => status < 600,
-        decompress: true,
-        httpsAgent: new https.Agent({
-          rejectUnauthorized: false,
-          keepAlive: true
-        })
+      console.error(`❌ SITO SORGENTE BLOCCA IL PROXY (403): ${url}`);
+      // NON fare retry che rallenta - ritorna subito errore
+      return res.status(502).json({ 
+        success: false, 
+        error: 'Il sito sorgente sta bloccando il proxy. Questo è temporaneo, riprova tra 1-2 minuti.',
+        sourceBlocked: true
       });
-      
-      // Se ancora 403, arrenditi
-      if (retryResponse.status === 403) {
-        return res.status(502).json({ 
-          success: false, 
-          error: 'Il sito target ha bloccato la richiesta. Riprova più tardi.',
-          sourceBlocked: true
-        });
-      }
-      
-      // Altrimenti usa la retry response
-      return res.json({ success: true, data: retryResponse.data, headers: retryResponse.headers });
     }
     
     if (response.status >= 400) {
@@ -426,10 +373,6 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
     }
     
     console.log('🖼️ Proxying image:', url);
-    
-    // Delay casuale per sembrare umano (solo per prime 5 immagini per non rallentare troppo)
-    const shouldDelay = Math.random() < 0.3; // 30% chance
-    if (shouldDelay) await humanDelay();
     
     const response = await axios({
       method: 'GET',
