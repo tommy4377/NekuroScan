@@ -59,8 +59,9 @@ export const theme = extendTheme({
       '.chakra-card, .manga-card': {
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         _hover: {
-          transform: 'translateY(-4px)',
-          boxShadow: '0 20px 25px -5px rgba(139, 92, 246, 0.1), 0 10px 10px -5px rgba(139, 92, 246, 0.04)',
+          transform: 'scale(1.05)',
+          boxShadow: '0 20px 25px -5px rgba(139, 92, 246, 0.2), 0 10px 10px -5px rgba(139, 92, 246, 0.08)',
+          zIndex: 10,
         },
       },
     },

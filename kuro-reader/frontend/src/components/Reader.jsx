@@ -264,20 +264,21 @@ function Reader({ chapter, currentPage, onPageChange, settings, isNovel }) {
         pointerEvents="none"
       />
 
-      {/* Indicatore pagina */}
+      {/* Indicatore pagina - trasparente */}
       <Box
         position="absolute"
         bottom={4}
         left="50%"
         transform="translateX(-50%)"
-        bg="blackAlpha.700"
-        color="white"
-        px={4}
-        py={2}
+        bg="blackAlpha.300"
+        color="whiteAlpha.800"
+        px={3}
+        py={1.5}
         borderRadius="full"
-        fontSize="sm"
+        fontSize="xs"
         fontWeight="medium"
         pointerEvents="none"
+        backdropFilter="blur(4px)"
       >
         {currentPage + 1} / {chapter.pages.length}
       </Box>

@@ -189,11 +189,13 @@ export default defineConfig({
       }
     },
     // ✅ PERFORMANCE: Dimensioni chunk ottimali
-    chunkSizeWarningLimit: 500,
+    chunkSizeWarningLimit: 1000,
     cssCodeSplit: true,
-    assetsInlineLimit: 4096,
+    assetsInlineLimit: 8192,
     reportCompressedSize: false,
-    modulePreload: true // Abilita module preload (necessario per Vite)
+    modulePreload: {
+      polyfill: true
+    }
   },
   // ✅ PERFORMANCE: Ottimizzazioni resolve
   resolve: {
@@ -203,6 +205,7 @@ export default defineConfig({
   },
   // ✅ PERFORMANCE: Ottimizzazioni esbuild
   esbuild: {
-    drop: ['debugger']
+    drop: ['debugger'],
+    legalComments: 'none'
   }
 });

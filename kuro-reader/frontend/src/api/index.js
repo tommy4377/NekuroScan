@@ -1,6 +1,6 @@
 // frontend/src/api/index.js
-import { MangaWorldAPI } from './mangaWorld';
-import { MangaWorldAdultAPI } from './mangaWorldAdult';
+import { SourceAPI } from './mangaWorld';
+import { SourceAdultAPI } from './mangaWorldAdult';
 import { getBaseUrl } from '../config/sources';
 
 // Cache timeout configuration
@@ -9,8 +9,8 @@ const CACHE_TIMEOUT = 10 * 60 * 1000; // 10 minuti
 class APIManager {
   constructor() {
     this.apis = {
-      mangaWorld: new MangaWorldAPI(),
-      mangaWorldAdult: new MangaWorldAdultAPI()
+      mangaWorld: new SourceAPI(),
+      mangaWorldAdult: new SourceAdultAPI()
     };
     
     this.cache = new Map();
@@ -52,7 +52,7 @@ class APIManager {
     };
 
     try {
-      // Ricerca su MangaWorld normale
+      // Ricerca su Source normale
       const mangaWorldResults = await this.apis.mangaWorld.search(query);
       
       mangaWorldResults.forEach(item => {
@@ -66,7 +66,7 @@ class APIManager {
         results.all.push(enrichedItem);
       });
 
-      // Ricerca su MangaWorld Adult solo se richiesto
+      // Ricerca su Source Adult solo se richiesto
       if (includeAdult) {
         const adultResults = await this.apis.mangaWorldAdult.search(query);
         

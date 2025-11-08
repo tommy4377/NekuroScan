@@ -111,8 +111,9 @@
   <link rel="dns-prefetch" href="https://kuro-proxy-server.onrender.com">
   <link rel="dns-prefetch" href="https://cdn.mangaworld.cx">
   
-  <!-- ✅ PERFORMANCE: Font caricato diretto (critici per UI) -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <!-- ✅ PERFORMANCE: Font caricato con display=swap per evitare blocchi -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
   
   <!-- ✅ CRITICAL CSS: Inline per FCP veloce -->
   <style>
@@ -182,8 +183,8 @@
     }
     
     .manga-card:hover {
-      transform: translate3d(0, -4px, 0);
-      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transform: scale(1.05) translate3d(0, 0, 0);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
     /* Skeleton animation */

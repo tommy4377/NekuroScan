@@ -940,6 +940,7 @@ function ReaderPage() {
         position="relative"
       ref={containerRef}
       onMouseMove={() => setShowControls(true)}
+      onTouchStart={() => setShowControls(true)}
       onClick={handlePageClick}
         cursor="pointer"
         overflow="hidden"
@@ -958,33 +959,30 @@ function ReaderPage() {
           backdropFilter="blur(10px)"
         >
           <HStack justify="space-between">
-            <HStack spacing={1}>
-              <IconButton
-                icon={<FaChevronLeft />}
-                onClick={(e) => { e.stopPropagation(); navigateChapter(-1); }}
-                aria-label="Capitolo precedente"
-                variant="ghost"
-                color="white"
-                size="sm"
-              />
-              <VStack spacing={0} px={2}>
-                <Text color="white" fontSize="xs" fontWeight="bold">
-                  Cap. {chapterIndex + 1} / {manga.chapters?.length}
-                </Text>
-                {readingMode !== 'webtoon' && (
-                  <Text color="gray.400" fontSize="xs">
-                    Pag. {currentPage + 1} / {totalPages}
+            {/* Nav capitolo solo all'ultima pagina */}
+            {(currentPage >= totalPages - 1 || readingMode === 'webtoon') && (
+              <HStack spacing={1}>
+                <IconButton
+                  icon={<FaChevronLeft />}
+                  onClick={(e) => { e.stopPropagation(); navigateChapter(-1); }}
+                  aria-label="Capitolo precedente"
+                  variant="ghost"
+                  color="white"
+                  size="sm"
+                />
+                <VStack spacing={0} px={2}>
+                  <Text color="white" fontSize="xs" fontWeight="bold">
+                    Cap. {chapterIndex + 1} / {manga.chapters?.length}
                   </Text>
-                )}
-              </VStack>
-              <IconButton
-                icon={<FaChevronRight />}
-                onClick={(e) => { e.stopPropagation(); navigateChapter(1); }}
-                aria-label="Capitolo successivo"
-                variant="ghost"
-                color="white"
-                size="sm"
-              />
+                </VStack>
+                <IconButton
+                  icon={<FaChevronRight />}
+                  onClick={(e) => { e.stopPropagation(); navigateChapter(1); }}
+                  aria-label="Capitolo successivo"
+                  variant="ghost"
+                  color="white"
+                  size="sm"
+                />
               {readingMode === 'webtoon' && (
                 <IconButton
                   icon={autoScroll ? <FaPause /> : <FaPlay />}
