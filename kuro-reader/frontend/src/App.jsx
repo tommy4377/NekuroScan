@@ -7,8 +7,10 @@ import Navigation from './components/Navigation';
 import Breadcrumbs from './components/Breadcrumbs';
 import ErrorBoundary from './components/ErrorBoundary';
 import DownloadProgressBar from './components/DownloadProgressBar';
+import BannedNotice from './components/BannedNotice';
 import { ThemeProvider } from './contexts/ThemeContext';
 import useAuthStore from './hooks/useAuth';
+import useRateLimitDetector from './hooks/useRateLimitDetector';
 import statusBar from './utils/statusBar';
 
 // ✅ PERFORMANCE: Caricamento immediato solo per pagine critiche
@@ -151,6 +153,9 @@ function AppContent() {
   
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const toast = useToast();
+  
+  // Rate limit detection
+  const { isBanned, banReason, retryAfter, resetBan } = useRateLimitDetector();
 
   // Gestione routing per URL diretti
   useEffect(() => {
@@ -303,6 +308,14 @@ function AppContent() {
       {/* Download Progress Bar - Global */}
       <DownloadProgressBar />
       
+      {/* Banned Notice - Mostra quando IP è bannato */}
+      <BannedNotice 
+        isOpen={isBanned} 
+        onClose={resetBan} 
+        retryAfter={retryAfter}
+        reason={banReason}
+      />
+      
       {!isOnline && (
         <Box
           bg="orange.600"
@@ -319,7 +332,11 @@ function AppContent() {
         </Box>
       )}
       
-      <Box>
+      <Box
+        minH="100vh"
+        overflowY="auto" // Permetti scroll globale
+        overflowX="hidden"
+      >
         <Box maxW="container.xl" mx="auto">
           <Breadcrumbs />
         </Box>

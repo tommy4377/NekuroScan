@@ -21,15 +21,7 @@ const Welcome = React.memo(() => {
   const bgGradient = 'linear(to-br, purple.600, pink.600)';
   const isDesktop = useBreakpointValue({ base: false, md: true });
 
-  // Blocca scroll su desktop
-  useEffect(() => {
-    if (isDesktop) {
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = 'auto';
-      };
-    }
-  }, [isDesktop]);
+  // Non serve bloccare body, overflow gestito dal Box sotto
 
   const features = [
     {

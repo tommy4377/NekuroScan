@@ -34,8 +34,11 @@ export class MangaWorldAPI {
       
       // VALIDAZIONE RISPOSTA HTTP
       if (!response.ok) {
-        if (response.status === 403) {
-          throw new Error('Accesso negato dal server');
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('Retry-After') || '60';
+          throw new Error(`RATE_LIMIT:${retryAfter}`);
+        } else if (response.status === 403) {
+          throw new Error('BANNED:Accesso negato');
         } else if (response.status === 404) {
           throw new Error('Pagina non trovata');
         } else if (response.status >= 500) {

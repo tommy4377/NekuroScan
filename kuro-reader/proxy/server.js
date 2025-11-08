@@ -127,16 +127,16 @@ const advancedRateLimiter = (limitType = 'global') => {
     
     if (!requestCounts.has(key)) {
       requestCounts.set(key, { count: 1, resetTime: now + limit.window });
-      return next();
-    }
-    
+    return next();
+  }
+  
     const data = requestCounts.get(key);
-    
-    if (now > data.resetTime) {
+  
+  if (now > data.resetTime) {
       requestCounts.set(key, { count: 1, resetTime: now + limit.window });
-      return next();
-    }
-    
+    return next();
+  }
+  
     if (data.count >= limit.max) {
       const abuseKey = `abuse_${ip}`;
       const abuseCount = (suspiciousActivity.get(abuseKey) || 0) + 1;
@@ -163,9 +163,9 @@ const advancedRateLimiter = (limitType = 'global') => {
         error: 'Limite richieste raggiunto',
         retryAfter
       });
-    }
-    
-    data.count++;
+  }
+  
+  data.count++;
     
     // Aggiungi headers informativi per tutte le richieste
     const remaining = Math.max(0, limit.max - data.count);
@@ -173,7 +173,7 @@ const advancedRateLimiter = (limitType = 'global') => {
     res.setHeader('X-RateLimit-Remaining', remaining.toString());
     res.setHeader('X-RateLimit-Reset', Math.ceil(data.resetTime / 1000).toString());
     
-    next();
+  next();
   };
 };
 
@@ -206,11 +206,15 @@ setInterval(() => {
 app.use(advancedRateLimiter('global'));
 
 // ========= DOMAIN WHITELIST =========
+// Whitelist domini autorizzati (anti-scraping di altri siti)
 const ALLOWED_DOMAINS = [
   'mangaworld.cx',
   'mangaworldadult.net',
   'www.mangaworld.cx',
-  'www.mangaworldadult.net'
+  'www.mangaworldadult.net',
+  'cdn.mangaworld.cx',
+  'mangaworld.bz',
+  'www.mangaworld.bz'
 ];
 
 function isAllowedDomain(url) {
@@ -227,23 +231,43 @@ app.post('/api/proxy', advancedRateLimiter('proxy'), async (req, res) => {
   try {
     const { url, method = 'GET', headers = {} } = req.body;
     
+    // Validazione URL completa
     if (!url || typeof url !== 'string') {
       return res.status(400).json({ success: false, error: 'URL non valido' });
     }
     
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      return res.status(400).json({ success: false, error: 'URL deve iniziare con http:// o https://' });
+    }
+    
     if (!isAllowedDomain(url)) {
+      console.warn(`⚠️ Dominio non autorizzato bloccato: ${url}`);
       return res.status(403).json({ success: false, error: 'Dominio non autorizzato' });
     }
     
+    // Sanitize method
+    const allowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
+    const sanitizedMethod = method.toUpperCase();
+    if (!allowedMethods.includes(sanitizedMethod)) {
+      return res.status(400).json({ success: false, error: 'Metodo HTTP non valido' });
+    }
+    
+    // Sanitize headers (solo headers safe, no injection)
+    const safeHeaders = {
+      'User-Agent': headers['User-Agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': headers['Accept'] || 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': headers['Accept-Language'] || 'it-IT,it;q=0.9,en;q=0.8',
+      'Referer': headers['Referer']
+    };
+    
     const response = await axios({
-      method: method.toUpperCase(),
+      method: sanitizedMethod,
       url,
-      headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        ...headers 
-      },
+      headers: safeHeaders,
       timeout: 20000,
-      maxRedirects: 5
+      maxRedirects: 5,
+      maxContentLength: 50 * 1024 * 1024, // Max 50MB response
+      validateStatus: (status) => status < 600 // Accetta anche 4xx/5xx per gestirli
     });
     
     res.json({ success: true, data: response.data, headers: response.headers });
@@ -285,12 +309,18 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
   try {
     const { url } = req.query;
     
+    // Validazione URL completa
     if (!url || typeof url !== 'string') {
       return res.status(400).json({ success: false, error: 'URL non valido' });
     }
     
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      return res.status(400).json({ success: false, error: 'URL deve iniziare con http:// o https://' });
+    }
+    
     // Valida che sia un'immagine da un dominio autorizzato
     if (!isAllowedDomain(url)) {
+      console.warn(`⚠️ Dominio immagine non autorizzato bloccato: ${url}`);
       return res.status(403).json({ success: false, error: 'Dominio non autorizzato' });
     }
     
@@ -306,7 +336,9 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
         'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8'
       },
       timeout: 30000,
-      maxRedirects: 5
+      maxRedirects: 5,
+      maxContentLength: 10 * 1024 * 1024, // Max 10MB per immagine
+      validateStatus: (status) => status < 600 // Gestisci anche errori
     });
     
     // Invia l'immagine con gli header appropriati
