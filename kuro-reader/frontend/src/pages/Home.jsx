@@ -1,5 +1,6 @@
 // ✅ HOME.JSX v3.3 - COMPLETO E OTTIMIZZATO
 import React, { useEffect, useState, useCallback } from 'react';
+import { Helmet } from 'react-helmet-async';
 import PageTransition from '../components/PageTransition';
 import {
   Box, Container, Heading, SimpleGrid, Text, VStack, HStack,
@@ -454,6 +455,11 @@ function Home() {
   if (isOffline || !navigator.onLine) {
     return (
       <PageTransition>
+        <Helmet>
+          <title>Home - NeKuro Scan</title>
+          <meta name="description" content="Scopri gli ultimi aggiornamenti manga, trending e top series su NeKuro Scan" />
+          <link rel="canonical" href="https://nekuroscan.onrender.com/home" />
+        </Helmet>
         <Container maxW="container.xl" py={8}>
           <VStack spacing={8} align="stretch">
             
@@ -576,6 +582,14 @@ function Home() {
 
   return (
     <PageTransition>
+      <Helmet>
+        <title>Home - NeKuro Scan | Manga Online Gratuito</title>
+        <meta name="description" content="Scopri gli ultimi aggiornamenti manga, serie trending e classifiche top su NeKuro Scan. Leggi gratuitamente migliaia di titoli." />
+        <link rel="canonical" href="https://nekuroscan.onrender.com/home" />
+        <meta property="og:title" content="Home - NeKuro Scan" />
+        <meta property="og:description" content="Ultimi aggiornamenti, trending e top series manga" />
+        <meta property="og:url" content="https://nekuroscan.onrender.com/home" />
+      </Helmet>
       <Container maxW="container.xl" py={8}>
       <VStack spacing={8} align="stretch">
         

@@ -9,7 +9,8 @@
   <meta name="keywords" content="manga, manhwa, manhua, lettore manga, manga online, light novel" />
   <meta name="author" content="NeKuro Scan Team" />
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
-  <link rel="canonical" href="https://nekuroscan.onrender.com/" />
+  <!-- Canonical dinamico gestito da React Helmet in ogni pagina -->
+  <link rel="canonical" href="https://nekuroscan.onrender.com/" id="canonical-link" />
   
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
@@ -86,8 +87,9 @@
   <link rel="dns-prefetch" href="https://kuro-auth-backend.onrender.com">
   <link rel="dns-prefetch" href="https://kuro-proxy-server.onrender.com">
   
-  <!-- ✅ PERFORMANCE: Font async loading con display=swap per evitare FOIT -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- ✅ PERFORMANCE: Font preload + async per eliminare render-blocking -->
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
   
   <!-- ✅ CRITICAL CSS: Inline per FCP veloce -->
   <style>

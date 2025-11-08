@@ -93,7 +93,7 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
           willChange: 'transform'
         }}
       >
-        <Box position="relative" width="100%" paddingBottom="140%">
+        <Box position="relative" width="100%" paddingBottom="140%" bg="gray.800">
           {/* Glow gradiente */}
           <Box
             position="absolute"
@@ -119,6 +119,8 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
             objectFit="cover"
             loading="lazy"
             decoding="async"
+            htmlWidth="200"
+            htmlHeight="280"
             onLoad={() => setImageLoaded(true)}
             onError={(e) => {
               setImageLoaded(true);

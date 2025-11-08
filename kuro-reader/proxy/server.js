@@ -391,7 +391,7 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
         'Sec-Fetch-Mode': 'no-cors',
         'Sec-Fetch-Site': 'cross-site'
       },
-      timeout: 30000,
+      timeout: 60000, // Aumentato a 60s per immagini grandi
       maxRedirects: 10,
       maxContentLength: 10 * 1024 * 1024,
       validateStatus: (status) => status < 600,
@@ -432,76 +432,60 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
       return res.set('Content-Type', 'image/svg+xml').send(placeholder);
     }
     
-    // ✅ OPTIMIZATION: Compress and resize image con Sharp (WebP conversion)
-    try {
-      const contentType = response.headers['content-type'] || '';
-      const isImage = contentType.startsWith('image/') && !contentType.includes('svg');
-      
-      if (isImage && Buffer.isBuffer(response.data)) {
-        // Ottieni dimensioni query params opzionali
+    // ✅ OPTIMIZATION: Sharp compression OPZIONALE (solo se richiesto con ?optimize=true)
+    // DISABILITATO di default perché troppo lento (timeout issues)
+    const shouldOptimize = req.query.optimize === 'true';
+    const contentType = response.headers['content-type'] || '';
+    const isImage = contentType.startsWith('image/') && !contentType.includes('svg');
+    
+    // Sharp SOLO se esplicitamente richiesto E immagine grande (>500KB)
+    if (shouldOptimize && isImage && response.data.length > 500 * 1024) {
+      try {
         const width = parseInt(req.query.w) || null;
         const height = parseInt(req.query.h) || null;
-        const quality = parseInt(req.query.q) || 80; // Default quality 80%
+        const quality = parseInt(req.query.q) || 85;
         
-        let sharpInstance = sharp(response.data);
+        let sharpInstance = sharp(response.data, { 
+          failOnError: false, // Non fallire su immagini corrotte
+          limitInputPixels: 268402689 // Max 16K pixels
+        });
         
-        // Auto-orient per immagini ruotate
-        sharpInstance = sharpInstance.rotate();
-        
-        // Resize se richiesto (mantieni aspect ratio)
         if (width || height) {
           sharpInstance = sharpInstance.resize(width, height, {
-            fit: 'inside', // Mantieni aspect ratio
-            withoutEnlargement: true // Non ingrandire immagini piccole
+            fit: 'inside',
+            withoutEnlargement: true,
+            kernel: 'lanczos3' // Veloce
           });
         }
         
-        // Convert to WebP con compressione
+        // WebP con effort basso per velocità
         const optimizedImage = await sharpInstance
-          .webp({ quality, effort: 4 }) // Effort 4 = buon compromesso velocità/compressione
+          .webp({ quality, effort: 1, smartSubsample: true }) // Effort 1 = VELOCE
+          .timeout({ seconds: 5 }) // Max 5s per Sharp
           .toBuffer();
-        
-        // Calcola risparmio
-        const originalSize = response.data.length;
-        const optimizedSize = optimizedImage.length;
-        const savings = Math.round(((originalSize - optimizedSize) / originalSize) * 100);
-        
-        console.log(`📦 Image optimized: ${(originalSize / 1024).toFixed(1)}KB → ${(optimizedSize / 1024).toFixed(1)}KB (${savings}% saving)`);
         
         res.set({
           'Content-Type': 'image/webp',
-          'Cache-Control': 'public, max-age=2592000', // 30 giorni per immagini ottimizzate
+          'Cache-Control': 'public, max-age=2592000, immutable',
           'Access-Control-Allow-Origin': '*',
           'X-Content-Type-Options': 'nosniff',
-          'X-Image-Optimized': 'true',
-          'X-Original-Size': originalSize.toString(),
-          'X-Optimized-Size': optimizedSize.toString(),
-          'X-Savings': `${savings}%`
+          'X-Image-Optimized': 'true'
         });
         
         return res.send(optimizedImage);
+      } catch (sharpError) {
+        // Fallback silente a immagine originale
       }
-      
-      // Fallback per SVG o altri formati non immagine
-      res.set({
-        'Content-Type': response.headers['content-type'] || 'image/jpeg',
-        'Cache-Control': 'public, max-age=86400',
-        'Access-Control-Allow-Origin': '*',
-        'X-Content-Type-Options': 'nosniff'
-      });
-      res.send(response.data);
-      
-    } catch (sharpError) {
-      console.error('⚠️ Sharp optimization failed, serving original:', sharpError.message);
-      // Fallback: serve original image se Sharp fallisce
-      res.set({
-        'Content-Type': response.headers['content-type'] || 'image/jpeg',
-        'Cache-Control': 'public, max-age=86400',
-        'Access-Control-Allow-Origin': '*',
-        'X-Content-Type-Options': 'nosniff'
-      });
-      res.send(response.data);
     }
+    
+    // DEFAULT: Serve immagine originale SENZA processing (veloce)
+    res.set({
+      'Content-Type': response.headers['content-type'] || 'image/jpeg',
+      'Cache-Control': 'public, max-age=2592000, immutable', // Cache lunga
+      'Access-Control-Allow-Origin': '*',
+      'X-Content-Type-Options': 'nosniff'
+    });
+    res.send(response.data);
     
   } catch (error) {
     console.error('❌ Image proxy error:', error.message);
