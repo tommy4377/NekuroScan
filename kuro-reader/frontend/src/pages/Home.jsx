@@ -150,33 +150,14 @@ function Home() {
     setIsOffline(false);
     
     try {
-      // Carica tutto in parallelo
-      const [
-        trendingRes,
-        latestRes, 
-        popularRes, 
-        mangaRes, 
-        manhwaRes, 
-        manhuaRes, 
-        oneshotRes
-      ] = await Promise.allSettled([
-        apiManager.getTrending(includeAdult),
-        apiManager.getRecentChapters(includeAdult),
-        statsAPI.searchAdvanced({ sort: 'newest', page: 1, includeAdult }), // Trending per popolari
-        statsAPI.getTopByType('manga', includeAdult, 1),
-        statsAPI.getTopByType('manhwa', includeAdult, 1),
-        statsAPI.getTopByType('manhua', includeAdult, 1),
-        statsAPI.getTopByType('oneshot', includeAdult, 1)
-      ]);
-      
-      // Processa risultati
+      // Helper per processare risultati
       const processResult = (result, fallback = []) => {
         if (result.status === 'fulfilled') {
           const data = Array.isArray(result.value) 
             ? result.value 
             : result.value?.results || [];
           
-          return data.slice(0, 8).map(item => ({ // RIDOTTO: 15 → 8 per evitare overload
+          return data.slice(0, 6).map(item => ({ // RIDOTTO: 8 → 6 per LCP migliore
             ...item,
             latestChapter: cleanChapterNumber(item.latestChapter)
           }));
@@ -184,22 +165,44 @@ function Home() {
         return fallback;
       };
       
-      // Continua a leggere
+      // Continua a leggere (locale, istantaneo)
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       const readingWithProgress = reading.slice(0, 6).map(item => ({ // RIDOTTO: 10 → 6
         ...item,
         continueFrom: item.lastChapterIndex ? `Cap. ${item.lastChapterIndex + 1}` : null
       }));
       
-      setContent({
+      // ✅ FASE 1: Carica contenuti PRIORITARI (above-the-fold) - Riduce LCP
+      const [trendingRes, latestRes] = await Promise.allSettled([
+        apiManager.getTrending(includeAdult),
+        apiManager.getRecentChapters(includeAdult)
+      ]);
+      
+      // Mostra subito i contenuti prioritari
+      setContent(prev => ({
+        ...prev,
         trending: processResult(trendingRes),
         latest: processResult(latestRes),
-        popular: processResult(popularRes),
-        topManga: processResult(mangaRes),
-        topManhwa: processResult(manhwaRes),
-        topManhua: processResult(manhuaRes),
-        topOneshot: processResult(oneshotRes),
         continueReading: readingWithProgress
+      }));
+      
+      // ✅ FASE 2: Carica contenuti SECONDARI (below-the-fold) in background
+      // Questo migliora drasticamente il LCP perché il browser può renderizzare prima
+      Promise.allSettled([
+        statsAPI.searchAdvanced({ sort: 'newest', page: 1, includeAdult }),
+        statsAPI.getTopByType('manga', includeAdult, 1),
+        statsAPI.getTopByType('manhwa', includeAdult, 1),
+        statsAPI.getTopByType('manhua', includeAdult, 1),
+        statsAPI.getTopByType('oneshot', includeAdult, 1)
+      ]).then(([popularRes, mangaRes, manhwaRes, manhuaRes, oneshotRes]) => {
+        setContent(prev => ({
+          ...prev,
+          popular: processResult(popularRes),
+          topManga: processResult(mangaRes),
+          topManhwa: processResult(manhwaRes),
+          topManhua: processResult(manhuaRes),
+          topOneshot: processResult(oneshotRes)
+        }));
       });
       
     } catch (error) {

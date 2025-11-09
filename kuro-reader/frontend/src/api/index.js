@@ -5,6 +5,7 @@ import { getBaseUrl } from '../config/sources';
 
 // Cache timeout configuration
 const CACHE_TIMEOUT = 10 * 60 * 1000; // 10 minuti
+const LONG_CACHE_TIMEOUT = 30 * 60 * 1000; // 30 minuti per contenuti statici (trending, popular)
 
 class APIManager {
   constructor() {
@@ -15,20 +16,49 @@ class APIManager {
     
     this.cache = new Map();
     this.cacheTimeout = CACHE_TIMEOUT;
+    this.longCacheTimeout = LONG_CACHE_TIMEOUT;
   }
 
-  // ============= METODI DI CACHE =============
+  // ============= METODI DI CACHE OTTIMIZZATI =============
   
-  getCached(key) {
+  getCached(key, useLongCache = false) {
+    // ✅ Prova prima SessionStorage (più veloce, sopravvive ai reload)
+    try {
+      const sessionCached = sessionStorage.getItem(`api_${key}`);
+      if (sessionCached) {
+        const parsed = JSON.parse(sessionCached);
+        const timeout = useLongCache ? this.longCacheTimeout : this.cacheTimeout;
+        if (Date.now() - parsed.timestamp < timeout) {
+          return parsed.data;
+        }
+        sessionStorage.removeItem(`api_${key}`);
+      }
+    } catch (err) {
+      // SessionStorage non disponibile
+    }
+    
+    // Fallback a cache in-memory
     const cached = this.cache.get(key);
-    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+    const timeout = useLongCache ? this.longCacheTimeout : this.cacheTimeout;
+    if (cached && Date.now() - cached.timestamp < timeout) {
       return cached.data;
     }
     this.cache.delete(key);
     return null;
   }
 
-  setCache(key, data) {
+  setCache(key, data, useLongCache = false) {
+    // ✅ Salva in SessionStorage per prestazioni migliori
+    try {
+      sessionStorage.setItem(`api_${key}`, JSON.stringify({
+        data,
+        timestamp: Date.now()
+      }));
+    } catch (err) {
+      // SessionStorage pieno o non disponibile
+    }
+    
+    // Salva anche in memoria
     this.cache.set(key, {
       data,
       timestamp: Date.now()
@@ -314,7 +344,7 @@ class APIManager {
   // Ottieni manga TRENDING (quelli con badge capitolo nella homepage)
   async getTrending(includeAdult = false) {
     const cacheKey = `trending_${includeAdult}`;
-    const cached = this.getCached(cacheKey);
+    const cached = this.getCached(cacheKey, true); // ✅ Long cache per trending
     if (cached) return cached;
 
     const trending = [];
@@ -398,7 +428,7 @@ class APIManager {
       }
 
       const uniqueTrending = this.removeDuplicates(trending).slice(0, 20);
-      this.setCache(cacheKey, uniqueTrending);
+      this.setCache(cacheKey, uniqueTrending, true); // ✅ Long cache per trending
       
       return uniqueTrending;
       
