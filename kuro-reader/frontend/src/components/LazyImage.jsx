@@ -98,7 +98,6 @@ const LazyImage = ({
           transform="scale(1.1)"
           zIndex={1}
           sx={{
-            willChange: 'opacity',
             transition: 'opacity 0.3s ease-out'
           }}
         />

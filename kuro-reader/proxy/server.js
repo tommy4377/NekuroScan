@@ -3,7 +3,7 @@ import cors from 'cors';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import https from 'https';
-import imageCache, { isReaderImage, getImageType, logImageMetrics } from './utils/imageCache.js';
+import redisImageCache, { isReaderImage, getImageType } from './utils/redisImageCache.js';
 import { getCloudinaryUrl, CloudinaryPresets } from './utils/cloudinaryHelper.js';
 import { httpsAgent, httpAgent, fetchWithRetry, getPoolStats } from './utils/httpPool.js';
 // import sharp from 'sharp'; // DISABILITATO: Causava timeout e rallentamenti severi
@@ -397,7 +397,7 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
     
     // ✅ STEP 2: READER IMAGES → Sempre originali (NO ottimizzazione)
     if (isReader) {
-      imageCache.incrementReaderBypass();
+      redisImageCache.incrementReaderBypass();
       console.log(`📖 Reader image (bypass optimization): ${url.substring(0, 80)}...`);
       
       // Proxy diretto senza conversione (con connection pooling)
@@ -435,7 +435,7 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
     }
     
     // ✅ STEP 3: Non-reader images → Check cache
-    const cached = imageCache.get(url);
+    const cached = await redisImageCache.get(url);
     if (cached) {
       console.log(`✅ Cache HIT: ${imageType} (${cached.format}, saved ${(cached.saved / 1024).toFixed(0)}KB)`);
       
@@ -477,7 +477,7 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
       const estimatedOriginalSize = 500 * 1024; // 500KB avg
       const estimatedOptimizedSize = 150 * 1024; // 150KB avg (70% saving)
       
-      imageCache.set(url, optimizedUrl, {
+      await redisImageCache.set(url, optimizedUrl, {
         format: 'avif/webp',
         originalSize: estimatedOriginalSize,
         optimizedSize: estimatedOptimizedSize,
@@ -557,8 +557,8 @@ function sendPlaceholder(res, statusCode = 500) {
 }
 
 // ✅ IMAGE OPTIMIZATION METRICS ENDPOINT
-app.get('/api/image-metrics', (req, res) => {
-  const stats = imageCache.getStats();
+app.get('/api/image-metrics', async (req, res) => {
+  const stats = await redisImageCache.getStats();
   
   res.json({
     success: true,
@@ -573,8 +573,8 @@ app.get('/api/image-metrics', (req, res) => {
 });
 
 // Health check
-app.get('/health', (req, res) => {
-  const stats = imageCache.getStats();
+app.get('/health', async (req, res) => {
+  const stats = await redisImageCache.getStats();
   const poolStats = getPoolStats();
   
   res.json({ 

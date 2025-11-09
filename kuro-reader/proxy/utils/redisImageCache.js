@@ -20,6 +20,25 @@ class RedisImageCache {
     this.ttl = 7 * 24 * 60 * 60;
     
     this.init();
+    
+    // Cleanup fallback cache ogni ora
+    setInterval(() => this.cleanupFallback(), 3600000);
+  }
+
+  cleanupFallback() {
+    const now = Date.now();
+    let cleaned = 0;
+    
+    for (const [hash, entry] of this.fallbackCache.entries()) {
+      if (now - entry.timestamp > this.ttl * 1000) {
+        this.fallbackCache.delete(hash);
+        cleaned++;
+      }
+    }
+    
+    if (cleaned > 0) {
+      console.log(`🧹 Fallback cache cleanup: ${cleaned} entries removed`);
+    }
   }
 
   async init() {
@@ -29,7 +48,11 @@ class RedisImageCache {
     }
 
     try {
-      const { createClient } = await import('redis');
+      const { createClient } = await import('redis').catch(err => {
+        console.error('❌ Redis module not found:', err.message);
+        console.warn('⚠️  Install redis: npm install redis');
+        throw err;
+      });
       
       this.client = createClient({
         url: process.env.REDIS_URL,
@@ -184,7 +207,19 @@ class RedisImageCache {
     
     if (this.isConnected && this.client) {
       try {
-        const keys = await this.client.keys('img:*');
+        // SCAN invece di KEYS (non blocca Redis)
+        let cursor = 0;
+        let keys = [];
+        
+        do {
+          const reply = await this.client.scan(cursor, {
+            MATCH: 'img:*',
+            COUNT: 100
+          });
+          cursor = reply.cursor;
+          keys.push(...reply.keys);
+        } while (cursor !== 0);
+        
         cacheSize = keys.length;
       } catch (error) {
         // Fallback to in-memory size
@@ -227,15 +262,31 @@ class RedisImageCache {
   async clear() {
     try {
       if (this.isConnected && this.client) {
-        const keys = await this.client.keys('img:*');
-        if (keys.length > 0) {
-          await this.client.del(keys);
-        }
+        // SCAN invece di KEYS (non blocca Redis)
+        let cursor = 0;
+        let deletedCount = 0;
+        
+        do {
+          const reply = await this.client.scan(cursor, {
+            MATCH: 'img:*',
+            COUNT: 100
+          });
+          cursor = reply.cursor;
+          
+          if (reply.keys.length > 0) {
+            await this.client.del(reply.keys);
+            deletedCount += reply.keys.length;
+          }
+        } while (cursor !== 0);
+        
+        console.log(`🗑️ Redis cache cleared: ${deletedCount} entries`);
       }
       
       this.fallbackCache.clear();
+      console.log('🗑️ Fallback cache cleared');
       
     } catch (error) {
+      console.error('❌ Redis CLEAR error:', error.message);
       this.fallbackCache.clear();
     }
   }
