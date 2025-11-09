@@ -1,4 +1,4 @@
-// ✅ AUTH-SERVER.JS v4.0 - VERSIONE FINALE CORRETTA
+// ✅ AUTH-SERVER.JS v4.1 - WITH STANDARDIZED ERROR HANDLING
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
@@ -10,6 +10,7 @@ import multer from 'multer';
 import sharp from 'sharp';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { errorHandler } from './utils/errorHandler.js';
 
 dotenv.config();
 
@@ -539,7 +540,7 @@ app.get('/health', async (req, res) => {
     status: 'checking',
     timestamp: new Date().toISOString(),
     service: 'NeKuro Scan Auth Server',
-    version: '4.0.0',
+    version: '4.1.0',
     database: 'checking',
     storage: supabase ? 'configured' : 'disabled',
     reconnectAttempts: reconnectAttempts
@@ -1526,19 +1527,14 @@ app.get('/api/notifications/settings', authenticateToken, requireDatabase, async
 });
 
 // ========= ERROR HANDLER =========
-app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ 
-    message: 'Errore interno del server',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
-});
+// ✅ Usa error handler centralizzato e standardizzato
+app.use(errorHandler);
 
 // ========= START SERVER =========
 app.listen(PORT, () => {
   console.log(`
   ╔════════════════════════════════════════╗
-  ║     NeKuro Scan Auth Server v4.0      ║
+  ║     NeKuro Scan Auth Server v4.1      ║
   ╠════════════════════════════════════════╣
   ║ Port: ${PORT.toString().padEnd(33)}║
   ║ Environment: ${(process.env.NODE_ENV || 'development').padEnd(26)}║

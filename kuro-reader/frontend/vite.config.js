@@ -186,35 +186,8 @@ export default defineConfig({
   build: {
     sourcemap: false,
     target: 'es2020',
-    minify: 'terser', // Terser per rimozione console sicura
-    terserOptions: {
-      compress: {
-        // ✅ SECURITY: Rimuove TUTTI i console.* in produzione
-        drop_console: true,
-        drop_debugger: true,
-        // ✅ Pure functions: rimuove se risultato non usato
-        pure_funcs: [
-          'console.log',
-          'console.info', 
-          'console.debug',
-          'console.warn',
-          'console.error',
-          'console.trace',
-          'console.time',
-          'console.timeEnd',
-          'console.table',
-          'console.group',
-          'console.groupEnd'
-        ],
-        passes: 3  // ✅ 3 pass per pulizia completa
-      },
-      mangle: {
-        safari10: true
-      },
-      format: {
-        comments: false
-      }
-    },
+    // ✅ PERFORMANCE: esbuild è 20-50x più veloce di Terser
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: undefined
