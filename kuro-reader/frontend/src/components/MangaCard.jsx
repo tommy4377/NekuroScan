@@ -58,7 +58,6 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
       <VStack
         bg="gray.800"
         borderRadius="xl"
-        overflow="visible"
         spacing={0}
         height="100%"
         transition="all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)"
@@ -66,6 +65,9 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
         border="1px solid"
         borderColor="transparent"
         willChange="transform"
+        sx={{
+          overflow: 'visible'
+        }}
         _hover={{
           bg: 'gray.700',
           borderColor: 'purple.500',
@@ -78,9 +80,12 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
           position="relative" 
           width="100%" 
           paddingBottom="140%" 
-          bg="gray.800" 
-          borderRadius="xl" 
-          overflow="hidden"
+          bg="gray.800"
+          sx={{
+            borderTopLeftRadius: 'xl',
+            borderTopRightRadius: 'xl',
+            overflow: 'hidden'
+          }}
         >
           {!imageLoaded && (
             <Skeleton position="absolute" top={0} left={0} width="100%" height="100%" />
