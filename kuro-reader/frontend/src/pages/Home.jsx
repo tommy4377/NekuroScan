@@ -352,13 +352,13 @@ function Home() {
         <Box 
           bg="gray.800" 
           p={{ base: 4, md: 6 }}
-          pb={{ base: 10, md: 12 }}
+          pb={{ base: 12, md: 14 }}
           borderRadius="xl"
           border="1px solid"
           borderColor="gray.700"
           transition="all 0.3s"
           overflow="visible"
-          minH="420px"
+          minH="450px"
           _hover={{ borderColor: `${color}.500` }}
         >
           <HStack justify="space-between" mb={4}>
@@ -398,8 +398,9 @@ function Home() {
           <Box 
             overflowX="auto" 
             overflowY="visible"
-            pb={4}
-            pt={2}
+            pb={6}
+            pt={4}
+            px={2}
             css={{
               '&::-webkit-scrollbar': { height: '8px' },
               '&::-webkit-scrollbar-track': { background: 'transparent' },
@@ -409,7 +410,7 @@ function Home() {
               }
             }}
           >
-            <HStack spacing={6} align="start" overflow="visible">
+            <HStack spacing={8} align="start" overflow="visible">
               {items.map((item, i) => (
                 <Box
                   key={`${item.url}-${i}`}
