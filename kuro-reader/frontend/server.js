@@ -109,28 +109,73 @@ setInterval(() => {
 
 app.use(rateLimiter);
 
-// Security and performance headers (NO Content-Type qui, gestito da express.static + fallback)
+// ✅ CSP Violation Report Endpoint (solo development per debugging)
+if (process.env.NODE_ENV === 'development') {
+  app.post('/csp-violation-report', express.json({ type: 'application/csp-report' }), (req, res) => {
+    if (req.body) {
+      console.warn('🚨 CSP VIOLATION:', JSON.stringify(req.body, null, 2));
+    }
+    res.status(204).end();
+  });
+}
+
+// ✅ SECURITY: Enhanced headers with strict CSP (NO unsafe-inline for scripts, NO unsafe-eval)
 app.use((req, res, next) => {
   // HSTS - Force HTTPS (valido 1 anno)
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   
-  // Content Security Policy
+  // ✅ Content Security Policy - PRODUCTION SECURE
+  // Vite + React in produzione NON richiedono unsafe-eval
+  // Script-src: NO unsafe-inline, NO unsafe-eval ✅
+  // Style-src: unsafe-inline solo per Chakra UI (può essere rimosso con hash se necessario)
+  
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    
+    // ✅ SCRIPTS: TOTALMENTE SICURI - NO unsafe-inline, NO unsafe-eval
+    "script-src 'self'",
+    
+    // ⚠️ STYLES: unsafe-inline necessario per Chakra UI emotion cache
+    // Alternative: calcolare hash SHA-256 di ogni stile inline o usare nonce
+    // Per rimuovere unsafe-inline: implementare CSP nonce in index.html
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    
+    // Font da self + Google Fonts + data URIs
     "font-src 'self' https://fonts.gstatic.com data:",
+    
+    // Immagini: self + data URIs + blob + tutti i domini (per manga proxy)
     "img-src 'self' data: blob: https: http:",
+    
+    // API Connections: backend auth + proxy + CDN manga
     "connect-src 'self' https://kuro-auth-backend.onrender.com https://kuro-proxy-server.onrender.com https://cdn.mangaworld.cx https: http:",
+    
+    // Media: self + blob + data
     "media-src 'self' blob: data:",
+    
+    // Web Workers e Service Workers (PWA)
     "worker-src 'self' blob:",
+    
+    // ✅ Blocca contenuti pericolosi
     "frame-src 'none'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'"
+    "frame-ancestors 'none'",
+    
+    // ✅ Upgrade automatico HTTP -> HTTPS
+    "upgrade-insecure-requests"
   ].join('; ');
+  
   res.setHeader('Content-Security-Policy', csp);
+  
+  // ✅ CSP Report-Only per monitoraggio (opzionale in development)
+  if (isDevelopment) {
+    // In dev, monitora violazioni senza bloccare
+    const reportOnlyCsp = csp.replace(/;$/, '') + "; report-uri /csp-violation-report";
+    res.setHeader('Content-Security-Policy-Report-Only', reportOnlyCsp);
+  }
   
   // Security headers
   res.setHeader('X-Frame-Options', 'DENY');

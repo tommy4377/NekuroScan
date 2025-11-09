@@ -274,6 +274,8 @@ app.post('/api/proxy', advancedRateLimiter('proxy'), async (req, res) => {
       if (safeHeaders[key] === undefined) delete safeHeaders[key];
     });
     
+    // ✅ SECURITY: HTTPS Agent con verifica certificati ABILITATA
+    // NO rejectUnauthorized: false (vulnerabilità MITM)
     const response = await axios({
       method: sanitizedMethod,
       url,
@@ -284,8 +286,8 @@ app.post('/api/proxy', advancedRateLimiter('proxy'), async (req, res) => {
       validateStatus: (status) => status < 600,
       decompress: true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: false,
-        keepAlive: true // Riusa connessioni
+        rejectUnauthorized: true, // ✅ SECURE: Verifica certificati SSL/TLS
+        keepAlive: true // Riusa connessioni per performance
       }),
       withCredentials: false // No cookies cross-origin
     });
@@ -313,7 +315,20 @@ app.post('/api/proxy', advancedRateLimiter('proxy'), async (req, res) => {
   } catch (error) {
     console.error('❌ Proxy error:', error.message);
     
-    // Distingui tra errori di rete e errori HTTP
+    // ✅ SECURITY: Gestione errori SSL/TLS (certificati invalidi)
+    if (error.code === 'CERT_HAS_EXPIRED' || 
+        error.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
+        error.code === 'SELF_SIGNED_CERT_IN_CHAIN' ||
+        error.code === 'DEPTH_ZERO_SELF_SIGNED_CERT') {
+      console.error(`🔒 SSL/TLS Certificate Error for ${url}:`, error.code);
+      return res.status(502).json({ 
+        success: false, 
+        error: 'Certificato SSL/TLS non valido. Il sito target potrebbe avere problemi di sicurezza.',
+        sslError: true
+      });
+    }
+    
+    // Errori di connessione
     if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
       return res.status(504).json({ 
         success: false, 
@@ -375,6 +390,7 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
     
     console.log('🖼️ Proxying image:', url);
     
+    // ✅ SECURITY: HTTPS Agent con verifica certificati ABILITATA
     const response = await axios({
       method: 'GET',
       url,
@@ -397,8 +413,8 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
       validateStatus: (status) => status < 600,
       decompress: true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: false,
-        keepAlive: true
+        rejectUnauthorized: true, // ✅ SECURE: Verifica certificati SSL/TLS
+        keepAlive: true // Connection pooling per performance
       })
     });
     
@@ -445,7 +461,16 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
     
   } catch (error) {
     console.error('❌ Image proxy error:', error.message);
-    // Ritorna placeholder anche per errori di rete
+    
+    // ✅ SECURITY: Log errori SSL/TLS specifici
+    if (error.code === 'CERT_HAS_EXPIRED' || 
+        error.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
+        error.code === 'SELF_SIGNED_CERT_IN_CHAIN' ||
+        error.code === 'DEPTH_ZERO_SELF_SIGNED_CERT') {
+      console.error(`🔒 SSL/TLS Certificate Error for image ${url}:`, error.code);
+    }
+    
+    // Ritorna placeholder anche per errori di rete e SSL
     const placeholder = Buffer.from(
       `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280" viewBox="0 0 200 280">
         <rect width="200" height="280" fill="#2D3748"/>
