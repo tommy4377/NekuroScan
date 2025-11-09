@@ -1068,7 +1068,7 @@ app.get('/api/profile/:username', async (req, res) => {
         include: {
           profile: true,
           library: true,
-          favorites: true
+          favorites_old: true  // ✅ Fixed: era "favorites" ma nello schema è "favorites_old"
         }
       });
     });
@@ -1091,7 +1091,7 @@ app.get('/api/profile/:username', async (req, res) => {
     const reading = JSON.parse(user.library?.reading || '[]').slice(0, 12);
     const completed = JSON.parse(user.library?.completed || '[]').slice(0, 12);
     const dropped = JSON.parse(user.library?.dropped || '[]').slice(0, 12);
-    const favorites = JSON.parse(user.favorites?.favorites || '[]').slice(0, 12);
+    const favorites = JSON.parse(user.favorites_old?.favorites || '[]').slice(0, 12);  // ✅ Fixed: era "favorites" ora è "favorites_old"
     
     const [followersCount, followingCount] = await executeWithRetry(async () => {
       return await Promise.all([
