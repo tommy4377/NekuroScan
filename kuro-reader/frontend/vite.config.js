@@ -261,18 +261,5 @@ export default defineConfig({
   esbuild: {
     drop: ['debugger'], // Rimosso 'console' per evitare problemi con librerie
     legalComments: 'none'
-  },
-  // ✅ CSS: Ottimizzazioni PostCSS
-  css: {
-    postcss: './postcss.config.js',
-    devSourcemap: false,
-    preprocessorOptions: {
-      scss: {
-        // Opzioni Sass se necessarie
-      }
-    },
-    modules: {
-      localsConvention: 'camelCaseOnly'
-    }
   }
 });
