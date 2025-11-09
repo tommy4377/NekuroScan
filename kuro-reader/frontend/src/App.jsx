@@ -14,6 +14,7 @@ import useRateLimitDetector from './hooks/useRateLimitDetector';
 import { useMigrateFromLocalStorage } from './hooks/useIndexedDB';
 import statusBar from './utils/statusBar';
 import { initSentry, setUser as setSentryUser, clearUser as clearSentryUser } from './utils/sentry';
+import { registerServiceWorker, prefetchManager } from './utils/serviceWorkerManager';
 
 // ✅ PERFORMANCE: Caricamento immediato solo per pagine critiche
 import Welcome from './pages/Welcome';
@@ -231,36 +232,22 @@ function AppContent() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Service Worker: registrato con requestIdleCallback per non bloccare
+    // ✅ Service Worker Avanzato con Cache Strategy
     if ('serviceWorker' in navigator && import.meta.env.PROD) {
-      const registerSW = () => {
-        navigator.serviceWorker.register('/sw.js', {
-          scope: '/',
-          updateViaCache: 'none' // Forza check aggiornamenti
-        }).then(
-          (registration) => {
-            // Silent success (no console log per performance)
-            
-            registration.addEventListener('updatefound', () => {
-              const newWorker = registration.installing;
-              newWorker?.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  toast({
-                    title: 'Nuovo aggiornamento disponibile',
-                    description: 'Ricarica la pagina per aggiornare',
-                    status: 'info',
-                    duration: null,
-                    isClosable: true,
-                    position: 'top',
-                  });
-                }
-              });
-            });
-          },
-          (error) => {
-            // Silent fail (SW non critico)
-          }
-        );
+      const registerSW = async () => {
+        try {
+          await registerServiceWorker();
+          
+          // Setup prefetching intelligente
+          setTimeout(() => {
+            prefetchManager.prefetchLinksInViewport();
+            prefetchManager.setupHoverPrefetch();
+          }, 3000);
+          
+        } catch (err) {
+          // Silent fail (SW non critico)
+          console.warn('SW registration failed:', err);
+        }
       };
       
       // Registra quando il browser è idle

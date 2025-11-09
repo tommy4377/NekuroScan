@@ -182,17 +182,71 @@ export default defineConfig({
   build: {
     sourcemap: false,
     target: 'es2020',
-    minify: 'esbuild',
+    minify: 'terser', // Terser migliore di esbuild per produzione
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug'],
+        passes: 2 // Multiple passes per ottimizzazione migliore
+      },
+      mangle: {
+        safari10: true
+      },
+      format: {
+        comments: false
+      }
+    },
     rollupOptions: {
       output: {
-        manualChunks: undefined
+        // ✅ ADVANCED CODE SPLITTING: Chunking intelligente
+        manualChunks: (id) => {
+          // Vendor chunks separati per cache long-term
+          if (id.includes('node_modules')) {
+            // React core bundle
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'vendor-react';
+            }
+            // Chakra UI bundle
+            if (id.includes('@chakra-ui') || id.includes('@emotion')) {
+              return 'vendor-chakra';
+            }
+            // Icons bundle
+            if (id.includes('react-icons')) {
+              return 'vendor-icons';
+            }
+            // Altri vendor
+            return 'vendor-other';
+          }
+          
+          // API e Utils in chunk separato
+          if (id.includes('/src/api/') || id.includes('/src/utils/')) {
+            return 'core-utils';
+          }
+          
+          // Hooks in chunk separato
+          if (id.includes('/src/hooks/')) {
+            return 'core-hooks';
+          }
+        },
+        // Nomi file con hash per cache busting
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
+      },
+      // Tree shaking avanzato
+      treeshake: {
+        moduleSideEffects: 'no-external',
+        propertyReadSideEffects: false,
+        tryCatchDeoptimization: false
       }
     },
     // ✅ PERFORMANCE: Dimensioni chunk ottimali
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 600, // Più strict
     cssCodeSplit: true,
-    assetsInlineLimit: 8192,
-    reportCompressedSize: false,
+    cssMinify: true,
+    assetsInlineLimit: 4096, // Più conservativo
+    reportCompressedSize: false, // Disabilita per speed di build
     modulePreload: {
       polyfill: true
     }
@@ -207,5 +261,18 @@ export default defineConfig({
   esbuild: {
     drop: ['debugger'], // Rimosso 'console' per evitare problemi con librerie
     legalComments: 'none'
+  },
+  // ✅ CSS: Ottimizzazioni PostCSS
+  css: {
+    postcss: './postcss.config.js',
+    devSourcemap: false,
+    preprocessorOptions: {
+      scss: {
+        // Opzioni Sass se necessarie
+      }
+    },
+    modules: {
+      localsConvention: 'camelCaseOnly'
+    }
   }
 });
