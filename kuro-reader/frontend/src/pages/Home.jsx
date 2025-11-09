@@ -351,11 +351,13 @@ function Home() {
       <VStack align="stretch" spacing={4}>
         <Box 
           bg="gray.800" 
-          p={{ base: 4, md: 6 }} 
+          p={{ base: 4, md: 6 }}
+          pb={{ base: 6, md: 8 }}
           borderRadius="xl"
           border="1px solid"
           borderColor="gray.700"
           transition="all 0.3s"
+          overflow="visible"
           _hover={{ borderColor: `${color}.500` }}
         >
           <HStack justify="space-between" mb={4}>
@@ -394,7 +396,9 @@ function Home() {
           {/* Scroll orizzontale */}
           <Box 
             overflowX="auto" 
-            pb={2}
+            overflowY="visible"
+            pb={4}
+            pt={2}
             css={{
               '&::-webkit-scrollbar': { height: '8px' },
               '&::-webkit-scrollbar-track': { background: 'transparent' },
@@ -404,7 +408,7 @@ function Home() {
               }
             }}
           >
-            <HStack spacing={4} align="start">
+            <HStack spacing={6} align="start" overflow="visible">
               {items.map((item, i) => (
                 <Box
                   key={`${item.url}-${i}`}

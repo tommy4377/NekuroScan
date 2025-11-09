@@ -55,7 +55,7 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
         overflow="visible"
         spacing={0}
         height="100%"
-        transition="all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)"
+        transition="all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)"
         position="relative"
         border="1px solid"
         borderColor="transparent"
@@ -64,8 +64,8 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
         _hover={{
           bg: 'gray.750',
           borderColor: 'purple.400',
-          boxShadow: '0 12px 40px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(128, 90, 213, 0.2)',
-          transform: 'translateY(-6px) scale(1.01)',
+          boxShadow: '0 8px 30px rgba(128, 90, 213, 0.4), 0 0 0 1px rgba(128, 90, 213, 0.1)',
+          transform: 'translateY(-8px) scale(1.02)',
           zIndex: 10
         }}
       >
