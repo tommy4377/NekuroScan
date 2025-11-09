@@ -45,11 +45,13 @@ function Navigation() {
 
   const handleSearch = React.useCallback((e) => {
     e.preventDefault();
-    // Naviga direttamente a Categories invece di Search
-    navigate('/categories');
-    setQuery('');
-    onClose();
-  }, [navigate, onClose]);
+    if (query.trim()) {
+      // Naviga a Search con la query
+      navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+      setQuery('');
+      onClose();
+    }
+  }, [query, navigate, onClose]);
 
   const doLogout = React.useCallback(async () => {
     if (user && persistLocalData) {
@@ -122,7 +124,7 @@ function Navigation() {
                   <Input
                     type="text"
                     inputMode="search"
-                    placeholder="Esplora categorie..."
+                    placeholder="Cerca manga..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     bg="gray.800"
@@ -271,7 +273,7 @@ function Navigation() {
                   <Input
                     type="text"
                     inputMode="search"
-                    placeholder="Esplora categorie..."
+                    placeholder="Cerca manga..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     bg="gray.800"

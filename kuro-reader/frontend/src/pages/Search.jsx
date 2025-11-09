@@ -3,9 +3,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box, Container, Input, InputGroup, InputLeftElement,
   Heading, Text, VStack, HStack, Button, Skeleton, Badge, useToast,
-  ButtonGroup, Center, Spinner, SimpleGrid
+  ButtonGroup, Center, Spinner, SimpleGrid, Collapse, IconButton,
+  Wrap, WrapItem
 } from '@chakra-ui/react';
-import { SearchIcon } from '@chakra-ui/icons';
+import { SearchIcon, ChevronDownIcon, ChevronUpIcon } from '@chakra-ui/icons';
+import { FaFilter } from 'react-icons/fa';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useInView } from 'react-intersection-observer';
 import MangaCard from '../components/MangaCard';
@@ -29,6 +31,8 @@ function Search() {
   const [hasMore, setHasMore] = useState(true);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [history, setHistory] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedGenres, setSelectedGenres] = useState([]);
   
   // ✅ FIX: Ref per evitare spam
   const loadingRef = useRef(false);
@@ -228,8 +232,25 @@ function Search() {
     }
   };
 
-  const normalCount = results.filter(r => !r.isAdult).length;
-  const adultCount = results.filter(r => r.isAdult).length;
+  // Filtra risultati per generi selezionati
+  const filteredResults = selectedGenres.length > 0
+    ? results.filter(manga => {
+        // Se il manga ha generi, controlla se include almeno uno dei generi selezionati
+        if (manga.genres && Array.isArray(manga.genres)) {
+          return selectedGenres.some(selectedGenre => 
+            manga.genres.some(g => 
+              g.toLowerCase().includes(selectedGenre.toLowerCase()) ||
+              selectedGenre.toLowerCase().includes(g.toLowerCase())
+            )
+          );
+        }
+        // Se non ha generi, mostralo comunque
+        return true;
+      })
+    : results;
+  
+  const normalCount = filteredResults.filter(r => !r.isAdult).length;
+  const adultCount = filteredResults.filter(r => r.isAdult).length;
 
   return (
     <Container maxW="container.xl" py={8}>
@@ -348,7 +369,20 @@ function Search() {
           </form>
           
           <VStack spacing={3}>
-            <Text fontSize="sm" color="gray.400">Tipo di contenuti:</Text>
+            <HStack justify="space-between" w="100%">
+              <Text fontSize="sm" color="gray.400">Tipo di contenuti:</Text>
+              <Button
+                size="sm"
+                leftIcon={<FaFilter />}
+                rightIcon={showFilters ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                variant="ghost"
+                colorScheme="purple"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                {showFilters ? 'Nascondi' : 'Mostra'} Filtri Avanzati
+              </Button>
+            </HStack>
+            
             <ButtonGroup size="sm" isAttached variant="outline">
               <Button
                 variant={searchMode === 'all' ? 'solid' : 'outline'}
@@ -372,6 +406,74 @@ function Search() {
                 🔞 Solo Adult
               </Button>
             </ButtonGroup>
+            
+            {/* Filtri Avanzati Collassabili */}
+            <Collapse in={showFilters} style={{ width: '100%' }}>
+              <VStack
+                spacing={4}
+                align="stretch"
+                p={4}
+                bg="gray.800"
+                borderRadius="lg"
+                border="1px solid"
+                borderColor="gray.700"
+              >
+                <Text fontSize="sm" fontWeight="bold" color="purple.300">
+                  Filtra per Generi (seleziona per includere)
+                </Text>
+                
+                <Wrap spacing={2}>
+                  {['Azione', 'Avventura', 'Commedia', 'Drammatico', 'Fantasy', 'Horror', 'Mistero', 'Psicologico', 'Romantico', 'Sci-Fi', 'Slice of Life', 'Sportivo', 'Soprannaturale', 'Thriller'].map(genre => (
+                    <WrapItem key={genre}>
+                      <Button
+                        size="sm"
+                        variant={selectedGenres.includes(genre) ? 'solid' : 'outline'}
+                        colorScheme={selectedGenres.includes(genre) ? 'purple' : 'gray'}
+                        onClick={() => {
+                          setSelectedGenres(prev => 
+                            prev.includes(genre) 
+                              ? prev.filter(g => g !== genre)
+                              : [...prev, genre]
+                          );
+                        }}
+                      >
+                        {selectedGenres.includes(genre) && '✓ '}
+                        {genre}
+                      </Button>
+                    </WrapItem>
+                  ))}
+                </Wrap>
+                
+                {selectedGenres.length > 0 && (
+                  <HStack>
+                    <Text fontSize="xs" color="gray.400">
+                      {selectedGenres.length} generi selezionati
+                    </Text>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      colorScheme="red"
+                      onClick={() => setSelectedGenres([])}
+                    >
+                      Cancella
+                    </Button>
+                  </HStack>
+                )}
+                
+                <Text fontSize="xs" color="gray.500" fontStyle="italic">
+                  💡 Suggerimento: Dopo aver selezionato i generi, vai su{' '}
+                  <Button
+                    size="xs"
+                    variant="link"
+                    colorScheme="purple"
+                    onClick={() => navigate('/categories')}
+                  >
+                    Esplora Categorie
+                  </Button>
+                  {' '}per una ricerca avanzata completa
+                </Text>
+              </VStack>
+            </Collapse>
           </VStack>
         </VStack>
 
@@ -379,9 +481,10 @@ function Search() {
           <VStack spacing={6} align="stretch">
             <HStack justify="space-between" flexWrap="wrap">
               <Text fontWeight="bold">
-                {loading ? 'Ricerca in corso...' : `${results.length} risultati trovati`}
+                {loading ? 'Ricerca in corso...' : `${filteredResults.length} risultati trovati`}
+                {selectedGenres.length > 0 && ` (${results.length} totali, filtrati per genere)`}
               </Text>
-              {!loading && results.length > 0 && searchMode === 'all' && (
+              {!loading && filteredResults.length > 0 && searchMode === 'all' && (
                 <HStack spacing={2}>
                   {normalCount > 0 && (
                     <Badge colorScheme="blue">{normalCount} Normali</Badge>
@@ -406,7 +509,7 @@ function Search() {
                   spacing={4}
                   w="100%"
                 >
-                  {results.map((item, i) => (
+                  {filteredResults.map((item, i) => (
                     <Box
                       key={item.url || `search-${i}`}
                       h="100%"
