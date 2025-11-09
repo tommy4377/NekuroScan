@@ -217,10 +217,11 @@ export default defineConfig({
   },
   // ✅ PERFORMANCE & SECURITY: Ottimizzazioni esbuild
   esbuild: {
-    // ✅ Drop console e debugger in produzione (solo codice sorgente)
-    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : ['debugger'],
+    // ✅ Drop console e debugger in produzione (sempre in build)
+    // NOTA: Vite in build mode esegue sempre in produzione, quindi questo si applica solo al build
+    drop: ['console', 'debugger'],
     legalComments: 'none',
-    // ✅ Minificazione aggressiva in produzione
+    // ✅ Minificazione aggressiva
     minifyIdentifiers: true,
     minifySyntax: true,
     minifyWhitespace: true

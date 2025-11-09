@@ -10,6 +10,7 @@ import { useInView } from 'react-intersection-observer';
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useSEO, SEOTemplates } from '../hooks/useSEO';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
@@ -149,10 +150,15 @@ const Latest = React.memo(() => {
     );
   }
 
+  // ✅ SEO Dinamico
+  const SEOHelmet = useSEO(SEOTemplates.latest());
+
   return (
-    <Container maxW="container.xl" py={8}>
-      <VStack spacing={6} align="stretch">
-        <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
+    <>
+      {SEOHelmet}
+      <Container maxW="container.xl" py={8}>
+        <VStack spacing={6} align="stretch">
+          <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
           <HStack justify="space-between" flexWrap="wrap" spacing={4}>
             <HStack spacing={3}>
               <Box 
@@ -257,6 +263,7 @@ const Latest = React.memo(() => {
         )}
       </VStack>
     </Container>
+    </>
   );
 });
 

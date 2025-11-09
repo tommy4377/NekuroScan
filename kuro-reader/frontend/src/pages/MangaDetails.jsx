@@ -22,6 +22,7 @@ import shareUtils from '../utils/shareUtils';
 import axios from 'axios';
 import { config } from '../config';
 import { encodeSource, decodeSource } from '../utils/sourceMapper';
+import { useSEO, SEOTemplates } from '../hooks/useSEO';
 
 // Helper: Decode URL-safe base64
 const decodeUrlSafe = (str) => {
@@ -834,9 +835,15 @@ function MangaDetails() {
         ? Math.min(100, Math.round(((readingProgress.chapterIndex + 1) / manga.chapters.length) * 100))
         : 0);
 
+  // ✅ SEO Dinamico per questa pagina manga
+  const seoData = SEOTemplates.manga(manga);
+  const SEOHelmet = useSEO(seoData);
+
   return (
-    <Container maxW="container.xl" py={8}>
-      <VStack spacing={8} align="stretch">
+    <>
+      {SEOHelmet}
+      <Container maxW="container.xl" py={8}>
+        <VStack spacing={8} align="stretch">
         
         {/* ========= HEADER ========= */}
         <Box
@@ -1629,6 +1636,7 @@ function MangaDetails() {
         </ModalContent>
       </Modal>
     </Container>
+    </>
   );
 }
 

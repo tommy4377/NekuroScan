@@ -14,8 +14,9 @@ import {
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import MangaCard from '../components/MangaCard';
 import useAuth from '../hooks/useAuth';
-import axios from 'axios';
+import axios from '../api';
 import { config } from '../config';
+import { useSEO, SEOTemplates } from '../hooks/useSEO';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
@@ -212,11 +213,16 @@ export default function PublicProfile() {
 
   const themeColor = getThemeColor();
 
+  // ✅ SEO Dinamico basato su profilo utente
+  const SEOHelmet = useSEO(SEOTemplates.profile(profile.username, !profile.isPrivate));
+
   return (
-    <Container maxW="container.xl" py={8}>
-      <VStack spacing={6} align="stretch">
-        {/* Banner & Profile */}
-        <Box position="relative" borderRadius="xl" overflow="hidden">
+    <>
+      {SEOHelmet}
+      <Container maxW="container.xl" py={8}>
+        <VStack spacing={6} align="stretch">
+          {/* Banner & Profile */}
+          <Box position="relative" borderRadius="xl" overflow="hidden">
           {/* Banner */}
           <Box
             h={{ base: '150px', md: '250px' }}
@@ -544,5 +550,6 @@ export default function PublicProfile() {
         </Tabs>
       </VStack>
     </Container>
+    </>
   );
 }

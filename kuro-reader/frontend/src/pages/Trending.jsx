@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useSEO, SEOTemplates } from '../hooks/useSEO';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
@@ -178,10 +179,15 @@ const Trending = React.memo(() => {
     );
   };
 
+  // ✅ SEO Dinamico
+  const SEOHelmet = useSEO(SEOTemplates.trending());
+
   return (
-    <Container maxW="container.xl" py={8}>
-      <VStack spacing={6} align="stretch">
-        <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
+    <>
+      {SEOHelmet}
+      <Container maxW="container.xl" py={8}>
+        <VStack spacing={6} align="stretch">
+          <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
           <HStack justify="space-between" flexWrap="wrap" spacing={4}>
             <HStack spacing={3}>
               <Box 
@@ -243,6 +249,7 @@ const Trending = React.memo(() => {
         )}
       </VStack>
     </Container>
+    </>
   );
 });
 
