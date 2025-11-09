@@ -5,24 +5,9 @@ import viteCompression from 'vite-plugin-compression';
 import viteImagemin from 'vite-plugin-imagemin';
 import { visualizer } from 'rollup-plugin-visualizer';
 
-// ✅ PLUGIN: Rimuove TUTTI i console.* in produzione (backup se Terser non bastasse)
-const removeConsolePlugin = () => {
-  return {
-    name: 'remove-console',
-    transform(code, id) {
-      // Solo in produzione e solo per codice sorgente (non node_modules)
-      if (process.env.NODE_ENV === 'production' && !id.includes('node_modules')) {
-        // Rimuove console.* con regex aggressive
-        return {
-          code: code
-            .replace(/console\.(log|debug|info|warn|error|trace|time|timeEnd)\s*\([^)]*\);?/g, '')
-            .replace(/console\.(log|debug|info|warn|error|trace|time|timeEnd)\s*\([^)]*\)\s*;/g, ''),
-          map: null
-        };
-      }
-    }
-  };
-};
+// ✅ NOTA: Plugin removeConsole DISABILITATO
+// Terser + ESBuild già rimuovono console in produzione in modo più sicuro
+// Il plugin custom con regex può rompere sintassi JavaScript
 
 export default defineConfig({
   base: '/',
@@ -38,9 +23,6 @@ export default defineConfig({
     exclude: []
   },
   plugins: [
-    // ✅ SECURITY: Rimuove console.* in produzione (prima di tutto)
-    removeConsolePlugin(),
-    
     react({
       // ✅ PERFORMANCE: Fast Refresh ottimizzato
       fastRefresh: true
@@ -204,23 +186,27 @@ export default defineConfig({
   build: {
     sourcemap: false,
     target: 'es2020',
-    minify: 'terser', // Terser migliore di esbuild per produzione
+    minify: 'terser', // Terser per rimozione console sicura
     terserOptions: {
       compress: {
-        drop_console: true,  // ✅ Rimuove TUTTI i console.*
+        // ✅ SECURITY: Rimuove TUTTI i console.* in produzione
+        drop_console: true,
         drop_debugger: true,
-        // ✅ SECURITY: Rimuove TUTTE le chiamate console in produzione
+        // ✅ Pure functions: rimuove se risultato non usato
         pure_funcs: [
           'console.log',
           'console.info', 
           'console.debug',
-          'console.warn',   // ✅ Aggiunto
-          'console.error',  // ✅ Aggiunto (usa Sentry invece)
+          'console.warn',
+          'console.error',
           'console.trace',
           'console.time',
-          'console.timeEnd'
+          'console.timeEnd',
+          'console.table',
+          'console.group',
+          'console.groupEnd'
         ],
-        passes: 2 // Multiple passes per ottimizzazione migliore
+        passes: 3  // ✅ 3 pass per pulizia completa
       },
       mangle: {
         safari10: true
