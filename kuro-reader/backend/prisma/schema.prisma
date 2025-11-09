@@ -16,14 +16,15 @@ model user {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relazioni vecchie (mantieni come erano)
   profile          user_profile?
-  favorites_old    user_favorites?      // ⚠️ DEPRECATED: sarà rimosso dopo migrazione
-  readingProgress  reading_progress[]
-  library_old      user_library?        // ⚠️ DEPRECATED: sarà rimosso dopo migrazione
+  favorites_v1     user_favorites?      // ⚠️ OLD: JSON array in TEXT column
+  reading          reading_progress[]
+  library_v1       user_library?        // ⚠️ OLD: JSON arrays in TEXT columns
   follows          user_follows[]       @relation("follower")
   followers        user_follows[]       @relation("following")
   
-  // ✅ NORMALIZED TABLES
+  // ✅ NUOVE TABELLE NORMALIZZATE
   favorites        favorite[]
   libraryManga     library_manga[]
   historyEntries   history_entry[]
@@ -64,7 +65,7 @@ model user_follows {
 model user_favorites {
   id        Int      @id @default(autoincrement())
   userId    Int      @unique
-  user      user     @relation("favorites_old", fields: [userId], references: [id], onDelete: Cascade)
+  user      user     @relation("favorites_v1", fields: [userId], references: [id], onDelete: Cascade)
   favorites String   @db.Text
   updatedAt DateTime @updatedAt
   
@@ -92,7 +93,7 @@ model reading_progress {
 model user_library {
   id        Int      @id @default(autoincrement())
   userId    Int      @unique
-  user      user     @relation("library_old", fields: [userId], references: [id], onDelete: Cascade)
+  user      user     @relation("library_v1", fields: [userId], references: [id], onDelete: Cascade)
   reading   String?  @db.Text
   completed String?  @db.Text
   dropped   String?  @db.Text
