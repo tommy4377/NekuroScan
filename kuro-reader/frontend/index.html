@@ -119,9 +119,8 @@
   <!-- ✅ Resource Hints: Prefetch per API health check (riduce cold start) -->
   <link rel="prefetch" href="https://kuro-proxy-server.onrender.com/health" as="fetch" crossorigin>
   
-  <!-- ✅ PERFORMANCE: Font caricato con display=swap per evitare blocchi -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
+  <!-- ✅ PERFORMANCE: Font con display=swap (non blocca rendering) -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="all">
   
   <!-- ✅ CRITICAL CSS: Inline per FCP veloce -->
   <style>
