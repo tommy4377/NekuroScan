@@ -49,6 +49,11 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
       onClick={handleClick}
       height="100%"
       overflow="visible"
+      position="relative"
+      zIndex={1}
+      _hover={{
+        zIndex: 999
+      }}
     >
       <VStack
         bg="gray.800"
@@ -61,14 +66,17 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
         border="1px solid"
         borderColor="transparent"
         willChange="transform"
-        zIndex={1}
+        boxShadow="none"
         _hover={{
           bg: 'gray.750',
           borderColor: 'purple.400',
-          boxShadow: '0 8px 30px -4px rgba(128, 90, 213, 0.5), 0 0 0 1px rgba(128, 90, 213, 0.15)',
+          boxShadow: '0 10px 40px -2px rgba(128, 90, 213, 0.6), 0 0 0 1px rgba(128, 90, 213, 0.2)',
           transform: 'translateY(-8px) scale(1.02)',
-          zIndex: 10,
+          zIndex: 999,
           filter: 'brightness(1.05)'
+        }}
+        sx={{
+          boxShadow: 'none !important'
         }}
       >
         <Box position="relative" width="100%" paddingBottom="140%" bg="gray.800">

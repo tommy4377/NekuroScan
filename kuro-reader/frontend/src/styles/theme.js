@@ -55,11 +55,11 @@ export const theme = extendTheme({
       '.chakra-text': {
         color: 'gray.100', // Testo più chiaro
       },
-      // ✅ SMOOTH CARDS
-      '.chakra-card, .manga-card': {
+      // ✅ SMOOTH CARDS - Solo per chakra-card generici, non manga-card
+      '.chakra-card': {
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         _hover: {
-          transform: 'scale(1.05)',
+          transform: 'scale(1.02)',
           boxShadow: '0 20px 25px -5px rgba(139, 92, 246, 0.2), 0 10px 10px -5px rgba(139, 92, 246, 0.08)',
           zIndex: 10,
         },

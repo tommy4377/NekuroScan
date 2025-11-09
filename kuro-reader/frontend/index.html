@@ -181,17 +181,24 @@
       backface-visibility: hidden;
       transform: translate3d(0, 0, 0);
       overflow: visible;
+      box-shadow: none !important;
     }
     
     .manga-card:hover {
       transform: translateY(-8px) scale(1.02) translate3d(0, 0, 0);
       transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-      z-index: 10;
+      z-index: 999;
     }
     
     /* SimpleGrid con overflow visible per far uscire le card */
-    .chakra-stack > .css-*, [class*="css-"] > .manga-card {
-      overflow: visible;
+    .chakra-stack > .css-*, [class*="css-"] > .manga-card,
+    .chakra-stack, [class*="css-"] {
+      overflow: visible !important;
+    }
+    
+    /* Rimuovi qualsiasi ombra di default */
+    .manga-card .chakra-stack {
+      box-shadow: none !important;
     }
     
     /* Skeleton animation */
