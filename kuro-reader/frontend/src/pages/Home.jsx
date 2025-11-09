@@ -352,12 +352,13 @@ function Home() {
         <Box 
           bg="gray.800" 
           p={{ base: 4, md: 6 }}
-          pb={{ base: 6, md: 8 }}
+          pb={{ base: 10, md: 12 }}
           borderRadius="xl"
           border="1px solid"
           borderColor="gray.700"
           transition="all 0.3s"
           overflow="visible"
+          minH="420px"
           _hover={{ borderColor: `${color}.500` }}
         >
           <HStack justify="space-between" mb={4}>
