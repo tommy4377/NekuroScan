@@ -4,11 +4,26 @@ import {
   FormControl, FormLabel, useToast, Tabs, TabList,
   TabPanels, Tab, TabPanel, InputGroup, InputRightElement,
   Checkbox, HStack, Divider, Alert, AlertIcon,
-  IconButton, Badge
+  IconButton, Badge, List, ListItem, ListIcon
 } from '@chakra-ui/react';
-import { ViewIcon, ViewOffIcon, ArrowBackIcon } from '@chakra-ui/icons';
+import { ViewIcon, ViewOffIcon, ArrowBackIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
+
+// ✅ VALIDAZIONE PASSWORD ROBUSTA (sincronizzata con backend)
+const validatePassword = (password) => {
+  const checks = {
+    length: password.length >= 10 && password.length <= 128,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+  };
+  
+  const isValid = Object.values(checks).every(check => check);
+  
+  return { isValid, checks };
+};
 
 function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -97,12 +112,14 @@ function Login() {
       return;
     }
     
-    if (registerData.password.length < 6) {
+    // ✅ VALIDAZIONE PASSWORD ROBUSTA
+    const passwordValidation = validatePassword(registerData.password);
+    if (!passwordValidation.isValid) {
       toast({ 
-        title: 'Password troppo corta',
-        description: 'Minimo 6 caratteri richiesti',
+        title: 'Password non valida',
+        description: 'Verifica che la password rispetti tutti i requisiti di sicurezza',
         status: 'error',
-        duration: 2000
+        duration: 4000
       });
       return;
     }
@@ -342,7 +359,7 @@ function Login() {
                           <Input
                             type={showPassword ? 'text' : 'password'}
                             autoComplete="new-password"
-                            placeholder="Minimo 6 caratteri"
+                            placeholder="Almeno 10 caratteri, maiuscola, numero e carattere speciale"
                             value={registerData.password}
                             onChange={(e) => setRegisterData({
                               ...registerData, 
@@ -388,6 +405,74 @@ function Login() {
                         />
                       </FormControl>
                       
+                      {/* ✅ INDICATORE REQUISITI PASSWORD IN TEMPO REALE */}
+                      {registerData.password && (
+                        <Box 
+                          w="100%" 
+                          bg="gray.700" 
+                          p={3} 
+                          borderRadius="md"
+                          border="1px solid"
+                          borderColor="gray.600"
+                        >
+                          <Text fontSize="xs" fontWeight="bold" mb={2} color="gray.400">
+                            Requisiti password:
+                          </Text>
+                          <VStack align="stretch" spacing={1}>
+                            <HStack spacing={2}>
+                              <ListIcon 
+                                as={validatePassword(registerData.password).checks.length ? CheckIcon : CloseIcon} 
+                                color={validatePassword(registerData.password).checks.length ? 'green.400' : 'red.400'}
+                                boxSize={3}
+                              />
+                              <Text fontSize="xs" color="gray.300">
+                                10-128 caratteri
+                              </Text>
+                            </HStack>
+                            <HStack spacing={2}>
+                              <ListIcon 
+                                as={validatePassword(registerData.password).checks.uppercase ? CheckIcon : CloseIcon} 
+                                color={validatePassword(registerData.password).checks.uppercase ? 'green.400' : 'red.400'}
+                                boxSize={3}
+                              />
+                              <Text fontSize="xs" color="gray.300">
+                                Almeno una maiuscola
+                              </Text>
+                            </HStack>
+                            <HStack spacing={2}>
+                              <ListIcon 
+                                as={validatePassword(registerData.password).checks.lowercase ? CheckIcon : CloseIcon} 
+                                color={validatePassword(registerData.password).checks.lowercase ? 'green.400' : 'red.400'}
+                                boxSize={3}
+                              />
+                              <Text fontSize="xs" color="gray.300">
+                                Almeno una minuscola
+                              </Text>
+                            </HStack>
+                            <HStack spacing={2}>
+                              <ListIcon 
+                                as={validatePassword(registerData.password).checks.number ? CheckIcon : CloseIcon} 
+                                color={validatePassword(registerData.password).checks.number ? 'green.400' : 'red.400'}
+                                boxSize={3}
+                              />
+                              <Text fontSize="xs" color="gray.300">
+                                Almeno un numero
+                              </Text>
+                            </HStack>
+                            <HStack spacing={2}>
+                              <ListIcon 
+                                as={validatePassword(registerData.password).checks.special ? CheckIcon : CloseIcon} 
+                                color={validatePassword(registerData.password).checks.special ? 'green.400' : 'red.400'}
+                                boxSize={3}
+                              />
+                              <Text fontSize="xs" color="gray.300">
+                                Carattere speciale (!@#$%...)
+                              </Text>
+                            </HStack>
+                          </VStack>
+                        </Box>
+                      )}
+                      
                       <Checkbox
                         isChecked={registerData.acceptTerms}
                         onChange={(e) => setRegisterData({
@@ -400,15 +485,6 @@ function Login() {
                           Accetto i termini di servizio e la privacy policy
                         </Text>
                       </Checkbox>
-                      
-                      {registerData.password && registerData.password.length < 6 && (
-                        <Alert status="warning" borderRadius="lg">
-                          <AlertIcon />
-                          <Text fontSize="sm">
-                            La password deve essere di almeno 6 caratteri
-                          </Text>
-                        </Alert>
-                      )}
                       
                       <Button
                         type="submit"

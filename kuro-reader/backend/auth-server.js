@@ -389,6 +389,85 @@ function sanitizeUsername(username) {
   return username.toLowerCase().trim().replace(/[^a-z0-9_-]/g, '').slice(0, 30);
 }
 
+// ========= PASSWORD VALIDATION (SECURITY ENHANCED) =========
+/**
+ * Valida password con requisiti di sicurezza robusti
+ * @param {string} password - Password da validare
+ * @returns {Object} - { valid: boolean, error: string }
+ */
+function validatePassword(password) {
+  // Controllo tipo e presenza
+  if (!password || typeof password !== 'string') {
+    return { valid: false, error: 'Password richiesta' };
+  }
+  
+  // Lunghezza minima: 10 caratteri (OWASP raccomanda 10+)
+  if (password.length < 10) {
+    return { 
+      valid: false, 
+      error: 'La password deve contenere almeno 10 caratteri' 
+    };
+  }
+  
+  // Lunghezza massima: 128 caratteri (previene DoS con bcrypt)
+  if (password.length > 128) {
+    return { 
+      valid: false, 
+      error: 'La password non può superare 128 caratteri' 
+    };
+  }
+  
+  // Requisito: almeno una lettera maiuscola
+  if (!/[A-Z]/.test(password)) {
+    return { 
+      valid: false, 
+      error: 'La password deve contenere almeno una lettera maiuscola' 
+    };
+  }
+  
+  // Requisito: almeno una lettera minuscola
+  if (!/[a-z]/.test(password)) {
+    return { 
+      valid: false, 
+      error: 'La password deve contenere almeno una lettera minuscola' 
+    };
+  }
+  
+  // Requisito: almeno un numero
+  if (!/[0-9]/.test(password)) {
+    return { 
+      valid: false, 
+      error: 'La password deve contenere almeno un numero' 
+    };
+  }
+  
+  // Requisito: almeno un carattere speciale
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    return { 
+      valid: false, 
+      error: 'La password deve contenere almeno un carattere speciale (!@#$%^&*...)' 
+    };
+  }
+  
+  // Controllo password comuni (top 100 più usate)
+  const commonPasswords = [
+    'password123', 'password123!', 'qwerty123', 'qwerty123!', 
+    'admin123!', 'welcome123', 'welcome123!', 'password1!',
+    '123456789!', '12345678!', 'password!', 'qwertyuiop',
+    '1234567890', 'abc123456!', 'password1234', 'admin12345'
+  ];
+  
+  if (commonPasswords.includes(password.toLowerCase())) {
+    return { 
+      valid: false, 
+      error: 'Password troppo comune, scegline una più sicura' 
+    };
+  }
+  
+  // Password valida
+  return { valid: true, error: null };
+}
+
 // ========= AUTH MIDDLEWARE =========
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -502,8 +581,10 @@ app.post('/api/auth/register', advancedRateLimiter('auth'), requireDatabase, asy
       return res.status(400).json({ message: 'Tutti i campi sono richiesti' });
     }
     
-    if (password.length < 6 || password.length > 100) {
-      return res.status(400).json({ message: 'La password deve essere tra 6 e 100 caratteri' });
+    // ✅ VALIDAZIONE PASSWORD ROBUSTA
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ message: passwordValidation.error });
     }
     
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -616,7 +697,8 @@ app.post('/api/auth/login', advancedRateLimiter('auth'), requireDatabase, async 
       return res.status(400).json({ message: 'Email/Username e password richiesti' });
     }
     
-    if (password.length > 100) {
+    // ✅ Controllo lunghezza massima per prevenire DoS
+    if (password.length > 128) {
       return res.status(400).json({ message: 'Password non valida' });
     }
     
