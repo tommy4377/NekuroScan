@@ -1,17 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box, Container, VStack, Input, Button, Text, Heading,
   FormControl, FormLabel, useToast, Tabs, TabList,
   TabPanels, Tab, TabPanel, InputGroup, InputRightElement,
   Checkbox, HStack, Divider, Alert, AlertIcon,
-  IconButton, Badge, List, ListItem, ListIcon
+  IconButton, Badge, Icon
 } from '@chakra-ui/react';
-import { ViewIcon, ViewOffIcon, ArrowBackIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
+import { ViewIcon, ViewOffIcon, ArrowBackIcon } from '@chakra-ui/icons';
+import { FiCheck, FiX } from 'react-icons/fi';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 
 // ✅ VALIDAZIONE PASSWORD ROBUSTA (sincronizzata con backend)
 const validatePassword = (password) => {
+  if (!password) {
+    return { 
+      isValid: false, 
+      checks: {
+        length: false,
+        uppercase: false,
+        lowercase: false,
+        number: false,
+        special: false
+      }
+    };
+  }
+  
   const checks = {
     length: password.length >= 10 && password.length <= 128,
     uppercase: /[A-Z]/.test(password),
@@ -50,6 +64,11 @@ function Login() {
   });
 
   const [tabIndex, setTabIndex] = useState(0);
+  
+  // ✅ Calcola validazione password solo quando cambia (performance)
+  const passwordValidation = useMemo(() => {
+    return validatePassword(registerData.password);
+  }, [registerData.password]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -112,8 +131,7 @@ function Login() {
       return;
     }
     
-    // ✅ VALIDAZIONE PASSWORD ROBUSTA
-    const passwordValidation = validatePassword(registerData.password);
+    // ✅ VALIDAZIONE PASSWORD ROBUSTA (usa valore memoizzato)
     if (!passwordValidation.isValid) {
       toast({ 
         title: 'Password non valida',
@@ -420,9 +438,9 @@ function Login() {
                           </Text>
                           <VStack align="stretch" spacing={1}>
                             <HStack spacing={2}>
-                              <ListIcon 
-                                as={validatePassword(registerData.password).checks.length ? CheckIcon : CloseIcon} 
-                                color={validatePassword(registerData.password).checks.length ? 'green.400' : 'red.400'}
+                              <Icon 
+                                as={passwordValidation.checks.length ? FiCheck : FiX} 
+                                color={passwordValidation.checks.length ? 'green.400' : 'red.400'}
                                 boxSize={3}
                               />
                               <Text fontSize="xs" color="gray.300">
@@ -430,9 +448,9 @@ function Login() {
                               </Text>
                             </HStack>
                             <HStack spacing={2}>
-                              <ListIcon 
-                                as={validatePassword(registerData.password).checks.uppercase ? CheckIcon : CloseIcon} 
-                                color={validatePassword(registerData.password).checks.uppercase ? 'green.400' : 'red.400'}
+                              <Icon 
+                                as={passwordValidation.checks.uppercase ? FiCheck : FiX} 
+                                color={passwordValidation.checks.uppercase ? 'green.400' : 'red.400'}
                                 boxSize={3}
                               />
                               <Text fontSize="xs" color="gray.300">
@@ -440,9 +458,9 @@ function Login() {
                               </Text>
                             </HStack>
                             <HStack spacing={2}>
-                              <ListIcon 
-                                as={validatePassword(registerData.password).checks.lowercase ? CheckIcon : CloseIcon} 
-                                color={validatePassword(registerData.password).checks.lowercase ? 'green.400' : 'red.400'}
+                              <Icon 
+                                as={passwordValidation.checks.lowercase ? FiCheck : FiX} 
+                                color={passwordValidation.checks.lowercase ? 'green.400' : 'red.400'}
                                 boxSize={3}
                               />
                               <Text fontSize="xs" color="gray.300">
@@ -450,9 +468,9 @@ function Login() {
                               </Text>
                             </HStack>
                             <HStack spacing={2}>
-                              <ListIcon 
-                                as={validatePassword(registerData.password).checks.number ? CheckIcon : CloseIcon} 
-                                color={validatePassword(registerData.password).checks.number ? 'green.400' : 'red.400'}
+                              <Icon 
+                                as={passwordValidation.checks.number ? FiCheck : FiX} 
+                                color={passwordValidation.checks.number ? 'green.400' : 'red.400'}
                                 boxSize={3}
                               />
                               <Text fontSize="xs" color="gray.300">
@@ -460,9 +478,9 @@ function Login() {
                               </Text>
                             </HStack>
                             <HStack spacing={2}>
-                              <ListIcon 
-                                as={validatePassword(registerData.password).checks.special ? CheckIcon : CloseIcon} 
-                                color={validatePassword(registerData.password).checks.special ? 'green.400' : 'red.400'}
+                              <Icon 
+                                as={passwordValidation.checks.special ? FiCheck : FiX} 
+                                color={passwordValidation.checks.special ? 'green.400' : 'red.400'}
                                 boxSize={3}
                               />
                               <Text fontSize="xs" color="gray.300">
