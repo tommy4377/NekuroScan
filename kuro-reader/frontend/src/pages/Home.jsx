@@ -10,7 +10,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { 
   FaFire, FaClock, FaBookOpen, FaHeart,
-  FaChevronRight, FaSync, FaTrophy, FaDragon, FaArrowRight
+  FaChevronRight, FaChevronLeft, FaSync, FaTrophy, FaDragon, FaArrowRight
 } from 'react-icons/fa';
 import { getBaseUrl } from '../config/sources';
 import { GiDragonHead } from 'react-icons/gi';
@@ -314,6 +314,41 @@ function Home() {
     showProgress = false,
     emptyMessage = 'Nessun contenuto disponibile'
   }) => {
+    const scrollRef = React.useRef(null);
+    const [canScrollLeft, setCanScrollLeft] = React.useState(false);
+    const [canScrollRight, setCanScrollRight] = React.useState(false);
+
+    const checkScroll = React.useCallback(() => {
+      if (scrollRef.current) {
+        const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+        setCanScrollLeft(scrollLeft > 0);
+        setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+      }
+    }, []);
+
+    React.useEffect(() => {
+      checkScroll();
+      const current = scrollRef.current;
+      if (current) {
+        current.addEventListener('scroll', checkScroll);
+        window.addEventListener('resize', checkScroll);
+        return () => {
+          current.removeEventListener('scroll', checkScroll);
+          window.removeEventListener('resize', checkScroll);
+        };
+      }
+    }, [checkScroll, items]);
+
+    const scroll = (direction) => {
+      if (scrollRef.current) {
+        const scrollAmount = 400;
+        scrollRef.current.scrollBy({
+          left: direction === 'left' ? -scrollAmount : scrollAmount,
+          behavior: 'smooth'
+        });
+      }
+    };
+
     if (!items || (items.length === 0 && !loading)) {
       return (
         <Box 
@@ -359,6 +394,7 @@ function Home() {
           transition="all 0.3s"
           overflow="visible"
           minH="450px"
+          position="relative"
           _hover={{ borderColor: `${color}.500` }}
         >
           <HStack justify="space-between" mb={4}>
@@ -394,61 +430,105 @@ function Home() {
             )}
           </HStack>
 
-          {/* Scroll orizzontale */}
-          <Box 
-            overflowX="auto" 
-            overflowY="visible"
-            py={4}
-            px={4}
-            css={{
-              '&::-webkit-scrollbar': { height: '8px' },
-              '&::-webkit-scrollbar-track': { background: 'transparent' },
-              '&::-webkit-scrollbar-thumb': { 
-                background: `var(--chakra-colors-${color}-500)`, 
-                borderRadius: '4px' 
-              }
-            }}
-          >
-            <HStack spacing={8} align="center" overflow="visible">
-              {items.map((item, i) => (
-                <Box
-                  key={`${item.url}-${i}`}
-                  minW={{ base: '140px', md: '160px' }}
-                  maxW={{ base: '140px', md: '160px' }}
-                  position="relative"
-                  overflow="visible"
-                >
-                  <MangaCard 
-                    manga={item} 
-                    hideSource 
-                    showLatestChapter={showLatestChapter}
-                    priority={i < 5}
-                  />
-                  
-                  {showProgress && item.continueFrom && (
-                    <Box
-                      position="absolute"
-                      bottom="60px"
-                      left={2}
-                      right={2}
-                      bg="green.600"
-                      color="white"
-                      px={2}
-                      py={1}
-                      borderRadius="md"
-                      fontSize="xs"
-                      textAlign="center"
-                      fontWeight="bold"
-                      opacity={0.95}
-                      zIndex={10}
-                      boxShadow="lg"
-                    >
-                      {item.continueFrom}
-                    </Box>
-                  )}
-                </Box>
-              ))}
-            </HStack>
+          {/* Container con frecce di navigazione */}
+          <Box position="relative">
+            {/* Freccia Sinistra */}
+            {canScrollLeft && (
+              <IconButton
+                icon={<FaChevronLeft />}
+                position="absolute"
+                left={-2}
+                top="50%"
+                transform="translateY(-50%)"
+                zIndex={2}
+                colorScheme={color}
+                size="lg"
+                borderRadius="full"
+                boxShadow="2xl"
+                onClick={() => scroll('left')}
+                aria-label="Scorri a sinistra"
+                _hover={{ transform: 'translateY(-50%) scale(1.1)' }}
+                transition="transform 0.2s"
+              />
+            )}
+
+            {/* Freccia Destra */}
+            {canScrollRight && (
+              <IconButton
+                icon={<FaChevronRight />}
+                position="absolute"
+                right={-2}
+                top="50%"
+                transform="translateY(-50%)"
+                zIndex={2}
+                colorScheme={color}
+                size="lg"
+                borderRadius="full"
+                boxShadow="2xl"
+                onClick={() => scroll('right')}
+                aria-label="Scorri a destra"
+                _hover={{ transform: 'translateY(-50%) scale(1.1)' }}
+                transition="transform 0.2s"
+              />
+            )}
+
+            {/* Scroll orizzontale SENZA scrollbar */}
+            <Box 
+              ref={scrollRef}
+              overflowX="auto" 
+              overflowY="visible"
+              py={4}
+              px={4}
+              css={{
+                '&::-webkit-scrollbar': { display: 'none' },
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none'
+              }}
+            >
+              <HStack spacing={8} align="center" overflow="visible">
+                {items.map((item, i) => (
+                  <Box
+                    key={`${item.url}-${i}`}
+                    minW={{ base: '150px', md: '180px' }}
+                    maxW={{ base: '150px', md: '180px' }}
+                    w={{ base: '150px', md: '180px' }}
+                    h={{ base: '260px', md: '300px' }}
+                    flexShrink={0}
+                    position="relative"
+                    overflow="visible"
+                  >
+                    <MangaCard 
+                      manga={item} 
+                      hideSource 
+                      showLatestChapter={showLatestChapter}
+                      priority={i < 5}
+                    />
+                    
+                    {showProgress && item.continueFrom && (
+                      <Box
+                        position="absolute"
+                        bottom="60px"
+                        left={2}
+                        right={2}
+                        bg="green.600"
+                        color="white"
+                        px={2}
+                        py={1}
+                        borderRadius="md"
+                        fontSize="xs"
+                        textAlign="center"
+                        fontWeight="bold"
+                        opacity={0.95}
+                        zIndex={10}
+                        boxShadow="lg"
+                      >
+                        {item.continueFrom}
+                      </Box>
+                    )}
+                  </Box>
+                ))}
+              </HStack>
+            </Box>
           </Box>
         </Box>
       </VStack>
