@@ -5,6 +5,25 @@ import viteCompression from 'vite-plugin-compression';
 import viteImagemin from 'vite-plugin-imagemin';
 import { visualizer } from 'rollup-plugin-visualizer';
 
+// ✅ PLUGIN: Rimuove TUTTI i console.* in produzione (backup se Terser non bastasse)
+const removeConsolePlugin = () => {
+  return {
+    name: 'remove-console',
+    transform(code, id) {
+      // Solo in produzione e solo per codice sorgente (non node_modules)
+      if (process.env.NODE_ENV === 'production' && !id.includes('node_modules')) {
+        // Rimuove console.* con regex aggressive
+        return {
+          code: code
+            .replace(/console\.(log|debug|info|warn|error|trace|time|timeEnd)\s*\([^)]*\);?/g, '')
+            .replace(/console\.(log|debug|info|warn|error|trace|time|timeEnd)\s*\([^)]*\)\s*;/g, ''),
+          map: null
+        };
+      }
+    }
+  };
+};
+
 export default defineConfig({
   base: '/',
   optimizeDeps: {
@@ -19,6 +38,9 @@ export default defineConfig({
     exclude: []
   },
   plugins: [
+    // ✅ SECURITY: Rimuove console.* in produzione (prima di tutto)
+    removeConsolePlugin(),
+    
     react({
       // ✅ PERFORMANCE: Fast Refresh ottimizzato
       fastRefresh: true
@@ -185,9 +207,19 @@ export default defineConfig({
     minify: 'terser', // Terser migliore di esbuild per produzione
     terserOptions: {
       compress: {
-        drop_console: true,
+        drop_console: true,  // ✅ Rimuove TUTTI i console.*
         drop_debugger: true,
-        pure_funcs: ['console.log', 'console.info', 'console.debug'],
+        // ✅ SECURITY: Rimuove TUTTE le chiamate console in produzione
+        pure_funcs: [
+          'console.log',
+          'console.info', 
+          'console.debug',
+          'console.warn',   // ✅ Aggiunto
+          'console.error',  // ✅ Aggiunto (usa Sentry invece)
+          'console.trace',
+          'console.time',
+          'console.timeEnd'
+        ],
         passes: 2 // Multiple passes per ottimizzazione migliore
       },
       mangle: {
@@ -218,9 +250,14 @@ export default defineConfig({
       '@': '/src'
     }
   },
-  // ✅ PERFORMANCE: Ottimizzazioni esbuild
+  // ✅ PERFORMANCE & SECURITY: Ottimizzazioni esbuild
   esbuild: {
-    drop: ['debugger'], // Rimosso 'console' per evitare problemi con librerie
-    legalComments: 'none'
+    // ✅ Drop console e debugger in produzione (solo codice sorgente)
+    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : ['debugger'],
+    legalComments: 'none',
+    // ✅ Minificazione aggressiva in produzione
+    minifyIdentifiers: true,
+    minifySyntax: true,
+    minifyWhitespace: true
   }
 });
