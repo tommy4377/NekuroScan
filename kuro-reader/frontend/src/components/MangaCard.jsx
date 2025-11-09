@@ -58,7 +58,7 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
       <VStack
         bg="gray.800"
         borderRadius="xl"
-        overflow="hidden"
+        overflow="visible"
         spacing={0}
         height="100%"
         transition="all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)"
@@ -74,7 +74,7 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
           zIndex: 999
         }}
       >
-        <Box position="relative" width="100%" paddingBottom="140%" bg="gray.800">
+        <Box position="relative" width="100%" paddingBottom="140%" bg="gray.800" borderRadius="xl" overflow="hidden">
           {!imageLoaded && (
             <Skeleton position="absolute" top={0} left={0} width="100%" height="100%" />
           )}
@@ -155,8 +155,8 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
           )}
         </Box>
 
-        <VStack p={2.5} spacing={1} align="stretch" flex={1} width="100%">
-          <Text fontSize="xs" fontWeight="bold" noOfLines={2} title={manga.title} lineHeight="short"
+        <VStack p={3} spacing={1} align="stretch" flex={1} width="100%">
+          <Text fontSize="sm" fontWeight="bold" noOfLines={2} title={manga.title} lineHeight="short"
             bgGradient="linear(to-r, purple.200, pink.200)" bgClip="text">
             {manga.title}
           </Text>
