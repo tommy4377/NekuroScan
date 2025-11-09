@@ -294,6 +294,12 @@ function Categories() {
   };
 
   const searchWithFilters = async () => {
+    // Se c'è solo testo senza filtri, usa la ricerca semplice
+    if (searchQuery.trim() && selectedGenres.length === 0 && !selectedType) {
+      window.location.href = `/categories?q=${encodeURIComponent(searchQuery.trim())}`;
+      return;
+    }
+    
     setLoadingManga(true);
     setPage(1);
     setMangaList([]);
@@ -457,7 +463,7 @@ function Categories() {
               colorScheme="purple" 
               onClick={searchWithFilters} 
               isLoading={loadingManga}
-              isDisabled={selectedGenres.length === 0 && !selectedType}
+              isDisabled={selectedGenres.length === 0 && !selectedType && !searchQuery.trim()}
             >
               Cerca
             </Button>
