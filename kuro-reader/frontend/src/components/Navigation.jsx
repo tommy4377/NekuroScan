@@ -83,7 +83,7 @@ function Navigation() {
         top={0}
         left={0}
         right={0}
-        zIndex={999}
+        zIndex={1000}
         borderBottom="1px"
         borderColor="gray.700"
         backdropFilter="blur(12px)"
@@ -91,7 +91,12 @@ function Navigation() {
         transition="all 0.3s"
       >
         <Container maxW="container.xl">
-          <Flex h="60px" alignItems="center" justifyContent="space-between">
+          <Flex 
+            h={{ base: '64px', md: '60px' }}
+            alignItems="center" 
+            justifyContent="space-between"
+            pt={{ base: 'env(safe-area-inset-top)', md: 0 }}
+          >
             <HStack spacing={{ base: 2, md: 4 }}>
             <IconButton
               size="md"
@@ -99,6 +104,7 @@ function Navigation() {
               onClick={onOpen}
               variant="ghost"
               colorScheme="purple"
+              display={{ base: 'flex', md: 'flex' }}
               icon={
                 <Box>
                   <Box w="20px" h="2px" bg="currentColor" mb="4px" />
@@ -110,7 +116,7 @@ function Navigation() {
               
               <Link to="/home">
                 <HStack spacing={2} _hover={{ opacity: 0.8 }} transition="all 0.2s">
-                  <Logo boxSize={logoSize} fontSize={{ base: 'lg', md: '2xl' }} />
+                  <Logo boxSize={logoSize} fontSize={{ base: 'lg', md: '2xl' }} showImage={true} />
                 </HStack>
               </Link>
             </HStack>

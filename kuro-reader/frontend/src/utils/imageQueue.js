@@ -1,6 +1,6 @@
 // ✅ Image Request Queue - Batch loading con priorità
 class ImageQueue {
-  constructor(concurrency = 6, maxCacheSize = 50) {
+  constructor(concurrency = 15, maxCacheSize = 100) {
     this.concurrency = concurrency;
     this.maxCacheSize = maxCacheSize;
     this.queue = [];
@@ -66,7 +66,7 @@ class ImageQueue {
   }
 }
 
-const imageQueue = new ImageQueue(6);
+const imageQueue = new ImageQueue(15, 100);
 
 export default imageQueue;
 

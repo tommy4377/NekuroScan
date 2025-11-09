@@ -967,8 +967,8 @@ function ReaderPage() {
         currentPage={currentPage + 1}
         totalPages={chapter.pages?.length || 0}
         onLoadComplete={() => setShowPreloader(false)}
-        minDelay={3000}
-        preloadFirstPages={5}
+        minDelay={5000}
+        preloadFirstPages={chapter.pages?.length || 50}
       />
     );
   }

@@ -58,22 +58,15 @@ const Welcome = React.memo(() => {
         <meta property="og:url" content="https://nekuroscan.onrender.com/" />
       </Helmet>
       <Box 
-        position="fixed"
-        top={{ base: "60px", md: 0 }}
-      left={0}
-      right={0}
-      bottom={0}
-      h={{ base: "calc(100vh - 60px)", md: "100vh" }}
-      bg="gray.900" 
-      overflow={{ base: "auto", md: "hidden" }}
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-    >
+        minH="100vh"
+        bg="gray.900" 
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+        py={{ base: 8, md: 0 }}
+      >
       <Container 
-        maxW="container.xl" 
-        py={{ base: 6, md: 0 }}
-        h={{ base: "auto", md: "100vh" }}
+        maxW="container.xl"
         display="flex"
         alignItems="center"
         justifyContent="center"

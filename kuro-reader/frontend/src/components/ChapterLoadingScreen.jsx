@@ -9,8 +9,8 @@ const ChapterLoadingScreen = ({
   currentPage = 1,
   totalPages = 0,
   onLoadComplete,
-  minDelay = 3000,
-  preloadFirstPages = 5
+  minDelay = 5000,
+  preloadFirstPages = 50
 }) => {
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState('preparing');
