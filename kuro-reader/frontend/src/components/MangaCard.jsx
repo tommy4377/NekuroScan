@@ -88,7 +88,16 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
           }}
         >
           {!imageLoaded && (
-            <Skeleton position="absolute" top={0} left={0} width="100%" height="100%" />
+            <Skeleton 
+              position="absolute" 
+              top={0} 
+              left={0} 
+              width="100%" 
+              height="100%"
+              startColor="gray.700"
+              endColor="gray.600"
+              speed={1.2}  // ✅ Animazione più veloce
+            />
           )}
           <Image
             src={coverUrl}
@@ -100,7 +109,7 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
             height="100%"
             objectFit="cover"
             loading={priority ? "eager" : "lazy"}
-            fetchpriority={priority ? "high" : "auto"}
+            fetchpriority={priority ? "high" : "low"}  // ✅ Esplicita low priority per lazy images
             decoding="async"
             htmlWidth="200"
             htmlHeight="280"

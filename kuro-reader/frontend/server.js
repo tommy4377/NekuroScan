@@ -124,6 +124,15 @@ app.use((req, res, next) => {
   // HSTS - Force HTTPS (valido 1 anno)
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   
+  // ✅ COOP - Cross-Origin-Opener-Policy (isolamento finestra)
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  
+  // ✅ COEP - Cross-Origin-Embedder-Policy (isolamento risorse)
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');  // unsafe-none per immagini cross-origin
+  
+  // ✅ CORP - Cross-Origin-Resource-Policy
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  
   // ✅ Content Security Policy - PRODUCTION SECURE
   // Vite + React in produzione NON richiedono unsafe-eval
   // Script-src: NO unsafe-inline, NO unsafe-eval ✅
@@ -134,8 +143,8 @@ app.use((req, res, next) => {
   const csp = [
     "default-src 'self'",
     
-    // ✅ SCRIPTS: TOTALMENTE SICURI - NO unsafe-inline, NO unsafe-eval
-    "script-src 'self'",
+    // ✅ SCRIPTS: Sicuri con unsafe-hashes per event handlers React
+    "script-src 'self' 'unsafe-hashes'",
     
     // ⚠️ STYLES: unsafe-inline necessario per Chakra UI emotion cache
     // Alternative: calcolare hash SHA-256 di ogni stile inline o usare nonce

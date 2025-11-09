@@ -517,7 +517,7 @@ function Home() {
                       manga={item} 
                       hideSource 
                       showLatestChapter={showLatestChapter}
-                      priority={i < 5}
+                      priority={i < 3}  // ✅ PERFORMANCE: Solo prime 3 eager, resto lazy
                     />
                     
                     {showProgress && item.continueFrom && (

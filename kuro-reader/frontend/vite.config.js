@@ -190,7 +190,26 @@ export default defineConfig({
     minify: 'esbuild',
     rollupOptions: {
       output: {
-        manualChunks: undefined
+        // ✅ PERFORMANCE: Code splitting ottimizzato per caching
+        manualChunks: (id) => {
+          // Vendor chunks separati per librerie pesanti
+          if (id.includes('node_modules')) {
+            // React + React-DOM in chunk separato
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'react-vendor';
+            }
+            // Chakra UI in chunk separato (grande)
+            if (id.includes('@chakra-ui') || id.includes('@emotion')) {
+              return 'chakra-vendor';
+            }
+            // Router in chunk separato
+            if (id.includes('react-router')) {
+              return 'router-vendor';
+            }
+            // Resto delle dipendenze
+            return 'vendor';
+          }
+        }
       }
     },
     // ✅ PERFORMANCE: Dimensioni chunk ottimali
