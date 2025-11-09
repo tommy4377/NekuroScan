@@ -386,17 +386,30 @@ function Categories() {
           )}
 
           <HStack flexWrap="wrap" spacing={4}>
-            <InputGroup maxW="300px">
-              <InputLeftElement pointerEvents="none">
-                <SearchIcon color="gray.400" />
-              </InputLeftElement>
-              <Input
-                placeholder="Filtra risultati..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                bg="gray.800"
-              />
-            </InputGroup>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (searchQuery.trim()) {
+                window.location.href = `/categories?q=${encodeURIComponent(searchQuery.trim())}`;
+              }
+            }}>
+              <InputGroup maxW="300px">
+                <InputLeftElement pointerEvents="none">
+                  <SearchIcon color="gray.400" />
+                </InputLeftElement>
+                <Input
+                  placeholder="Cerca manga..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  bg="gray.800"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchQuery.trim()) {
+                      e.preventDefault();
+                      window.location.href = `/categories?q=${encodeURIComponent(searchQuery.trim())}`;
+                    }
+                  }}
+                />
+              </InputGroup>
+            </form>
 
             <Select
               maxW="170px"
@@ -462,63 +475,6 @@ function Categories() {
             </Checkbox>
           </HStack>
         </VStack>
-
-        {/* Risultati Ricerca dalla Navbar */}
-        {(searchResults.length > 0 || loadingSearch || (searchParams.get('q') && searchParams.get('q').trim())) && (
-          <VStack spacing={4} align="stretch">
-            <HStack justify="space-between">
-              <Heading size="md" color="purple.300">
-                🔍 Risultati Ricerca: "{searchParams.get('q') || ''}"
-              </Heading>
-              {!loadingSearch && searchResults.length > 0 && (
-                <Badge colorScheme="purple" fontSize="md" px={3} py={1}>
-                  {searchResults.length} trovati
-                </Badge>
-              )}
-            </HStack>
-            
-            {loadingSearch ? (
-              <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} spacing={4}>
-                {[...Array(6)].map((_, i) => (
-                  <Skeleton key={i} height="280px" borderRadius="lg" />
-                ))}
-              </SimpleGrid>
-            ) : searchResults.length > 0 ? (
-              <SimpleGrid 
-                columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} 
-                spacing={4}
-                w="100%"
-              >
-                {searchResults.map((item, i) => (
-                  <Box key={item.url || `search-${i}`} h="100%">
-                    <MangaCard 
-                      manga={item} 
-                      hideSource 
-                      priority={i < 6}
-                    />
-                  </Box>
-                ))}
-              </SimpleGrid>
-            ) : (
-              <Center py={8}>
-                <VStack spacing={3}>
-                  <Text color="gray.400">
-                    Nessun manga trovato per "{searchParams.get('q') || ''}"
-                  </Text>
-                  <Text fontSize="sm" color="gray.500">
-                    Prova con un termine diverso o esplora le categorie qui sotto
-                  </Text>
-                </VStack>
-              </Center>
-            )}
-            
-            <Divider borderColor="gray.700" my={4} />
-            
-            <Text fontSize="sm" color="gray.400" textAlign="center">
-              ⬇️ Oppure esplora per categorie qui sotto
-            </Text>
-          </VStack>
-        )}
 
         {!location.state && (
           loadingCats ? (
@@ -611,6 +567,69 @@ function Categories() {
         )}
 
         {location.state && (<Divider />)}
+
+        {/* Risultati Ricerca dalla Navbar - SOTTO le categorie */}
+        {(searchResults.length > 0 || loadingSearch || (searchParams.get('q') && searchParams.get('q').trim())) && (
+          <VStack spacing={4} align="stretch" mt={8}>
+            <Divider borderColor="gray.700" />
+            
+            <HStack justify="space-between" flexWrap="wrap">
+              <Heading size="md" color="purple.300">
+                🔍 Risultati Ricerca: "{searchParams.get('q') || ''}"
+              </Heading>
+              <HStack>
+                {!loadingSearch && searchResults.length > 0 && (
+                  <Badge colorScheme="purple" fontSize="md" px={3} py={1}>
+                    {searchResults.length} trovati
+                  </Badge>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  colorScheme="red"
+                  onClick={() => window.location.href = '/categories'}
+                >
+                  ✕ Pulisci ricerca
+                </Button>
+              </HStack>
+            </HStack>
+            
+            {loadingSearch ? (
+              <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} spacing={4}>
+                {[...Array(6)].map((_, i) => (
+                  <Skeleton key={i} height="280px" borderRadius="lg" />
+                ))}
+              </SimpleGrid>
+            ) : searchResults.length > 0 ? (
+              <SimpleGrid 
+                columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} 
+                spacing={4}
+                w="100%"
+              >
+                {searchResults.map((item, i) => (
+                  <Box key={item.url || `search-${i}`} h="100%">
+                    <MangaCard 
+                      manga={item} 
+                      hideSource 
+                      priority={i < 6}
+                    />
+                  </Box>
+                ))}
+              </SimpleGrid>
+            ) : (
+              <Center py={8}>
+                <VStack spacing={3}>
+                  <Text color="gray.400">
+                    Nessun manga trovato per "{searchParams.get('q') || ''}"
+                  </Text>
+                  <Text fontSize="sm" color="gray.500">
+                    Prova con un termine diverso o esplora le categorie qui sopra
+                  </Text>
+                </VStack>
+              </Center>
+            )}
+          </VStack>
+        )}
 
         {(mangaList.length > 0 || loadingManga) && (
           <VStack align="stretch" spacing={4}>
