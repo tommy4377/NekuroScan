@@ -387,17 +387,15 @@ function Home() {
         <Box 
           bg="gray.800" 
           p={{ base: 4, md: 6 }}
-          pb={{ base: 12, md: 14 }}
           borderRadius="xl"
           border="1px solid"
           borderColor="gray.700"
           transition="all 0.3s"
           overflow="visible"
-          minH="450px"
           position="relative"
           _hover={{ borderColor: `${color}.500` }}
         >
-          <HStack justify="space-between" mb={4}>
+          <HStack justify="space-between" mb={6}>
             <HStack spacing={3}>
               <Box
   p={2}
@@ -431,44 +429,60 @@ function Home() {
           </HStack>
 
           {/* Container con frecce di navigazione */}
-          <Box position="relative">
-            {/* Freccia Sinistra */}
+          <Box position="relative" px={2}>
+            {/* Freccia Sinistra - SOLO DESKTOP */}
             {canScrollLeft && (
               <IconButton
                 icon={<FaChevronLeft />}
                 position="absolute"
-                left={-2}
+                left={0}
                 top="50%"
                 transform="translateY(-50%)"
                 zIndex={2}
-                colorScheme={color}
                 size="lg"
                 borderRadius="full"
-                boxShadow="2xl"
                 onClick={() => scroll('left')}
                 aria-label="Scorri a sinistra"
-                _hover={{ transform: 'translateY(-50%) scale(1.1)' }}
-                transition="transform 0.2s"
+                display={{ base: 'none', md: 'flex' }}
+                bg="transparent"
+                color="white"
+                opacity={0.3}
+                boxShadow="none"
+                _hover={{ 
+                  opacity: 1,
+                  bg: `${color}.600`,
+                  transform: 'translateY(-50%) scale(1.15)',
+                  boxShadow: 'xl'
+                }}
+                transition="all 0.3s"
               />
             )}
 
-            {/* Freccia Destra */}
+            {/* Freccia Destra - SOLO DESKTOP */}
             {canScrollRight && (
               <IconButton
                 icon={<FaChevronRight />}
                 position="absolute"
-                right={-2}
+                right={0}
                 top="50%"
                 transform="translateY(-50%)"
                 zIndex={2}
-                colorScheme={color}
                 size="lg"
                 borderRadius="full"
-                boxShadow="2xl"
                 onClick={() => scroll('right')}
                 aria-label="Scorri a destra"
-                _hover={{ transform: 'translateY(-50%) scale(1.1)' }}
-                transition="transform 0.2s"
+                display={{ base: 'none', md: 'flex' }}
+                bg="transparent"
+                color="white"
+                opacity={0.3}
+                boxShadow="none"
+                _hover={{ 
+                  opacity: 1,
+                  bg: `${color}.600`,
+                  transform: 'translateY(-50%) scale(1.15)',
+                  boxShadow: 'xl'
+                }}
+                transition="all 0.3s"
               />
             )}
 
@@ -477,15 +491,16 @@ function Home() {
               ref={scrollRef}
               overflowX="auto" 
               overflowY="visible"
-              py={4}
+              py={6}
               px={4}
+              mx={-4}
               css={{
                 '&::-webkit-scrollbar': { display: 'none' },
                 scrollbarWidth: 'none',
                 msOverflowStyle: 'none'
               }}
             >
-              <HStack spacing={8} align="center" overflow="visible">
+              <HStack spacing={6} align="center" overflow="visible" px={2}>
                 {items.map((item, i) => (
                   <Box
                     key={`${item.url}-${i}`}
