@@ -52,22 +52,12 @@ function Categories() {
     rootMargin: '200px'
   });
 
-  useEffect(() => {
-    loadCategories();
-    
-    // Controlla se c'è una query di ricerca nell'URL
-    const queryParam = searchParams.get('q');
-    if (queryParam) {
-      performSearch(queryParam);
-    }
-  }, []);
-  
   // Effettua ricerca quando arriva query dall'URL
-  const performSearch = async (query) => {
+  const performSearch = useCallback(async (query) => {
     if (!query || query.length < 2) return;
     
+    console.log('🔍 Performing search for:', query);
     setLoadingSearch(true);
-    setSearchQuery(query);
     setPageTitle(`Risultati per "${query}"`);
     
     try {
@@ -76,6 +66,7 @@ function Categories() {
         limit: 50
       });
       
+      console.log('✅ Search results:', results.length);
       setSearchResults(results || []);
       
       if (results.length === 0) {
@@ -87,17 +78,38 @@ function Categories() {
         });
       }
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('❌ Search error:', error);
       toast({
         title: 'Errore ricerca',
-        description: 'Impossibile completare la ricerca',
+        description: error.message || 'Impossibile completare la ricerca',
         status: 'error',
         duration: 3000
       });
+      setSearchResults([]);
     } finally {
       setLoadingSearch(false);
     }
-  };
+  }, [filters.includeAdult, toast]);
+  
+  useEffect(() => {
+    loadCategories();
+  }, []);
+  
+  // Reagisce al cambio del parametro q nell'URL
+  useEffect(() => {
+    const queryParam = searchParams.get('q');
+    console.log('📍 URL query param:', queryParam);
+    
+    if (queryParam && queryParam.trim()) {
+      setSearchQuery(queryParam); // Mostra nel campo filtro
+      performSearch(queryParam.trim());
+    } else {
+      // Reset se non c'è query
+      setSearchResults([]);
+      setSearchQuery('');
+      setPageTitle('Esplora Categorie');
+    }
+  }, [searchParams, performSearch]);
 
   useEffect(() => {
     if (!location.state) {
