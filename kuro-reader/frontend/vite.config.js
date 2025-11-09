@@ -185,28 +185,13 @@ export default defineConfig({
     minify: 'esbuild',
     rollupOptions: {
       output: {
-        // ✅ PERFORMANCE: Code splitting ottimizzato e sicuro
-        manualChunks: (id) => {
-          // Vendor chunks - tenere React insieme per evitare errori
-          if (id.includes('node_modules')) {
-            // Chakra UI e dipendenze insieme
-            if (id.includes('@chakra-ui') || id.includes('@emotion') || id.includes('framer-motion')) {
-              return 'chakra-vendor';
-            }
-            // React e dipendenze core in un unico chunk
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router') || id.includes('scheduler')) {
-              return 'react-vendor';
-            }
-            // Altre librerie
-            return 'vendor';
-          }
-        }
+        manualChunks: undefined
       }
     },
     // ✅ PERFORMANCE: Dimensioni chunk ottimali
     chunkSizeWarningLimit: 1000,
     cssCodeSplit: true,
-    assetsInlineLimit: 8192, // Valore originale
+    assetsInlineLimit: 8192,
     reportCompressedSize: false,
     modulePreload: {
       polyfill: true
