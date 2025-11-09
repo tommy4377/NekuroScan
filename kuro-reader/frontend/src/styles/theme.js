@@ -182,18 +182,6 @@ export const theme = extendTheme({
       },
     },
     Tabs: {
-      baseStyle: {
-        tab: {
-          _selected: {
-            borderColor: 'purple.400',
-            borderBottomColor: 'purple.400',
-            color: 'white',
-          },
-        },
-        tablist: {
-          borderColor: 'purple.500',
-        },
-      },
       variants: {
         'soft-rounded': {
           tab: {
@@ -203,7 +191,7 @@ export const theme = extendTheme({
             bg: 'transparent',
             transition: 'all 0.2s',
             _selected: {
-              bg: 'purple.500',
+              bg: 'whiteAlpha.200',
               color: 'white',
               fontWeight: 'bold',
             },
@@ -219,7 +207,6 @@ export const theme = extendTheme({
             fontWeight: 'semibold',
             color: 'gray.200',
             bg: 'transparent',
-            borderColor: 'purple.500',
             _selected: {
               bg: 'gray.800',
               borderColor: 'purple.400',
@@ -230,24 +217,11 @@ export const theme = extendTheme({
             _hover: {
               bg: 'gray.800',
               color: 'white',
-              borderColor: 'purple.400',
             },
           },
           tablist: {
             borderBottom: '2px solid',
-            borderColor: 'purple.500',
-          },
-        },
-        line: {
-          tab: {
-            borderColor: 'purple.500',
-            _selected: {
-              borderColor: 'purple.400',
-              color: 'white',
-            },
-          },
-          tablist: {
-            borderColor: 'purple.500',
+            borderColor: 'gray.700',
           },
         },
       },
