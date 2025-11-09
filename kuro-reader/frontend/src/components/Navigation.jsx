@@ -46,8 +46,8 @@ function Navigation() {
   const handleSearch = React.useCallback((e) => {
     e.preventDefault();
     if (query.trim()) {
-      // Naviga a Search con la query
-      navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+      // Naviga a Categories con la query di ricerca
+      navigate(`/categories?q=${encodeURIComponent(query.trim())}`);
       setQuery('');
       onClose();
     }

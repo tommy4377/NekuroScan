@@ -7,26 +7,30 @@ import {
   Wrap, WrapItem, Spinner, Divider, Tag, TagLabel, TagCloseButton, Checkbox, Center
 } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { useInView } from 'react-intersection-observer';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 import MangaCard from '../components/MangaCard';
 import statsAPI from '../api/stats';
+import apiManager from '../api';
 import StickyHeader from '../components/StickyHeader';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
 
 function Categories() {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
 
   const [categories, setCategories] = useState(null);
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [selectedType, setSelectedType] = useState(null);
   const [mangaList, setMangaList] = useState([]);
+  const [searchResults, setSearchResults] = useState([]); // Risultati ricerca dalla navbar
   const [loadingCats, setLoadingCats] = useState(true);
   const [loadingManga, setLoadingManga] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingSearch, setLoadingSearch] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,7 +54,50 @@ function Categories() {
 
   useEffect(() => {
     loadCategories();
+    
+    // Controlla se c'è una query di ricerca nell'URL
+    const queryParam = searchParams.get('q');
+    if (queryParam) {
+      performSearch(queryParam);
+    }
   }, []);
+  
+  // Effettua ricerca quando arriva query dall'URL
+  const performSearch = async (query) => {
+    if (!query || query.length < 2) return;
+    
+    setLoadingSearch(true);
+    setSearchQuery(query);
+    setPageTitle(`Risultati per "${query}"`);
+    
+    try {
+      const results = await apiManager.searchAll(query, {
+        includeAdult: filters.includeAdult,
+        limit: 50
+      });
+      
+      setSearchResults(results || []);
+      
+      if (results.length === 0) {
+        toast({
+          title: 'Nessun risultato',
+          description: `Nessun manga trovato per "${query}"`,
+          status: 'info',
+          duration: 3000
+        });
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      toast({
+        title: 'Errore ricerca',
+        description: 'Impossibile completare la ricerca',
+        status: 'error',
+        duration: 3000
+      });
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
 
   useEffect(() => {
     if (!location.state) {
@@ -400,6 +447,50 @@ function Categories() {
             </Checkbox>
           </HStack>
         </VStack>
+
+        {/* Risultati Ricerca dalla Navbar */}
+        {searchResults.length > 0 && (
+          <VStack spacing={4} align="stretch">
+            <HStack justify="space-between">
+              <Heading size="md" color="purple.300">
+                🔍 Risultati Ricerca: "{searchParams.get('q')}"
+              </Heading>
+              <Badge colorScheme="purple" fontSize="md" px={3} py={1}>
+                {searchResults.length} trovati
+              </Badge>
+            </HStack>
+            
+            {loadingSearch ? (
+              <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} spacing={4}>
+                {[...Array(6)].map((_, i) => (
+                  <Skeleton key={i} height="280px" borderRadius="lg" />
+                ))}
+              </SimpleGrid>
+            ) : (
+              <SimpleGrid 
+                columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} 
+                spacing={4}
+                w="100%"
+              >
+                {searchResults.map((item, i) => (
+                  <Box key={item.url || `search-${i}`} h="100%">
+                    <MangaCard 
+                      manga={item} 
+                      hideSource 
+                      priority={i < 6}
+                    />
+                  </Box>
+                ))}
+              </SimpleGrid>
+            )}
+            
+            <Divider borderColor="gray.700" my={4} />
+            
+            <Text fontSize="sm" color="gray.400" textAlign="center">
+              ⬇️ Oppure esplora per categorie qui sotto
+            </Text>
+          </VStack>
+        )}
 
         {!location.state && (
           loadingCats ? (
