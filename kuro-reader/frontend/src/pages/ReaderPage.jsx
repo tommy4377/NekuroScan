@@ -18,6 +18,7 @@ import bookmarksManager from '../utils/bookmarks';
 import notesManager from '../utils/notes';
 import chapterCache from '../utils/chapterCache';
 import ProxiedImage from '../components/ProxiedImage';
+import ChapterLoadingScreen from '../components/ChapterLoadingScreen';
 import { config } from '../config';
 import { encodeSource, decodeSource } from '../utils/sourceMapper';
 
@@ -38,6 +39,7 @@ function ReaderPage() {
   const [chapter, setChapter] = useState(null);
   const [manga, setManga] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showPreloader, setShowPreloader] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -305,6 +307,7 @@ function ReaderPage() {
     try {
       if (newIndex >= 0 && newIndex < manga.chapters.length) {
         saveProgress();
+        
         const newChapter = manga.chapters[newIndex];
         if (!newChapter || !newChapter.url) return;
         
@@ -314,6 +317,8 @@ function ReaderPage() {
           .replace(/\//g, '_')
           .replace(/=/g, '');
         setCurrentPage(0);
+        
+        // Navigate - il loading screen verrà mostrato automaticamente
         navigate(`/read/${encodeSource(source)}/${mangaId}/${newChapterId}?chapter=${newIndex}`);
       } else if (direction > 0) {
         saveProgress();
@@ -839,22 +844,34 @@ function ReaderPage() {
   }, [showControls, currentPage]);
 
   // Preload immagini successive
+  // ✅ PRELOAD OTTIMIZZATO: Usa image queue con priorità
   useEffect(() => {
-    if (!chapter?.pages || readingMode === 'webtoon') return;
+    if (!chapter?.pages || readingMode === 'webtoon' || showPreloader) return;
     
-    const preloadCount = 3;
-    for (let i = 1; i <= preloadCount; i++) {
-      const nextPage = currentPage + i;
-      if (nextPage < totalPages && chapter.pages[nextPage]) {
-        const imgUrl = chapter.pages[nextPage];
-        if (!preloadedImages.current.has(imgUrl)) {
-          const imgElement = document.createElement('img');
-          imgElement.src = imgUrl;
-          preloadedImages.current.add(imgUrl);
+    const preloadWithQueue = async () => {
+      const { preloadImage } = await import('../utils/imageQueue');
+      const { getProxyImageUrl } = await import('../utils/readerHelpers');
+      
+      const preloadCount = 2;
+      for (let i = 1; i <= preloadCount; i++) {
+        const nextPage = currentPage + i;
+        if (nextPage < totalPages && chapter.pages[nextPage]) {
+          const pageUrl = chapter.pages[nextPage];
+          
+          if (!preloadedImages.current.has(pageUrl)) {
+            const proxiedUrl = getProxyImageUrl(pageUrl);
+            const priority = i === 1 ? 5 : 1;
+            
+            preloadImage(proxiedUrl, priority).catch(() => {});
+            
+            preloadedImages.current.add(pageUrl);
+          }
         }
       }
-    }
-  }, [currentPage, totalPages, chapter, readingMode]);
+    };
+    
+    preloadWithQueue();
+  }, [currentPage, totalPages, chapter, readingMode, showPreloader]);
 
   // Auto-scroll per modalità webtoon
   useEffect(() => {
@@ -909,7 +926,14 @@ function ReaderPage() {
 
   // ========== RENDER ==========
   
-  // ✅ CRITICAL: Mostra loading fino a quando non abbiamo TUTTI i dati necessari
+  // ✅ PRELOAD INTELLIGENTE: Mostra loading screen con preload quando dati pronti
+  useEffect(() => {
+    if (!loading && chapter && manga && chapter.pages && chapter.pages.length > 0) {
+      setShowPreloader(true);
+    }
+  }, [loading, chapter, manga]);
+
+  // ✅ CRITICAL: Loading screen durante fetch dati
   if (loading || !manga || !chapter) {
     return (
       <Box h="100vh" bg="black" display="flex" alignItems="center" justifyContent="center">
@@ -931,6 +955,21 @@ function ReaderPage() {
           </VStack>
         </VStack>
       </Box>
+    );
+  }
+
+  // ✅ PRELOADER: Loading screen con preload immagini (3+ secondi)
+  if (showPreloader) {
+    return (
+      <ChapterLoadingScreen
+        chapterTitle={chapter.title || `Capitolo ${chapterIndex + 1}`}
+        chapterPages={chapter.pages}
+        currentPage={currentPage + 1}
+        totalPages={chapter.pages?.length || 0}
+        onLoadComplete={() => setShowPreloader(false)}
+        minDelay={3000}
+        preloadFirstPages={5}
+      />
     );
   }
 

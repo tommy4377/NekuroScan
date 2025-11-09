@@ -77,11 +77,39 @@ self.addEventListener('activate', (event) => {
 // ========== FETCH EVENT ==========
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
   
-  // Ignora richieste non-GET e chrome-extension
-  if (request.method !== 'GET' || url.protocol === 'chrome-extension:') {
+  // Ignora richieste non-GET
+  if (request.method !== 'GET') {
     return;
+  }
+  
+  // Parse URL con error handling
+  let url;
+  try {
+    url = new URL(request.url);
+  } catch (err) {
+    // URL non valido, ignora
+    return;
+  }
+  
+  // Ignora chrome-extension, data:, blob:, empty URLs
+  if (!url.protocol.startsWith('http') || !url.href || url.href === '') {
+    return;
+  }
+  
+  // Ignora domini esterni non autorizzati (estensioni browser)
+  const allowedHosts = [
+    self.location.hostname,
+    'nekuroscan.onrender.com',
+    'kuro-proxy-server.onrender.com',
+    'kuro-auth-backend.onrender.com',
+    'cdn.mangaworld.cx',
+    'fonts.googleapis.com',
+    'fonts.gstatic.com'
+  ];
+  
+  if (!allowedHosts.some(host => url.hostname.includes(host))) {
+    return; // Ignora richieste a domini non autorizzati
   }
   
   // Determina strategia basata sul tipo di risorsa
@@ -111,8 +139,12 @@ async function staticCacheStrategy(request) {
       return cached;
     }
     
-    // Network request
-    const response = await fetch(request);
+    // Network request con timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    const response = await fetch(request, { signal: controller.signal });
+    clearTimeout(timeoutId);
     
     // Cache solo se successo
     if (response.ok) {
@@ -124,6 +156,11 @@ async function staticCacheStrategy(request) {
     // Fallback a cache anche se scaduta
     const cached = await caches.match(request);
     if (cached) return cached;
+    
+    // Se è una navigazione, ritorna offline page
+    if (request.mode === 'navigate') {
+      return caches.match('/offline.html') || new Response('Offline', { status: 503 });
+    }
     
     throw err;
   }
@@ -176,8 +213,12 @@ async function imageCacheStrategy(request) {
       return cached;
     }
     
-    // Fetch in background
-    const response = await fetch(request);
+    // Fetch con timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    
+    const response = await fetch(request, { signal: controller.signal });
+    clearTimeout(timeoutId);
     
     if (response.ok) {
       cache.put(request, response.clone());
