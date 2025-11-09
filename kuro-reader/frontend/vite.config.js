@@ -199,25 +199,7 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        // Code splitting semplificato per evitare problemi di dipendenze
-        manualChunks: (id) => {
-          if (id.includes('node_modules')) {
-            // Tieni React, ReactDOM e React-Router insieme
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-              return 'vendor-react';
-            }
-            // Chakra UI e Emotion insieme
-            if (id.includes('@chakra-ui') || id.includes('@emotion') || id.includes('framer-motion')) {
-              return 'vendor-ui';
-            }
-            // Altri vendor
-            return 'vendor';
-          }
-        },
-        // Nomi file con hash per cache busting
-        entryFileNames: 'assets/[name]-[hash].js',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]'
+        manualChunks: undefined
       }
     },
     // ✅ PERFORMANCE: Dimensioni chunk ottimali
