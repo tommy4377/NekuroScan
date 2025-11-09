@@ -48,11 +48,12 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
       cursor="pointer"
       onClick={handleClick}
       height="100%"
+      overflow="visible"
     >
       <VStack
         bg="gray.800"
         borderRadius="xl"
-        overflow="visible"
+        overflow="hidden"
         spacing={0}
         height="100%"
         transition="all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)"

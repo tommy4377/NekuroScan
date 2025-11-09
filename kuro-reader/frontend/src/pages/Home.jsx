@@ -415,6 +415,7 @@ function Home() {
                   minW={{ base: '140px', md: '160px' }}
                   maxW={{ base: '140px', md: '160px' }}
                   position="relative"
+                  overflow="visible"
                 >
                   <MangaCard 
                     manga={item} 
