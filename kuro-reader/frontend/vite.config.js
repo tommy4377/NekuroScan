@@ -199,46 +199,25 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        // ✅ ADVANCED CODE SPLITTING: Chunking intelligente
+        // Code splitting semplificato per evitare problemi di dipendenze
         manualChunks: (id) => {
-          // Vendor chunks separati per cache long-term
           if (id.includes('node_modules')) {
-            // React core bundle
+            // Tieni React, ReactDOM e React-Router insieme
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
               return 'vendor-react';
             }
-            // Chakra UI bundle
-            if (id.includes('@chakra-ui') || id.includes('@emotion')) {
-              return 'vendor-chakra';
-            }
-            // Icons bundle
-            if (id.includes('react-icons')) {
-              return 'vendor-icons';
+            // Chakra UI e Emotion insieme
+            if (id.includes('@chakra-ui') || id.includes('@emotion') || id.includes('framer-motion')) {
+              return 'vendor-ui';
             }
             // Altri vendor
-            return 'vendor-other';
-          }
-          
-          // API e Utils in chunk separato
-          if (id.includes('/src/api/') || id.includes('/src/utils/')) {
-            return 'core-utils';
-          }
-          
-          // Hooks in chunk separato
-          if (id.includes('/src/hooks/')) {
-            return 'core-hooks';
+            return 'vendor';
           }
         },
         // Nomi file con hash per cache busting
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]'
-      },
-      // Tree shaking avanzato
-      treeshake: {
-        moduleSideEffects: 'no-external',
-        propertyReadSideEffects: false,
-        tryCatchDeoptimization: false
       }
     },
     // ✅ PERFORMANCE: Dimensioni chunk ottimali
