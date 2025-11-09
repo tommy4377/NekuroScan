@@ -61,13 +61,16 @@ function Categories() {
     setPageTitle(`Risultati per "${query}"`);
     
     try {
-      const results = await apiManager.searchAll(query, {
+      const searchData = await apiManager.searchAll(query, {
         includeAdult: filters.includeAdult,
         limit: 50
       });
       
-      console.log('✅ Search results:', results.length);
-      setSearchResults(results || []);
+      // searchAll ritorna { manga: [], mangaAdult: [], all: [] }
+      const results = searchData?.all || [];
+      
+      console.log('✅ Search results:', results.length, results);
+      setSearchResults(results);
       
       if (results.length === 0) {
         toast({
@@ -93,7 +96,7 @@ function Categories() {
   
   useEffect(() => {
     loadCategories();
-  }, []);
+  }, [loadCategories]);
   
   // Reagisce al cambio del parametro q nell'URL
   useEffect(() => {
@@ -147,7 +150,7 @@ function Categories() {
     }
   }, [inView, hasMore, mangaList.length]);
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     setLoadingCats(true);
     try {
       const cats = await statsAPI.getAllCategories();
@@ -158,7 +161,7 @@ function Categories() {
     } finally {
       setLoadingCats(false);
     }
-  };
+  }, [toast]);
 
   const loadPresetData = async (preset, pageNum, reset = false) => {
     if (loadingRef.current && !reset) return;
@@ -461,15 +464,17 @@ function Categories() {
         </VStack>
 
         {/* Risultati Ricerca dalla Navbar */}
-        {searchResults.length > 0 && (
+        {(searchResults.length > 0 || loadingSearch || searchParams.get('q')) && (
           <VStack spacing={4} align="stretch">
             <HStack justify="space-between">
               <Heading size="md" color="purple.300">
                 🔍 Risultati Ricerca: "{searchParams.get('q')}"
               </Heading>
-              <Badge colorScheme="purple" fontSize="md" px={3} py={1}>
-                {searchResults.length} trovati
-              </Badge>
+              {!loadingSearch && searchResults.length > 0 && (
+                <Badge colorScheme="purple" fontSize="md" px={3} py={1}>
+                  {searchResults.length} trovati
+                </Badge>
+              )}
             </HStack>
             
             {loadingSearch ? (
@@ -478,7 +483,7 @@ function Categories() {
                   <Skeleton key={i} height="280px" borderRadius="lg" />
                 ))}
               </SimpleGrid>
-            ) : (
+            ) : searchResults.length > 0 ? (
               <SimpleGrid 
                 columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} 
                 spacing={4}
@@ -494,6 +499,17 @@ function Categories() {
                   </Box>
                 ))}
               </SimpleGrid>
+            ) : (
+              <Center py={8}>
+                <VStack spacing={3}>
+                  <Text color="gray.400">
+                    Nessun manga trovato per "{searchParams.get('q')}"
+                  </Text>
+                  <Text fontSize="sm" color="gray.500">
+                    Prova con un termine diverso o esplora le categorie qui sotto
+                  </Text>
+                </VStack>
+              </Center>
             )}
             
             <Divider borderColor="gray.700" my={4} />
