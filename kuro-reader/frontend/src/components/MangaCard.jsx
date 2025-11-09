@@ -168,7 +168,7 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
         </Box>
 
         <VStack p={3} spacing={1} align="stretch" flex={1} width="100%">
-          <Text fontSize="sm" fontWeight="bold" noOfLines={2} title={manga.title} lineHeight="short"
+          <Text fontSize="13px" fontWeight="bold" noOfLines={2} title={manga.title} lineHeight="short"
             bgGradient="linear(to-r, purple.200, pink.200)" bgClip="text">
             {manga.title}
           </Text>
