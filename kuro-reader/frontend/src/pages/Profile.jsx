@@ -816,10 +816,7 @@ export default function Profile() {
           <TabList>
             <Tab>La mia Libreria</Tab>
             <Tab>
-              Connessioni 
-              <Badge ml={2} colorScheme="purple" borderRadius="full">
-                {friends.followers.length + friends.following.length}
-              </Badge>
+              Connessioni
             </Tab>
           </TabList>
 
