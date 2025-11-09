@@ -720,10 +720,10 @@ function Home() {
               </Tab>
             </TabList>
             
-            <TabPanels>
+            <TabPanels overflow="visible">
               {/* TAB AGGIORNAMENTI */}
-              <TabPanel px={0} pt={6}>
-                <VStack spacing={6} align="stretch">
+              <TabPanel px={0} pt={6} overflow="visible">
+                <VStack spacing={6} align="stretch" overflow="visible">
                   {content.trending.length > 0 && (
                     <ContentSection 
                       title="Capitoli di tendenza" 
@@ -749,7 +749,7 @@ function Home() {
               </TabPanel>
               
               {/* TAB POPOLARI */}
-              <TabPanel px={0} pt={6}>
+              <TabPanel px={0} pt={6} overflow="visible">
                 <ContentSection 
                   title="Trending" 
                   icon={FaFire} 
@@ -760,8 +760,8 @@ function Home() {
               </TabPanel>
               
               {/* TAB TOP SERIES */}
-              <TabPanel px={0} pt={6}>
-                <VStack spacing={6} align="stretch">
+              <TabPanel px={0} pt={6} overflow="visible">
+                <VStack spacing={6} align="stretch" overflow="visible">
                   <ContentSection 
                     title="Top Manga" 
                     icon={GiDragonHead} 

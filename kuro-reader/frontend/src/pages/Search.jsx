@@ -405,11 +405,13 @@ function Search() {
                   columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} 
                   spacing={4}
                   w="100%"
+                  overflow="visible"
                 >
                   {results.map((item, i) => (
                     <Box 
                       key={item.url || `search-${i}`}
                       h="100%"
+                      overflow="visible"
                     >
                       <MangaCard 
                         manga={item} 

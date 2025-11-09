@@ -288,7 +288,7 @@ export default function Notifications() {
                       </Box>
                     </Alert>
 
-                    <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+                    <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4} overflow="visible">
                       {mangaSubscriptions.map((manga, i) => (
                         <Box
                           key={manga.mangaUrl || `manga-${i}`}

@@ -513,11 +513,13 @@ function Categories() {
                   columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} 
                   spacing={4}
                   w="100%"
+                  overflow="visible"
                 >
                   {filteredManga.map((manga, i) => (
                     <Box
                       key={manga.url || `manga-${i}`}
                       h="100%"
+                      overflow="visible"
                     >
                       <MangaCard 
                         manga={manga} 
