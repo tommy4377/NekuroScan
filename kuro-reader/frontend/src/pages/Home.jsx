@@ -398,9 +398,8 @@ function Home() {
           <Box 
             overflowX="auto" 
             overflowY="visible"
-            pb={6}
-            pt={4}
-            px={2}
+            py={4}
+            px={4}
             css={{
               '&::-webkit-scrollbar': { height: '8px' },
               '&::-webkit-scrollbar-track': { background: 'transparent' },
@@ -410,7 +409,7 @@ function Home() {
               }
             }}
           >
-            <HStack spacing={8} align="start" overflow="visible">
+            <HStack spacing={8} align="center" overflow="visible">
               {items.map((item, i) => (
                 <Box
                   key={`${item.url}-${i}`}
