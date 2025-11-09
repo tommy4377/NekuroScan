@@ -432,7 +432,7 @@ function Home() {
           </HStack>
 
           {/* Container con frecce di navigazione */}
-          <Box position="relative" px={2} pb={4}>
+          <Box position="relative" px={2} pb={6}>
             {/* Freccia Sinistra - SOLO DESKTOP */}
             {canScrollLeft && (
               <IconButton
@@ -449,7 +449,7 @@ function Home() {
                 display={{ base: 'none', md: 'flex' }}
                 bg="transparent"
                 color="white"
-                opacity={0.5}
+                opacity={0.3}
                 boxShadow="none"
                 _hover={{ 
                   opacity: 1,
@@ -477,7 +477,7 @@ function Home() {
                 display={{ base: 'none', md: 'flex' }}
                 bg="transparent"
                 color="white"
-                opacity={0.5}
+                opacity={0.3}
                 boxShadow="none"
                 _hover={{ 
                   opacity: 1,
@@ -495,7 +495,7 @@ function Home() {
               overflowX="auto" 
               overflowY="visible"
               pt={6}
-              pb={4}
+              pb={8}
               px={4}
               mx={-4}
               css={{
