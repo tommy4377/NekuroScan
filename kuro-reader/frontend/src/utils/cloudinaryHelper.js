@@ -133,12 +133,15 @@ export const CloudinaryPresets = {
     format: 'auto'
   }),
   
-  // Placeholder blurred (LQIP)
-  placeholder: (url) => getCloudinaryUrl(url, {
-    width: 50,
-    quality: 'auto:low',
-    format: 'auto'
-  })
+  // Placeholder blurred (LQIP - Low Quality Image Placeholder)
+  placeholder: (url) => {
+    if (!url) return '';
+    return getCloudinaryUrl(url, {
+      width: 50,
+      quality: 'auto:low',
+      format: 'auto'
+    });
+  }
 };
 
 /**

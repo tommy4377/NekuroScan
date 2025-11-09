@@ -50,8 +50,24 @@ export const CloudinaryPresets = {
     format: 'auto'
   }),
   
+  mangaCoverSmall: (url) => getCloudinaryUrl(url, {
+    width: 200,
+    height: 280,
+    crop: 'fill',
+    gravity: 'auto:subject',
+    quality: 'auto:good',
+    format: 'auto'
+  }),
+  
   mangaPage: (url) => getCloudinaryUrl(url, {
     width: 1200,
+    crop: 'limit',
+    quality: 'auto:eco',
+    format: 'auto'
+  }),
+  
+  mangaPageMobile: (url) => getCloudinaryUrl(url, {
+    width: 800,
     crop: 'limit',
     quality: 'auto:eco',
     format: 'auto'
@@ -80,6 +96,12 @@ export const CloudinaryPresets = {
     height: 512,
     crop: 'fit',
     quality: 'auto:best',
+    format: 'auto'
+  }),
+  
+  placeholder: (url) => getCloudinaryUrl(url, {
+    width: 50,
+    quality: 'auto:low',
     format: 'auto'
   })
 };

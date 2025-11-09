@@ -5,6 +5,7 @@ import * as cheerio from 'cheerio';
 import https from 'https';
 import imageCache, { isReaderImage, getImageType, logImageMetrics } from './utils/imageCache.js';
 import { getCloudinaryUrl, CloudinaryPresets } from './utils/cloudinaryHelper.js';
+import { httpsAgent, httpAgent, fetchWithRetry, getPoolStats } from './utils/httpPool.js';
 // import sharp from 'sharp'; // DISABILITATO: Causava timeout e rallentamenti severi
 
 // Configure axios defaults
@@ -399,7 +400,7 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
       imageCache.incrementReaderBypass();
       console.log(`📖 Reader image (bypass optimization): ${url.substring(0, 80)}...`);
       
-      // Proxy diretto senza conversione
+      // Proxy diretto senza conversione (con connection pooling)
       const response = await axios({
         method: 'GET',
         url,
@@ -413,10 +414,8 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
         maxRedirects: 10,
         maxContentLength: 10 * 1024 * 1024,
         validateStatus: (status) => status < 600,
-        httpsAgent: new https.Agent({
-          rejectUnauthorized: true,
-          keepAlive: true
-        })
+        httpsAgent,
+        httpAgent
       });
       
       if (response.status >= 400) {
@@ -489,7 +488,7 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
       return res.redirect(302, optimizedUrl);
     }
     
-    // ✅ STEP 5: Cloudinary disabilitato → Serve originale
+    // ✅ STEP 5: Cloudinary disabilitato → Serve originale (con connection pooling)
     console.log(`🖼️ Proxying (no optimization): ${url.substring(0, 80)}...`);
     
     const response = await axios({
@@ -505,10 +504,8 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
       maxRedirects: 10,
       maxContentLength: 10 * 1024 * 1024,
       validateStatus: (status) => status < 600,
-      httpsAgent: new https.Agent({
-        rejectUnauthorized: true,
-        keepAlive: true
-      })
+      httpsAgent,
+      httpAgent
     });
     
     if (response.status >= 400) {
@@ -578,17 +575,19 @@ app.get('/api/image-metrics', (req, res) => {
 // Health check
 app.get('/health', (req, res) => {
   const stats = imageCache.getStats();
+  const poolStats = getPoolStats();
   
   res.json({ 
     status: 'healthy', 
-    service: 'NeKuro Scan Proxy Server',
+    service: 'NeKuro Scan Proxy Server v3.0',
     timestamp: new Date().toISOString(),
     imageOptimization: {
       cacheSize: stats.cache.size,
       hitRate: stats.cache.hitRate,
       conversions: stats.optimization.conversions,
       readerBypass: stats.optimization.readerBypass
-    }
+    },
+    connectionPool: poolStats
   });
 });
 
