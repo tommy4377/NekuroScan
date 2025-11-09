@@ -16,24 +16,24 @@ model user {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relazioni vecchie (mantieni come erano)
-  profile          user_profile?
-  favorites_v1     user_favorites?      // ⚠️ OLD: JSON array in TEXT column
-  reading          reading_progress[]
-  library_v1       user_library?        // ⚠️ OLD: JSON arrays in TEXT columns
-  follows          user_follows[]       @relation("follower")
-  followers        user_follows[]       @relation("following")
+  // ⚠️ Relazioni vecchie (con nomi espliciti per evitare conflitti)
+  profile         user_profile?      @relation("profile")
+  favorites_old   user_favorites?    @relation("favorites_old")
+  reading         reading_progress[] @relation("reading")
+  library         user_library?      @relation("library")
+  follows         user_follows[]     @relation("follower")
+  followers       user_follows[]     @relation("following")
   
   // ✅ NUOVE TABELLE NORMALIZZATE
-  favorites        favorite[]
-  libraryManga     library_manga[]
-  historyEntries   history_entry[]
+  favoritesNew    favorite[]       @relation("favoritesNew")
+  libraryManga    library_manga[]  @relation("libraryManga")
+  historyEntries  history_entry[]  @relation("historyEntries")
 }
 
 model user_profile {
   id            Int      @id @default(autoincrement())
   userId        Int      @unique
-  user          user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          user     @relation("profile", fields: [userId], references: [id], onDelete: Cascade)
   bio           String?  @db.Text
   avatarUrl     String?  @db.Text
   bannerUrl     String?  @db.Text
@@ -65,7 +65,7 @@ model user_follows {
 model user_favorites {
   id        Int      @id @default(autoincrement())
   userId    Int      @unique
-  user      user     @relation("favorites_v1", fields: [userId], references: [id], onDelete: Cascade)
+  user      user     @relation("favorites_old", fields: [userId], references: [id], onDelete: Cascade)
   favorites String   @db.Text
   updatedAt DateTime @updatedAt
   
@@ -75,7 +75,7 @@ model user_favorites {
 model reading_progress {
   id           Int      @id @default(autoincrement())
   userId       Int
-  user         user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         user     @relation("reading", fields: [userId], references: [id], onDelete: Cascade)
   mangaUrl     String
   mangaTitle   String
   chapterIndex Int
@@ -93,7 +93,7 @@ model reading_progress {
 model user_library {
   id        Int      @id @default(autoincrement())
   userId    Int      @unique
-  user      user     @relation("library_v1", fields: [userId], references: [id], onDelete: Cascade)
+  user      user     @relation("library", fields: [userId], references: [id], onDelete: Cascade)
   reading   String?  @db.Text
   completed String?  @db.Text
   dropped   String?  @db.Text
@@ -111,7 +111,7 @@ model user_library {
 model favorite {
   id        Int      @id @default(autoincrement())
   userId    Int
-  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      user     @relation("favoritesNew", fields: [userId], references: [id], onDelete: Cascade)
   
   // Dati manga
   mangaUrl  String   @db.VarChar(500)
@@ -134,7 +134,7 @@ model favorite {
 model library_manga {
   id        Int      @id @default(autoincrement())
   userId    Int
-  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      user     @relation("libraryManga", fields: [userId], references: [id], onDelete: Cascade)
   
   // Dati manga
   mangaUrl   String  @db.VarChar(500)
@@ -164,7 +164,7 @@ model library_manga {
 model history_entry {
   id         Int      @id @default(autoincrement())
   userId     Int
-  user       user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       user     @relation("historyEntries", fields: [userId], references: [id], onDelete: Cascade)
   
   // Dati manga/capitolo
   mangaUrl   String   @db.VarChar(500)
