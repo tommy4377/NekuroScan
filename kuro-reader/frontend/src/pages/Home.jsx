@@ -429,7 +429,7 @@ function Home() {
           </HStack>
 
           {/* Container con frecce di navigazione */}
-          <Box position="relative" px={2}>
+          <Box position="relative" px={2} pb={6}>
             {/* Freccia Sinistra - SOLO DESKTOP */}
             {canScrollLeft && (
               <IconButton
@@ -438,7 +438,7 @@ function Home() {
                 left={0}
                 top="50%"
                 transform="translateY(-50%)"
-                zIndex={2}
+                zIndex={1000}
                 size="lg"
                 borderRadius="full"
                 onClick={() => scroll('left')}
@@ -466,7 +466,7 @@ function Home() {
                 right={0}
                 top="50%"
                 transform="translateY(-50%)"
-                zIndex={2}
+                zIndex={1000}
                 size="lg"
                 borderRadius="full"
                 onClick={() => scroll('right')}
@@ -491,7 +491,8 @@ function Home() {
               ref={scrollRef}
               overflowX="auto" 
               overflowY="visible"
-              py={6}
+              pt={6}
+              pb={8}
               px={4}
               mx={-4}
               css={{
