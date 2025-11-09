@@ -3,6 +3,8 @@ import cors from 'cors';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import https from 'https';
+import imageCache, { isReaderImage, getImageType, logImageMetrics } from './utils/imageCache.js';
+import { getCloudinaryUrl, CloudinaryPresets } from './utils/cloudinaryHelper.js';
 // import sharp from 'sharp'; // DISABILITATO: Causava timeout e rallentamenti severi
 
 // Configure axios defaults
@@ -368,12 +370,12 @@ app.post('/api/parse', async (req, res) => {
   }
 });
 
-// Proxy per immagini (gestione CORS con rate limiting specifico)
+// ✅ INTELLIGENT IMAGE PROXY with Cloudinary + Caching + Deduplication
 app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
   try {
     const { url } = req.query;
     
-    // Validazione URL completa
+    // Validazione URL
     if (!url || typeof url !== 'string') {
       return res.status(400).json({ success: false, error: 'URL non valido' });
     }
@@ -382,15 +384,114 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
       return res.status(400).json({ success: false, error: 'URL deve iniziare con http:// o https://' });
     }
     
-    // Valida che sia un'immagine da un dominio autorizzato
+    // Valida dominio autorizzato
     if (!isAllowedDomain(url)) {
       console.warn(`⚠️ Dominio immagine non autorizzato bloccato: ${url}`);
       return res.status(403).json({ success: false, error: 'Dominio non autorizzato' });
     }
     
-    console.log('🖼️ Proxying image:', url);
+    // ✅ STEP 1: Determina tipo immagine
+    const imageType = getImageType(url, req.path);
+    const isReader = imageType === 'reader';
     
-    // ✅ SECURITY: HTTPS Agent con verifica certificati ABILITATA
+    // ✅ STEP 2: READER IMAGES → Sempre originali (NO ottimizzazione)
+    if (isReader) {
+      imageCache.incrementReaderBypass();
+      console.log(`📖 Reader image (bypass optimization): ${url.substring(0, 80)}...`);
+      
+      // Proxy diretto senza conversione
+      const response = await axios({
+        method: 'GET',
+        url,
+        responseType: 'arraybuffer',
+        headers: { 
+          'User-Agent': getRandomUserAgent(),
+          'Accept': 'image/*,*/*;q=0.8',
+          'Referer': url.includes('mangaworld') ? 'https://www.mangaworld.cx/' : '',
+        },
+        timeout: 60000,
+        maxRedirects: 10,
+        maxContentLength: 10 * 1024 * 1024,
+        validateStatus: (status) => status < 600,
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: true,
+          keepAlive: true
+        })
+      });
+      
+      if (response.status >= 400) {
+        return sendPlaceholder(res, response.status);
+      }
+      
+      // Serve originale con cache aggressiva
+      res.set({
+        'Content-Type': response.headers['content-type'] || 'image/jpeg',
+        'Cache-Control': 'public, max-age=31536000, immutable', // Cache 1 anno
+        'Access-Control-Allow-Origin': '*',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Image-Type': 'reader-original',
+        'X-Optimization': 'bypassed'
+      });
+      return res.send(response.data);
+    }
+    
+    // ✅ STEP 3: Non-reader images → Check cache
+    const cached = imageCache.get(url);
+    if (cached) {
+      console.log(`✅ Cache HIT: ${imageType} (${cached.format}, saved ${(cached.saved / 1024).toFixed(0)}KB)`);
+      
+      // Redirect a Cloudinary URL cached
+      return res.redirect(302, cached.url);
+    }
+    
+    // ✅ STEP 4: Cache MISS → Usa Cloudinary se abilitato
+    const useCloudinary = !!process.env.CLOUDINARY_CLOUD_NAME;
+    
+    if (useCloudinary) {
+      console.log(`🔄 Optimizing ${imageType}: ${url.substring(0, 80)}...`);
+      
+      // Scegli preset basato su tipo immagine
+      let optimizedUrl;
+      switch (imageType) {
+        case 'cover':
+          optimizedUrl = CloudinaryPresets.mangaCover(url);
+          break;
+        case 'avatar':
+          optimizedUrl = CloudinaryPresets.avatar(url);
+          break;
+        case 'banner':
+          optimizedUrl = CloudinaryPresets.banner(url);
+          break;
+        case 'logo':
+          optimizedUrl = CloudinaryPresets.logo(url);
+          break;
+        default:
+          optimizedUrl = getCloudinaryUrl(url, {
+            width: 1200,
+            crop: 'limit',
+            quality: 'auto',
+            format: 'auto'
+          });
+      }
+      
+      // Salva in cache (stima dimensioni)
+      const estimatedOriginalSize = 500 * 1024; // 500KB avg
+      const estimatedOptimizedSize = 150 * 1024; // 150KB avg (70% saving)
+      
+      imageCache.set(url, optimizedUrl, {
+        format: 'avif/webp',
+        originalSize: estimatedOriginalSize,
+        optimizedSize: estimatedOptimizedSize,
+        imageType
+      });
+      
+      // Redirect a Cloudinary
+      return res.redirect(302, optimizedUrl);
+    }
+    
+    // ✅ STEP 5: Cloudinary disabilitato → Serve originale
+    console.log(`🖼️ Proxying (no optimization): ${url.substring(0, 80)}...`);
+    
     const response = await axios({
       method: 'GET',
       url,
@@ -398,98 +499,96 @@ app.get('/api/image-proxy', advancedRateLimiter('image'), async (req, res) => {
       headers: { 
         'User-Agent': getRandomUserAgent(),
         'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-        'Accept-Language': 'it-IT,it;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
         'Referer': url.includes('mangaworld') ? 'https://www.mangaworld.cx/' : '',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Sec-Fetch-Dest': 'image',
-        'Sec-Fetch-Mode': 'no-cors',
-        'Sec-Fetch-Site': 'cross-site'
       },
-      timeout: 60000, // Aumentato a 60s per immagini grandi
+      timeout: 60000,
       maxRedirects: 10,
       maxContentLength: 10 * 1024 * 1024,
       validateStatus: (status) => status < 600,
-      decompress: true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: true, // ✅ SECURE: Verifica certificati SSL/TLS
-        keepAlive: true // Connection pooling per performance
+        rejectUnauthorized: true,
+        keepAlive: true
       })
     });
     
-    // Gestisci errori HTTP per immagini
-    if (response.status === 403 || response.status === 404) {
-      console.error(`❌ Immagine non disponibile (${response.status}): ${url}`);
-      // Ritorna placeholder SVG invece di errore
-      const placeholder = Buffer.from(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280" viewBox="0 0 200 280">
-          <rect width="200" height="280" fill="#2D3748"/>
-          <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#A0AEC0" font-family="sans-serif" font-size="14">
-            Immagine non disponibile
-          </text>
-        </svg>`,
-        'utf-8'
-      );
-      return res.set('Content-Type', 'image/svg+xml').send(placeholder);
-    }
-    
     if (response.status >= 400) {
-      console.error(`⚠️ HTTP ${response.status} per immagine: ${url}`);
-      const placeholder = Buffer.from(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280" viewBox="0 0 200 280">
-          <rect width="200" height="280" fill="#2D3748"/>
-          <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#A0AEC0" font-family="sans-serif" font-size="12">
-            Errore ${response.status}
-          </text>
-        </svg>`,
-        'utf-8'
-      );
-      return res.set('Content-Type', 'image/svg+xml').send(placeholder);
+      return sendPlaceholder(res, response.status);
     }
     
-    // Serve immagine originale SENZA processing (massima velocità)
-    // Sharp compression RIMOSSA per evitare timeout critici
     res.set({
       'Content-Type': response.headers['content-type'] || 'image/jpeg',
-      'Cache-Control': 'public, max-age=2592000, immutable', // Cache lunga: 30 giorni
+      'Cache-Control': 'public, max-age=2592000, immutable',
       'Access-Control-Allow-Origin': '*',
       'X-Content-Type-Options': 'nosniff',
-      'X-Proxy-Pass': 'true' // Indica che è passata tramite proxy
+      'X-Optimization': 'disabled'
     });
     res.send(response.data);
     
   } catch (error) {
     console.error('❌ Image proxy error:', error.message);
     
-    // ✅ SECURITY: Log errori SSL/TLS specifici
-    if (error.code === 'CERT_HAS_EXPIRED' || 
-        error.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
-        error.code === 'SELF_SIGNED_CERT_IN_CHAIN' ||
-        error.code === 'DEPTH_ZERO_SELF_SIGNED_CERT') {
-      console.error(`🔒 SSL/TLS Certificate Error for image ${url}:`, error.code);
+    // Log SSL errors
+    if (error.code?.startsWith('CERT_') || error.code?.startsWith('UNABLE_')) {
+      console.error(`🔒 SSL/TLS Error: ${error.code}`);
     }
     
-    // Ritorna placeholder anche per errori di rete e SSL
-    const placeholder = Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280" viewBox="0 0 200 280">
-        <rect width="200" height="280" fill="#2D3748"/>
-        <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#A0AEC0" font-family="sans-serif" font-size="14">
-          Errore caricamento
-        </text>
-      </svg>`,
-      'utf-8'
-    );
-    res.set('Content-Type', 'image/svg+xml').send(placeholder);
+    return sendPlaceholder(res, 500);
   }
+});
+
+// Helper per placeholder SVG
+function sendPlaceholder(res, statusCode = 500) {
+  const messages = {
+    403: 'Accesso negato',
+    404: 'Immagine non trovata',
+    500: 'Errore caricamento'
+  };
+  
+  const message = messages[statusCode] || 'Errore';
+  
+  const placeholder = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280" viewBox="0 0 200 280">
+      <rect width="200" height="280" fill="#2D3748"/>
+      <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#A0AEC0" font-family="sans-serif" font-size="14">
+        ${message}
+      </text>
+    </svg>`,
+    'utf-8'
+  );
+  
+  res.set('Content-Type', 'image/svg+xml').send(placeholder);
+}
+
+// ✅ IMAGE OPTIMIZATION METRICS ENDPOINT
+app.get('/api/image-metrics', (req, res) => {
+  const stats = imageCache.getStats();
+  
+  res.json({
+    success: true,
+    timestamp: new Date().toISOString(),
+    service: 'Image Optimization System',
+    cloudinary: {
+      enabled: !!process.env.CLOUDINARY_CLOUD_NAME,
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME || 'not-configured'
+    },
+    ...stats
+  });
 });
 
 // Health check
 app.get('/health', (req, res) => {
+  const stats = imageCache.getStats();
+  
   res.json({ 
     status: 'healthy', 
     service: 'NeKuro Scan Proxy Server',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    imageOptimization: {
+      cacheSize: stats.cache.size,
+      hitRate: stats.cache.hitRate,
+      conversions: stats.optimization.conversions,
+      readerBypass: stats.optimization.readerBypass
+    }
   });
 });
 
