@@ -52,67 +52,67 @@ function Categories() {
     rootMargin: '200px'
   });
 
-  // Effettua ricerca quando arriva query dall'URL
-  const performSearch = useCallback(async (query) => {
-    if (!query || query.length < 2) return;
-    
-    console.log('🔍 Performing search for:', query);
-    setLoadingSearch(true);
-    setPageTitle(`Risultati per "${query}"`);
-    
-    try {
-      const searchData = await apiManager.searchAll(query, {
-        includeAdult: filters.includeAdult,
-        limit: 50
-      });
-      
-      // searchAll ritorna { manga: [], mangaAdult: [], all: [] }
-      const results = searchData?.all || [];
-      
-      console.log('✅ Search results:', results.length, results);
-      setSearchResults(results);
-      
-      if (results.length === 0) {
-        toast({
-          title: 'Nessun risultato',
-          description: `Nessun manga trovato per "${query}"`,
-          status: 'info',
-          duration: 3000
-        });
-      }
-    } catch (error) {
-      console.error('❌ Search error:', error);
-      toast({
-        title: 'Errore ricerca',
-        description: error.message || 'Impossibile completare la ricerca',
-        status: 'error',
-        duration: 3000
-      });
-      setSearchResults([]);
-    } finally {
-      setLoadingSearch(false);
-    }
-  }, [filters.includeAdult, toast]);
-  
   useEffect(() => {
     loadCategories();
-  }, [loadCategories]);
+  }, []); // ✅ Solo al mount
   
   // Reagisce al cambio del parametro q nell'URL
   useEffect(() => {
     const queryParam = searchParams.get('q');
-    console.log('📍 URL query param:', queryParam);
     
-    if (queryParam && queryParam.trim()) {
-      setSearchQuery(queryParam); // Mostra nel campo filtro
-      performSearch(queryParam.trim());
-    } else {
-      // Reset se non c'è query
+    if (!queryParam || !queryParam.trim()) {
       setSearchResults([]);
       setSearchQuery('');
-      setPageTitle('Esplora Categorie');
+      if (!location.state) {
+        setPageTitle('Esplora Categorie');
+      }
+      return;
     }
-  }, [searchParams, performSearch]);
+    
+    // Inline search per evitare dipendenze circolari
+    const doSearch = async () => {
+      const query = queryParam.trim();
+      console.log('🔍 Performing search for:', query);
+      
+      setLoadingSearch(true);
+      setSearchQuery(query);
+      setPageTitle(`Risultati per "${query}"`);
+      
+      try {
+        const searchData = await apiManager.searchAll(query, {
+          includeAdult: filters.includeAdult,
+          limit: 50
+        });
+        
+        const results = searchData?.all || [];
+        console.log('✅ Search results:', results.length);
+        
+        setSearchResults(results);
+        
+        if (results.length === 0) {
+          toast({
+            title: 'Nessun risultato',
+            description: `Nessun manga trovato per "${query}"`,
+            status: 'info',
+            duration: 3000
+          });
+        }
+      } catch (error) {
+        console.error('❌ Search error:', error);
+        setSearchResults([]);
+        toast({
+          title: 'Errore ricerca',
+          description: error.message || 'Impossibile completare la ricerca',
+          status: 'error',
+          duration: 3000
+        });
+      } finally {
+        setLoadingSearch(false);
+      }
+    };
+    
+    doSearch();
+  }, [searchParams, filters.includeAdult, toast, location.state]);
 
   useEffect(() => {
     if (!location.state) {
@@ -150,7 +150,7 @@ function Categories() {
     }
   }, [inView, hasMore, mangaList.length]);
 
-  const loadCategories = useCallback(async () => {
+  const loadCategories = async () => {
     setLoadingCats(true);
     try {
       const cats = await statsAPI.getAllCategories();
@@ -161,7 +161,7 @@ function Categories() {
     } finally {
       setLoadingCats(false);
     }
-  }, [toast]);
+  };
 
   const loadPresetData = async (preset, pageNum, reset = false) => {
     if (loadingRef.current && !reset) return;
@@ -464,11 +464,11 @@ function Categories() {
         </VStack>
 
         {/* Risultati Ricerca dalla Navbar */}
-        {(searchResults.length > 0 || loadingSearch || searchParams.get('q')) && (
+        {(searchResults.length > 0 || loadingSearch || (searchParams.get('q') && searchParams.get('q').trim())) && (
           <VStack spacing={4} align="stretch">
             <HStack justify="space-between">
               <Heading size="md" color="purple.300">
-                🔍 Risultati Ricerca: "{searchParams.get('q')}"
+                🔍 Risultati Ricerca: "{searchParams.get('q') || ''}"
               </Heading>
               {!loadingSearch && searchResults.length > 0 && (
                 <Badge colorScheme="purple" fontSize="md" px={3} py={1}>
@@ -503,7 +503,7 @@ function Categories() {
               <Center py={8}>
                 <VStack spacing={3}>
                   <Text color="gray.400">
-                    Nessun manga trovato per "{searchParams.get('q')}"
+                    Nessun manga trovato per "{searchParams.get('q') || ''}"
                   </Text>
                   <Text fontSize="sm" color="gray.500">
                     Prova con un termine diverso o esplora le categorie qui sotto
