@@ -1,7 +1,8 @@
 // ✅ Image Request Queue - Batch loading con priorità
 class ImageQueue {
-  constructor(concurrency = 6) {
+  constructor(concurrency = 6, maxCacheSize = 50) {
     this.concurrency = concurrency;
+    this.maxCacheSize = maxCacheSize;
     this.queue = [];
     this.active = 0;
     this.cache = new Map();
@@ -34,6 +35,12 @@ class ImageQueue {
         img.onerror = () => reject(new Error('Failed to load'));
         setTimeout(() => reject(new Error('Timeout')), 30000);
       });
+      
+      // LRU cache: rimuovi vecchia entry se troppo grande
+      if (this.cache.size >= this.maxCacheSize) {
+        const firstKey = this.cache.keys().next().value;
+        this.cache.delete(firstKey);
+      }
       
       this.cache.set(item.url, img);
       item.resolve(img);

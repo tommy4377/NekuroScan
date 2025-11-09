@@ -24,35 +24,40 @@ export function useReaderPreload(pages, currentPage, readingMode, options = {}) 
       preloadedRef.current.clear();
     }
     
+    let cancelled = false;
+    
     // Preload pagine successive
-    const preloadPromises = [];
-    
-    for (let i = 1; i <= preloadCount; i++) {
-      const nextIdx = currentPage + i;
-      
-      if (nextIdx >= pages.length) break;
-      
-      const pageUrl = pages[nextIdx];
-      if (!pageUrl || preloadedRef.current.has(pageUrl)) continue;
-      
-      const proxiedUrl = getProxyImageUrl(pageUrl);
-      const imagePriority = i === 1 ? 10 : (i === 2 ? 5 : 1);
-      
-      preloadedRef.current.add(pageUrl);
-      preloadPromises.push(
-        preloadImage(proxiedUrl, imagePriority).catch(() => {
-          preloadedRef.current.delete(pageUrl);
-        })
-      );
-    }
-    
-    return () => {
-      // Cleanup on unmount
-      if (preloadPromises.length > 0) {
-        preloadPromises.forEach(p => p.catch(() => {}));
+    const preload = async () => {
+      for (let i = 1; i <= preloadCount; i++) {
+        if (cancelled) break;
+        
+        const nextIdx = currentPage + i;
+        if (nextIdx >= pages.length) break;
+        
+        const pageUrl = pages[nextIdx];
+        if (!pageUrl || preloadedRef.current.has(pageUrl)) continue;
+        
+        const proxiedUrl = getProxyImageUrl(pageUrl);
+        const imagePriority = i === 1 ? 10 : (i === 2 ? 5 : 1);
+        
+        preloadedRef.current.add(pageUrl);
+        
+        try {
+          await preloadImage(proxiedUrl, imagePriority);
+        } catch {
+          if (!cancelled) {
+            preloadedRef.current.delete(pageUrl);
+          }
+        }
       }
     };
-  }, [currentPage, pages, readingMode, preloadCount, enabled, priority]);
+    
+    preload();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [currentPage, pages, readingMode, preloadCount, enabled]);
   
   return {
     preloadedCount: preloadedRef.current.size,

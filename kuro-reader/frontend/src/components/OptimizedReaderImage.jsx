@@ -54,6 +54,7 @@ const OptimizedReaderImage = ({
         objectFit={objectFit}
         onLoad={onLoad}
         onError={onError}
+        {...props}
       />
     </Box>
   );

@@ -133,9 +133,6 @@
     }
     
     html {
-      scroll-behavior: smooth;
-      overflow-x: hidden;
-      overflow-y: auto;
       width: 100%;
       height: 100%;
       font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -148,11 +145,8 @@
       padding: 0;
       background-color: #1A202C;
       color: #E2E8F0;
-      overscroll-behavior-y: none;
       min-height: 100vh;
       width: 100%;
-      overflow-x: hidden;
-      overflow-y: auto;
     }
     
     /* Root container */
@@ -161,7 +155,6 @@
       width: 100%;
       display: flex;
       flex-direction: column;
-      overflow-x: hidden;
     }
     
     /* Loading state */
@@ -195,7 +188,6 @@
     /* ✅ GPU acceleration ottimizzato */
     .manga-card {
       backface-visibility: hidden;
-      transform: translate3d(0, 0, 0);
     }
     
     .manga-card:hover {
@@ -210,10 +202,6 @@
     }
     .chakra-skeleton {
       animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-      /* ✅ GPU acceleration per animazioni smooth */
-      will-change: opacity;
-      transform: translateZ(0);
-      backface-visibility: hidden;
     }
     
     /* ✅ BLOCCO DARK READER - Forza i colori originali */
