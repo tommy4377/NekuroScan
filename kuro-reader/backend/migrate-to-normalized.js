@@ -305,16 +305,78 @@ async function main() {
     await prisma.$queryRaw`SELECT 1`;
     console.log('✅ Database connection successful\n');
     
-    // Verifica che le nuove tabelle esistano
+    // ✅ CREA TABELLE SE NON ESISTONO (per Render senza Shell)
+    console.log('📋 Creating normalized tables if they don\'t exist...\n');
+    
     try {
-      await prisma.$queryRaw`SELECT COUNT(*) FROM favorites`;
-      await prisma.$queryRaw`SELECT COUNT(*) FROM library_manga`;
-      await prisma.$queryRaw`SELECT COUNT(*) FROM history`;
-      console.log('✅ New tables exist\n');
-    } catch (err) {
-      console.error('❌ New tables not found! Run migration first:');
-      console.error('   npx prisma db push\n');
-      process.exit(1);
+      // Crea tabella favorites
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "favorites" (
+          "id" SERIAL PRIMARY KEY,
+          "userId" INTEGER NOT NULL,
+          "mangaUrl" VARCHAR(500) NOT NULL,
+          "mangaTitle" VARCHAR(500) NOT NULL,
+          "coverUrl" TEXT,
+          "source" VARCHAR(50),
+          "addedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE("userId", "mangaUrl"),
+          FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE
+        );
+      `;
+      console.log('  ✅ Table favorites created/verified');
+      
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_favorites_userId" ON "favorites"("userId");`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_favorites_mangaUrl" ON "favorites"("mangaUrl");`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_favorites_userId_addedAt" ON "favorites"("userId", "addedAt");`;
+      
+      // Crea tabella library_manga
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "library_manga" (
+          "id" SERIAL PRIMARY KEY,
+          "userId" INTEGER NOT NULL,
+          "mangaUrl" VARCHAR(500) NOT NULL,
+          "mangaTitle" VARCHAR(500) NOT NULL,
+          "coverUrl" TEXT,
+          "source" VARCHAR(50),
+          "status" VARCHAR(20) NOT NULL,
+          "rating" INTEGER,
+          "notes" TEXT,
+          "addedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE("userId", "mangaUrl"),
+          FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE
+        );
+      `;
+      console.log('  ✅ Table library_manga created/verified');
+      
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_library_manga_userId_status" ON "library_manga"("userId", "status");`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_library_manga_mangaUrl_status" ON "library_manga"("mangaUrl", "status");`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_library_manga_userId_updatedAt" ON "library_manga"("userId", "updatedAt");`;
+      
+      // Crea tabella history
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "history" (
+          "id" SERIAL PRIMARY KEY,
+          "userId" INTEGER NOT NULL,
+          "mangaUrl" VARCHAR(500) NOT NULL,
+          "mangaTitle" VARCHAR(500) NOT NULL,
+          "chapterUrl" VARCHAR(500),
+          "chapterTitle" VARCHAR(200),
+          "viewedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE
+        );
+      `;
+      console.log('  ✅ Table history created/verified');
+      
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_history_userId_viewedAt" ON "history"("userId", "viewedAt" DESC);`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "idx_history_userId_mangaUrl" ON "history"("userId", "mangaUrl");`;
+      
+      console.log('✅ All tables created/verified\n');
+      
+    } catch (createErr) {
+      console.error('❌ Error creating tables:', createErr.message);
+      // Continua comunque, potrebbero già esistere
     }
     
     // Get all users
