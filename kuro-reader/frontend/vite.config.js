@@ -185,28 +185,20 @@ export default defineConfig({
     minify: 'esbuild',
     rollupOptions: {
       output: {
-        // ✅ PERFORMANCE: Code splitting per ridurre bundle size iniziale
+        // ✅ PERFORMANCE: Code splitting ottimizzato e sicuro
         manualChunks: (id) => {
-          // Vendor chunks separati per librerie grandi
+          // Vendor chunks - tenere React insieme per evitare errori
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'react-vendor';
-            }
-            if (id.includes('@chakra-ui') || id.includes('@emotion')) {
+            // Chakra UI e dipendenze insieme
+            if (id.includes('@chakra-ui') || id.includes('@emotion') || id.includes('framer-motion')) {
               return 'chakra-vendor';
             }
-            if (id.includes('framer-motion')) {
-              return 'framer-vendor';
+            // React e dipendenze core in un unico chunk
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router') || id.includes('scheduler')) {
+              return 'react-vendor';
             }
-            // Altre librerie in un vendor separato
+            // Altre librerie
             return 'vendor';
-          }
-          // Separa le pagine in chunk dinamici
-          if (id.includes('/pages/')) {
-            const pageName = id.split('/pages/')[1]?.split('.')[0];
-            if (pageName) {
-              return `page-${pageName}`;
-            }
           }
         }
       }
@@ -214,7 +206,7 @@ export default defineConfig({
     // ✅ PERFORMANCE: Dimensioni chunk ottimali
     chunkSizeWarningLimit: 1000,
     cssCodeSplit: true,
-    assetsInlineLimit: 4096, // Ridotto per evitare bundle troppo grandi
+    assetsInlineLimit: 8192, // Valore originale
     reportCompressedSize: false,
     modulePreload: {
       polyfill: true
@@ -228,11 +220,7 @@ export default defineConfig({
   },
   // ✅ PERFORMANCE: Ottimizzazioni esbuild
   esbuild: {
-    drop: ['debugger', 'console'],
-    legalComments: 'none',
-    minifyIdentifiers: true,
-    minifySyntax: true,
-    minifyWhitespace: true,
-    treeShaking: true
+    drop: ['debugger'], // Rimosso 'console' per evitare problemi con librerie
+    legalComments: 'none'
   }
 });
