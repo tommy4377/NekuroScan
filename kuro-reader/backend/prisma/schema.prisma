@@ -16,12 +16,17 @@ model user {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  profile   user_profile?
-  favorites user_favorites?
-  reading   reading_progress[]
-  library   user_library?
-  follows   user_follows[]     @relation("follower")
-  followers user_follows[]     @relation("following")
+  profile          user_profile?
+  favorites_old    user_favorites?      // ⚠️ DEPRECATED: sarà rimosso dopo migrazione
+  readingProgress  reading_progress[]
+  library_old      user_library?        // ⚠️ DEPRECATED: sarà rimosso dopo migrazione
+  follows          user_follows[]       @relation("follower")
+  followers        user_follows[]       @relation("following")
+  
+  // ✅ NORMALIZED TABLES
+  favorites        favorite[]
+  libraryManga     library_manga[]
+  historyEntries   history_entry[]
 }
 
 model user_profile {
@@ -59,7 +64,7 @@ model user_follows {
 model user_favorites {
   id        Int      @id @default(autoincrement())
   userId    Int      @unique
-  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      user     @relation("favorites_old", fields: [userId], references: [id], onDelete: Cascade)
   favorites String   @db.Text
   updatedAt DateTime @updatedAt
   
@@ -87,7 +92,7 @@ model reading_progress {
 model user_library {
   id        Int      @id @default(autoincrement())
   userId    Int      @unique
-  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      user     @relation("library_old", fields: [userId], references: [id], onDelete: Cascade)
   reading   String?  @db.Text
   completed String?  @db.Text
   dropped   String?  @db.Text
@@ -95,4 +100,81 @@ model user_library {
   updatedAt DateTime @updatedAt
   
   @@index([updatedAt]) // Performance: sorting sync recenti
+}
+
+// ============================================================================
+// ✅ NORMALIZED TABLES - Migliora performance e permette query SQL efficienti
+// ============================================================================
+
+// ✅ Tabella Favorites normalizzata (sostituisce user_favorites.favorites JSON)
+model favorite {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Dati manga
+  mangaUrl  String   @db.VarChar(500)
+  mangaTitle String  @db.VarChar(500)
+  coverUrl  String?  @db.Text
+  source    String?  @db.VarChar(50)   // 'mangaWorld', 'mangaWorldAdult', etc.
+  
+  // Metadata
+  addedAt   DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([userId, mangaUrl])  // Un utente non può aggiungere lo stesso manga 2 volte
+  @@index([userId])              // Query: tutti i favoriti di un utente
+  @@index([mangaUrl])            // Query: quanti utenti hanno questo manga nei favoriti
+  @@index([userId, addedAt])    // Query: favoriti recenti di un utente
+  @@map("favorites")
+}
+
+// ✅ Tabella Library normalizzata (sostituisce user_library.reading/completed/dropped JSON)
+model library_manga {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Dati manga
+  mangaUrl   String  @db.VarChar(500)
+  mangaTitle String  @db.VarChar(500)
+  coverUrl   String? @db.Text
+  source     String? @db.VarChar(50)
+  
+  // Status: 'reading', 'completed', 'dropped', 'plan_to_read'
+  status     String  @db.VarChar(20)
+  
+  // Metadata
+  addedAt    DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Stats opzionali
+  rating     Int?     // 1-10
+  notes      String?  @db.Text
+  
+  @@unique([userId, mangaUrl])    // Un manga può avere solo uno status per utente
+  @@index([userId, status])       // Query: tutti i manga "reading" di un utente
+  @@index([mangaUrl, status])     // Query: quanti utenti stanno leggendo questo manga
+  @@index([userId, updatedAt])    // Query: manga aggiornati di recente
+  @@map("library_manga")
+}
+
+// ✅ Tabella History normalizzata (sostituisce user_library.history JSON)
+model history_entry {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Dati manga/capitolo
+  mangaUrl   String   @db.VarChar(500)
+  mangaTitle String   @db.VarChar(500)
+  chapterUrl String?  @db.VarChar(500)
+  chapterTitle String? @db.VarChar(200)
+  
+  // Metadata
+  viewedAt   DateTime @default(now())
+  
+  @@index([userId, viewedAt(sort: Desc)]) // Query: cronologia recente (ordinata DESC)
+  @@index([userId, mangaUrl])             // Query: quando ho letto questo manga
+  @@map("history")
 }
