@@ -1,8 +1,9 @@
-// MangaCard.jsx - Optimized
+// MangaCard.jsx - Optimized with Cloudinary
 import React, { useState } from 'react';
 import { Box, Image, Text, VStack, Badge, Skeleton } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { encodeSource } from '../utils/sourceMapper';
+import { CloudinaryPresets, shouldUseCloudinary } from '../utils/cloudinaryHelper';
 
 // URL-safe base64 encoding
 function safeEncodeUrl(url) {
@@ -21,8 +22,11 @@ const MangaCard = React.memo(({ manga, hideSource = false, showLatestChapter = f
   const navigate = useNavigate();
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  // Usa cover URL diretto - il CDN non supporta resize
-  const coverUrl = manga.cover || manga.coverUrl;
+  // ✅ Ottimizza cover con Cloudinary (AVIF/WebP automatico)
+  const originalCoverUrl = manga.cover || manga.coverUrl;
+  const coverUrl = shouldUseCloudinary() 
+    ? CloudinaryPresets.mangaCover(originalCoverUrl)
+    : originalCoverUrl;
 
   const handleClick = React.useCallback(() => {
     if (!manga?.url) {
