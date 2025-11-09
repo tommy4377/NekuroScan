@@ -477,14 +477,13 @@ export default function PublicProfile() {
             </Tab>
           </TabList>
           
-          <TabPanels overflow="visible">
-            <TabPanel px={{ base: 0, md: 4 }} overflow="visible">
+          <TabPanels >
+            <TabPanel px={{ base: 0, md: 4 }} >
               {profile.reading?.length > 0 ? (
-                <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} overflow="visible">
+                <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} >
                   {profile.reading.map((manga, i) => (
                     <Box
                       key={manga.url || `reading-${i}`}
-                      overflow="visible"
                     >
                       <MangaCard manga={manga} />
                     </Box>
@@ -502,11 +501,10 @@ export default function PublicProfile() {
             
             <TabPanel px={{ base: 0, md: 4 }}>
               {profile.favorites?.length > 0 ? (
-                <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} overflow="visible">
+                <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} >
                   {profile.favorites.map((manga, i) => (
                     <Box
                       key={manga.url || `favorites-${i}`}
-                      overflow="visible"
                     >
                       <MangaCard manga={manga} />
                     </Box>
@@ -524,11 +522,10 @@ export default function PublicProfile() {
             
             <TabPanel px={{ base: 0, md: 4 }}>
               {profile.completed?.length > 0 ? (
-                <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} overflow="visible">
+                <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} >
                   {profile.completed.map((manga, i) => (
                     <Box
                       key={manga.url || `completed-${i}`}
-                      overflow="visible"
                     >
                       <MangaCard manga={manga} />
                     </Box>

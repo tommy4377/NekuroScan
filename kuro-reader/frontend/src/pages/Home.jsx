@@ -394,7 +394,6 @@ function Home() {
           border="1px solid"
           borderColor="gray.700"
           transition="all 0.3s"
-          overflow="visible"
           position="relative"
           _hover={{ borderColor: `${color}.500` }}
         >
@@ -493,9 +492,8 @@ function Home() {
             <Box 
               ref={scrollRef}
               overflowX="auto" 
-              overflowY="visible"
               pt={6}
-              pb={8}
+              pb={4}
               px={4}
               mx={-4}
               css={{
@@ -504,7 +502,7 @@ function Home() {
                 msOverflowStyle: 'none'
               }}
             >
-              <HStack spacing={6} align="center" overflow="visible" px={2}>
+              <HStack spacing={6} align="center" px={2}>
                 {items.map((item, i) => (
                   <Box
                     key={`${item.url}-${i}`}
@@ -514,7 +512,6 @@ function Home() {
                     h={{ base: '260px', md: '300px' }}
                     flexShrink={0}
                     position="relative"
-                    overflow="visible"
                   >
                     <MangaCard 
                       manga={item} 
@@ -820,10 +817,10 @@ function Home() {
               </Tab>
             </TabList>
             
-            <TabPanels overflow="visible">
+            <TabPanels>
               {/* TAB AGGIORNAMENTI */}
-              <TabPanel px={0} pt={6} overflow="visible">
-                <VStack spacing={6} align="stretch" overflow="visible">
+              <TabPanel px={0} pt={6}>
+                <VStack spacing={6} align="stretch">
                   {content.trending.length > 0 && (
                     <ContentSection 
                       title="Capitoli di tendenza" 
@@ -849,7 +846,7 @@ function Home() {
               </TabPanel>
               
               {/* TAB POPOLARI */}
-              <TabPanel px={0} pt={6} overflow="visible">
+              <TabPanel px={0} pt={6}>
                 <ContentSection 
                   title="Trending" 
                   icon={FaFire} 
@@ -860,8 +857,8 @@ function Home() {
               </TabPanel>
               
               {/* TAB TOP SERIES */}
-              <TabPanel px={0} pt={6} overflow="visible">
-                <VStack spacing={6} align="stretch" overflow="visible">
+              <TabPanel px={0} pt={6}>
+                <VStack spacing={6} align="stretch">
                   <ContentSection 
                     title="Top Manga" 
                     icon={GiDragonHead} 

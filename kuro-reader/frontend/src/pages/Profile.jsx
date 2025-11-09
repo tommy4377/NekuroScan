@@ -820,10 +820,10 @@ export default function Profile() {
             </Tab>
           </TabList>
 
-          <TabPanels overflow="visible">
+          <TabPanels >
             {/* ========= LIBRARY TAB ========= */}
-            <TabPanel overflow="visible">
-              <VStack spacing={6} align="stretch" overflow="visible">
+            <TabPanel >
+              <VStack spacing={6} align="stretch" >
                 
                 {/* IN LETTURA */}
                 <Box>
@@ -836,11 +836,10 @@ export default function Profile() {
                     )}
                   </HStack>
                   {libraryData.reading.length > 0 ? (
-                    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} overflow="visible">
+                    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} >
                       {libraryData.reading.slice(0, 10).map((manga, i) => (
                         <Box
                           key={`reading-${manga.url || i}`}
-                          overflow="visible"
                         >
                           <MangaCard manga={manga} />
                         </Box>
@@ -869,11 +868,10 @@ export default function Profile() {
                     )}
                   </HStack>
                   {libraryData.completed.length > 0 ? (
-                    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} overflow="visible">
+                    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} >
                       {libraryData.completed.slice(0, 10).map((manga, i) => (
                         <Box
                           key={`completed-${manga.url || i}`}
-                          overflow="visible"
                         >
                           <MangaCard manga={manga} />
                         </Box>
@@ -902,11 +900,10 @@ export default function Profile() {
                     )}
                   </HStack>
                   {libraryData.dropped.length > 0 ? (
-                    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} overflow="visible">
+                    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} >
                       {libraryData.dropped.slice(0, 10).map((manga, i) => (
                         <Box
                           key={`dropped-${manga.url || i}`}
-                          overflow="visible"
                         >
                           <MangaCard manga={manga} />
                         </Box>
@@ -935,11 +932,10 @@ export default function Profile() {
                     )}
                   </HStack>
                   {libraryData.favorites.length > 0 ? (
-                    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} overflow="visible">
+                    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} >
                       {libraryData.favorites.slice(0, 10).map((manga, i) => (
                         <Box
                           key={`fav-${manga.url || i}`}
-                          overflow="visible"
                         >
                           <MangaCard manga={manga} />
                         </Box>

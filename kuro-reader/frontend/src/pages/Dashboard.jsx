@@ -477,7 +477,7 @@ function Dashboard() {
             <Heading size="md" mb={4}>
               🎯 Quasi Finiti ({stats.almostFinished.length})
             </Heading>
-            <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 6 }} spacing={4} overflow="visible">
+            <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 6 }} spacing={4} >
               {stats.almostFinished.map((manga, i) => (
                 <MangaCard key={i} manga={manga} priority={i < 6} />
               ))}
