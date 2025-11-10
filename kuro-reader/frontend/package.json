@@ -40,7 +40,8 @@
     "vite-plugin-pwa": "^0.17.4",
     "vite-plugin-compression": "^0.5.1",
     "vite-plugin-imagemin": "^0.6.1",
-    "rollup-plugin-visualizer": "^5.12.0"
+    "rollup-plugin-visualizer": "^5.12.0",
+    "tsx": "^4.7.0"
   },
   "devDependencies": {
     "@types/lodash.debounce": "^4.0.9",
