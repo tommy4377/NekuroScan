@@ -10,7 +10,7 @@ import {
   AlertDialogContent, AlertDialogOverlay, useDisclosure
 } from '@chakra-ui/react';
 import MangaCard from '@/components/MangaCard';
-import { FaBookOpen, FaBookmark, FaHistory, FaCheck, FaTrash, FaEllipsisV, FaBan } from 'react-icons/fa';
+import { FaBookOpen, FaBookmark, FaHistory, FaCheck, FaTrash, FaEllipsisV, FaBan, FaList } from 'react-icons/fa';
 import useAuth from '@/hooks/useAuth';
 
 function Library() {
@@ -233,7 +233,18 @@ function Library() {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={8} align="stretch">
-        <Heading size="xl">La mia Libreria</Heading>
+        <HStack justify="space-between">
+          <Heading size="xl">La mia Libreria</Heading>
+          <Button
+            leftIcon={<FaList />}
+            colorScheme="purple"
+            variant="outline"
+            onClick={() => window.location.href = '/lists'}
+            size="sm"
+          >
+            Le mie liste
+          </Button>
+        </HStack>
         
         <Tabs colorScheme="purple" variant="enclosed">
           <TabList>

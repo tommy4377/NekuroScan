@@ -243,9 +243,6 @@ function Navigation(): JSX.Element | null {
                     <MenuItem icon={<FaList />} onClick={() => navigate('/lists')}>
                       Le mie liste
                     </MenuItem>
-                    <MenuItem icon={<FaChartLine />} onClick={() => navigate('/dashboard')}>
-                      Dashboard
-                    </MenuItem>
                     <MenuItem icon={<FaBell />} onClick={() => navigate('/notifications')}>
                       Notifiche
                     </MenuItem>
