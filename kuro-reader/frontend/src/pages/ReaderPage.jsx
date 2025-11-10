@@ -592,6 +592,15 @@ function ReaderPage() {
     }
   }, [chapter, readingMode, imageScale, setImageScale, currentPage, totalPages, chapterIndex, manga, navigateChapter]);
 
+  // ========== REFS per navigate/toast (evita loop) ==========
+  const navigateRef = useRef(navigate);
+  const toastRef = useRef(toast);
+  
+  useEffect(() => {
+    navigateRef.current = navigate;
+    toastRef.current = toast;
+  }, [navigate, toast]);
+
   // ========== EFFECTS ==========
   
   useEffect(() => {
@@ -603,13 +612,13 @@ function ReaderPage() {
       // VALIDAZIONE PARAMETRI
       if (!chapterId || !mangaId || !source) {
         console.error('Parametri mancanti:', { source, mangaId, chapterId });
-        toast({
+        toastRef.current({
           title: 'Errore',
           description: 'Link non valido',
           status: 'error',
           duration: 2000,
         });
-        navigate('/home');
+        navigateRef.current('/home');
         return;
       }
       
@@ -708,7 +717,7 @@ function ReaderPage() {
             setIsOfflineMode(true);
             
             // Mostra badge offline
-            toast({
+            toastRef.current({
               title: '📥 Modalità Offline',
               description: `Caricato: ${chapterData.pages.length} pagine`,
               status: 'info',
@@ -827,7 +836,7 @@ function ReaderPage() {
         }
         
         // MOSTRA ERRORE ALL'UTENTE
-        toast({
+        toastRef.current({
           title: 'Errore',
           description: error.message || 'Impossibile caricare il capitolo',
           status: 'error',
@@ -838,9 +847,9 @@ function ReaderPage() {
         // REDIRECT DOPO ERRORE
         setTimeout(() => {
           if (isMounted && mangaId && source) {
-            navigate(`/manga/${encodeSource(source)}/${mangaId}`);
+            navigateRef.current(`/manga/${encodeSource(source)}/${mangaId}`);
           } else {
-            navigate('/home');
+            navigateRef.current('/home');
           }
         }, 3000);
       } finally {
@@ -853,7 +862,7 @@ function ReaderPage() {
     if (source && mangaId && chapterId) {
       loadData();
     } else {
-      navigate('/home');
+      navigateRef.current('/home');
     }
     
     return () => {
