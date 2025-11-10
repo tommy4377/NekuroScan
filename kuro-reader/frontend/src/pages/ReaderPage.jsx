@@ -1009,19 +1009,25 @@ function ReaderPage() {
       className="reader-content"
       h="100vh" 
         bg="black"
-        position="relative"
+        position="fixed"
+        top={0}
+        left={0}
+        right={0}
+        bottom={0}
       ref={containerRef}
       onMouseMove={() => !isFullscreen && setShowControls(true)}
       onTouchStart={() => !isFullscreen && setShowControls(true)}
       onClick={handlePageClick}
       onContextMenu={(e) => e.preventDefault()}
         cursor="pointer"
-        overflow="hidden"
         sx={{
           userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
-          touchAction: 'pinch-zoom pan-y pan-x'
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          paddingLeft: 'env(safe-area-inset-left, 0px)',
+          paddingRight: 'env(safe-area-inset-right, 0px)',
         }}
     >
       {/* Top Controls */}
@@ -1171,8 +1177,13 @@ function ReaderPage() {
           ref={webtoonScrollRef}
           h="100%"
           overflowY="auto"
+          overflowX="hidden"
           pt={showControls ? "60px" : "20px"}
           pb="80px"
+          sx={{
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-y',
+          }}
           onScroll={(e) => {
             // Traccia quale pagina è visibile durante lo scroll
             const container = e.target;
@@ -1302,7 +1313,11 @@ function ReaderPage() {
           pt={showControls ? "100px" : 0}
           gap={4}
           position="relative"
-          overflow="hidden"
+          overflow="auto"
+          sx={{
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pinch-zoom pan-y pan-x',
+          }}
         >
           {currentImages.map((img) => (
             <Box
