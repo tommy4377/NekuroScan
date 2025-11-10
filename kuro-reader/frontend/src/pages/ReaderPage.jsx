@@ -593,12 +593,6 @@ function ReaderPage() {
     }
   }, [chapter, readingMode, imageScale, setImageScale, currentPage, totalPages, chapterIndex, manga, navigateChapter]);
 
-  // ========== RESET PRELOADER quando cambia capitolo ==========
-  useEffect(() => {
-    setShowPreloader(false);
-    setLoading(true);
-  }, [chapterId]);
-
   // ========== EFFECTS ==========
   
   useEffect(() => {
@@ -997,12 +991,22 @@ function ReaderPage() {
 
   // ========== RENDER ==========
   
-  // ✅ PRELOAD INTELLIGENTE: Mostra loading screen con preload quando dati pronti
+  // ✅ PRELOAD INTELLIGENTE: Mostra loading screen UNA SOLA VOLTA quando dati pronti
+  const hasShownPreloader = useRef(false);
+  
   useEffect(() => {
-    if (!loading && chapter && manga && chapter.pages && chapter.pages.length > 0 && !showPreloader) {
-      setShowPreloader(true);
+    if (!loading && chapter && manga && chapter.pages && chapter.pages.length > 0) {
+      if (!hasShownPreloader.current) {
+        hasShownPreloader.current = true;
+        setShowPreloader(true);
+      }
     }
-  }, [loading, chapter, manga, showPreloader]);
+  }, [loading, chapter, manga]);
+  
+  // Reset flag quando cambia capitolo
+  useEffect(() => {
+    hasShownPreloader.current = false;
+  }, [chapterId]);
 
   // ✅ CRITICAL: Loading screen durante fetch dati
   if (loading || !manga || !chapter) {
