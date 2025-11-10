@@ -24,6 +24,7 @@ import { useMigrateFromLocalStorage } from '@/hooks/useIndexedDB';
 import statusBar from '@/utils/statusBar';
 import { initSentry, setUser as setSentryUser, clearUser as clearSentryUser } from '@/utils/sentry';
 import { registerServiceWorker, prefetchManager } from '@/utils/serviceWorkerManager';
+import diagnostics from '@/utils/diagnostics';
 
 // ========== EAGER LOADED PAGES ==========
 // Critical pages loaded immediately
@@ -184,6 +185,38 @@ function AppContent(): JSX.Element {
   useEffect(() => {
     initSentry();
   }, []);
+  
+  // Run diagnostics on mount (check service connectivity)
+  useEffect(() => {
+    console.log('[App] 🚀 Running system diagnostics...');
+    
+    // Run diagnostics after a delay to not block initial render
+    const timer = setTimeout(() => {
+      diagnostics.runFullDiagnostics()
+        .then(report => {
+          const allOnline = report.services.every(s => s.status === 'online');
+          if (!allOnline) {
+            const offlineServices = report.services
+              .filter(s => s.status !== 'online')
+              .map(s => s.name)
+              .join(', ');
+              
+            toast({
+              title: '⚠️ Alcuni servizi non sono disponibili',
+              description: `Servizi offline: ${offlineServices}`,
+              status: 'warning',
+              duration: 5000,
+              isClosable: true
+            });
+          }
+        })
+        .catch(err => {
+          console.error('[App] ❌ Diagnostics failed:', err);
+        });
+    }, 3000);
+    
+    return () => clearTimeout(timer);
+  }, [toast]);
   
   // Sync Sentry user context on login/logout
   useEffect(() => {

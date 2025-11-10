@@ -206,7 +206,8 @@ export default defineConfig({
     }
   },
   esbuild: {
-    drop: ['console', 'debugger'],
+    // ✅ RIMOSSO: drop: ['console', 'debugger'] - Necessario per il debug
+    // In produzione, i console.log rimangono attivi per diagnostica
     legalComments: 'none',
     minifyIdentifiers: true,
     minifySyntax: true,

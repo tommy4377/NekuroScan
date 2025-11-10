@@ -8,6 +8,7 @@
 
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import diagnostics from './utils/diagnostics';
 
 // ========== SERVICE WORKER REGISTRATION ==========
 
@@ -72,4 +73,16 @@ if (!rootElement) {
 ReactDOM.createRoot(rootElement).render(
   <App />
 );
+
+// ========== DEVELOPER TOOLS ==========
+
+// Expose diagnostics to window for manual testing
+if (typeof window !== 'undefined') {
+  (window as any).nekuroDiagnostics = diagnostics;
+  console.log('%c🔧 NeKuro Developer Tools', 'font-size: 16px; font-weight: bold; color: #805AD5');
+  console.log('%cRun diagnostics: nekuroDiagnostics.runFullDiagnostics()', 'color: #48BB78');
+  console.log('%cTest proxy: nekuroDiagnostics.testProxyConnection()', 'color: #48BB78');
+  console.log('%cTest backend: nekuroDiagnostics.testBackendConnection()', 'color: #48BB78');
+  console.log('%cTest manga API: nekuroDiagnostics.testMangaAPI()', 'color: #48BB78');
+}
 

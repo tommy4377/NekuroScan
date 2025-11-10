@@ -10,7 +10,9 @@
     "preview": "vite preview --port 3000",
     "start": "tsx server.ts",
     "postinstall": "patch-package || echo 'No patches applied'",
-    "analyze": "vite-bundle-visualizer"
+    "analyze": "vite-bundle-visualizer",
+    "test:build": "npm run build && npm run preview",
+    "diagnostics": "echo '🔧 Open browser console and run: nekuroDiagnostics.runFullDiagnostics()'"
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.1.0",
