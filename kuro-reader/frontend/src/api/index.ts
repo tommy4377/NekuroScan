@@ -269,27 +269,37 @@ class APIManager {
   // ========== TRENDING ==========
 
   async getTrending(includeAdult: boolean = false): Promise<Manga[]> {
+    console.log('[API] 📥 getTrending called, includeAdult:', includeAdult);
     const cacheKey = `trending_${includeAdult}`;
     const cached = this.getCached<Manga[]>(cacheKey, true);
-    if (cached) return cached;
+    if (cached) {
+      console.log('[API] ✅ Returning cached trending:', cached.length, 'items');
+      return cached;
+    }
 
     try {
       const results: Manga[] = [];
       
       // Get from normal source
+      console.log('[API] 📡 Fetching trending from mangaWorld...');
       const normal = await this.apis.mangaWorld.getTrending();
+      console.log('[API] ✅ MangaWorld trending:', normal.length, 'items');
       results.push(...normal);
       
       // Get from adult source if requested
       if (includeAdult) {
+        console.log('[API] 📡 Fetching trending from mangaWorldAdult...');
         const adult = await this.apis.mangaWorldAdult.getTrending();
+        console.log('[API] ✅ MangaWorldAdult trending:', adult.length, 'items');
         results.push(...adult);
       }
       
       const unique = this.removeDuplicates(results);
+      console.log('[API] ✅ Trending total after dedup:', unique.length, 'items');
       this.setCache(cacheKey, unique);
       return unique;
     } catch (error) {
+      console.error('[API] ❌ getTrending error:', error);
       return [];
     }
   }

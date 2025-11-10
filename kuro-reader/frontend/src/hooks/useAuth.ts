@@ -172,10 +172,12 @@ const useAuth = create<AuthStore>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
+      console.log('[useAuth] 📤 Sending login request...');
       const response = await axios.post(`${API_URL}/auth/login`, {
-        email: emailOrUsername,
+        emailOrUsername,  // ✅ FIX: era "email" ma backend si aspetta "emailOrUsername"
         password
       });
+      console.log('[useAuth] ✅ Login response received:', response.status);
 
       const { token, user } = response.data;
       

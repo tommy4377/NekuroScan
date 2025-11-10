@@ -46,10 +46,12 @@ const cleanChapterNumber: any = (chapter: string | undefined): string => {
 };
 
 function Home() {
+  console.log('[Home] 🏠 Component mounting...');
   const navigate = useNavigate();
   const toast = useToast();
   const { user } = useAuth();
   const { density, setDensity, config: gridConfig, densityOptions } = useGridDensity();
+  console.log('[Home] ✅ Hooks initialized');
   
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
   
@@ -234,6 +236,7 @@ function Home() {
   }, [includeAdult, toast, checkOfflineStatus, user]);
 
   useEffect(() => {
+    console.log('[Home] 🎬 useEffect triggered - calling loadAllContent');
     loadAllContent();
     
     // Conta download offline
