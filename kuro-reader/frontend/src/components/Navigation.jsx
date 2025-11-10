@@ -274,15 +274,31 @@ function Navigation() {
 
       <Drawer isOpen={isOpen} placement="left" onClose={onClose} size="xs">
         <DrawerOverlay />
-        <DrawerContent bg="gray.900">
-          <DrawerCloseButton />
-          <DrawerHeader borderBottomWidth="1px" borderColor="gray.700">
+        <DrawerContent 
+          bg="gray.900"
+          sx={{
+            paddingTop: 'env(safe-area-inset-top, 0px)',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            paddingLeft: 'env(safe-area-inset-left, 0px)',
+          }}
+        >
+          <DrawerCloseButton 
+            sx={{
+              top: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
+              left: 'calc(0.75rem + env(safe-area-inset-left, 0px))',
+            }}
+          />
+          <DrawerHeader 
+            borderBottomWidth="1px" 
+            borderColor="gray.700"
+            pt="calc(1rem + env(safe-area-inset-top, 0px))"
+          >
             <HStack spacing={2}>
               <Logo boxSize="32px" fontSize="lg" />
             </HStack>
           </DrawerHeader>
 
-          <DrawerBody pt={4}>
+          <DrawerBody pt={4} pb="calc(1rem + env(safe-area-inset-bottom, 0px))">{" "}
             <VStack spacing={4} align="stretch">
               <form onSubmit={handleSearch}>
                 <InputGroup>

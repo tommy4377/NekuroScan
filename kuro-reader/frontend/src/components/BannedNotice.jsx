@@ -38,8 +38,22 @@ const BannedNotice = ({ isOpen, onClose, retryAfter, reason = 'rate-limit' }) =>
   return (
     <Modal isOpen={isOpen} onClose={() => {}} isCentered closeOnOverlayClick={false} closeOnEsc={false}>
       <ModalOverlay bg="blackAlpha.800" backdropFilter="blur(10px)" />
-      <ModalContent bg="gray.800" borderRadius="xl" boxShadow="2xl" mx={4}>
-        <ModalHeader pt={6}>
+      <ModalContent 
+        bg="gray.800" 
+        borderRadius="xl" 
+        boxShadow="2xl" 
+        mx={4}
+        my={4}
+        sx={{
+          '@media (max-width: 768px)': {
+            marginTop: 'calc(1rem + env(safe-area-inset-top, 0px))',
+            marginBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))',
+          }
+        }}
+      >
+        <ModalHeader 
+          pt="calc(1.5rem + env(safe-area-inset-top, 0px))"
+        >
           <VStack spacing={3} align="center">
             <Icon 
               as={FaBan} 
@@ -134,7 +148,9 @@ const BannedNotice = ({ isOpen, onClose, retryAfter, reason = 'rate-limit' }) =>
           </VStack>
         </ModalBody>
 
-        <ModalFooter>
+        <ModalFooter
+          pb="calc(1rem + env(safe-area-inset-bottom, 0px))"
+        >
           <Button 
             colorScheme="orange" 
             variant="ghost" 

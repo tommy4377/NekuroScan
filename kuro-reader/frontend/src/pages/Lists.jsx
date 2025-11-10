@@ -244,11 +244,29 @@ function Lists() {
       {/* Modal Crea/Modifica */}
       <Modal isOpen={isOpen} onClose={onClose} size="lg" isCentered>
         <ModalOverlay />
-        <ModalContent bg="gray.800" color="white">
-          <ModalHeader>
+        <ModalContent 
+          bg="gray.800" 
+          color="white"
+          mx={4}
+          my={4}
+          sx={{
+            '@media (max-width: 768px)': {
+              marginTop: 'calc(1rem + env(safe-area-inset-top, 0px))',
+              marginBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))',
+            }
+          }}
+        >
+          <ModalHeader
+            pt="calc(1rem + env(safe-area-inset-top, 0px))"
+          >
             {isEditing ? 'Modifica Lista' : 'Nuova Lista'}
           </ModalHeader>
-          <ModalCloseButton />
+          <ModalCloseButton 
+            sx={{
+              top: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
+              right: 'calc(0.75rem + env(safe-area-inset-right, 0px))',
+            }}
+          />
           <ModalBody>
             <VStack spacing={4} align="stretch">
               <Box>
@@ -303,7 +321,9 @@ function Lists() {
             </VStack>
           </ModalBody>
 
-          <ModalFooter>
+          <ModalFooter
+            pb="calc(1rem + env(safe-area-inset-bottom, 0px))"
+          >
             <Button variant="ghost" mr={3} onClick={onClose}>
               Annulla
             </Button>

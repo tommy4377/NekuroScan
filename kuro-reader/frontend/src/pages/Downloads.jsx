@@ -420,11 +420,28 @@ function Downloads() {
       {/* Modal Conferma */}
       <Modal isOpen={isOpen} onClose={onClose} isCentered>
         <ModalOverlay bg="blackAlpha.800" backdropFilter="blur(10px)" />
-        <ModalContent bg="gray.800">
-          <ModalHeader>
+        <ModalContent 
+          bg="gray.800"
+          mx={4}
+          my={4}
+          sx={{
+            '@media (max-width: 768px)': {
+              marginTop: 'calc(1rem + env(safe-area-inset-top, 0px))',
+              marginBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))',
+            }
+          }}
+        >
+          <ModalHeader
+            pt="calc(1rem + env(safe-area-inset-top, 0px))"
+          >
             {selectedChapter ? 'Elimina Capitolo' : selectedManga ? 'Elimina Manga' : 'Elimina Tutto'}
           </ModalHeader>
-          <ModalCloseButton />
+          <ModalCloseButton 
+            sx={{
+              top: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
+              right: 'calc(0.75rem + env(safe-area-inset-right, 0px))',
+            }}
+          />
           <ModalBody>
             {selectedChapter ? (
               <Text>
@@ -440,7 +457,9 @@ function Downloads() {
               </Text>
             )}
           </ModalBody>
-          <ModalFooter>
+          <ModalFooter
+            pb="calc(1rem + env(safe-area-inset-bottom, 0px))"
+          >
             <Button variant="ghost" mr={3} onClick={onClose}>
               Annulla
             </Button>

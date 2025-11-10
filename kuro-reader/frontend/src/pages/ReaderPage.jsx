@@ -19,6 +19,7 @@ import notesManager from '../utils/notes';
 import chapterCache from '../utils/chapterCache';
 import ProxiedImage from '../components/ProxiedImage';
 import ChapterLoadingScreen from '../components/ChapterLoadingScreen';
+import ReaderControls from '../components/ReaderControls';
 import { config } from '../config';
 import { encodeSource, decodeSource } from '../utils/sourceMapper';
 
@@ -123,26 +124,63 @@ function ReaderPage() {
     };
   }, []);
 
+  // ========== CLEANUP BLOB URLs ==========
+  useEffect(() => {
+    // Cleanup blob URLs quando il capitolo cambia o il componente smonta
+    return () => {
+      if (chapter?.pages && chapter.pages.length > 0) {
+        const blobUrls = chapter.pages.filter(url => url?.startsWith('blob:'));
+        blobUrls.forEach(url => {
+          try {
+            URL.revokeObjectURL(url);
+          } catch (e) {
+            // Ignore errors
+          }
+        });
+      }
+    };
+  }, [chapter?.pages]);
+
   // ========== SALVA IMPOSTAZIONI ==========
   useEffect(() => {
-    localStorage.setItem('readingMode', readingMode);
+    try {
+      localStorage.setItem('readingMode', readingMode);
+    } catch (e) {
+      // Modalità privata
+    }
   }, [readingMode]);
   
   useEffect(() => {
-    localStorage.setItem('imageScale', imageScale.toString());
+    try {
+      localStorage.setItem('imageScale', imageScale.toString());
+    } catch (e) {
+      // Modalità privata
+    }
   }, [imageScale]);
   
   useEffect(() => {
-    localStorage.setItem('brightness', brightness.toString());
+    try {
+      localStorage.setItem('brightness', brightness.toString());
+    } catch (e) {
+      // Modalità privata
+    }
   }, [brightness]);
   
   
   useEffect(() => {
-    localStorage.setItem('scrollSpeed', scrollSpeed.toString());
+    try {
+      localStorage.setItem('scrollSpeed', scrollSpeed.toString());
+    } catch (e) {
+      // Modalità privata
+    }
   }, [scrollSpeed]);
 
   useEffect(() => {
-    localStorage.setItem('rotationLock', rotationLock.toString());
+    try {
+      localStorage.setItem('rotationLock', rotationLock.toString());
+    } catch (e) {
+      // Modalità privata
+    }
     
     // Lock orientamento se supportato
     if (rotationLock && readingMode !== 'webtoon') {
@@ -383,7 +421,7 @@ function ReaderPage() {
     } catch (error) {
       console.error('Error changing page:', error);
     }
-  }, [currentPage, totalPages, navigateChapter, manga, chapterIndex, chapter]);
+  }, [currentPage, totalPages, chapter]); // ✅ FIX: Rimosse dipendenze inutilizzate
 
   // ✅ WRAP toggleFullscreen in useCallback per evitare React error #300
   const toggleFullscreen = React.useCallback(async () => {
@@ -871,24 +909,28 @@ function ReaderPage() {
     if (!chapter?.pages || readingMode === 'webtoon' || showPreloader) return;
     
     const preloadWithQueue = async () => {
-      const { preloadImage } = await import('../utils/imageQueue');
-      const { getProxyImageUrl } = await import('../utils/readerHelpers');
-      
-      const preloadCount = 2;
-      for (let i = 1; i <= preloadCount; i++) {
-        const nextPage = currentPage + i;
-        if (nextPage < totalPages && chapter.pages[nextPage]) {
-          const pageUrl = chapter.pages[nextPage];
-          
-          if (!preloadedImages.current.has(pageUrl)) {
-            const proxiedUrl = getProxyImageUrl(pageUrl);
-            const priority = i === 1 ? 5 : 1;
+      try {
+        const { preloadImage } = await import('../utils/imageQueue');
+        const { getProxyImageUrl } = await import('../utils/readerHelpers');
+        
+        const preloadCount = 2;
+        for (let i = 1; i <= preloadCount; i++) {
+          const nextPage = currentPage + i;
+          if (nextPage < totalPages && chapter.pages[nextPage]) {
+            const pageUrl = chapter.pages[nextPage];
             
-            preloadImage(proxiedUrl, priority).catch(() => {});
-            
-            preloadedImages.current.add(pageUrl);
+            if (!preloadedImages.current.has(pageUrl)) {
+              const proxiedUrl = getProxyImageUrl(pageUrl);
+              const priority = i === 1 ? 5 : 1;
+              
+              preloadImage(proxiedUrl, priority).catch(() => {});
+              
+              preloadedImages.current.add(pageUrl);
+            }
           }
         }
+      } catch (error) {
+        console.error('Preload error:', error);
       }
     };
     
@@ -944,7 +986,7 @@ function ReaderPage() {
     }, 1000);
 
     return () => clearTimeout(timeout);
-  }, [currentPage, chapterIndex, manga, chapter, saveProgress]);
+  }, [currentPage, chapterIndex, manga, chapter]); // ✅ FIX: Rimosso saveProgress per evitare loop infinito
 
   // ========== RENDER ==========
   
@@ -984,6 +1026,7 @@ function ReaderPage() {
   if (showPreloader) {
     return (
       <ChapterLoadingScreen
+        key={`${chapterId}-${chapterIndex}`}
         chapterTitle={chapter.title || `Capitolo ${chapterIndex + 1}`}
         chapterPages={chapter.pages}
         currentPage={currentPage + 1}
@@ -1031,145 +1074,30 @@ function ReaderPage() {
           touchAction: 'pinch-zoom pan-y pan-x',
         }}
     >
-      {/* Top Controls */}
-      {showControls && (
-        <Box
-          position="absolute"
-          top={0}
-          left={0}
-          right={0}
-          bg="blackAlpha.900"
-          p={2}
-          zIndex={999}
-          transition="opacity 0.3s"
-          backdropFilter="blur(10px)"
-          sx={{
-            paddingTop: 'calc(0.5rem + env(safe-area-inset-top, 0px))',
-            paddingLeft: 'calc(0.5rem + env(safe-area-inset-left, 0px))',
-            paddingRight: 'calc(0.5rem + env(safe-area-inset-right, 0px))',
-          }}
-        >
-          <HStack justify="space-between" spacing={2}>
-            {/* Nav capitolo - SEMPRE visibile su mobile */}
-            <HStack spacing={1} display={{ base: 'flex', md: currentPage >= totalPages - 1 ? 'flex' : 'none' }}>
-              <IconButton
-                icon={<FaChevronLeft />}
-                onClick={(e) => { e.stopPropagation(); navigateChapter(-1); }}
-                aria-label="Capitolo precedente"
-                variant="ghost"
-                color="white"
-                size="sm"
-                isDisabled={chapterIndex === 0}
-              />
-              <VStack spacing={0} px={1} display={{ base: 'none', md: 'flex' }}>
-                <Text color="white" fontSize="xs" fontWeight="bold">
-                  Cap. {chapterIndex + 1} / {manga.chapters?.length}
-                </Text>
-              </VStack>
-              <IconButton
-                icon={<FaChevronRight />}
-                onClick={(e) => { e.stopPropagation(); navigateChapter(1); }}
-                aria-label="Capitolo successivo"
-                variant="ghost"
-                color="white"
-                size="sm"
-                isDisabled={chapterIndex >= (manga.chapters?.length || 0) - 1}
-              />
-            </HStack>
-
-            {/* Spacer centrale */}
-            <Box flex={1} />
-
-            <HStack spacing={1}>
-              <IconButton
-                icon={isBookmarked ? <FaBookmark /> : <FaRegBookmark />}
-                onClick={(e) => { e.stopPropagation(); toggleBookmark(); }}
-                aria-label="Segnalibro"
-                variant="ghost"
-                color={isBookmarked ? "yellow.400" : "white"}
-                size="sm"
-              />
-              <IconButton
-                icon={hasNote ? <FaStickyNote /> : <FaRegStickyNote />}
-                onClick={(e) => { e.stopPropagation(); setShowNoteModal(true); }}
-                aria-label="Note"
-                variant="ghost"
-                color={hasNote ? "green.400" : "white"}
-                size="sm"
-              />
-              <IconButton
-                icon={<FaCog />}
-                onClick={(e) => { e.stopPropagation(); setSettingsOpen(true); }}
-                aria-label="Impostazioni"
-                variant="ghost"
-                color="white"
-                size="sm"
-              />
-              <IconButton
-                icon={isFullscreen ? <MdFullscreenExit /> : <MdFullscreen />}
-                onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-                aria-label="Schermo intero"
-                variant="ghost"
-                color="white"
-                size="sm"
-                display={{ base: 'none', md: 'flex' }}
-              />
-              <IconButton
-                icon={<FaTimes />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  saveProgress();
-                  navigate(`/manga/${encodeSource(source)}/${mangaId}`);
-                }}
-                aria-label="Chiudi"
-                variant="solid"
-                colorScheme="red"
-                color="white"
-                size="sm"
-                _hover={{ bg: 'red.600' }}
-              />
-            </HStack>
-          </HStack>
-        </Box>
-      )}
-
-      {/* Progress Bar con dettagli */}
-      {showControls && (
-        <Box
-          position="absolute"
-          top="calc(50px + env(safe-area-inset-top, 0px))"
-          left={0}
-          right={0}
-          bg="blackAlpha.900"
-          p={3}
-          zIndex={999}
-          backdropFilter="blur(10px)"
-          sx={{
-            paddingLeft: 'calc(0.75rem + env(safe-area-inset-left, 0px))',
-            paddingRight: 'calc(0.75rem + env(safe-area-inset-right, 0px))',
-          }}
-        >
-          <VStack spacing={2}>
-            <HStack w="100%" justify="space-between" px={2}>
-              <Text fontSize="xs" color="gray.400">
-                Progresso capitolo
-              </Text>
-              <Text fontSize="xs" color="white" fontWeight="bold">
-                {currentPage + 1} / {totalPages} pagine ({Math.round(progressPercentage)}%)
-              </Text>
-            </HStack>
-            <Progress
-              value={progressPercentage}
-              colorScheme="purple"
-              size="sm"
-              borderRadius="full"
-              w="100%"
-              hasStripe
-              isAnimated
-            />
-          </VStack>
-        </Box>
-      )}
+      {/* Controlli Memoizzati */}
+      <ReaderControls
+        showControls={showControls}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        progressPercentage={progressPercentage}
+        chapterIndex={chapterIndex}
+        totalChapters={manga.chapters?.length || 0}
+        readingMode={readingMode}
+        autoScroll={autoScroll}
+        isBookmarked={isBookmarked}
+        hasNote={hasNote}
+        isFullscreen={isFullscreen}
+        onNavigateChapter={navigateChapter}
+        onToggleAutoScroll={() => setAutoScroll(!autoScroll)}
+        onToggleBookmark={toggleBookmark}
+        onOpenNotes={() => setShowNoteModal(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onToggleFullscreen={toggleFullscreen}
+        onClose={() => {
+          saveProgress();
+          navigate(`/manga/${encodeSource(source)}/${mangaId}`);
+        }}
+      />
 
       {/* Main Content */}
       {readingMode === 'webtoon' ? (
@@ -1444,9 +1372,26 @@ function ReaderPage() {
         size="sm"
       >
         <DrawerOverlay />
-        <DrawerContent bg="gray.900" color="white">
-          <DrawerCloseButton />
-          <DrawerHeader borderBottomWidth="1px" borderColor="gray.700">
+        <DrawerContent 
+          bg="gray.900" 
+          color="white"
+          sx={{
+            paddingTop: 'env(safe-area-inset-top, 0px)',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            paddingRight: 'env(safe-area-inset-right, 0px)',
+          }}
+        >
+          <DrawerCloseButton 
+            sx={{
+              top: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
+              right: 'calc(0.75rem + env(safe-area-inset-right, 0px))',
+            }}
+          />
+          <DrawerHeader 
+            borderBottomWidth="1px" 
+            borderColor="gray.700"
+            pt="calc(1rem + env(safe-area-inset-top, 0px))"
+          >
             <HStack spacing={2}>
               <FaCog />
               <Heading size="md">Impostazioni Lettura</Heading>
@@ -1610,14 +1555,13 @@ function ReaderPage() {
               <Button
                 onClick={(e) => {
                   e.stopPropagation();
-                  saveProgress();
-                  navigate(`/manga/${encodeSource(source)}/${mangaId}`);
+                  setSettingsOpen(false);
                 }}
                 colorScheme="purple"
                 size="lg"
-                leftIcon={<FaBook />}
+                leftIcon={<FaCog />}
               >
-                Torna al manga
+                Chiudi impostazioni
               </Button>
             </VStack>
           </DrawerBody>
@@ -1627,14 +1571,32 @@ function ReaderPage() {
       {/* Modal Note */}
       <Modal isOpen={showNoteModal} onClose={() => setShowNoteModal(false)} size="lg" isCentered>
         <ModalOverlay />
-        <ModalContent bg="gray.800" color="white">
-          <ModalHeader>
+        <ModalContent 
+          bg="gray.800" 
+          color="white"
+          mx={4}
+          my={4}
+          sx={{
+            '@media (max-width: 768px)': {
+              marginTop: 'calc(1rem + env(safe-area-inset-top, 0px))',
+              marginBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))',
+            }
+          }}
+        >
+          <ModalHeader
+            pt="calc(1rem + env(safe-area-inset-top, 0px))"
+          >
             <HStack>
               <FaStickyNote color="var(--chakra-colors-green-400)" />
               <Text>Nota - Pagina {currentPage + 1}</Text>
             </HStack>
           </ModalHeader>
-          <ModalCloseButton />
+          <ModalCloseButton 
+            sx={{
+              top: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
+              right: 'calc(0.75rem + env(safe-area-inset-right, 0px))',
+            }}
+          />
           <ModalBody>
             <VStack spacing={4} align="stretch">
               <Text fontSize="sm" color="gray.400">
@@ -1656,7 +1618,9 @@ function ReaderPage() {
               </Text>
             </VStack>
           </ModalBody>
-          <ModalFooter>
+          <ModalFooter
+            pb="calc(1rem + env(safe-area-inset-bottom, 0px))"
+          >
             {hasNote && (
               <Button
                 colorScheme="red"

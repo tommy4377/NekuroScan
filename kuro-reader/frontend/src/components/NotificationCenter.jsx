@@ -79,9 +79,23 @@ export function NotificationCenter() {
 
       <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} placement="right">
         <DrawerOverlay />
-        <DrawerContent bg="gray.900">
-          <DrawerCloseButton />
-          <DrawerHeader>
+        <DrawerContent 
+          bg="gray.900"
+          sx={{
+            paddingTop: 'env(safe-area-inset-top, 0px)',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            paddingRight: 'env(safe-area-inset-right, 0px)',
+          }}
+        >
+          <DrawerCloseButton 
+            sx={{
+              top: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
+              right: 'calc(0.75rem + env(safe-area-inset-right, 0px))',
+            }}
+          />
+          <DrawerHeader
+            pt="calc(1rem + env(safe-area-inset-top, 0px))"
+          >
             <HStack justify="space-between">
               <Text>Notifiche</Text>
               {notifications.length > 0 && (
@@ -97,7 +111,7 @@ export function NotificationCenter() {
             </HStack>
           </DrawerHeader>
           
-          <DrawerBody>
+          <DrawerBody pb="calc(1rem + env(safe-area-inset-bottom, 0px))">{" "}
             <AnimatePresence>
               {notifications.length === 0 ? (
                 <Box textAlign="center" py={8}>

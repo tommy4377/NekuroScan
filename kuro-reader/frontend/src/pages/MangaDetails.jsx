@@ -1515,8 +1515,23 @@ function MangaDetails() {
         isCentered
       >
         <ModalOverlay bg="blackAlpha.800" backdropFilter="blur(10px)" />
-        <ModalContent bg="gray.800" borderRadius="xl" border="1px solid" borderColor="green.500">
-          <ModalHeader>
+        <ModalContent 
+          bg="gray.800" 
+          borderRadius="xl" 
+          border="1px solid" 
+          borderColor="green.500"
+          mx={4}
+          my={4}
+          sx={{
+            '@media (max-width: 768px)': {
+              marginTop: 'calc(1rem + env(safe-area-inset-top, 0px))',
+              marginBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))',
+            }
+          }}
+        >
+          <ModalHeader
+            pt="calc(1rem + env(safe-area-inset-top, 0px))"
+          >
             <HStack spacing={3}>
               <Box
                 p={2}
@@ -1536,7 +1551,12 @@ function MangaDetails() {
               </VStack>
             </HStack>
           </ModalHeader>
-          <ModalCloseButton />
+          <ModalCloseButton 
+            sx={{
+              top: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
+              right: 'calc(0.75rem + env(safe-area-inset-right, 0px))',
+            }}
+          />
           
           <ModalBody pb={6}>
             <VStack spacing={6}>
@@ -1613,7 +1633,9 @@ function MangaDetails() {
             </VStack>
           </ModalBody>
 
-          <ModalFooter>
+          <ModalFooter
+            pb="calc(1rem + env(safe-area-inset-bottom, 0px))"
+          >
             <HStack spacing={3} w="100%">
               <Button 
                 variant="ghost" 
