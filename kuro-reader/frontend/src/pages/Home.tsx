@@ -139,10 +139,12 @@ function Home() {
 
   // ========= LOAD CONTENT =========
   const loadAllContent = useCallback(async () => {
+    console.log('[Home] 🔄 loadAllContent started');
     setLoading(true);
     
     // Check se offline - ma NON bloccare se stiamo ricaricando dopo "Riprova"
     const offline = await checkOfflineStatus();
+    console.log('[Home] 📡 Offline status:', offline);
     
     if (offline) {
       // Modalità OFFLINE: mostra solo download
@@ -178,10 +180,14 @@ function Home() {
       }));
       
       // ✅ FASE 1: Carica contenuti PRIORITARI (above-the-fold) - Riduce LCP
+      console.log('[Home] 📥 Fetching trending and latest...');
       const [trendingRes, latestRes] = await Promise.allSettled([
         apiManager.getTrending(includeAdult),
         apiManager.getRecentChapters(includeAdult)
       ]);
+      
+      console.log('[Home] ✅ Trending result:', trendingRes.status, trendingRes);
+      console.log('[Home] ✅ Latest result:', latestRes.status, latestRes);
       
       // Mostra subito i contenuti prioritari
       setContent(prev => ({
@@ -190,6 +196,8 @@ function Home() {
         latest: processResult(latestRes),
         continueReading: readingWithProgress
       }));
+      
+      console.log('[Home] 📊 Phase 1 content set');
       
       // ✅ FASE 2: Carica contenuti SECONDARI (below-the-fold) in background
       // Questo migliora drasticamente il LCP perché il browser può renderizzare prima
@@ -211,6 +219,7 @@ function Home() {
       });
       
     } catch (error: unknown) {
+      console.error('[Home] ❌ Error loading content:', error);
       toast({
         title: 'Errore caricamento',
         description: 'Alcuni contenuti potrebbero non essere disponibili',
@@ -218,6 +227,7 @@ function Home() {
         duration: 3000
       });
     } finally {
+      console.log('[Home] ✅ Loading complete');
       setLoading(false);
       setRefreshing(false);
     }

@@ -112,8 +112,10 @@ function Login(): JSX.Element {
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
+    console.log('[Login] 🔐 Login attempt started');
     
     if (!loginData.emailOrUsername || !loginData.password) {
+      console.warn('[Login] ⚠️ Missing fields');
       toast({ 
         title: 'Compila tutti i campi', 
         status: 'warning',
@@ -124,7 +126,9 @@ function Login(): JSX.Element {
     
     setIsLoading(true);
     try {
+      console.log('[Login] 📤 Calling login API...');
       await login(loginData.emailOrUsername, loginData.password);
+      console.log('[Login] ✅ Login successful');
       
       if (rememberMe) {
         localStorage.setItem('rememberMe', 'true');
@@ -151,9 +155,11 @@ function Login(): JSX.Element {
 
   const handleRegister = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
+    console.log('[Register] 📝 Registration attempt started');
     
     if (!registerData.username || !registerData.email || 
         !registerData.password || !registerData.confirmPassword) {
+      console.warn('[Register] ⚠️ Missing fields');
       toast({ 
         title: 'Compila tutti i campi', 
         status: 'warning',
@@ -163,6 +169,7 @@ function Login(): JSX.Element {
     }
     
     if (registerData.password !== registerData.confirmPassword) {
+      console.warn('[Register] ⚠️ Passwords do not match');
       toast({ 
         title: 'Le password non coincidono', 
         status: 'error',
@@ -173,6 +180,7 @@ function Login(): JSX.Element {
     
     // Robust password validation (uses memoized value)
     if (!passwordValidation.isValid) {
+      console.warn('[Register] ⚠️ Invalid password');
       toast({ 
         title: 'Password non valida',
         description: 'Verifica che la password rispetti tutti i requisiti di sicurezza',
@@ -183,6 +191,7 @@ function Login(): JSX.Element {
     }
     
     if (!registerData.acceptTerms) {
+      console.warn('[Register] ⚠️ Terms not accepted');
       toast({ 
         title: 'Accetta i termini di servizio', 
         status: 'warning',
@@ -193,6 +202,7 @@ function Login(): JSX.Element {
     
     setIsLoading(true);
     try {
+      console.log('[Register] 📤 Calling register API...');
       await register(
         registerData.username, 
         registerData.email, 
