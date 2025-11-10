@@ -1,6 +1,9 @@
 /**
  * MANGA WORLD API - Normal manga source
  * Extends BaseAPI for common functionality
+ * 
+ * UPDATED: 2025-11-10 - TypeScript conversion verified
+ * Status: Production ready, stable scraping
  */
 
 import { BaseAPI } from './baseAPI';

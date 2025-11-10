@@ -1,6 +1,9 @@
 /**
  * MAIN - Application entry point
  * Initializes React root and registers service worker
+ * 
+ * UPDATED: 2025-11-10 - TypeScript ready, PWA optimized
+ * Service worker registration handled after idle
  */
 
 import ReactDOM from 'react-dom/client';

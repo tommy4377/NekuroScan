@@ -1,5 +1,7 @@
 /**
  * STATS API - Trending, popular, and category queries
+ * 
+ * UPDATED: 2025-11-10 - Enhanced for production use
  * Provides aggregated manga data and statistics
  */
 

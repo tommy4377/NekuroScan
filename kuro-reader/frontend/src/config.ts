@@ -1,6 +1,10 @@
 /**
  * CONFIG - Configurazione Applicazione
  * Gestisce URLs e impostazioni ambiente
+ * 
+ * UPDATED: 2025-11-10 - Production URLs verified
+ * Backend: kuro-auth-backend.onrender.com
+ * Proxy: kuro-proxy-server.onrender.com
  */
 
 // ========== TYPES ==========

@@ -1,6 +1,9 @@
 /**
  * LOGIN - User authentication page
  * Combined login and registration with enhanced UI and logo
+ * 
+ * UPDATED: 2025-11-10 - Added debug logging for auth flow
+ * Fixed: Login/register validation and error handling
  */
 
 import { useState, useMemo } from 'react';

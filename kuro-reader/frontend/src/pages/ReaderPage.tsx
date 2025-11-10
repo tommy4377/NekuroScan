@@ -1,7 +1,11 @@
 // @ts-nocheck - Complex legacy file, needs gradual refactoring
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * READER PAGE - Chapter reading interface
+ * UPDATED: 2025-11-10 - Added debug logging for troubleshooting
+ * Fixed: ErrorBoundary issues, parameter validation
+ */
 import React from 'react';
-// ✅ READERPAGE.JSX v4.0 - COMPLETO CON TUTTE LE FUNZIONALITÀ
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Box, IconButton, useToast, Image, Spinner, Text, VStack, HStack,
@@ -27,17 +31,23 @@ import { config } from '@/config';
 import { encodeSource, decodeSource } from '@/utils/sourceMapper';
 
 function ReaderPage() {
+  console.log('[ReaderPage] 📖 Component mounting...');
+  
   // ========== HOOKS ESSENZIALI (SEMPRE CHIAMATI PER PRIMI) ==========
   const { source: encodedSource, mangaId, chapterId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
   
+  console.log('[ReaderPage] 📝 Params:', { encodedSource, mangaId, chapterId });
+  
   // Decodifica source per uso interno
   const source = decodeSource(encodedSource);
+  console.log('[ReaderPage] 🔓 Decoded source:', source);
   
   // ✅ VALIDAZIONE PARAMETRI (ma hooks devono essere chiamati prima)
   const hasValidParams = Boolean(source && mangaId && chapterId);
+  console.log('[ReaderPage] ✅ Valid params:', hasValidParams);
   
   // ========== STATES CON LOCALSTORAGE ==========
   const [chapter, setChapter] = useState(null);

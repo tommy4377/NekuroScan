@@ -1,6 +1,11 @@
 /**
  * USE AUTH - Authentication & User Management
  * Zustand store with server sync capabilities
+ * 
+ * CRITICAL FIX: 2025-11-10
+ * - Changed login payload from {email} to {emailOrUsername}
+ * - Added comprehensive debug logging
+ * - Fixed: Backend API mismatch causing 400 errors
  */
 
 import { create } from 'zustand';

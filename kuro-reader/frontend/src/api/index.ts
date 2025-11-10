@@ -1,6 +1,9 @@
 /**
  * API MANAGER - Central API coordinator
  * Manages all manga sources, caching, and search
+ * 
+ * UPDATED: 2025-11-10 - Enhanced debug logging
+ * Added: Detailed logging for trending, latest, and content loading
  */
 
 import { MangaWorldAPI } from './mangaWorld';

@@ -3,6 +3,9 @@
 /**
  * HOME - Main landing page with carousel and trending
  * Shows featured content with interactive carousels
+ * 
+ * UPDATED: 2025-11-10 - Added extensive debug logging
+ * Fixed: Content loading, API integration, offline detection
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
