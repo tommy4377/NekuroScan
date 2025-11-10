@@ -1063,57 +1063,103 @@ app.get('/api/profile/:username', async (req, res) => {
   try {
     const { username } = req.params;
     
+    console.log(`📖 Caricamento profilo pubblico per: ${username}`);
+    
     const user = await executeWithRetry(async () => {
       return await prisma.user.findUnique({
         where: { username: username.toLowerCase() },
         include: {
-          profile: true,
-          library: true,
-          favorites_old: true  // ✅ Fixed: era "favorites" ma nello schema è "favorites_old"
+          profile: true
         }
       });
     });
     
     if (!user) {
+      console.log(`❌ Utente non trovato: ${username}`);
       return res.status(404).json({ message: 'Utente non trovato' });
     }
     
+    console.log(`✅ Utente trovato: ${user.username}, profile exists: ${!!user.profile}, isPublic: ${user.profile?.isPublic}`);
+    
     if (!user.profile || !user.profile.isPublic) {
+      console.log(`🔒 Profilo privato o non esistente: ${username}`);
       return res.status(403).json({ message: 'Profilo privato' });
     }
     
-    await executeWithRetry(async () => {
-      await prisma.user_profile.update({
-        where: { id: user.profile.id },
-        data: { viewCount: user.profile.viewCount + 1 }
+    // ✅ Incrementa view count
+    try {
+      await executeWithRetry(async () => {
+        await prisma.user_profile.update({
+          where: { id: user.profile.id },
+          data: { viewCount: (user.profile.viewCount || 0) + 1 }
+        });
       });
-    });
+    } catch (e) {
+      console.error('Errore incremento viewCount:', e);
+    }
     
-    const reading = JSON.parse(user.library?.reading || '[]').slice(0, 12);
-    const completed = JSON.parse(user.library?.completed || '[]').slice(0, 12);
-    const dropped = JSON.parse(user.library?.dropped || '[]').slice(0, 12);
-    const favorites = JSON.parse(user.favorites_old?.favorites || '[]').slice(0, 12);  // ✅ Fixed: era "favorites" ora è "favorites_old"
+    // ✅ Carica library separatamente (può non esistere)
+    let reading = [], completed = [], dropped = [];
+    try {
+      const library = await executeWithRetry(async () => {
+        return await prisma.user_library.findUnique({
+          where: { userId: user.id }
+        });
+      });
+      
+      if (library) {
+        reading = JSON.parse(library.reading || '[]').slice(0, 12);
+        completed = JSON.parse(library.completed || '[]').slice(0, 12);
+        dropped = JSON.parse(library.dropped || '[]').slice(0, 12);
+      }
+    } catch (e) {
+      console.error('Errore caricamento library:', e);
+    }
     
-    const [followersCount, followingCount] = await executeWithRetry(async () => {
-      return await Promise.all([
-        prisma.user_follows.count({ where: { followingId: user.id } }),
-        prisma.user_follows.count({ where: { followerId: user.id } })
-      ]);
-    });
+    // ✅ Carica favorites separatamente (può non esistere)
+    let favorites = [];
+    try {
+      const favoritesData = await executeWithRetry(async () => {
+        return await prisma.user_favorites.findUnique({
+          where: { userId: user.id }
+        });
+      });
+      
+      if (favoritesData) {
+        favorites = JSON.parse(favoritesData.favorites || '[]').slice(0, 12);
+      }
+    } catch (e) {
+      console.error('Errore caricamento favorites:', e);
+    }
+    
+    // ✅ Carica followers/following count
+    let followersCount = 0, followingCount = 0;
+    try {
+      [followersCount, followingCount] = await executeWithRetry(async () => {
+        return await Promise.all([
+          prisma.user_follows.count({ where: { followingId: user.id } }),
+          prisma.user_follows.count({ where: { followerId: user.id } })
+        ]);
+      });
+    } catch (e) {
+      console.error('Errore caricamento followers/following:', e);
+    }
+    
+    console.log(`✅ Profilo pubblico caricato: ${username} - ${reading.length} reading, ${favorites.length} favorites`);
     
     res.json({
       username: user.username,
       displayName: user.profile.displayName || user.username,
-      bio: user.profile.bio,
-      avatarUrl: user.profile.avatarUrl,
-      bannerUrl: user.profile.bannerUrl,
+      bio: user.profile.bio || '',
+      avatarUrl: user.profile.avatarUrl || '',
+      bannerUrl: user.profile.bannerUrl || '',
       badges: user.profile.badges || [],
       stats: {
         totalRead: reading.length + completed.length,
         favorites: favorites.length,
         completed: completed.length,
         dropped: dropped.length,
-        views: user.profile.viewCount,
+        views: user.profile.viewCount || 0,
         followers: followersCount,
         following: followingCount
       },
@@ -1126,7 +1172,7 @@ app.get('/api/profile/:username', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Get profile error:', error);
+    console.error('❌ Get profile error:', error);
     res.status(500).json({ 
       message: 'Errore recupero profilo',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
