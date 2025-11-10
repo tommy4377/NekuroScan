@@ -30,7 +30,11 @@ function Navigation(): JSX.Element | null {
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
-  const { user, logout, persistLocalData } = useAuth();
+  
+  // ✅ FIX: Zustand requires selector syntax for reactivity
+  const user = useAuth(state => state.user);
+  const logout = useAuth(state => state.logout);
+  const persistLocalData = useAuth(state => state.persistLocalData);
   
   const logoSize = useBreakpointValue({ base: '32px', md: '40px' }) || '32px';
   

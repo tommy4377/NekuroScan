@@ -86,7 +86,11 @@ function Login(): JSX.Element {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
-  const { login, register } = useAuth();
+  
+  // ✅ FIX: Zustand requires selector syntax for reactivity
+  const login = useAuth(state => state.login);
+  const register = useAuth(state => state.register);
+  
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();

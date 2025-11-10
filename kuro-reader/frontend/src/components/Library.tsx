@@ -24,7 +24,10 @@ function Library() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const cancelRef = React.useRef();
   const toast = useToast();
-  const { user, syncToServer } = useAuth();
+  
+  // ✅ FIX: Zustand requires selector syntax for reactivity
+  const user = useAuth(state => state.user);
+  const syncToServer = useAuth(state => state.syncToServer);
 
   // ✅ WRAP loadLibrary in useCallback per evitare React error #300
   const loadLibrary = useCallback(() => {

@@ -27,7 +27,9 @@ export default function PublicProfile() {
   const { username } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-  const { user } = useAuth();
+  
+  // ✅ FIX: Zustand requires selector syntax for reactivity
+  const user = useAuth(state => state.user);
   
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);

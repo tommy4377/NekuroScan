@@ -17,7 +17,9 @@ import { config } from '@/config';
 export default function Notifications() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { user } = useAuth();
+  
+  // ✅ FIX: Zustand requires selector syntax for reactivity
+  const user = useAuth(state => state.user);
   
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -21,7 +21,9 @@ import useAuth from '@/hooks/useAuth';
 function Dashboard() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { user } = useAuth();
+  
+  // ✅ FIX: Zustand requires selector syntax for reactivity
+  const user = useAuth(state => state.user);
   
   const [reading, setReading] = useState([]);
   const [favorites, setFavorites] = useState([]);

@@ -30,7 +30,12 @@ import { config } from '@/config';
 export default function Profile() {
   const toast = useToast();
   const navigate = useNavigate();
-  const { user, updateProfile, syncToServer } = useAuth();
+  
+  // ✅ FIX: Zustand requires selector syntax for reactivity
+  const user = useAuth(state => state.user);
+  const updateProfile = useAuth(state => state.updateProfile);
+  const syncToServer = useAuth(state => state.syncToServer);
+  
   const fileRef = useRef();
   const bannerRef = useRef();
   

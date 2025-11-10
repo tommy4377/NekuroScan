@@ -52,7 +52,10 @@ function Home() {
   console.log('[Home] 🏠 Component mounting...');
   const navigate = useNavigate();
   const toast = useToast();
-  const { user } = useAuth();
+  
+  // ✅ FIX: Zustand requires selector syntax for reactivity
+  const user = useAuth(state => state.user);
+  
   const { density, setDensity, config: gridConfig, densityOptions } = useGridDensity();
   console.log('[Home] ✅ Hooks initialized');
   

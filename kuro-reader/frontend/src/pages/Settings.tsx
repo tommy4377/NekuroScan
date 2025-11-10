@@ -14,7 +14,9 @@ import useAuth from '@/hooks/useAuth';
 export default function Settings() {
   const toast = useToast();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  
+  // ✅ FIX: Zustand requires selector syntax for reactivity
+  const user = useAuth(state => state.user);
   
   // States per le impostazioni
   const [settings, setSettings] = useState({
