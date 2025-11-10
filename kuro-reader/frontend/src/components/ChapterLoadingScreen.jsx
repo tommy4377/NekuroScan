@@ -1,7 +1,8 @@
-// ✅ ChapterLoadingScreen - Loading elegante con VERO preload immagini
+// ✅ ChapterLoadingScreen - Loading con VERO preload
 import React, { useEffect, useState } from 'react';
 import { Box, VStack, Text, Progress, Spinner, HStack, Icon } from '@chakra-ui/react';
 import { FaBook, FaCheck } from 'react-icons/fa';
+import useChapterPreload from '../hooks/useChapterPreload';
 
 const ChapterLoadingScreen = ({ 
   chapterTitle,
@@ -9,124 +10,79 @@ const ChapterLoadingScreen = ({
   currentPage = 1,
   totalPages = 0,
   onLoadComplete,
-  minDelay = 5000,
-  preloadFirstPages = 50
+  minDelay = 3000
 }) => {
-  const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState('preparing');
-  const [loadedPages, setLoadedPages] = useState(0);
+  const [canComplete, setCanComplete] = useState(false);
+  
+  // Hook per preload REALE
+  const { progress: preloadProgress, loadedCount, isComplete: preloadComplete, totalToLoad } = useChapterPreload(chapterPages, true);
 
   useEffect(() => {
     let mounted = true;
     const startTime = Date.now();
 
-    const startLoading = async () => {
-      // Stage 1: Preparing (0-20%)
+    const checkCompletion = async () => {
+      // Stage 1: Preparing (attende 500ms minimo)
       setStage('preparing');
-      setProgress(10);
-      
       await new Promise(resolve => setTimeout(resolve, 500));
+      
       if (!mounted) return;
-      
-      setProgress(20);
-      
-      // Stage 2: Loading (20-80%) - VERO PRELOAD
       setStage('loading');
       
-      if (chapterPages && chapterPages.length > 0) {
-        // Import dinamici per evitare circular dependencies
-        const { preloadImage } = await import('../utils/imageQueue');
-        const { getProxyImageUrl } = await import('../utils/readerHelpers');
+      // Aspetta che il preload sia completo E che il minDelay sia trascorso
+      const checkInterval = setInterval(() => {
+        if (!mounted) {
+          clearInterval(checkInterval);
+          return;
+        }
+
+        const elapsed = Date.now() - startTime;
+        const minDelayPassed = elapsed >= minDelay;
         
-        const pagesToPreload = Math.min(preloadFirstPages, chapterPages.length);
-        const progressStep = 60 / pagesToPreload;
-        
-        for (let i = 0; i < pagesToPreload; i++) {
-          if (!mounted) return;
+        if (preloadComplete && minDelayPassed) {
+          clearInterval(checkInterval);
+          setStage('ready');
+          setCanComplete(true);
           
-          const pageUrl = chapterPages[i];
-          if (pageUrl) {
-            try {
-              const proxiedUrl = getProxyImageUrl(pageUrl);
-              const priority = i === 0 ? 10 : (i < 3 ? 5 : 1);
-              
-              await preloadImage(proxiedUrl, priority);
-              
-              if (mounted) {
-                setLoadedPages(i + 1);
-                setProgress(prev => Math.min(prev + progressStep, 80));
-              }
-            } catch (error) {
-              // Continua anche se preload fallisce
-              if (mounted) {
-                setLoadedPages(i + 1);
-                setProgress(prev => Math.min(prev + progressStep, 80));
-              }
+          // Attendi 300ms prima di completare per transizione smooth
+          setTimeout(() => {
+            if (mounted && onLoadComplete) {
+              onLoadComplete();
             }
-          }
+          }, 300);
         }
-      } else {
-        // Fallback: simula loading se no pages
-        const progressStep = 60 / preloadFirstPages;
-        for (let i = 0; i < preloadFirstPages; i++) {
-          if (!mounted) return;
-          await new Promise(resolve => setTimeout(resolve, 400));
-          setLoadedPages(i + 1);
-          setProgress(prev => Math.min(prev + progressStep, 80));
-        }
-      }
-      
-      // Stage 3: Ready (80-100%)
-      setStage('ready');
-      setProgress(85);
-      
-      await new Promise(resolve => setTimeout(resolve, 300));
-      if (!mounted) return;
-      
-      setProgress(95);
-      
-      await new Promise(resolve => setTimeout(resolve, 200));
-      if (!mounted) return;
-      
-      setProgress(100);
-      
-      // Aspetta minimo delay
-      const elapsed = Date.now() - startTime;
-      const remaining = Math.max(0, minDelay - elapsed);
-      
-      if (remaining > 0) {
-        await new Promise(resolve => setTimeout(resolve, remaining));
-      }
-      
-      if (!mounted) return;
-      
-      // Completa
-      setTimeout(() => {
-        if (mounted && onLoadComplete) {
-          onLoadComplete();
-        }
-      }, 300);
+      }, 100);
+
+      return () => {
+        clearInterval(checkInterval);
+      };
     };
 
-    startLoading();
+    checkCompletion();
 
     return () => {
       mounted = false;
     };
-  }, [chapterPages, minDelay, preloadFirstPages, onLoadComplete]);
+  }, [preloadComplete, minDelay, onLoadComplete]);
 
   const getStageText = () => {
     switch (stage) {
       case 'preparing':
-        return 'Preparazione capitolo...';
+        return 'Preparazione interfaccia...';
       case 'loading':
-        return `Caricamento pagine... (${loadedPages}/${preloadFirstPages})`;
+        return `Precaricamento immagini... (${loadedCount}/${totalToLoad})`;
       case 'ready':
-        return 'Quasi pronto...';
+        return 'Ottimizzazione completata!';
       default:
         return 'Caricamento...';
     }
   };
+  
+  // Calcola progress totale (20% preparing, 70% loading, 10% ready)
+  const totalProgress = stage === 'preparing' ? 20 : 
+                       stage === 'loading' ? 20 + (preloadProgress * 0.7) :
+                       stage === 'ready' ? 100 : 0;
 
   return (
     <Box
@@ -179,7 +135,7 @@ const ChapterLoadingScreen = ({
         {/* Progress bar */}
         <Box width="100%" maxW="300px">
           <Progress
-            value={progress}
+            value={totalProgress}
             size="sm"
             colorScheme="purple"
             borderRadius="full"
@@ -194,7 +150,7 @@ const ChapterLoadingScreen = ({
           
           <HStack justify="space-between" mt={2}>
             <Text fontSize="xs" color="gray.500">
-              {progress.toFixed(0)}%
+              {Math.round(totalProgress)}%
             </Text>
             <Text fontSize="xs" color="gray.500">
               {totalPages ? `${totalPages} pagine` : ''}
@@ -207,28 +163,34 @@ const ChapterLoadingScreen = ({
           <HStack>
             <Icon 
               as={stage !== 'preparing' ? FaCheck : Spinner} 
-              color={stage !== 'preparing' ? 'green.400' : 'gray.400'} 
+              color={stage !== 'preparing' ? 'green.400' : 'purple.400'} 
               boxSize={4}
             />
-            <Text>Preparazione interfaccia</Text>
+            <Text color={stage !== 'preparing' ? 'gray.300' : 'white'}>
+              Preparazione interfaccia
+            </Text>
           </HStack>
           
           <HStack>
             <Icon 
               as={stage === 'ready' ? FaCheck : stage === 'loading' ? Spinner : Box} 
-              color={stage === 'ready' ? 'green.400' : 'gray.400'} 
+              color={stage === 'ready' ? 'green.400' : stage === 'loading' ? 'purple.400' : 'gray.500'} 
               boxSize={4}
             />
-            <Text>Precaricamento immagini</Text>
+            <Text color={stage === 'loading' || stage === 'ready' ? 'white' : 'gray.500'}>
+              Precaricamento immagini ({loadedCount}/{totalToLoad})
+            </Text>
           </HStack>
           
           <HStack>
             <Icon 
-              as={progress === 100 ? FaCheck : Box} 
-              color={progress === 100 ? 'green.400' : 'gray.400'} 
+              as={canComplete ? FaCheck : Box} 
+              color={canComplete ? 'green.400' : 'gray.500'} 
               boxSize={4}
             />
-            <Text>Ottimizzazione rendering</Text>
+            <Text color={canComplete ? 'gray.300' : 'gray.500'}>
+              Ottimizzazione rendering
+            </Text>
           </HStack>
         </VStack>
       </VStack>

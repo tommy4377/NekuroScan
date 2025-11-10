@@ -1,103 +1,129 @@
-// ✅ useChapterPreload - Hook per preload capitolo con loading screen
-import { useState, useEffect, useCallback } from 'react';
-import { preloadImage } from '../utils/imageQueue';
-import { getProxyImageUrl } from '../utils/readerHelpers';
+// ✅ useChapterPreload - Hook dedicato per preload immagini capitolo
+import { useEffect, useRef, useState } from 'react';
 
-export function useChapterPreload(chapter, options = {}) {
-  const {
-    preloadCount = 5,
-    minLoadTime = 3000,
-    enabled = true
-  } = options;
-
-  const [isLoading, setIsLoading] = useState(true);
+export function useChapterPreload(chapterPages = [], enabled = true) {
   const [progress, setProgress] = useState(0);
   const [loadedCount, setLoadedCount] = useState(0);
+  const [isComplete, setIsComplete] = useState(false);
+  const abortController = useRef(null);
+  const loadedUrls = useRef(new Set());
 
   useEffect(() => {
-    if (!enabled || !chapter?.pages || chapter.pages.length === 0) {
-      setIsLoading(false);
+    if (!enabled || !chapterPages || chapterPages.length === 0) {
+      setIsComplete(true);
       return;
     }
 
-    let mounted = true;
-    const startTime = Date.now();
-
-    const preload = async () => {
-      setIsLoading(true);
-      setProgress(0);
-      setLoadedCount(0);
-
-      // Preload prime N pagine
-      const pagesToPreload = Math.min(preloadCount, chapter.pages.length);
-      
-      for (let i = 0; i < pagesToPreload; i++) {
-        if (!mounted) break;
-
-        const pageUrl = chapter.pages[i];
-        if (!pageUrl) continue;
-
-        const proxiedUrl = getProxyImageUrl(pageUrl);
-        const priority = i === 0 ? 10 : (i < 3 ? 5 : 1);
-
-        try {
-          await preloadImage(proxiedUrl, priority);
-          
-          if (mounted) {
-            setLoadedCount(i + 1);
-            setProgress(((i + 1) / pagesToPreload) * 80); // 0-80% per preload
-          }
-        } catch (error) {
-          console.warn(`Failed to preload page ${i}:`, error);
-        }
-      }
-
-      // Progress 80-100% per minimum delay
-      if (mounted) {
-        setProgress(90);
-        
-        // Aspetta minLoadTime
-        const elapsed = Date.now() - startTime;
-        const remaining = Math.max(0, minLoadTime - elapsed);
-        
-        if (remaining > 0) {
-          await new Promise(resolve => setTimeout(resolve, remaining));
-        }
-        
-        if (mounted) {
-          setProgress(100);
-          
-          // Small delay per smooth transition
-          setTimeout(() => {
-            if (mounted) {
-              setIsLoading(false);
-            }
-          }, 300);
-        }
-      }
-    };
-
-    preload();
-
-    return () => {
-      mounted = false;
-    };
-  }, [chapter, preloadCount, minLoadTime, enabled]);
-
-  const reset = useCallback(() => {
-    setIsLoading(true);
+    // Reset state
     setProgress(0);
     setLoadedCount(0);
-  }, []);
+    setIsComplete(false);
+    loadedUrls.current = new Set();
+    
+    // Crea nuovo AbortController per questa sessione
+    abortController.current = new AbortController();
+    const signal = abortController.current.signal;
+
+    const preloadImages = async () => {
+      const totalImages = Math.min(chapterPages.length, 10); // Precarica max 10 immagini
+      let loaded = 0;
+
+      const loadPromises = chapterPages.slice(0, totalImages).map(async (url, index) => {
+        if (signal.aborted) return;
+
+        try {
+          // Crea un nuovo Image element
+          const img = new Image();
+          
+          // Determina se è CDN che richiede proxy
+          const cdnPattern = atob('Y2RuLm1hbmdhd29ybGQ=');
+          const needsProxy = url.includes(cdnPattern);
+          
+          // URL da precaricare
+          const imageUrl = needsProxy 
+            ? `${import.meta.env.VITE_PROXY_URL || 'https://kuro-proxy-server.onrender.com'}/api/image-proxy?url=${encodeURIComponent(url)}`
+            : url;
+
+          // Promise per caricare l'immagine
+          await new Promise((resolve, reject) => {
+            if (signal.aborted) {
+              reject(new Error('Aborted'));
+              return;
+            }
+
+            img.onload = () => {
+              if (!signal.aborted) {
+                loaded++;
+                loadedUrls.current.add(url);
+                setLoadedCount(loaded);
+                setProgress((loaded / totalImages) * 100);
+                resolve();
+              }
+            };
+
+            img.onerror = () => {
+              // Continua anche se un'immagine fallisce
+              loaded++;
+              setLoadedCount(loaded);
+              setProgress((loaded / totalImages) * 100);
+              resolve();
+            };
+
+            // Timeout per evitare che si blocchi
+            const timeout = setTimeout(() => {
+              loaded++;
+              setLoadedCount(loaded);
+              setProgress((loaded / totalImages) * 100);
+              resolve();
+            }, 15000); // 15 secondi timeout per immagine
+
+            // Set src DOPO aver impostato i listener
+            img.src = imageUrl;
+            
+            // Cleanup timeout
+            img.onload = () => {
+              clearTimeout(timeout);
+              if (!signal.aborted) {
+                loaded++;
+                loadedUrls.current.add(url);
+                setLoadedCount(loaded);
+                setProgress((loaded / totalImages) * 100);
+                resolve();
+              }
+            };
+          });
+        } catch (err) {
+          // Continua anche in caso di errore
+          loaded++;
+          setLoadedCount(loaded);
+          setProgress((loaded / totalImages) * 100);
+        }
+      });
+
+      // Aspetta che tutte le immagini siano elaborate
+      await Promise.all(loadPromises);
+
+      if (!signal.aborted) {
+        setIsComplete(true);
+      }
+    };
+
+    preloadImages();
+
+    // Cleanup
+    return () => {
+      if (abortController.current) {
+        abortController.current.abort();
+      }
+    };
+  }, [chapterPages, enabled]);
 
   return {
-    isLoading,
     progress,
     loadedCount,
-    totalToLoad: preloadCount,
-    reset
+    isComplete,
+    totalToLoad: Math.min(chapterPages.length, 10)
   };
 }
 
 export default useChapterPreload;
-

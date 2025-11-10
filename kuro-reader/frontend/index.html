@@ -244,26 +244,6 @@
   <main role="main" id="root"></main>
   <footer role="contentinfo" style="display: none;"></footer>
   
-  <!-- ✅ VIEWPORT FIX: Forza viewport corretto all'avvio -->
-  <script>
-    // Forza viewport no-zoom all'avvio (verrà modificato dinamicamente nel reader)
-    (function() {
-      const viewport = document.getElementById('viewport-meta');
-      if (viewport) {
-        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
-      }
-      
-      // Fix altezza viewport su iOS
-      const setVH = () => {
-        const vh = window.innerHeight * 0.01;
-        document.documentElement.style.setProperty('--vh', `${vh}px`);
-      };
-      setVH();
-      window.addEventListener('resize', setVH);
-      window.addEventListener('orientationchange', setVH);
-    })();
-  </script>
-  
   <!-- ✅ PERFORMANCE: Script senza defer per caricamento immediato -->
   <script type="module" src="/src/main.jsx"></script>
 </body>

@@ -984,8 +984,7 @@ function ReaderPage() {
         currentPage={currentPage + 1}
         totalPages={chapter.pages?.length || 0}
         onLoadComplete={() => setShowPreloader(false)}
-        minDelay={5000}
-        preloadFirstPages={chapter.pages?.length || 50}
+        minDelay={3000}
       />
     );
   }
@@ -1024,10 +1023,6 @@ function ReaderPage() {
           userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
-          paddingTop: 'env(safe-area-inset-top, 0px)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          paddingLeft: 'env(safe-area-inset-left, 0px)',
-          paddingRight: 'env(safe-area-inset-right, 0px)',
         }}
     >
       {/* Top Controls */}
@@ -1042,6 +1037,9 @@ function ReaderPage() {
           zIndex={10}
           transition="opacity 0.3s"
           backdropFilter="blur(10px)"
+          sx={{
+            paddingTop: 'calc(0.5rem + env(safe-area-inset-top, 0px))'
+          }}
         >
           <HStack justify="space-between">
             {/* Nav capitolo solo all'ultima pagina */}
