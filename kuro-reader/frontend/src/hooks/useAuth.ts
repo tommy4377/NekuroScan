@@ -300,17 +300,22 @@ const useAuth = create<AuthStore>((set, get) => ({
   syncToServer: async (opts: SyncOptions = {}) => {
     const { refreshAfter = true, force = false, reason = 'manual' } = opts;
     const token = get().token;
-    if (!token) return false;
+    if (!token) {
+      console.log('⚠️ [syncToServer] No token, skipping');
+      return false;
+    }
 
     // Throttle: avoid spam if just synced (< 3s)
     const now = Date.now();
     const minGapMs = 3000;
     if (!force && now - get()._lastSyncAt < minGapMs) {
+      console.log(`⏱️ [syncToServer] Throttled (${Math.round((now - get()._lastSyncAt)/1000)}s < 3s)`);
       return false;
     }
 
     // If sync already in flight, skip
     if (get()._syncInFlight && !force) {
+      console.log('🔄 [syncToServer] Already in flight, skipping');
       return false;
     }
 
@@ -318,8 +323,18 @@ const useAuth = create<AuthStore>((set, get) => ({
     const currentHash = hashPayload(dataToSync);
     const lastHash = get()._lastSyncedHash || localStorage.getItem('lastSyncedHash');
 
+    console.log(`📤 [syncToServer] Syncing (${reason}):`, {
+      favorites: dataToSync.favorites?.length || 0,
+      reading: dataToSync.reading?.length || 0,
+      completed: dataToSync.completed?.length || 0,
+      dropped: dataToSync.dropped?.length || 0,
+      history: dataToSync.history?.length || 0,
+      progressKeys: Object.keys(dataToSync.readingProgress || {}).length
+    });
+
     // If nothing changed and not forced, skip
     if (!force && currentHash === lastHash) {
+      console.log('✅ [syncToServer] No changes detected');
       set({ lastSync: new Date().toISOString(), syncStatus: 'synced' });
       return true;
     }
@@ -327,7 +342,8 @@ const useAuth = create<AuthStore>((set, get) => ({
     set({ syncStatus: 'syncing', _syncInFlight: true });
 
     try {
-      await axios.post(`${API_URL}/user/sync`, dataToSync);
+      const response = await axios.post(`${API_URL}/user/sync`, dataToSync);
+      console.log('✅ [syncToServer] Server response:', response.data);
 
       // Update hash and timestamp
       set({ _lastSyncedHash: currentHash, _lastSyncAt: Date.now() });
@@ -343,11 +359,11 @@ const useAuth = create<AuthStore>((set, get) => ({
         });
       }
 
-      console.log(`✅ Synced (${reason})${refreshAfter ? ' + refreshed' : ''}`);
+      console.log(`✅ [syncToServer] Complete (${reason})${refreshAfter ? ' + refreshed' : ''}`);
       return true;
       
-    } catch (error) {
-      console.error('❌ Sync to server error:', error);
+    } catch (error: any) {
+      console.error('❌ [syncToServer] Error:', error.response?.data || error.message);
       set({ syncStatus: 'error' });
       return false;
     } finally {
@@ -359,13 +375,17 @@ const useAuth = create<AuthStore>((set, get) => ({
   syncFromServer: async (opts: SyncOptions = {}) => {
     const { refreshAfter = true, reason = 'manual' } = opts;
     const token = get().token;
-    if (!token) return;
+    if (!token) {
+      console.log('⚠️ [syncFromServer] No token, skipping');
+      return;
+    }
 
     if (!(get().syncStatus === 'syncing' && get()._syncInFlight)) {
       set({ syncStatus: 'syncing' });
     }
     
     try {
+      console.log(`📥 [syncFromServer] Fetching from server (${reason})...`);
       const response = await axios.get(`${API_URL}/user/data`);
       const {
         favorites = [],
@@ -376,6 +396,16 @@ const useAuth = create<AuthStore>((set, get) => ({
         readingProgress = {},
         profile = {}
       } = response.data;
+      
+      console.log(`📥 [syncFromServer] Received:`, {
+        favorites: favorites.length,
+        reading: reading.length,
+        completed: completed.length,
+        dropped: dropped.length,
+        history: history.length,
+        progressKeys: Object.keys(readingProgress).length,
+        profile: profile ? '✅' : '❌'
+      });
       
       // ✅ SALVA TUTTI I DATI (incluso profilo completo)
       setItemIfChanged('favorites', favorites);
@@ -393,12 +423,14 @@ const useAuth = create<AuthStore>((set, get) => ({
         // ✅ SALVA AVATAR E BANNER
         if (profile.avatarUrl) {
           localStorage.setItem('userAvatar', profile.avatarUrl);
+          console.log('📸 [syncFromServer] Avatar saved:', profile.avatarUrl.substring(0, 50));
         } else {
           localStorage.removeItem('userAvatar');
         }
         
         if (profile.bannerUrl) {
           localStorage.setItem('userBanner', profile.bannerUrl);
+          console.log('🖼️ [syncFromServer] Banner saved');
         } else {
           localStorage.removeItem('userBanner');
         }
@@ -409,6 +441,7 @@ const useAuth = create<AuthStore>((set, get) => ({
           const updatedUser = { ...currentUser, profile };
           set({ user: updatedUser });
           localStorage.setItem('user', JSON.stringify(updatedUser));
+          console.log('👤 [syncFromServer] User profile updated');
         }
       }
 
@@ -422,15 +455,15 @@ const useAuth = create<AuthStore>((set, get) => ({
         lastSync: new Date().toISOString()
       });
 
-      console.log(`✅ Data loaded from server (${reason})`);
+      console.log(`✅ [syncFromServer] Complete (${reason})`);
       
       if (refreshAfter) {
         window.dispatchEvent(new Event('library-updated'));
       }
       return true;
       
-    } catch (error) {
-      console.error('❌ Sync from server error:', error);
+    } catch (error: any) {
+      console.error('❌ [syncFromServer] Error:', error.response?.data || error.message);
       set({ syncStatus: 'error' });
       return false;
     }
