@@ -40,6 +40,7 @@ export interface Manga {
   
   // Metadata
   lastChapter?: string;
+  latestChapter?: string;  // ✅ FIX: Some API responses use 'latestChapter' instead of 'lastChapter'
   totalChapters?: number;
   chaptersNumber?: number;
   updatedAt?: Timestamp;

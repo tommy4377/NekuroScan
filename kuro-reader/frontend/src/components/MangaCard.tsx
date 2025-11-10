@@ -46,7 +46,8 @@ const MangaCard = memo<MangaCardProps>(({
   const [imageLoaded, setImageLoaded] = useState(false);
 
   // Optimize cover with Cloudinary (automatic AVIF/WebP)
-  const originalCoverUrl = manga.coverUrl;
+  // ✅ FIX: Support both 'cover' and 'coverUrl' (API inconsistency)
+  const originalCoverUrl = (manga as any).cover || manga.coverUrl;
   const coverUrl = shouldUseCloudinary() && originalCoverUrl && CloudinaryPresets.mangaCover
     ? CloudinaryPresets.mangaCover(originalCoverUrl)
     : originalCoverUrl;
@@ -62,11 +63,13 @@ const MangaCard = memo<MangaCardProps>(({
     navigate(`/manga/${encodedSource}/${mangaId}`);
   }, [manga, navigate]);
 
+  // ✅ FIX: Support both 'lastChapter' and 'latestChapter' (API inconsistency)
+  const chapterNumber = (manga as any).latestChapter || (manga as any).lastChapter;
   const cleanChapter = useMemo(() => 
-    manga.lastChapter?.toString().replace(/cap\.?|capitolo|chapter|ch\.?/i, '').trim()
-  , [manga.lastChapter]);
+    chapterNumber?.toString().replace(/cap\.?|capitolo|chapter|ch\.?/i, '').trim()
+  , [chapterNumber]);
   
-  const shouldShowChapter = cleanChapter && (showLatestChapter || manga.isTrending || manga.isRecent);
+  const shouldShowChapter = cleanChapter && (showLatestChapter || (manga as any).isTrending || (manga as any).isRecent);
 
   const handleImageError = (e: SyntheticEvent<HTMLImageElement>): void => {
     setImageLoaded(true);

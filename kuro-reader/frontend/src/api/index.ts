@@ -247,6 +247,28 @@ class APIManager {
 
   // ========== CHAPTER DETAILS ==========
 
+  async getChapter(chapterUrl: string, source: MangaSource): Promise<any> {
+    const cacheKey = `chapter_${chapterUrl}`;
+    const cached = this.getCached<any>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const api = this.apis[source];
+      if (!api) throw new Error(`Unknown source: ${source}`);
+      
+      const chapter = await api.getChapterDetail(chapterUrl);
+      
+      if (chapter && chapter.pages && chapter.pages.length > 0) {
+        this.setCache(cacheKey, chapter);
+      }
+      
+      return chapter;
+    } catch (error) {
+      console.error(`Failed to get chapter from ${source}:`, error);
+      throw error;
+    }
+  }
+
   async getChapterPages(chapterUrl: string, source: MangaSource): Promise<string[]> {
     const cacheKey = `chapter_${chapterUrl}`;
     const cached = this.getCached<string[]>(cacheKey);
@@ -274,22 +296,97 @@ class APIManager {
   async getRecentChapters(includeAdult: boolean = false): Promise<Manga[]> {
     console.log('[API] 📥 getRecentChapters called, includeAdult:', includeAdult);
     const cacheKey = `recent_chapters_${includeAdult}`;
-    const cached = this.getCached<Manga[]>(cacheKey, true);
+    const cached = this.getCached<Manga[]>(cacheKey);
     if (cached) {
       console.log('[API] ✅ Returning cached recent chapters:', cached.length, 'items');
       return cached;
     }
 
     try {
-      console.log('[API] 📡 Fetching recent chapters from stats API...');
-      // Use statsAPI to get latest updates
-      const statsAPI = await import('./stats');
-      const response = await statsAPI.default.getLatest(1, includeAdult);
-      const results = response.results || [];
+      console.log('[API] 📡 Scraping homepage for recent chapters...');
       
-      console.log('[API] ✅ Recent chapters:', results.length, 'items');
-      this.setCache(cacheKey, results);
-      return results;
+      // ✅ FIX: Scraping REALE come nella versione JS
+      const { getBaseUrl } = await import('@/config/sources');
+      const base = getBaseUrl(includeAdult ? 'ma' : 'm');
+      const api = includeAdult ? this.apis.mangaWorldAdult : this.apis.mangaWorld;
+      
+      const html = await api['makeRequest'](base) as string;
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      
+      const recentChapters: Manga[] = [];
+      
+      // Cerca la sezione "Ultimi capitoli aggiunti" (comics-grid)
+      const recentSection = doc.querySelector('.comics-grid');
+      
+      if (recentSection) {
+        const entries = recentSection.querySelectorAll('.entry');
+        
+        entries.forEach((entry, index) => {
+          if (index >= 20) return;
+          
+          const link = entry.querySelector('a.thumb') as HTMLAnchorElement | null;
+          const img = entry.querySelector('img') as HTMLImageElement | null;
+          const titleElem = entry.querySelector('.manga-title, .name');
+          
+          // Prendi l'ultimo capitolo disponibile
+          const latestChapterLink = entry.querySelector('.content .xanh');
+          let latestChapter = '';
+          
+          if (latestChapterLink) {
+            const chapterText = latestChapterLink.textContent?.trim() || '';
+            // Estrai solo il numero del capitolo
+            const match = chapterText.match(/capitolo\s+(\d+(?:\.\d+)?)/i) || 
+                         chapterText.match(/(\d+(?:\.\d+)?)/);
+            if (match) {
+              latestChapter = match[1];
+            }
+          }
+          
+          if (link?.href && titleElem) {
+            const href = link.getAttribute('href') || '';
+            recentChapters.push({
+              url: href.startsWith('http') ? href : `${base}${href.replace(/^\//, '')}`,
+              title: titleElem.textContent?.trim() || 'Unknown',
+              coverUrl: img?.src || img?.dataset?.src || '',
+              latestChapter: latestChapter,
+              source: includeAdult ? 'mangaWorldAdult' : 'mangaWorld',
+              isAdult: includeAdult,
+              isRecent: true,
+              type: 'manga'
+            });
+          }
+        });
+      }
+      
+      // Se non trova la sezione recenti, fallback
+      if (recentChapters.length === 0) {
+        const allEntries = doc.querySelectorAll('.entry');
+        allEntries.forEach((entry, index) => {
+          if (index >= 20) return;
+          
+          const link = entry.querySelector('a') as HTMLAnchorElement | null;
+          const img = entry.querySelector('img') as HTMLImageElement | null;
+          const title = entry.querySelector('.name, .title, .manga-title');
+          
+          if (link?.href && title) {
+            const href = link.getAttribute('href') || '';
+            recentChapters.push({
+              url: href.startsWith('http') ? href : `${base}${href.replace(/^\//, '')}`,
+              title: title.textContent?.trim() || 'Unknown',
+              coverUrl: img?.src || img?.dataset?.src || '',
+              source: includeAdult ? 'mangaWorldAdult' : 'mangaWorld',
+              isAdult: includeAdult,
+              isRecent: true,
+              type: 'manga'
+            });
+          }
+        });
+      }
+      
+      console.log('[API] ✅ Recent chapters scraped:', recentChapters.length, 'items');
+      this.setCache(cacheKey, recentChapters);
+      return recentChapters;
+      
     } catch (error) {
       console.error('[API] ❌ getRecentChapters error:', error);
       return [];
@@ -308,26 +405,97 @@ class APIManager {
     }
 
     try {
-      const results: Manga[] = [];
+      console.log('[API] 📡 Scraping homepage for trending...');
       
-      // Get from normal source
-      console.log('[API] 📡 Fetching trending from mangaWorld...');
-      const normal = await this.apis.mangaWorld.getTrending();
-      console.log('[API] ✅ MangaWorld trending:', normal.length, 'items');
-      results.push(...normal);
+      // ✅ FIX: Scraping REALE come nella versione JS
+      const { getBaseUrl } = await import('@/config/sources');
+      const base = getBaseUrl(includeAdult ? 'ma' : 'm');
+      const api = includeAdult ? this.apis.mangaWorldAdult : this.apis.mangaWorld;
       
-      // Get from adult source if requested
-      if (includeAdult) {
-        console.log('[API] 📡 Fetching trending from mangaWorldAdult...');
-        const adult = await this.apis.mangaWorldAdult.getTrending();
-        console.log('[API] ✅ MangaWorldAdult trending:', adult.length, 'items');
-        results.push(...adult);
+      const html = await api['makeRequest'](base) as string;
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      
+      const trending: Manga[] = [];
+      
+      // Cerca specificamente la sezione "Capitoli di tendenza" con badge chapter
+      const trendingSelectors = [
+        '#chapters-slide .entry',  // Slider capitoli trending
+        '.slick-track .entry',     // Alternative slider
+        '.entry:has(.chapter)',    // Entries con badge capitolo
+      ];
+      
+      for (const selector of trendingSelectors) {
+        const entries = doc.querySelectorAll(selector);
+        if (entries.length > 0) {
+          entries.forEach((entry, i) => {
+            if (i >= 15) return;
+            
+            const link = entry.querySelector('a.thumb, a') as HTMLAnchorElement | null;
+            const img = entry.querySelector('img') as HTMLImageElement | null;
+            const title = entry.querySelector('.manga-title, .name');
+            const chapterBadge = entry.querySelector('.chapter');
+            
+            if (link?.href && title) {
+              const href = link.getAttribute('href') || '';
+              let latestChapter = '';
+              
+              if (chapterBadge) {
+                const chapterText = chapterBadge.textContent?.trim() || '';
+                const match = chapterText.match(/capitolo\s+(\d+(?:\.\d+)?)/i) || 
+                             chapterText.match(/(\d+(?:\.\d+)?)/);
+                if (match) {
+                  latestChapter = match[1];
+                }
+              }
+              
+              trending.push({
+                url: href.startsWith('http') ? href : `${base}${href.replace(/^\//, '')}`,
+                title: title.textContent?.trim() || 'Unknown',
+                coverUrl: img?.src || img?.dataset?.src || '',
+                latestChapter: latestChapter,
+                source: includeAdult ? 'mangaWorldAdult' : 'mangaWorld',
+                type: 'manga',
+                isAdult: includeAdult,
+                isTrending: true
+              });
+            }
+          });
+          
+          if (trending.length > 0) break;
+        }
       }
+
+      // Se non trova trending specifici, prendi i più popolari
+      if (trending.length === 0) {
+        const popularEntries = doc.querySelectorAll('.hot-manga .entry, .popular .entry, .most-read .entry');
+        popularEntries.forEach((entry, i) => {
+          if (i >= 10) return;
+          
+          const link = entry.querySelector('a') as HTMLAnchorElement | null;
+          const img = entry.querySelector('img') as HTMLImageElement | null;
+          const title = entry.querySelector('.name, .title, .manga-title');
+          
+          if (link?.href && title) {
+            const href = link.getAttribute('href') || '';
+            trending.push({
+              url: href.startsWith('http') ? href : `${base}${href.replace(/^\//, '')}`,
+              title: title.textContent?.trim() || 'Unknown',
+              coverUrl: img?.src || img?.dataset?.src || '',
+              source: includeAdult ? 'mangaWorldAdult' : 'mangaWorld',
+              type: 'manga',
+              isAdult: includeAdult,
+              isTrending: true
+            });
+          }
+        });
+      }
+
+      const uniqueTrending = this.removeDuplicates(trending).slice(0, 20);
+      console.log('[API] ✅ Trending scraped:', uniqueTrending.length, 'items');
+      this.setCache(cacheKey, uniqueTrending, true);
       
-      const unique = this.removeDuplicates(results);
-      console.log('[API] ✅ Trending total after dedup:', unique.length, 'items');
-      this.setCache(cacheKey, unique);
-      return unique;
+      return uniqueTrending;
+      
     } catch (error) {
       console.error('[API] ❌ getTrending error:', error);
       return [];
