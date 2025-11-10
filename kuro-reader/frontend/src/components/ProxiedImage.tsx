@@ -42,8 +42,11 @@ const ProxiedImage = memo<ProxiedImageProps>(({ src, alt, style, priority, ...pr
   }, []);
 
   useEffect(() => {
+    console.log('[ProxiedImage] 🖼️ Effect triggered, src:', src?.substring(0, 80));
+    
     // URL validation
     if (!src || typeof src !== 'string') {
+      console.log('[ProxiedImage] ❌ Invalid src');
       setError(true);
       setLoading(false);
       return;
@@ -51,6 +54,7 @@ const ProxiedImage = memo<ProxiedImageProps>(({ src, alt, style, priority, ...pr
     
     // If BLOB URL, use directly (offline)
     if (src.startsWith('blob:')) {
+      console.log('[ProxiedImage] 📦 Blob URL detected');
       setImageSrc(src);
       setLoading(false);
       setError(false);
@@ -59,12 +63,14 @@ const ProxiedImage = memo<ProxiedImageProps>(({ src, alt, style, priority, ...pr
     
     // If not http, error
     if (!src.startsWith('http')) {
+      console.log('[ProxiedImage] ❌ Not HTTP URL');
       setError(true);
       setLoading(false);
       return;
     }
     
     // Reset state
+    console.log('[ProxiedImage] 🔄 Loading image...');
     setLoading(true);
     setError(false);
     setRetryCount(0);
@@ -72,22 +78,26 @@ const ProxiedImage = memo<ProxiedImageProps>(({ src, alt, style, priority, ...pr
     // If from external CDN, use proxy directly (avoid useless retries)
     if (src.includes(CDN_PATTERN)) {
       const proxyUrl = `${config.PROXY_URL}/api/image-proxy?url=${encodeURIComponent(src)}`;
+      console.log('[ProxiedImage] 📡 Using proxy for CDN image');
       setImageSrc(proxyUrl);
     } else {
+      console.log('[ProxiedImage] 🌐 Using direct URL');
       setImageSrc(src);
     }
     
     // Timeout for longer loading
     timeoutRef.current = setTimeout(() => {
       if (mountedRef.current && loading) {
+        console.log('[ProxiedImage] ⏱️ Timeout reached!');
         setError(true);
         setLoading(false);
       }
     }, LOAD_TIMEOUT);
     
-  }, [src, loading]);
+  }, [src]);
 
   const handleError = (): void => {
+    console.log('[ProxiedImage] ❌ Image error, imageSrc:', imageSrc?.substring(0, 80));
     if (!mountedRef.current) return;
     
     if (timeoutRef.current) {
@@ -96,6 +106,7 @@ const ProxiedImage = memo<ProxiedImageProps>(({ src, alt, style, priority, ...pr
     
     // If blob URL fails, not a real error - might be revoked
     if (src && src.startsWith('blob:')) {
+      console.log('[ProxiedImage] 📦 Blob URL error (normal)');
       setError(true);
       setLoading(false);
       return;
@@ -103,6 +114,7 @@ const ProxiedImage = memo<ProxiedImageProps>(({ src, alt, style, priority, ...pr
     
     // If already using proxy and fails, don't retry
     if (imageSrc && imageSrc.includes('/api/image-proxy')) {
+      console.log('[ProxiedImage] ⚠️ Proxy failed, no retry');
       setError(true);
       setLoading(false);
       return;
@@ -110,6 +122,7 @@ const ProxiedImage = memo<ProxiedImageProps>(({ src, alt, style, priority, ...pr
     
     // SINGLE RETRY: If not already proxy, use proxy
     if (retryCount === 0 && config.PROXY_URL && src) {
+      console.log('[ProxiedImage] 🔄 Retrying with proxy...');
       const proxyUrl = `${config.PROXY_URL}/api/image-proxy?url=${encodeURIComponent(src)}`;
       setRetryCount(1);
       setLoading(true);
@@ -118,11 +131,13 @@ const ProxiedImage = memo<ProxiedImageProps>(({ src, alt, style, priority, ...pr
     }
     
     // TOTAL FAILURE
+    console.log('[ProxiedImage] ❌ Total failure');
     setError(true);
     setLoading(false);
   };
 
   const handleLoad = (): void => {
+    console.log('[ProxiedImage] ✅ Image loaded successfully');
     if (!mountedRef.current) return;
     
     if (timeoutRef.current) {

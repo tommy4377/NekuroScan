@@ -146,30 +146,36 @@ const useAuth = create<AuthStore>((set, get) => ({
   // INIT AUTH
   initAuth: async () => {
     const token = localStorage.getItem('token');
-    if (!token) {
-      set({ isAuthenticated: false, user: null });
-      return;
-    }
-
-    try {
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    
+    // ✅ FIX: Come JS - se abbiamo token E user, setta SUBITO lo stato
+    if (token && user) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
-      // ✅ FIX: Backend usa /auth/me, non /auth/verify
-      const response = await axios.get(`${API_URL}/auth/me`);
-      if (response.data && response.data.username) {
-        set({ 
-          user: response.data, 
-          isAuthenticated: true,
-          token 
-        });
+      set({ user, token, isAuthenticated: true });
+
+      try {
+        // POI verifica con server (ma UI è già loggata)
+        const response = await axios.get(`${API_URL}/auth/me`);
         
-        // Start auto-sync
-        get().startAutoSync();
-      } else {
-        get().logout();
+        // ✅ FIX: response.data è direttamente l'user, non response.data.user
+        if (response.data && response.data.username) {
+          const updatedUser = response.data;
+          set({ user: updatedUser });
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          
+          // Load data from server once
+          await get().syncFromServer({ reason: 'init' });
+        }
+      } catch (error) {
+        console.error('[initAuth] Token validation failed:', error);
+        // ✅ Solo se 401/403 fa logout, altrimenti mantiene sessione locale
+        if ((error as any).response?.status === 401 || (error as any).response?.status === 403) {
+          get().logout();
+        }
       }
-    } catch (error) {
-      get().logout();
+    } else {
+      // Nessun token o user, logout pulito
+      set({ isAuthenticated: false, user: null });
     }
   },
 

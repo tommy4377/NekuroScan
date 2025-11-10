@@ -176,13 +176,17 @@ export class MangaWorldAPI extends BaseAPI {
         title,
         coverUrl: coverUrl || '',
         alternativeTitles: info.alternativeTitles,
-        author: info.authors.join(', ') || undefined,
-        artist: info.artists.join(', ') || undefined,
+        authors: info.authors,  // ✅ FIX: Ritorna array, non string
+        artists: info.artists,  // ✅ FIX: Ritorna array, non string
+        author: info.authors.join(', ') || undefined,  // ✅ AGGIUNTO: Per compatibilità
+        artist: info.artists.join(', ') || undefined,  // ✅ AGGIUNTO: Per compatibilità
         genres: info.genres,
         status: this.normalizeStatus(info.status),
         type: 'manga',
         year: parseInt(info.year) || undefined,
-        synopsis: plot || 'No description available',
+        plot: plot || 'No description available',  // ✅ FIX: 'plot' non 'synopsis'
+        synopsis: plot || 'No description available',  // ✅ AGGIUNTO: Per compatibilità
+        description: plot || 'No description available',  // ✅ AGGIUNTO: Per compatibilità
         chapters: chapters.map(ch => ({
           ...ch,
           pages: []

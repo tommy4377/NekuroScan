@@ -29,13 +29,17 @@ export interface Manga {
   
   // Optional fields
   author?: string;
+  authors?: string[];  // ✅ FIX: API può ritornare array o string
   artist?: string;
+  artists?: string[];  // ✅ FIX: API può ritornare array o string
   status?: MangaStatus;
   year?: number;
   genres?: string[];
   rating?: number;
   views?: number;
   description?: string;
+  plot?: string;  // ✅ FIX: Alcuni componenti usano 'plot'
+  synopsis?: string;  // ✅ FIX: Altri usano 'synopsis'
   chapters?: Chapter[];
   
   // Metadata
