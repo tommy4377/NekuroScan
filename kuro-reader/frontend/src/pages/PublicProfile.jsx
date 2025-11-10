@@ -40,33 +40,17 @@ export default function PublicProfile() {
 
   const loadProfile = async () => {
     setLoading(true);
-    console.log(`📖 Caricamento profilo pubblico: ${username}`);
     
     try {
-      const url = `${config.API_URL}/api/profile/${username}`;
-      console.log(`🌐 Chiamata API: ${url}`);
-      
-      const response = await axios.get(url);
-      console.log(`✅ Profilo caricato:`, response.data);
+      const response = await axios.get(`${config.API_URL}/api/profile/${username}`);
       setProfile(response.data);
     } catch (error) {
-      console.error(`❌ Errore caricamento profilo:`, error);
-      console.error(`Response status: ${error.response?.status}`);
-      console.error(`Response data:`, error.response?.data);
-      
       if (error.response?.status === 403) {
         // Private profile
         setProfile({ isPrivate: true });
       } else {
         setProfile(null);
       }
-      
-      toast({
-        title: 'Errore',
-        description: error.response?.data?.message || 'Impossibile caricare il profilo',
-        status: 'error',
-        duration: 3000
-      });
     } finally {
       setLoading(false);
     }

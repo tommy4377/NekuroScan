@@ -1063,8 +1063,6 @@ app.get('/api/profile/:username', async (req, res) => {
   try {
     const { username } = req.params;
     
-    console.log(`📖 Caricamento profilo pubblico per: ${username}`);
-    
     const user = await executeWithRetry(async () => {
       return await prisma.user.findUnique({
         where: { username: username.toLowerCase() },
@@ -1075,14 +1073,10 @@ app.get('/api/profile/:username', async (req, res) => {
     });
     
     if (!user) {
-      console.log(`❌ Utente non trovato: ${username}`);
       return res.status(404).json({ message: 'Utente non trovato' });
     }
     
-    console.log(`✅ Utente trovato: ${user.username}, profile exists: ${!!user.profile}, isPublic: ${user.profile?.isPublic}`);
-    
     if (!user.profile || !user.profile.isPublic) {
-      console.log(`🔒 Profilo privato o non esistente: ${username}`);
       return res.status(403).json({ message: 'Profilo privato' });
     }
     
@@ -1144,8 +1138,6 @@ app.get('/api/profile/:username', async (req, res) => {
     } catch (e) {
       console.error('Errore caricamento followers/following:', e);
     }
-    
-    console.log(`✅ Profilo pubblico caricato: ${username} - ${reading.length} reading, ${favorites.length} favorites`);
     
     res.json({
       username: user.username,
