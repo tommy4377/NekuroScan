@@ -104,13 +104,18 @@ function ReaderPage() {
   // ========== VIEWPORT DINAMICO: Abilita zoom SOLO nel reader ==========
   useEffect(() => {
     const viewportMeta = document.getElementById('viewport-meta');
-    if (!viewportMeta) return;
+    if (!viewportMeta) {
+      console.warn('⚠️ viewport-meta non trovato');
+      return;
+    }
     
     // Salva viewport originale
     const originalContent = viewportMeta.getAttribute('content');
     
-    // Abilita zoom nel reader
-    viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover');
+    // Abilita zoom nel reader con un piccolo ritardo per garantire che il browser applichi le impostazioni
+    setTimeout(() => {
+      viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover');
+    }, 100);
     
     // Cleanup: ripristina viewport no-zoom quando si esce
     return () => {
@@ -1023,6 +1028,7 @@ function ReaderPage() {
           userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
+          touchAction: 'pinch-zoom pan-y pan-x',
         }}
     >
       {/* Top Controls */}
@@ -1034,54 +1040,47 @@ function ReaderPage() {
           right={0}
           bg="blackAlpha.900"
           p={2}
-          zIndex={10}
+          zIndex={999}
           transition="opacity 0.3s"
           backdropFilter="blur(10px)"
           sx={{
-            paddingTop: 'calc(0.5rem + env(safe-area-inset-top, 0px))'
+            paddingTop: 'calc(0.5rem + env(safe-area-inset-top, 0px))',
+            paddingLeft: 'calc(0.5rem + env(safe-area-inset-left, 0px))',
+            paddingRight: 'calc(0.5rem + env(safe-area-inset-right, 0px))',
           }}
         >
-          <HStack justify="space-between">
-            {/* Nav capitolo solo all'ultima pagina */}
-            {currentPage >= totalPages - 1 && (
-              <HStack spacing={1}>
-                <IconButton
-                  icon={<FaChevronLeft />}
-                  onClick={(e) => { e.stopPropagation(); navigateChapter(-1); }}
-                  aria-label="Capitolo precedente"
-                  variant="ghost"
-                  color="white"
-                  size="sm"
-                />
-                <VStack spacing={0} px={2}>
-                  <Text color="white" fontSize="xs" fontWeight="bold">
-                    Cap. {chapterIndex + 1} / {manga.chapters?.length}
-                  </Text>
-                </VStack>
-                <IconButton
-                  icon={<FaChevronRight />}
-                  onClick={(e) => { e.stopPropagation(); navigateChapter(1); }}
-                  aria-label="Capitolo successivo"
-                  variant="ghost"
-                  color="white"
-                  size="sm"
-                />
-              </HStack>
-            )}
-            {/* Auto-scroll button sempre visibile per webtoon */}
-            {readingMode === 'webtoon' && (
+          <HStack justify="space-between" spacing={2}>
+            {/* Nav capitolo - SEMPRE visibile su mobile */}
+            <HStack spacing={1} display={{ base: 'flex', md: currentPage >= totalPages - 1 ? 'flex' : 'none' }}>
               <IconButton
-                icon={autoScroll ? <FaPause /> : <FaPlay />}
-                onClick={(e) => { e.stopPropagation(); setAutoScroll(!autoScroll); }}
-                aria-label={autoScroll ? "Pausa auto-scroll" : "Avvia auto-scroll"}
-                variant={autoScroll ? "solid" : "ghost"}
-                colorScheme={autoScroll ? "green" : "gray"}
+                icon={<FaChevronLeft />}
+                onClick={(e) => { e.stopPropagation(); navigateChapter(-1); }}
+                aria-label="Capitolo precedente"
+                variant="ghost"
                 color="white"
                 size="sm"
+                isDisabled={chapterIndex === 0}
               />
-            )}
+              <VStack spacing={0} px={1} display={{ base: 'none', md: 'flex' }}>
+                <Text color="white" fontSize="xs" fontWeight="bold">
+                  Cap. {chapterIndex + 1} / {manga.chapters?.length}
+                </Text>
+              </VStack>
+              <IconButton
+                icon={<FaChevronRight />}
+                onClick={(e) => { e.stopPropagation(); navigateChapter(1); }}
+                aria-label="Capitolo successivo"
+                variant="ghost"
+                color="white"
+                size="sm"
+                isDisabled={chapterIndex >= (manga.chapters?.length || 0) - 1}
+              />
+            </HStack>
 
-            <HStack>
+            {/* Spacer centrale */}
+            <Box flex={1} />
+
+            <HStack spacing={1}>
               <IconButton
                 icon={isBookmarked ? <FaBookmark /> : <FaRegBookmark />}
                 onClick={(e) => { e.stopPropagation(); toggleBookmark(); }}
@@ -1138,13 +1137,17 @@ function ReaderPage() {
       {showControls && (
         <Box
           position="absolute"
-          top="50px"
+          top="calc(50px + env(safe-area-inset-top, 0px))"
           left={0}
           right={0}
           bg="blackAlpha.900"
           p={3}
-          zIndex={10}
+          zIndex={999}
           backdropFilter="blur(10px)"
+          sx={{
+            paddingLeft: 'calc(0.75rem + env(safe-area-inset-left, 0px))',
+            paddingRight: 'calc(0.75rem + env(safe-area-inset-right, 0px))',
+          }}
         >
           <VStack spacing={2}>
             <HStack w="100%" justify="space-between" px={2}>
@@ -1176,8 +1179,8 @@ function ReaderPage() {
           h="100%"
           overflowY="auto"
           overflowX="hidden"
-          pt={showControls ? "60px" : "20px"}
-          pb="80px"
+          pt={showControls ? "calc(110px + env(safe-area-inset-top, 0px))" : "calc(20px + env(safe-area-inset-top, 0px))"}
+          pb="calc(80px + env(safe-area-inset-bottom, 0px))"
           sx={{
             WebkitOverflowScrolling: 'touch',
             touchAction: 'pan-y',
@@ -1308,7 +1311,8 @@ function ReaderPage() {
           display="flex"
           alignItems="center"
           justifyContent="center"
-          pt={showControls ? "100px" : 0}
+          pt={showControls ? "calc(110px + env(safe-area-inset-top, 0px))" : "env(safe-area-inset-top, 0px)"}
+          pb="env(safe-area-inset-bottom, 0px)"
           gap={4}
           position="relative"
           overflow="auto"
