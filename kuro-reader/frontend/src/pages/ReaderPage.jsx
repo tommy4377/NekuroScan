@@ -989,6 +989,7 @@ function ReaderPage() {
 
     return (
       <Box
+      className="reader-content"
       h="100vh" 
         bg="black"
         position="relative"
@@ -1002,7 +1003,8 @@ function ReaderPage() {
         sx={{
           userSelect: 'none',
           WebkitUserSelect: 'none',
-          WebkitTouchCallout: 'none'
+          WebkitTouchCallout: 'none',
+          touchAction: 'pinch-zoom pan-y pan-x'
         }}
     >
       {/* Top Controls */}

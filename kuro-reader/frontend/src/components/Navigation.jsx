@@ -95,7 +95,6 @@ function Navigation() {
             h={{ base: '64px', md: '60px' }}
             alignItems="center" 
             justifyContent="space-between"
-            pt={{ base: 'env(safe-area-inset-top)', md: 0 }}
           >
             <HStack spacing={{ base: 2, md: 4 }}>
             <IconButton

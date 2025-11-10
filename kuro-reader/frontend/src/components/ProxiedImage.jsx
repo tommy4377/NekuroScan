@@ -178,7 +178,8 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
         WebkitUserSelect: 'none',
         MozUserSelect: 'none',
         msUserSelect: 'none',
-        WebkitTouchCallout: 'none'
+        WebkitTouchCallout: 'none',
+        touchAction: 'pinch-zoom'
       }}
       {...props}
     >
@@ -195,7 +196,8 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
             opacity: 1,
             userSelect: 'none',
             WebkitUserSelect: 'none',
-            pointerEvents: 'none',
+            MozUserSelect: 'none',
+            touchAction: 'pinch-zoom',
             transform: 'translate3d(0, 0, 0)'
           }}
           loading="eager"

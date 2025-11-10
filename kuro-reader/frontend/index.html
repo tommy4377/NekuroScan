@@ -2,9 +2,10 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <!-- ✅ VIEWPORT: Ottimizzato per mobile (NO zoom) -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#805AD5" />
+  <!-- ✅ VIEWPORT: Ottimizzato per mobile con safe-area -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1A202C" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   
   <!-- ✅ BLOCCO DARK READER e altre estensioni di modifica colori -->
   <meta name="darkreader-lock" content="true" />
@@ -149,6 +150,9 @@
       min-height: 100vh;
       min-height: -webkit-fill-available;
       width: 100%;
+      /* Safe area per notch/dynamic island */
+      padding-top: constant(safe-area-inset-top);
+      padding-top: env(safe-area-inset-top);
     }
     
     /* Root container */
@@ -188,18 +192,16 @@
       appearance: none;
     }
     
-    /* Previeni doppio tap zoom e scroll issues */
+    /* Reset tap highlight */
     * {
       -webkit-tap-highlight-color: transparent;
     }
     
-    a, button, [role="button"], [onclick] {
+    /* Previeni doppio tap zoom solo su elementi interattivi (NON nel reader) */
+    a:not(.reader-content *), 
+    button:not(.reader-content *), 
+    [role="button"]:not(.reader-content *) {
       touch-action: manipulation;
-    }
-    
-    /* Scrolling normale */
-    body, #root, [role="main"] {
-      touch-action: pan-y pan-x;
     }
     
     /* ✅ GPU acceleration ottimizzato */
