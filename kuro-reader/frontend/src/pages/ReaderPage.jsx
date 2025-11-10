@@ -844,9 +844,9 @@ function ReaderPage() {
           }
         }, 3000);
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        // ✅ NON chiamare setLoading(false) qui!
+        // Il ChapterLoadingScreen chiamerà setLoading(false) dopo minDelay
+        // Questo garantisce che il loading duri almeno 3 secondi
       }
     };
 
@@ -990,7 +990,7 @@ function ReaderPage() {
 
   // ========== RENDER ==========
 
-  // ✅ LOADING UNICO: Un solo loading screen da 5 secondi
+  // ✅ LOADING UNICO: Un solo loading screen da 3 secondi
   if (loading) {
     return (
       <ChapterLoadingScreen
@@ -1000,7 +1000,7 @@ function ReaderPage() {
         currentPage={currentPage + 1}
         totalPages={chapter?.pages?.length || 0}
         onLoadComplete={() => setLoading(false)}
-        minDelay={5000}
+        minDelay={3000}
       />
     );
   }

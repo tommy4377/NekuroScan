@@ -9,7 +9,7 @@ const ChapterLoadingScreen = ({
   currentPage = 1,
   totalPages = 0,
   onLoadComplete,
-  minDelay = 5000
+  minDelay = 3000
 }) => {
   const [progress, setProgress] = useState(0);
   const [countdown, setCountdown] = useState(Math.ceil(minDelay / 1000));
