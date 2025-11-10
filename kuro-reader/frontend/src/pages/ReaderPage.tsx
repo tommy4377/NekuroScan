@@ -1027,13 +1027,13 @@ function ReaderPage() {
     );
   }
 
-  // ✅ VALIDAZIONE: Controlla che ci siano pagine
-  if (!chapter.pages || !Array.isArray(chapter.pages) || chapter.pages.length === 0) {
+  // ✅ VALIDAZIONE: Controlla che ci siano pagine (con null check)
+  if (!chapter || !chapter.pages || !Array.isArray(chapter.pages) || chapter.pages.length === 0) {
       return (
       <Box h="100vh" bg="black" display="flex" alignItems="center" justifyContent="center">
           <VStack spacing={4}>
           <Text color="white" fontSize="lg">Capitolo non trovato o vuoto</Text>
-          <Button onClick={() => navigate(`/manga/${source}/${mangaId}`)}>
+          <Button onClick={() => navigate(`/manga/${encodeSource(source)}/${mangaId}`)}>
               Torna al manga
             </Button>
           </VStack>
@@ -1070,7 +1070,7 @@ function ReaderPage() {
         totalPages={totalPages}
         progressPercentage={progressPercentage}
         chapterIndex={chapterIndex}
-        totalChapters={manga.chapters?.length || 0}
+        totalChapters={manga?.chapters?.length || 0}
         readingMode={readingMode}
         autoScroll={autoScroll}
         isBookmarked={isBookmarked}

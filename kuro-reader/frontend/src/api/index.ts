@@ -269,6 +269,33 @@ class APIManager {
     }
   }
 
+  // ========== RECENT CHAPTERS ==========
+
+  async getRecentChapters(includeAdult: boolean = false): Promise<Manga[]> {
+    console.log('[API] 📥 getRecentChapters called, includeAdult:', includeAdult);
+    const cacheKey = `recent_chapters_${includeAdult}`;
+    const cached = this.getCached<Manga[]>(cacheKey, true);
+    if (cached) {
+      console.log('[API] ✅ Returning cached recent chapters:', cached.length, 'items');
+      return cached;
+    }
+
+    try {
+      console.log('[API] 📡 Fetching recent chapters from stats API...');
+      // Use statsAPI to get latest updates
+      const statsAPI = await import('./stats');
+      const response = await statsAPI.default.getLatest(1, includeAdult);
+      const results = response.results || [];
+      
+      console.log('[API] ✅ Recent chapters:', results.length, 'items');
+      this.setCache(cacheKey, results);
+      return results;
+    } catch (error) {
+      console.error('[API] ❌ getRecentChapters error:', error);
+      return [];
+    }
+  }
+
   // ========== TRENDING ==========
 
   async getTrending(includeAdult: boolean = false): Promise<Manga[]> {
