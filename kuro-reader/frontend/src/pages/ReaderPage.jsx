@@ -595,7 +595,7 @@ function ReaderPage() {
   // ========== REFS per navigate/toast (evita loop) ==========
   const navigateRef = useRef(navigate);
   const toastRef = useRef(toast);
-  const loadingRef = useRef(false); // ✅ Flag per prevenire chiamate multiple
+  const loadingRef = useRef(null); // ✅ Session ID per prevenire chiamate multiple
   
   useEffect(() => {
     navigateRef.current = navigate;
@@ -605,12 +605,16 @@ function ReaderPage() {
   // ========== EFFECTS ==========
   
   useEffect(() => {
-    // ✅ CRITICAL: Previeni chiamate multiple di loadData
-    if (loadingRef.current) {
+    // ✅ CRITICAL: Usa Session ID per prevenire chiamate multiple
+    const sessionId = `${source}-${mangaId}-${chapterId}`;
+    
+    if (loadingRef.current === sessionId) {
+      console.log('⏩ Caricamento già in corso per questo capitolo, skip');
       return;
     }
     
-    loadingRef.current = true; // ✅ Setta flag PRIMA di loadData
+    loadingRef.current = sessionId; // ✅ Session ID univoco
+    console.log(`🔄 Caricamento in corso per: ${sessionId}`);
     
     let isMounted = true;
     let retryCount = 0;
@@ -875,7 +879,7 @@ function ReaderPage() {
     
     return () => {
       isMounted = false;
-      loadingRef.current = false; // ✅ Reset flag al cleanup
+      // ❌ NON resettare loadingRef qui! Solo onLoadComplete lo resetta
     };
   }, [source, mangaId, chapterId]); // ✅ FIX: Rimosse dipendenze navigate/toast per evitare ricariche
 
@@ -1012,12 +1016,16 @@ function ReaderPage() {
   if (loading) {
     return (
       <ChapterLoadingScreen
-        key={`loading-${chapterId}`}
+        key={`loading-${chapterId}-${Date.now()}`}
         chapterTitle={chapter?.title || manga?.title || 'Caricamento...'}
         chapterPages={chapter?.pages || []}
         currentPage={currentPage + 1}
         totalPages={chapter?.pages?.length || 0}
-        onLoadComplete={() => setLoading(false)}
+        onLoadComplete={() => {
+          console.log('✅ Loading completato, setLoading(false)');
+          setLoading(false);
+          loadingRef.current = null; // ✅ Reset session ID solo quando finisce
+        }}
         minDelay={3000}
       />
     );
