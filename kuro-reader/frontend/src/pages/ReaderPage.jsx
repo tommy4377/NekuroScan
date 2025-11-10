@@ -996,8 +996,14 @@ function ReaderPage() {
       onMouseMove={() => !isFullscreen && setShowControls(true)}
       onTouchStart={() => !isFullscreen && setShowControls(true)}
       onClick={handlePageClick}
+      onContextMenu={(e) => e.preventDefault()}
         cursor="pointer"
         overflow="hidden"
+        sx={{
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none'
+        }}
     >
       {/* Top Controls */}
       {showControls && (

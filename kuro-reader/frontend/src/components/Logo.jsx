@@ -16,59 +16,50 @@ const Logo = ({ boxSize = '40px', showText = true, fontSize = '2xl', height = '4
   const optimalImage = getOptimalImage(boxSize);
 
   return (
-    <Box {...rest}>
-      <Link 
-        to="/home" 
-        style={{ 
-          textDecoration: 'none',
-          display: 'inline-block',
-          minWidth: '48px',
-          minHeight: '48px',
-          padding: '4px'
-        }}
-      >
-        <Box
-          display="inline-block"
-          transition="transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
-          _hover={{
-            transform: 'translate3d(0, -2px, 0)'
+    <Box 
+      display="inline-block"
+      transition="transform 0.2s ease-out"
+      _hover={{
+        transform: 'translateY(-2px)'
+      }}
+      {...rest}
+    >
+      {showImage && !imageError ? (
+        <img
+          src={optimalImage}
+          alt="NeKuro Scan"
+          loading="eager"
+          fetchPriority="high"
+          width={boxSize}
+          height={boxSize}
+          style={{ 
+            width: boxSize,
+            height: boxSize,
+            borderRadius: '0.5rem',
+            objectFit: 'contain',
+            display: 'block',
+            pointerEvents: 'none',
+            userSelect: 'none'
           }}
+          onError={() => setImageError(true)}
+          draggable={false}
+        />
+      ) : (
+        <Box
+          boxSize={boxSize}
+          bg="purple.500"
+          borderRadius="lg"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          fontWeight="bold"
+          fontSize="xl"
+          color="white"
+          boxShadow="md"
         >
-          {showImage && !imageError ? (
-            <img
-              src={optimalImage}
-              alt="NeKuro Scan"
-              loading="eager"
-              fetchPriority="high"
-              width={boxSize}
-              height={boxSize}
-              style={{ 
-                width: boxSize,
-                height: boxSize,
-                borderRadius: '0.5rem',
-                objectFit: 'contain',
-                display: 'block'
-              }}
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <Box
-              boxSize={boxSize}
-              bg="purple.500"
-              borderRadius="lg"
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-              fontWeight="bold"
-              fontSize="xl"
-              color="white"
-              boxShadow="md"
-            >
-              NK
-            </Box>
-          )}
+          NK
         </Box>
-      </Link>
+      )}
     </Box>
   );
 };

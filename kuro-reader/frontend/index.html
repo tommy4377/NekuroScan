@@ -190,12 +190,16 @@
     
     /* Previeni doppio tap zoom e scroll issues */
     * {
-      touch-action: pan-y;
       -webkit-tap-highlight-color: transparent;
     }
     
-    a, button, [role="button"] {
+    a, button, [role="button"], [onclick] {
       touch-action: manipulation;
+    }
+    
+    /* Scrolling normale */
+    body, #root, [role="main"] {
+      touch-action: pan-y pan-x;
     }
     
     /* ✅ GPU acceleration ottimizzato */

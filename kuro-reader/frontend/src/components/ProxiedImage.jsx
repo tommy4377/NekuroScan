@@ -168,20 +168,37 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
 
   // STATO LOADING + IMMAGINE
   return (
-    <Box position="relative" w="100%" h="100%" {...props}>
+    <Box 
+      position="relative" 
+      w="100%" 
+      h="100%" 
+      onContextMenu={(e) => e.preventDefault()}
+      sx={{
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        MozUserSelect: 'none',
+        msUserSelect: 'none',
+        WebkitTouchCallout: 'none'
+      }}
+      {...props}
+    >
       {imageSrc && (
         <Image
           src={imageSrc}
           alt={alt || 'Manga page'}
           onLoad={handleLoad}
           onError={handleError}
+          onContextMenu={(e) => e.preventDefault()}
+          onDragStart={(e) => e.preventDefault()}
           style={{
             ...style,
-            opacity: (loading && !isBlobUrl) ? 0 : 1,
-            transition: 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            opacity: 1,
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            pointerEvents: 'none',
             transform: 'translate3d(0, 0, 0)'
           }}
-          loading={isBlobUrl ? "eager" : "lazy"}
+          loading="eager"
           decoding="async"
           fetchpriority={props.priority ? "high" : "auto"}
           w="100%"
@@ -195,6 +212,7 @@ const ProxiedImage = React.memo(({ src, alt, style, ...props }) => {
           left="50%" 
           transform="translate(-50%, -50%)"
           zIndex={1}
+          pointerEvents="none"
         >
           <Spinner size="lg" color="purple.400" thickness="3px" speed="0.8s" />
         </Box>
