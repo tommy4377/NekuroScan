@@ -92,8 +92,8 @@ export async function testBackendConnection(): Promise<ServiceStatus> {
   console.log('[Diagnostics] 🔍 Testing backend connection...');
   
   try {
-    // ✅ FIX: Backend non ha /api/health, usa /api/auth/verify senza token
-    const response = await fetch(`${config.API_URL}/api/auth/verify`, {
+    // ✅ FIX: Backend has /health endpoint (verified in auth-server.ts)
+    const response = await fetch(`${config.API_URL}/health`, {
       method: 'GET',
       cache: 'no-cache',
       signal: AbortSignal.timeout(5000)
@@ -101,8 +101,8 @@ export async function testBackendConnection(): Promise<ServiceStatus> {
     
     const responseTime = Date.now() - startTime;
     
-    // ✅ Accept 401 as "online" because /api/auth/verify returns 401 without token (expected)
-    if (response.ok || response.status === 401) {
+    // ✅ Health endpoint should return 200 if backend is online
+    if (response.ok) {
       console.log('[Diagnostics] ✅ Backend online:', responseTime, 'ms');
       return {
         name: 'Backend API',

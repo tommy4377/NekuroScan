@@ -154,10 +154,11 @@ const useAuth = create<AuthStore>((set, get) => ({
     try {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
-      const response = await axios.get(`${API_URL}/auth/verify`);
-      if (response.data.valid && response.data.user) {
+      // ✅ FIX: Backend usa /auth/me, non /auth/verify
+      const response = await axios.get(`${API_URL}/auth/me`);
+      if (response.data && response.data.username) {
         set({ 
-          user: response.data.user, 
+          user: response.data, 
           isAuthenticated: true,
           token 
         });
