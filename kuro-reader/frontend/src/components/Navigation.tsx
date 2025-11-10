@@ -46,6 +46,8 @@ function Navigation(): JSX.Element | null {
   }, []);
 
   const avatarSrc = useMemo(() => {
+    // ✅ FIX: Check user.profile.avatarUrl FIRST (come JS)
+    if (user?.profile?.avatarUrl) return user.profile.avatarUrl;
     if (user) {
       const localAvatar = localStorage.getItem('userAvatar');
       if (localAvatar) return localAvatar;

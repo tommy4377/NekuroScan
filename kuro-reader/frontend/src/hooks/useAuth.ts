@@ -338,28 +338,82 @@ const useAuth = create<AuthStore>((set, get) => ({
 
   // SYNC FROM SERVER
   syncFromServer: async (opts: SyncOptions = {}) => {
-    const { refreshAfter = true } = opts;
-    const state = get();
-    
-    if (!state.isAuthenticated) return;
+    const { refreshAfter = true, reason = 'manual' } = opts;
+    const token = get().token;
+    if (!token) return;
+
+    if (!(get().syncStatus === 'syncing' && get()._syncInFlight)) {
+      set({ syncStatus: 'syncing' });
+    }
     
     try {
       const response = await axios.get(`${API_URL}/user/data`);
-      const { favorites, reading, completed, dropped } = response.data;
+      const {
+        favorites = [],
+        reading = [],
+        completed = [],
+        dropped = [],
+        history = [],
+        readingProgress = {},
+        profile = {}
+      } = response.data;
       
-      // Update localStorage
-      setItemIfChanged('favorites', favorites || []);
-      setItemIfChanged('reading', reading || []);
-      setItemIfChanged('completed', completed || []);
-      setItemIfChanged('dropped', dropped || []);
-      
-      set({ lastSync: Date.now() });
+      // ✅ SALVA TUTTI I DATI (incluso profilo completo)
+      setItemIfChanged('favorites', favorites);
+      setItemIfChanged('reading', reading);
+      setItemIfChanged('completed', completed);
+      setItemIfChanged('dropped', dropped);
+      setItemIfChanged('history', history);
+      setItemIfChanged('readingProgress', readingProgress);
+
+      // ✅ SALVA DATI PROFILO
+      if (profile) {
+        // Salva stato pubblico
+        localStorage.setItem('profilePublic', profile.isPublic ? 'true' : 'false');
+        
+        // ✅ SALVA AVATAR E BANNER
+        if (profile.avatarUrl) {
+          localStorage.setItem('userAvatar', profile.avatarUrl);
+        } else {
+          localStorage.removeItem('userAvatar');
+        }
+        
+        if (profile.bannerUrl) {
+          localStorage.setItem('userBanner', profile.bannerUrl);
+        } else {
+          localStorage.removeItem('userBanner');
+        }
+
+        // Aggiorna user con profilo completo
+        const currentUser = get().user;
+        if (currentUser) {
+          const updatedUser = { ...currentUser, profile };
+          set({ user: updatedUser });
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+        }
+      }
+
+      // Update hash and state
+      const newHash = hashPayload({ favorites, reading, completed, dropped, history, readingProgress });
+      set({ _lastSyncedHash: newHash, _lastSyncAt: Date.now() });
+      localStorage.setItem('lastSyncedHash', newHash);
+
+      set({
+        syncStatus: 'synced',
+        lastSync: new Date().toISOString()
+      });
+
+      console.log(`✅ Data loaded from server (${reason})`);
       
       if (refreshAfter) {
         window.dispatchEvent(new Event('library-updated'));
       }
+      return true;
+      
     } catch (error) {
-      // Silent fail
+      console.error('❌ Sync from server error:', error);
+      set({ syncStatus: 'error' });
+      return false;
     }
   },
 
