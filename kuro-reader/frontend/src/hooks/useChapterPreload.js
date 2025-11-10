@@ -1,5 +1,6 @@
 // ✅ useChapterPreload - Hook dedicato per preload immagini capitolo
 import { useEffect, useRef, useState } from 'react';
+import { config } from '../config';
 
 export function useChapterPreload(chapterPages = [], enabled = true) {
   const [progress, setProgress] = useState(0);
@@ -41,62 +42,63 @@ export function useChapterPreload(chapterPages = [], enabled = true) {
           
           // URL da precaricare
           const imageUrl = needsProxy 
-            ? `${import.meta.env.VITE_PROXY_URL || 'https://kuro-proxy-server.onrender.com'}/api/image-proxy?url=${encodeURIComponent(url)}`
+            ? `${config.PROXY_URL || 'https://kuro-proxy-server.onrender.com'}/api/image-proxy?url=${encodeURIComponent(url)}`
             : url;
 
           // Promise per caricare l'immagine
-          await new Promise((resolve, reject) => {
+          await new Promise((resolve) => {
             if (signal.aborted) {
-              reject(new Error('Aborted'));
+              resolve();
               return;
             }
 
-            img.onload = () => {
+            let timeoutId;
+
+            const onLoad = () => {
+              if (timeoutId) clearTimeout(timeoutId);
               if (!signal.aborted) {
                 loaded++;
                 loadedUrls.current.add(url);
                 setLoadedCount(loaded);
                 setProgress((loaded / totalImages) * 100);
-                resolve();
               }
+              resolve();
             };
 
-            img.onerror = () => {
+            const onError = () => {
+              if (timeoutId) clearTimeout(timeoutId);
               // Continua anche se un'immagine fallisce
-              loaded++;
-              setLoadedCount(loaded);
-              setProgress((loaded / totalImages) * 100);
+              if (!signal.aborted) {
+                loaded++;
+                setLoadedCount(loaded);
+                setProgress((loaded / totalImages) * 100);
+              }
               resolve();
             };
 
             // Timeout per evitare che si blocchi
-            const timeout = setTimeout(() => {
-              loaded++;
-              setLoadedCount(loaded);
-              setProgress((loaded / totalImages) * 100);
-              resolve();
-            }, 15000); // 15 secondi timeout per immagine
-
-            // Set src DOPO aver impostato i listener
-            img.src = imageUrl;
-            
-            // Cleanup timeout
-            img.onload = () => {
-              clearTimeout(timeout);
+            timeoutId = setTimeout(() => {
               if (!signal.aborted) {
                 loaded++;
-                loadedUrls.current.add(url);
                 setLoadedCount(loaded);
                 setProgress((loaded / totalImages) * 100);
-                resolve();
               }
-            };
+              resolve();
+            }, 10000); // 10 secondi timeout per immagine
+
+            img.onload = onLoad;
+            img.onerror = onError;
+            
+            // Set src DOPO aver impostato i listener
+            img.src = imageUrl;
           });
         } catch (err) {
           // Continua anche in caso di errore
-          loaded++;
-          setLoadedCount(loaded);
-          setProgress((loaded / totalImages) * 100);
+          if (!signal.aborted) {
+            loaded++;
+            setLoadedCount(loaded);
+            setProgress((loaded / totalImages) * 100);
+          }
         }
       });
 

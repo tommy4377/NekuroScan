@@ -113,10 +113,11 @@ function ReaderPage() {
     // Salva viewport originale
     const originalContent = viewportMeta.getAttribute('content');
     
-    // Abilita zoom nel reader con un piccolo ritardo per garantire che il browser applichi le impostazioni
-    setTimeout(() => {
-      viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover');
-    }, 100);
+    // Abilita zoom nel reader IMMEDIATAMENTE
+    viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover');
+    
+    // Force reflow per applicare il viewport
+    void viewportMeta.offsetHeight;
     
     // Cleanup: ripristina viewport no-zoom quando si esce
     return () => {
@@ -407,7 +408,7 @@ function ReaderPage() {
         duration: 2000
       });
     }
-  }, [manga, chapterIndex, saveProgress, navigate, source, mangaId, toast]);
+  }, [manga, chapterIndex, navigate, source, mangaId, toast]); // ✅ FIX: saveProgress NON va nelle deps (è memoizzato)
 
   // Naviga alla pagina successiva/precedente
   const changePage = useCallback((delta) => {
@@ -500,7 +501,7 @@ function ReaderPage() {
         setCurrentPage(currentPage + 1);
       }
     }
-  }, [isFullscreen, toggleFullscreen, saveProgress, navigate, source, mangaId, navigateChapter, currentPage, chapterIndex, readingMode, totalPages, manga, showNoteModal, settingsOpen]);
+  }, [isFullscreen, toggleFullscreen, navigate, source, mangaId, currentPage, readingMode, totalPages, showNoteModal, settingsOpen]); // ✅ FIX: saveProgress è stabile (non causa re-render)
 
   // ✅ WRAP handlePageClick in useCallback per evitare React error #300
   const handlePageClick = useCallback((e) => {
@@ -591,6 +592,12 @@ function ReaderPage() {
       }
     }
   }, [chapter, readingMode, imageScale, setImageScale, currentPage, totalPages, chapterIndex, manga, navigateChapter]);
+
+  // ========== RESET PRELOADER quando cambia capitolo ==========
+  useEffect(() => {
+    setShowPreloader(false);
+    setLoading(true);
+  }, [chapterId]);
 
   // ========== EFFECTS ==========
   
@@ -859,7 +866,7 @@ function ReaderPage() {
     return () => {
       isMounted = false;
     };
-  }, [source, mangaId, chapterId, navigate, toast]);
+  }, [source, mangaId, chapterId]); // ✅ FIX: Rimosse dipendenze navigate/toast per evitare ricariche
 
   // ✅ FIX dipendenze useEffect
   useEffect(() => {
@@ -992,10 +999,10 @@ function ReaderPage() {
   
   // ✅ PRELOAD INTELLIGENTE: Mostra loading screen con preload quando dati pronti
   useEffect(() => {
-    if (!loading && chapter && manga && chapter.pages && chapter.pages.length > 0) {
+    if (!loading && chapter && manga && chapter.pages && chapter.pages.length > 0 && !showPreloader) {
       setShowPreloader(true);
     }
-  }, [loading, chapter, manga]);
+  }, [loading, chapter, manga, showPreloader]);
 
   // ✅ CRITICAL: Loading screen durante fetch dati
   if (loading || !manga || !chapter) {
@@ -1071,7 +1078,6 @@ function ReaderPage() {
           userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
-          touchAction: 'pinch-zoom pan-y pan-x',
         }}
     >
       {/* Controlli Memoizzati */}
@@ -1111,7 +1117,7 @@ function ReaderPage() {
           pb="calc(80px + env(safe-area-inset-bottom, 0px))"
           sx={{
             WebkitOverflowScrolling: 'touch',
-            touchAction: 'pan-y',
+            touchAction: 'auto',
           }}
           onScroll={(e) => {
             // Traccia quale pagina è visibile durante lo scroll
@@ -1153,22 +1159,23 @@ function ReaderPage() {
                 position="relative"
                 className="css-1p64fpw"
               >
-                {/* Indicatore numero pagina - quasi trasparente */}
+                {/* Indicatore numero pagina */}
                 <Box
                   position="absolute"
                   top={4}
                   left={4}
-                  bg="blackAlpha.300"
-                  color="whiteAlpha.600"
+                  bg="blackAlpha.600"
+                  color="white"
                   px={3}
                   py={1}
                   borderRadius="full"
                   fontSize="xs"
                   fontWeight="bold"
                   zIndex={1}
-                  opacity={0.4}
+                  opacity={0.75}
                   transition="opacity 0.2s"
-                  _hover={{ opacity: 0.9 }}
+                  _hover={{ opacity: 1 }}
+                  backdropFilter="blur(4px)"
                 >
                   {i + 1} / {totalPages}
                 </Box>
@@ -1246,7 +1253,7 @@ function ReaderPage() {
           overflow="auto"
           sx={{
             WebkitOverflowScrolling: 'touch',
-            touchAction: 'pinch-zoom pan-y pan-x',
+            touchAction: 'auto',
           }}
         >
           {currentImages.map((img) => (

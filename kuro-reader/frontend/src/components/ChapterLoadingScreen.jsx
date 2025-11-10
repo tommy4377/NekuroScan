@@ -1,7 +1,7 @@
-// ✅ ChapterLoadingScreen - Loading con VERO preload
+// ✅ ChapterLoadingScreen - Loading SMOOTH con countdown
 import React, { useEffect, useState } from 'react';
-import { Box, VStack, Text, Progress, Spinner, HStack, Icon } from '@chakra-ui/react';
-import { FaBook, FaCheck } from 'react-icons/fa';
+import { Box, VStack, Text, Progress, HStack, Icon } from '@chakra-ui/react';
+import { FaBook } from 'react-icons/fa';
 import useChapterPreload from '../hooks/useChapterPreload';
 
 const ChapterLoadingScreen = ({ 
@@ -12,8 +12,8 @@ const ChapterLoadingScreen = ({
   onLoadComplete,
   minDelay = 3000
 }) => {
-  const [stage, setStage] = useState('preparing');
-  const [canComplete, setCanComplete] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [countdown, setCountdown] = useState(Math.ceil(minDelay / 1000));
   
   // Hook per preload REALE
   const { progress: preloadProgress, loadedCount, isComplete: preloadComplete, totalToLoad } = useChapterPreload(chapterPages, true);
@@ -21,68 +21,55 @@ const ChapterLoadingScreen = ({
   useEffect(() => {
     let mounted = true;
     const startTime = Date.now();
+    let animationFrame;
+    let countdownInterval;
 
-    const checkCompletion = async () => {
-      // Stage 1: Preparing (attende 500ms minimo)
-      setStage('preparing');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+    // Progress bar smooth animation
+    const updateProgress = () => {
       if (!mounted) return;
-      setStage('loading');
       
-      // Aspetta che il preload sia completo E che il minDelay sia trascorso
-      const checkInterval = setInterval(() => {
-        if (!mounted) {
-          clearInterval(checkInterval);
-          return;
-        }
+      const elapsed = Date.now() - startTime;
+      const linearProgress = Math.min((elapsed / minDelay) * 100, 100);
+      
+      // Mix progress lineare + preload reale
+      const mixedProgress = Math.max(linearProgress, preloadProgress);
+      
+      setProgress(mixedProgress);
 
-        const elapsed = Date.now() - startTime;
-        const minDelayPassed = elapsed >= minDelay;
-        
-        if (preloadComplete && minDelayPassed) {
-          clearInterval(checkInterval);
-          setStage('ready');
-          setCanComplete(true);
-          
-          // Attendi 300ms prima di completare per transizione smooth
-          setTimeout(() => {
-            if (mounted && onLoadComplete) {
-              onLoadComplete();
-            }
-          }, 300);
-        }
-      }, 100);
-
-      return () => {
-        clearInterval(checkInterval);
-      };
+      if (linearProgress < 100) {
+        animationFrame = requestAnimationFrame(updateProgress);
+      } else if (preloadComplete) {
+        // Completa quando ENTRAMBI: tempo passato E preload completo
+        setTimeout(() => {
+          if (mounted && onLoadComplete) {
+            onLoadComplete();
+          }
+        }, 200);
+      }
     };
 
-    checkCompletion();
+    // Countdown timer
+    countdownInterval = setInterval(() => {
+      if (!mounted) return;
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, Math.ceil((minDelay - elapsed) / 1000));
+      setCountdown(remaining);
+      
+      if (remaining === 0) {
+        clearInterval(countdownInterval);
+      }
+    }, 100);
+
+    // Start animation
+    animationFrame = requestAnimationFrame(updateProgress);
 
     return () => {
       mounted = false;
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+      if (countdownInterval) clearInterval(countdownInterval);
     };
-  }, [preloadComplete, minDelay, onLoadComplete]);
-
-  const getStageText = () => {
-    switch (stage) {
-      case 'preparing':
-        return 'Preparazione interfaccia...';
-      case 'loading':
-        return `Precaricamento immagini... (${loadedCount}/${totalToLoad})`;
-      case 'ready':
-        return 'Ottimizzazione completata!';
-      default:
-        return 'Caricamento...';
-    }
-  };
-  
-  // Calcola progress totale (20% preparing, 70% loading, 10% ready)
-  const totalProgress = stage === 'preparing' ? 20 : 
-                       stage === 'loading' ? 20 + (preloadProgress * 0.7) :
-                       stage === 'ready' ? 100 : 0;
+  }, [minDelay, onLoadComplete, preloadComplete, preloadProgress]);
 
   return (
     <Box
@@ -122,77 +109,47 @@ const ChapterLoadingScreen = ({
         </Box>
 
         {/* Titolo capitolo */}
-        <VStack spacing={2} textAlign="center">
+        <VStack spacing={4} textAlign="center">
           <Text fontSize="xl" fontWeight="bold" color="white">
             {chapterTitle || 'Caricamento Capitolo'}
           </Text>
           
-          <Text fontSize="sm" color="gray.400">
-            {getStageText()}
+          <Text fontSize="lg" color="purple.400" fontWeight="bold">
+            {countdown > 0 ? `${countdown}s` : 'Pronto!'}
           </Text>
         </VStack>
 
-        {/* Progress bar */}
-        <Box width="100%" maxW="300px">
+        {/* Progress bar SMOOTH */}
+        <Box width="100%" maxW="350px">
           <Progress
-            value={totalProgress}
-            size="sm"
+            value={progress}
+            size="lg"
             colorScheme="purple"
             borderRadius="full"
             hasStripe
             isAnimated
             sx={{
               '& > div': {
-                transition: 'width 0.3s ease-out'
+                transition: 'none' // Rimosso per smoothness con requestAnimationFrame
               }
             }}
           />
           
-          <HStack justify="space-between" mt={2}>
-            <Text fontSize="xs" color="gray.500">
-              {Math.round(totalProgress)}%
+          <HStack justify="space-between" mt={3}>
+            <Text fontSize="sm" color="gray.400">
+              Precaricamento: {loadedCount}/{totalToLoad}
             </Text>
-            <Text fontSize="xs" color="gray.500">
-              {totalPages ? `${totalPages} pagine` : ''}
+            <Text fontSize="sm" color="purple.400" fontWeight="bold">
+              {Math.round(progress)}%
             </Text>
           </HStack>
+          
+          {totalPages > 0 && (
+            <Text fontSize="xs" color="gray.500" textAlign="center" mt={2}>
+              {totalPages} pagine da caricare
+            </Text>
+          )}
         </Box>
-
-        {/* Checklist visual */}
-        <VStack spacing={2} align="start" fontSize="sm" color="gray.400" w="full">
-          <HStack>
-            <Icon 
-              as={stage !== 'preparing' ? FaCheck : Spinner} 
-              color={stage !== 'preparing' ? 'green.400' : 'purple.400'} 
-              boxSize={4}
-            />
-            <Text color={stage !== 'preparing' ? 'gray.300' : 'white'}>
-              Preparazione interfaccia
-            </Text>
-          </HStack>
-          
-          <HStack>
-            <Icon 
-              as={stage === 'ready' ? FaCheck : stage === 'loading' ? Spinner : Box} 
-              color={stage === 'ready' ? 'green.400' : stage === 'loading' ? 'purple.400' : 'gray.500'} 
-              boxSize={4}
-            />
-            <Text color={stage === 'loading' || stage === 'ready' ? 'white' : 'gray.500'}>
-              Precaricamento immagini ({loadedCount}/{totalToLoad})
-            </Text>
-          </HStack>
-          
-          <HStack>
-            <Icon 
-              as={canComplete ? FaCheck : Box} 
-              color={canComplete ? 'green.400' : 'gray.500'} 
-              boxSize={4}
-            />
-            <Text color={canComplete ? 'gray.300' : 'gray.500'}>
-              Ottimizzazione rendering
-            </Text>
-          </HStack>
-        </VStack>
       </VStack>
 
       {/* Animazioni CSS */}
