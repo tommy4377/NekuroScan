@@ -130,24 +130,38 @@ function Login(): JSX.Element {
     setIsLoading(true);
     try {
       console.log('[Login] 📤 Calling login API...');
-      await login(loginData.emailOrUsername, loginData.password);
-      console.log('[Login] ✅ Login successful');
+      const result = await login(loginData.emailOrUsername, loginData.password);
       
-      if (rememberMe) {
-        localStorage.setItem('rememberMe', 'true');
+      // ✅ Check result format from old JS version
+      if (result?.success) {
+        console.log('[Login] ✅ Login successful');
+        
+        if (rememberMe) {
+          localStorage.setItem('rememberMe', 'true');
+        }
+        
+        toast({ 
+          title: 'Benvenuto!',
+          status: 'success',
+          duration: 2000
+        });
+        
+        navigate(from, { replace: true });
+      } else {
+        // Login failed
+        console.error('[Login] ❌ Login failed:', result?.error);
+        toast({ 
+          title: 'Errore di accesso',
+          description: result?.error || 'Credenziali non valide',
+          status: 'error',
+          duration: 3000
+        });
       }
-      
-      toast({ 
-        title: 'Benvenuto!',
-        status: 'success',
-        duration: 2000
-      });
-      
-      navigate(from, { replace: true });
     } catch (error) {
+      console.error('[Login] ❌ Exception:', error);
       toast({ 
         title: 'Errore di accesso',
-        description: error instanceof Error ? error.message : 'Credenziali non valide',
+        description: error instanceof Error ? error.message : 'Errore di rete',
         status: 'error',
         duration: 3000
       });
@@ -206,23 +220,37 @@ function Login(): JSX.Element {
     setIsLoading(true);
     try {
       console.log('[Register] 📤 Calling register API...');
-      await register(
+      const result = await register(
         registerData.username, 
         registerData.email, 
         registerData.password
       );
       
-      toast({ 
-        title: 'Account creato!',
-        description: 'Registrazione completata con successo',
-        status: 'success',
-        duration: 3000
-      });
-      navigate('/home');
+      // ✅ Check result format from old JS version
+      if (result?.success) {
+        console.log('[Register] ✅ Registration successful');
+        toast({ 
+          title: 'Account creato!',
+          description: 'Registrazione completata con successo',
+          status: 'success',
+          duration: 3000
+        });
+        navigate('/home');
+      } else {
+        // Registration failed
+        console.error('[Register] ❌ Registration failed:', result?.error);
+        toast({ 
+          title: 'Errore registrazione',
+          description: result?.error || 'Errore durante la registrazione',
+          status: 'error',
+          duration: 3000
+        });
+      }
     } catch (error) {
+      console.error('[Register] ❌ Exception:', error);
       toast({ 
         title: 'Errore registrazione',
-        description: error instanceof Error ? error.message : 'Errore durante la registrazione',
+        description: error instanceof Error ? error.message : 'Errore di rete',
         status: 'error',
         duration: 3000
       });

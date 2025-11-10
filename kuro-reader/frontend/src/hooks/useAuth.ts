@@ -180,12 +180,15 @@ const useAuth = create<AuthStore>((set, get) => ({
     try {
       console.log('[useAuth] 📤 Sending login request...');
       const response = await axios.post(`${API_URL}/auth/login`, {
-        emailOrUsername,  // ✅ FIX: era "email" ma backend si aspetta "emailOrUsername"
+        emailOrUsername: emailOrUsername.toLowerCase().trim(),  // ✅ FIX: Sanitize input
         password
       });
       console.log('[useAuth] ✅ Login response received:', response.status);
 
       const { token, user } = response.data;
+      
+      // ✅ PULISCI TUTTO PRIMA DI SALVARE I NUOVI DATI
+      USER_LOCAL_KEYS.forEach(key => localStorage.removeItem(key));
       
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
@@ -195,7 +198,8 @@ const useAuth = create<AuthStore>((set, get) => ({
         user, 
         token, 
         isAuthenticated: true, 
-        loading: false 
+        loading: false,
+        error: null  // ✅ Clear any previous errors
       });
       
       // Start auto-sync after login
@@ -204,10 +208,14 @@ const useAuth = create<AuthStore>((set, get) => ({
       // Sync local data to server
       await get().syncToServer({ reason: 'login' });
       
+      console.log('[useAuth] ✅ Login complete');
+      return { success: true, user };  // ✅ Return format matching old version
+      
     } catch (error: any) {
+      console.error('[useAuth] ❌ Login error:', error);
       const errorMessage = error.response?.data?.message || 'Login failed';
       set({ error: errorMessage, loading: false });
-      throw new Error(errorMessage);
+      return { success: false, error: errorMessage };  // ✅ Return instead of throw
     }
   },
 
@@ -216,13 +224,18 @@ const useAuth = create<AuthStore>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
+      console.log('[useAuth] 📤 Sending register request...');
       const response = await axios.post(`${API_URL}/auth/register`, {
-        username,
-        email,
+        username: username.toLowerCase().trim(),  // ✅ FIX: Sanitize input
+        email: email.toLowerCase().trim(),        // ✅ FIX: Sanitize input
         password
       });
+      console.log('[useAuth] ✅ Register response received:', response.status);
 
       const { token, user } = response.data;
+      
+      // ✅ PULISCI TUTTO PRIMA DI SALVARE I NUOVI DATI
+      USER_LOCAL_KEYS.forEach(key => localStorage.removeItem(key));
       
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
@@ -232,16 +245,24 @@ const useAuth = create<AuthStore>((set, get) => ({
         user, 
         token, 
         isAuthenticated: true, 
-        loading: false 
+        loading: false,
+        error: null
       });
       
       // Start auto-sync
       get().startAutoSync();
       
+      // Sync from server
+      await get().syncFromServer({ reason: 'register' });
+      
+      console.log('[useAuth] ✅ Register complete');
+      return { success: true, user };  // ✅ Return format matching old version
+      
     } catch (error: any) {
+      console.error('[useAuth] ❌ Register error:', error);
       const errorMessage = error.response?.data?.message || 'Registration failed';
       set({ error: errorMessage, loading: false });
-      throw new Error(errorMessage);
+      return { success: false, error: errorMessage };  // ✅ Return instead of throw
     }
   },
 

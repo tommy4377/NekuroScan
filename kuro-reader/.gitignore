@@ -205,3 +205,6 @@ bundle-analysis.html
 patches/*.patch
 !patches/.gitkeep
 
+# Old JavaScript version (reference only, not for version control)
+kuro-reader javascript/
+
