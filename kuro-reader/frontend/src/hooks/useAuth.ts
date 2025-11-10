@@ -21,6 +21,7 @@ type SyncStatus = 'idle' | 'syncing' | 'success' | 'error';
 interface SyncOptions {
   refreshAfter?: boolean;
   reason?: string;
+  force?: boolean;
 }
 
 interface AuthState {
@@ -43,15 +44,15 @@ interface AuthState {
 
 interface AuthActions {
   initAuth: () => Promise<void>;
-  login: (emailOrUsername: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
+  login: (emailOrUsername: string, password: string) => Promise<any>;
+  register: (username: string, email: string, password: string) => Promise<any>;
   logout: () => Promise<void>;
-  syncToServer: (opts?: SyncOptions) => Promise<void>;
-  syncFromServer: (opts?: SyncOptions) => Promise<void>;
-  startAutoSync: () => void;
+  syncToServer: (opts?: SyncOptions) => Promise<boolean | void>;
+  syncFromServer: (opts?: SyncOptions) => Promise<boolean | void>;
+  startAutoSync: () => (() => void) | void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
-  syncFavorites: (favorites: Manga[]) => Promise<void>;
-  syncReading: (reading: Manga[]) => Promise<void>;
+  syncFavorites: (favorites: Manga[]) => Promise<boolean>;
+  syncReading: (reading: Manga[]) => Promise<boolean>;
   persistLocalData: () => Promise<void>;
 }
 
@@ -297,42 +298,60 @@ const useAuth = create<AuthStore>((set, get) => ({
 
   // SYNC TO SERVER
   syncToServer: async (opts: SyncOptions = {}) => {
-    const { refreshAfter = false } = opts;
-    const state = get();
-    
-    if (!state.isAuthenticated || state._syncInFlight) return;
-    
-    const payload = buildLocalPayload();
-    const currentHash = hashPayload(payload);
-    
-    // Skip if no changes
-    if (currentHash === state._lastSyncedHash) {
-      return;
+    const { refreshAfter = true, force = false, reason = 'manual' } = opts;
+    const token = get().token;
+    if (!token) return false;
+
+    // Throttle: avoid spam if just synced (< 3s)
+    const now = Date.now();
+    const minGapMs = 3000;
+    if (!force && now - get()._lastSyncAt < minGapMs) {
+      return false;
     }
-    
-    set({ _syncInFlight: true, syncStatus: 'syncing' });
-    
+
+    // If sync already in flight, skip
+    if (get()._syncInFlight && !force) {
+      return false;
+    }
+
+    const dataToSync = buildLocalPayload();
+    const currentHash = hashPayload(dataToSync);
+    const lastHash = get()._lastSyncedHash || localStorage.getItem('lastSyncedHash');
+
+    // If nothing changed and not forced, skip
+    if (!force && currentHash === lastHash) {
+      set({ lastSync: new Date().toISOString(), syncStatus: 'synced' });
+      return true;
+    }
+
+    set({ syncStatus: 'syncing', _syncInFlight: true });
+
     try {
-      await axios.post(`${API_URL}/user/sync`, payload);
-      
-      set({
-        _syncInFlight: false,
-        _lastSyncedHash: currentHash,
-        _lastSyncAt: Date.now(),
-        syncStatus: 'success',
-        lastSync: Date.now()
-      });
-      
+      await axios.post(`${API_URL}/user/sync`, dataToSync);
+
+      // Update hash and timestamp
+      set({ _lastSyncedHash: currentHash, _lastSyncAt: Date.now() });
       localStorage.setItem('lastSyncedHash', currentHash);
-      
+
+      // Optional refresh
       if (refreshAfter) {
-        await get().syncFromServer({ refreshAfter: false });
+        await get().syncFromServer({ reason: `after-sync:${reason}` });
+      } else {
+        set({
+          syncStatus: 'synced',
+          lastSync: new Date().toISOString()
+        });
       }
+
+      console.log(`✅ Synced (${reason})${refreshAfter ? ' + refreshed' : ''}`);
+      return true;
+      
     } catch (error) {
-      set({ 
-        _syncInFlight: false,
-        syncStatus: 'error'
-      });
+      console.error('❌ Sync to server error:', error);
+      set({ syncStatus: 'error' });
+      return false;
+    } finally {
+      set({ _syncInFlight: false });
     }
   },
 
@@ -459,19 +478,53 @@ const useAuth = create<AuthStore>((set, get) => ({
 
   // SYNC FAVORITES
   syncFavorites: async (favorites: Manga[]) => {
-    setItemIfChanged('favorites', favorites);
-    await get().syncToServer({ refreshAfter: false });
+    const token = get().token;
+    if (!token) {
+      localStorage.setItem('favorites', JSON.stringify(favorites));
+      return false;
+    }
+
+    try {
+      localStorage.setItem('favorites', JSON.stringify(favorites));
+      await axios.post(`${API_URL}/user/sync`, {
+        ...buildLocalPayload(),
+        favorites
+      });
+      await get().syncFromServer({ reason: 'favorites' });
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync favorites:', error);
+      return false;
+    }
   },
 
   // SYNC READING
   syncReading: async (reading: Manga[]) => {
-    setItemIfChanged('reading', reading);
-    await get().syncToServer({ refreshAfter: false });
+    const token = get().token;
+    if (!token) {
+      localStorage.setItem('reading', JSON.stringify(reading));
+      return false;
+    }
+
+    try {
+      localStorage.setItem('reading', JSON.stringify(reading));
+      await axios.post(`${API_URL}/user/sync`, {
+        ...buildLocalPayload(),
+        reading
+      });
+      await get().syncFromServer({ reason: 'reading' });
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync reading list:', error);
+      return false;
+    }
   },
 
   // PERSIST LOCAL DATA
   persistLocalData: async () => {
-    await get().syncToServer({ refreshAfter: false });
+    if (get().isAuthenticated) {
+      await get().syncToServer({ refreshAfter: false, reason: 'persist' });
+    }
   }
 }));
 
