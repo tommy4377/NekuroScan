@@ -316,9 +316,14 @@ function ReaderPage() {
   
   // ✅ WRAP saveProgress in useCallback per evitare React error #300
   const saveProgress = React.useCallback(async () => {
-    if (!manga || !chapter) return;
+    if (!manga || !chapter) {
+      console.log('⚠️ [ReaderPage] saveProgress: manga or chapter missing');
+      return;
+    }
     
     try {
+      console.log(`💾 [ReaderPage] Saving progress for: ${manga.title} - Chapter ${chapterIndex} - Page ${currentPage}`);
+      
       const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
       readingProgress[manga.url] = {
         chapterId: chapter.url,
@@ -329,6 +334,7 @@ function ReaderPage() {
         timestamp: new Date().toISOString()
       };
       localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
+      console.log('✅ [ReaderPage] readingProgress saved');
       
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
       const existingIndex = reading.findIndex(r => r.url === manga.url);
@@ -347,25 +353,31 @@ function ReaderPage() {
       };
       
       if (existingIndex !== -1) {
+        console.log(`📝 [ReaderPage] Updating existing reading entry at index ${existingIndex}`);
         reading[existingIndex] = readingItem;
       } else {
+        console.log('📝 [ReaderPage] Adding NEW reading entry');
         reading.unshift(readingItem);
       }
       
       const updatedReading = reading.slice(0, 100);
       localStorage.setItem('reading', JSON.stringify(updatedReading));
+      console.log(`✅ [ReaderPage] reading list saved (${updatedReading.length} items):`, updatedReading.map(r => r.title));
+      
       window.dispatchEvent(new CustomEvent('library-updated'));
       
       // ✅ SYNC con profilo pubblico se loggato
       try {
         const { syncReading } = await import('../hooks/useAuth');
         if (syncReading) {
+          console.log('🔄 [ReaderPage] Calling syncReading...');
           await syncReading.getState().syncReading(updatedReading);
         }
       } catch (syncError) {
-        // Sync fallita ma non critico
+        console.warn('⚠️ [ReaderPage] Sync failed (non-critical):', syncError);
       }
     } catch (error) {
+      console.error('❌ [ReaderPage] Error saving progress:', error);
     }
   }, [manga, chapter, chapterIndex, currentPage, source]);
 

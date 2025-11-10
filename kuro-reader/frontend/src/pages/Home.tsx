@@ -182,10 +182,14 @@ function Home() {
       
       // Continua a leggere (locale, istantaneo)
       const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+      console.log(`📚 [Home] Reading list from localStorage: ${reading.length} items`, reading.map((r: any) => r.title));
+      
       const readingWithProgress = reading.slice(0, 6).map((item: any) => ({ // RIDOTTO: 10 → 6
         ...item,
         continueFrom: item.lastChapterIndex ? `Cap. ${item.lastChapterIndex + 1}` : null
       }));
+      
+      console.log(`📚 [Home] continueReading (first 6): ${readingWithProgress.length} items`);
       
       // ✅ FASE 1: Carica contenuti PRIORITARI (above-the-fold) - Riduce LCP
       console.log('[Home] 📥 Fetching trending and latest...');
