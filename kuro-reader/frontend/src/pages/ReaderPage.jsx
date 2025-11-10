@@ -1014,9 +1014,12 @@ function ReaderPage() {
 
   // ✅ LOADING UNICO: Un solo loading screen da 3 secondi
   if (loading) {
+    // ✅ Key stabile basata su sessionId (non cambia durante i re-render)
+    const loadingKey = loadingRef.current || `loading-${chapterId}`;
+    
     return (
       <ChapterLoadingScreen
-        key={`loading-${chapterId}-${Date.now()}`}
+        key={loadingKey}
         chapterTitle={chapter?.title || manga?.title || 'Caricamento...'}
         chapterPages={chapter?.pages || []}
         currentPage={currentPage + 1}
