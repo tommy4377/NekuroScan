@@ -595,6 +595,7 @@ function ReaderPage() {
   // ========== REFS per navigate/toast (evita loop) ==========
   const navigateRef = useRef(navigate);
   const toastRef = useRef(toast);
+  const loadingRef = useRef(false); // ✅ Flag per prevenire chiamate multiple
   
   useEffect(() => {
     navigateRef.current = navigate;
@@ -604,6 +605,13 @@ function ReaderPage() {
   // ========== EFFECTS ==========
   
   useEffect(() => {
+    // ✅ CRITICAL: Previeni chiamate multiple di loadData
+    if (loadingRef.current) {
+      return;
+    }
+    
+    loadingRef.current = true; // ✅ Setta flag PRIMA di loadData
+    
     let isMounted = true;
     let retryCount = 0;
     const MAX_RETRIES = 3;
@@ -867,6 +875,7 @@ function ReaderPage() {
     
     return () => {
       isMounted = false;
+      loadingRef.current = false; // ✅ Reset flag al cleanup
     };
   }, [source, mangaId, chapterId]); // ✅ FIX: Rimosse dipendenze navigate/toast per evitare ricariche
 
