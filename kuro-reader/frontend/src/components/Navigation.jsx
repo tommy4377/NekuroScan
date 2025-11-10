@@ -75,7 +75,16 @@ function Navigation() {
 
   return (
     <>
-      <Box h={{ base: '64px', md: '60px' }} />
+      {/* Spacer con safe-area */}
+      <Box 
+        h={{ base: '64px', md: '60px' }}
+        sx={{
+          '@supports (padding-top: env(safe-area-inset-top))': {
+            paddingTop: 'env(safe-area-inset-top)',
+            height: 'calc(64px + env(safe-area-inset-top))',
+          }
+        }}
+      />
       <Box
         bg="rgba(26, 32, 44, 0.95)"
         px={2}
@@ -89,6 +98,11 @@ function Navigation() {
         backdropFilter="blur(12px)"
         boxShadow={scrolled ? 'lg' : 'none'}
         transition="all 0.3s"
+        sx={{
+          '@supports (padding-top: env(safe-area-inset-top))': {
+            paddingTop: 'env(safe-area-inset-top)',
+          }
+        }}
       >
         <Container maxW="container.xl">
           <Flex 

@@ -101,6 +101,23 @@ function ReaderPage() {
     return images;
   }, [pagesToShow, currentPage, totalPages, chapter?.pages]);
   
+  // ========== VIEWPORT DINAMICO: Abilita zoom SOLO nel reader ==========
+  useEffect(() => {
+    const viewportMeta = document.getElementById('viewport-meta');
+    if (!viewportMeta) return;
+    
+    // Salva viewport originale
+    const originalContent = viewportMeta.getAttribute('content');
+    
+    // Abilita zoom nel reader
+    viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover');
+    
+    // Cleanup: ripristina viewport no-zoom quando si esce
+    return () => {
+      viewportMeta.setAttribute('content', originalContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
+    };
+  }, []);
+
   // ========== SALVA IMPOSTAZIONI ==========
   useEffect(() => {
     localStorage.setItem('readingMode', readingMode);
