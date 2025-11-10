@@ -1,0 +1,46 @@
+# ========================================
+# BACKEND .gitignore
+# ========================================
+
+# ========== NODE MODULES ==========
+node_modules/
+
+# ========== ENVIRONMENT ==========
+.env
+.env.local
+.env.*.local
+*.env
+
+# ========== LOGS ==========
+*.log
+npm-debug.log*
+yarn-debug.log*
+logs/
+
+# ========== DATABASE ==========
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+prisma/dev.db
+prisma/test.db
+
+# ========== PRISMA ==========
+prisma/migrations/
+!prisma/migrations/.gitkeep
+
+# ========== UPLOADS & TEMP ==========
+uploads/
+tmp/
+temp/
+*.tmp
+
+# ========== CACHE ==========
+.cache/
+.prisma/
+
+# ========== MISC ==========
+.DS_Store
+Thumbs.db
+

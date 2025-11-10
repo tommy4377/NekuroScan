@@ -1,0 +1,72 @@
+/**
+ * MAIN - Application entry point
+ * Initializes React root and registers service worker
+ */
+
+import ReactDOM from 'react-dom/client';
+import App from './App';
+
+// ========== SERVICE WORKER REGISTRATION ==========
+
+// Service Worker registered after idle to avoid blocking
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  const registerSW = async (): Promise<void> => {
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js', {
+        scope: '/',
+        updateViaCache: 'none' // Always check for updates
+      });
+      
+      // Handle updates
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        
+        newWorker?.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // Update in background - user will see new version on next manual refresh
+            newWorker.postMessage({ type: 'SKIP_WAITING' });
+          }
+        });
+      });
+      
+      // Pre-cache critical resources in background
+      if ('caches' in window) {
+        requestIdleCallback(() => {
+          caches.open('nekuro-v4').then(cache => {
+            const criticalUrls = [
+              '/web-app-manifest-192x192.webp',
+              '/favicon.svg'
+            ];
+            criticalUrls.forEach(url => cache.add(url).catch(() => {}));
+          });
+        });
+      }
+      
+    } catch {
+      // Silently fail in production
+    }
+  };
+  
+  // Register after page is fully loaded and idle
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(registerSW, { timeout: 2000 });
+  } else {
+    // Fallback for browsers without requestIdleCallback
+    window.addEventListener('load', () => {
+      setTimeout(registerSW, 1000);
+    });
+  }
+}
+
+// ========== REACT ROOT ==========
+
+const rootElement = document.getElementById('root');
+
+if (!rootElement) {
+  throw new Error('Root element not found');
+}
+
+ReactDOM.createRoot(rootElement).render(
+  <App />
+);
+

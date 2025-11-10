@@ -1,0 +1,207 @@
+# ========================================
+# ROOT .gitignore for KuroReader
+# ========================================
+
+# ========== NODE MODULES ==========
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ========== ENVIRONMENT VARIABLES ==========
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+*.env
+
+# ========== BUILD OUTPUTS ==========
+dist/
+dist-ssr/
+build/
+out/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+.vite/
+
+# ========== LOGS ==========
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log.*
+
+# ========== OPERATING SYSTEM ==========
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+.nfs*
+
+# ========== IDE & EDITORS ==========
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.history/
+
+# JetBrains (WebStorm, IntelliJ, etc)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+Sessionx.vim
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ========== TYPESCRIPT ==========
+*.tsbuildinfo
+.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ========== TESTING ==========
+coverage/
+*.coverage
+.nyc_output/
+.jest/
+__tests__/
+**/__tests__/
+*.test.js
+*.test.jsx
+*.test.ts
+*.test.tsx
+*.spec.js
+*.spec.jsx
+*.spec.ts
+*.spec.tsx
+test-results/
+playwright-report/
+cypress/videos/
+cypress/screenshots/
+
+# ========== TEMPORARY FILES ==========
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.~lock.*
+
+# ========== DEPENDENCIES & PACKAGE MANAGERS ==========
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.pnpm-store/
+.yarn/
+.pnp.*
+
+# ========== DATABASE ==========
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+prisma/migrations/
+!prisma/migrations/.gitkeep
+
+# ========== SECRETS & KEYS ==========
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
+.secrets/
+
+# ========== DEPLOYMENT ==========
+.vercel/
+.netlify/
+.render/
+.railway/
+.fleek/
+
+# ========== MISC ==========
+*.bak
+*.backup
+*.old
+*.orig
+.turbo/
+storybook-static/
+public/sw.js
+public/workbox-*.js
+.contentlayer/
+
+# ========== PROJECT SPECIFIC ==========
+# Documentation files (per user request)
+*.md
+!README.md
+
+# Stats and analysis
+stats.html
+bundle-analysis.html
+
+# Patches (keep patches directory but ignore generated patches)
+patches/*.patch
+!patches/.gitkeep
+

@@ -3,10 +3,10 @@
   "version": "2.1.0",
   "type": "module",
   "scripts": {
-    "start": "node auth-server.js",
-    "dev": "nodemon auth-server.js",
-    "migrate": "node migrate.js",
-    "repair": "node repair-data.js",
+    "start": "tsx auth-server.ts",
+    "dev": "tsx watch auth-server.ts",
+    "migrate": "tsx migrate.ts",
+    "repair": "tsx repair-data.ts",
     "setup": "npm run migrate && npm run repair",
     "build": "npx prisma generate",
     "migrate:deploy": "npx prisma db push",
@@ -27,6 +27,14 @@
   },
   "devDependencies": {
     "prisma": "^5.7.1",
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.2",
+    "tsx": "^4.7.0",
+    "@types/node": "^20.11.5",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/multer": "^1.4.11",
+    "typescript": "^5.3.3"
   }
 }
