@@ -336,7 +336,7 @@ function ReaderPage() {
       const readingItem = {
         url: manga.url,
         title: manga.title,
-        cover: manga.coverUrl,
+        cover: (manga as any).cover || manga.coverUrl,  // ✅ FIX: Support both fields
         type: manga.type,
         source: manga.source || source,
         lastChapterIndex: chapterIndex,

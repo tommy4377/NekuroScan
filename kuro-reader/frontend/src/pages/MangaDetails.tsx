@@ -125,7 +125,7 @@ function MangaDetails() {
       const historyItem = {
         url: mangaDetails.url,
         title: mangaDetails.title,
-        cover: mangaDetails.coverUrl,
+        cover: (mangaDetails as any).cover || mangaDetails.coverUrl,  // ✅ FIX: Support both fields
         type: mangaDetails.type,
         source: mangaDetails.source || source,
         lastVisited: new Date().toISOString()
@@ -263,7 +263,7 @@ function MangaDetails() {
         const mangaToSave = {
           url: manga.url,
           title: manga.title,
-          cover: manga.coverUrl,
+          cover: (manga as any).cover || manga.coverUrl,  // ✅ FIX: Support both fields
           type: manga.type,
           source: manga.source || source,
           genres: manga.genres || [],

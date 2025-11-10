@@ -559,6 +559,9 @@ function Home() {
                         opacity={0.95}
                         zIndex={10}
                         boxShadow="lg"
+                        pointerEvents="none"
+                        transform="translateZ(0)"
+                        willChange="auto"
                       >
                         {item.continueFrom}
                       </Box>
@@ -767,6 +770,7 @@ function Home() {
             color="green"
             viewAllPath="/library"
             showProgress={true}
+            showLatestChapter={false}
           />
         )}
 
