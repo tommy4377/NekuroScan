@@ -1421,6 +1421,84 @@ app.get('/api/user/:username/following', async (req, res) => {
   }
 });
 
+// SEARCH PUBLIC USERS
+app.get('/api/users/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.length < 2) {
+      return res.json({ users: [] });
+    }
+    
+    const searchTerm = sanitizeString(q, 100);
+    if (!searchTerm) {
+      return res.json({ users: [] });
+    }
+    
+    // Search only in public profiles
+    const users = await executeWithRetry(async () => {
+      return await prisma.user.findMany({
+        where: {
+          profile: {
+            isPublic: true
+          },
+          OR: [
+            {
+              username: {
+                contains: searchTerm.toLowerCase(),
+                mode: 'insensitive'
+              }
+            },
+            {
+              profile: {
+                displayName: {
+                  contains: searchTerm,
+                  mode: 'insensitive'
+                }
+              }
+            }
+          ]
+        },
+        include: {
+          profile: {
+            select: {
+              displayName: true,
+              avatarUrl: true,
+              bio: true,
+              badges: true,
+              viewCount: true
+            }
+          }
+        },
+        take: 20,
+        orderBy: [
+          { profile: { viewCount: 'desc' } },
+          { username: 'asc' }
+        ]
+      });
+    });
+    
+    const userList = users.map(u => ({
+      id: u.id,
+      username: u.username,
+      displayName: u.profile?.displayName || u.username,
+      avatarUrl: u.profile?.avatarUrl || '',
+      bio: u.profile?.bio || '',
+      badges: u.profile?.badges || [],
+      viewCount: u.profile?.viewCount || 0
+    }));
+    
+    res.json({ users: userList });
+    
+  } catch (error) {
+    console.error('Search users error:', error);
+    res.status(500).json({ 
+      message: 'Errore ricerca utenti',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // ========= NOTIFICATIONS ROUTES =========
 
 // CREATE NOTIFICATION TABLE (if doesn't exist)

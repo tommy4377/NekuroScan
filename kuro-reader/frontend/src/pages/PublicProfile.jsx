@@ -328,9 +328,9 @@ export default function PublicProfile() {
                         icon={<FaTwitter />}
                         size="sm"
                         variant="ghost"
-                        as="a"
-                        href={`https://twitter.com/${profile.socialLinks.twitter}`}
-                        target="_blank"
+                        onClick={() => {
+                          window.open(`https://twitter.com/${profile.socialLinks.twitter}`, '_blank', 'noopener,noreferrer');
+                        }}
                         aria-label="Twitter"
                       />
                     )}
@@ -340,6 +340,14 @@ export default function PublicProfile() {
                           icon={<FaDiscord />}
                           size="sm"
                           variant="ghost"
+                          onClick={() => {
+                            navigator.clipboard.writeText(profile.socialLinks.discord);
+                            toast({
+                              title: 'Discord copiato',
+                              status: 'success',
+                              duration: 2000
+                            });
+                          }}
                           aria-label="Discord"
                         />
                       </Tooltip>
@@ -349,9 +357,9 @@ export default function PublicProfile() {
                         icon={<FaInstagram />}
                         size="sm"
                         variant="ghost"
-                        as="a"
-                        href={`https://instagram.com/${profile.socialLinks.instagram}`}
-                        target="_blank"
+                        onClick={() => {
+                          window.open(`https://instagram.com/${profile.socialLinks.instagram}`, '_blank', 'noopener,noreferrer');
+                        }}
                         aria-label="Instagram"
                       />
                     )}
@@ -360,9 +368,9 @@ export default function PublicProfile() {
                         icon={<FaGithub />}
                         size="sm"
                         variant="ghost"
-                        as="a"
-                        href={`https://github.com/${profile.socialLinks.github}`}
-                        target="_blank"
+                        onClick={() => {
+                          window.open(`https://github.com/${profile.socialLinks.github}`, '_blank', 'noopener,noreferrer');
+                        }}
                         aria-label="GitHub"
                       />
                     )}
@@ -371,9 +379,9 @@ export default function PublicProfile() {
                         icon={<FaTiktok />}
                         size="sm"
                         variant="ghost"
-                        as="a"
-                        href={`https://tiktok.com/@${profile.socialLinks.tiktok}`}
-                        target="_blank"
+                        onClick={() => {
+                          window.open(`https://tiktok.com/@${profile.socialLinks.tiktok}`, '_blank', 'noopener,noreferrer');
+                        }}
                         aria-label="TikTok"
                       />
                     )}

@@ -4,15 +4,17 @@ import {
   Box, Container, Input, InputGroup, InputLeftElement,
   Heading, Text, VStack, HStack, Button, Skeleton, Badge, useToast,
   ButtonGroup, Center, Spinner, SimpleGrid, Collapse, IconButton,
-  Wrap, WrapItem
+  Wrap, WrapItem, Avatar
 } from '@chakra-ui/react';
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon } from '@chakra-ui/icons';
-import { FaFilter } from 'react-icons/fa';
+import { FaFilter, FaUserFriends } from 'react-icons/fa';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useInView } from 'react-intersection-observer';
 import MangaCard from '../components/MangaCard';
 import apiManager from '../api';
 import searchHistory from '../utils/searchHistory';
+import axios from 'axios';
+import { config } from '../config';
 // import { motion } from 'framer-motion'; // Rimosso per evitare errori React #300
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
@@ -27,6 +29,7 @@ function Search() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [results, setResults] = useState([]);
+  const [userResults, setUserResults] = useState([]); // ✅ Risultati utenti
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -74,6 +77,28 @@ function Search() {
       let data = [];
       const limit = 40;
       
+      // ✅ Ricerca utenti
+      if (mode === 'users') {
+        const response = await axios.get(`${config.API_URL}/api/users/search?q=${encodeURIComponent(searchQuery)}`);
+        data = response.data.users || [];
+        
+        setUserResults(data);
+        setResults([]); // Pulisci risultati manga
+        setHasMore(false); // Nessuna paginazione per utenti (max 20)
+        setPage(1);
+        
+        if (data.length === 0) {
+          toast({ 
+            title: 'Nessun utente trovato', 
+            status: 'info', 
+            duration: 2000,
+            isClosable: true
+          });
+        }
+        return;
+      }
+      
+      // Ricerca manga
       if (mode === 'adult') {
         data = await apiManager.searchAdult(searchQuery, limit);
       } else if (mode === 'normal') {
@@ -83,6 +108,8 @@ function Search() {
         const r = await apiManager.searchAll(searchQuery, { includeAdult: true, limit });
         data = r.all || [];
       }
+      
+      setUserResults([]); // Pulisci risultati utenti
       
       if (append) {
         setResults(prev => {
@@ -371,16 +398,18 @@ function Search() {
           <VStack spacing={3}>
             <HStack justify="space-between" w="100%">
               <Text fontSize="sm" color="gray.400">Tipo di contenuti:</Text>
-              <Button
-                size="sm"
-                leftIcon={<FaFilter />}
-                rightIcon={showFilters ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                variant="ghost"
-                colorScheme="purple"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                {showFilters ? 'Nascondi' : 'Mostra'} Filtri Avanzati
-              </Button>
+              {searchMode !== 'users' && (
+                <Button
+                  size="sm"
+                  leftIcon={<FaFilter />}
+                  rightIcon={showFilters ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                  variant="ghost"
+                  colorScheme="purple"
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  {showFilters ? 'Nascondi' : 'Mostra'} Filtri Avanzati
+                </Button>
+              )}
             </HStack>
             
             <ButtonGroup size="sm" isAttached variant="outline">
@@ -405,10 +434,18 @@ function Search() {
               >
                 🔞 Solo Adult
               </Button>
+              <Button
+                variant={searchMode === 'users' ? 'solid' : 'outline'}
+                colorScheme="green"
+                onClick={() => changeSearchMode('users')}
+                leftIcon={<FaUserFriends />}
+              >
+                Utenti
+              </Button>
             </ButtonGroup>
             
-            {/* Filtri Avanzati Collassabili */}
-            <Collapse in={showFilters} style={{ width: '100%' }}>
+            {/* Filtri Avanzati Collassabili - Solo per manga */}
+            <Collapse in={showFilters && searchMode !== 'users'} style={{ width: '100%' }}>
               <VStack
                 spacing={4}
                 align="stretch"
@@ -477,7 +514,93 @@ function Search() {
           </VStack>
         </VStack>
 
-        {(results.length > 0 || loading) && (
+        {/* ========== RISULTATI UTENTI ========== */}
+        {(userResults.length > 0 || (loading && searchMode === 'users')) && (
+          <VStack spacing={6} align="stretch">
+            <HStack justify="space-between" flexWrap="wrap">
+              <Text fontWeight="bold">
+                {loading ? 'Ricerca utenti in corso...' : `${userResults.length} ${userResults.length === 1 ? 'utente trovato' : 'utenti trovati'}`}
+              </Text>
+            </HStack>
+
+            {loading ? (
+              <VStack spacing={4}>
+                {[...Array(3)].map((_, i) => (
+                  <HStack key={i} p={4} bg="gray.800" borderRadius="lg" w="100%">
+                    <Skeleton boxSize="50px" borderRadius="full" />
+                    <VStack align="start" flex={1} spacing={2}>
+                      <Skeleton height="20px" width="150px" />
+                      <Skeleton height="15px" width="100px" />
+                    </VStack>
+                  </HStack>
+                ))}
+              </VStack>
+            ) : (
+              <VStack spacing={3} align="stretch">
+                {userResults.map((user) => (
+                  <Box
+                    key={user.id}
+                    p={4}
+                    bg="gray.800"
+                    borderRadius="lg"
+                    cursor="pointer"
+                    _hover={{ bg: 'gray.700', transform: 'translateY(-2px)', boxShadow: 'lg' }}
+                    transition="all 0.2s"
+                    onClick={() => navigate(`/user/${user.username}`)}
+                  >
+                    <HStack spacing={4}>
+                      <Avatar
+                        size="lg"
+                        name={user.displayName}
+                        src={user.avatarUrl}
+                        bg="purple.500"
+                      />
+                      <VStack align="start" flex={1} spacing={1}>
+                        <HStack>
+                          <Text fontWeight="bold" fontSize="lg">
+                            {user.displayName}
+                          </Text>
+                          {user.badges && user.badges.length > 0 && (
+                            <Badge colorScheme="purple" fontSize="xs">
+                              {user.badges[0]}
+                            </Badge>
+                          )}
+                        </HStack>
+                        <Text fontSize="sm" color="gray.400">
+                          @{user.username}
+                        </Text>
+                        {user.bio && (
+                          <Text fontSize="sm" color="gray.300" noOfLines={2}>
+                            {user.bio}
+                          </Text>
+                        )}
+                        {user.viewCount > 0 && (
+                          <Badge colorScheme="blue" fontSize="xs">
+                            {user.viewCount} visualizzazioni
+                          </Badge>
+                        )}
+                      </VStack>
+                      <Button
+                        size="sm"
+                        colorScheme="purple"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/user/${user.username}`);
+                        }}
+                      >
+                        Visualizza
+                      </Button>
+                    </HStack>
+                  </Box>
+                ))}
+              </VStack>
+            )}
+          </VStack>
+        )}
+
+        {/* ========== RISULTATI MANGA ========== */}
+        {(results.length > 0 || (loading && searchMode !== 'users')) && (
           <VStack spacing={6} align="stretch">
             <HStack justify="space-between" flexWrap="wrap">
               <Text fontWeight="bold">

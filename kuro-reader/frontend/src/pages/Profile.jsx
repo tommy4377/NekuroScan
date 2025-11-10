@@ -670,9 +670,10 @@ export default function Profile() {
                           icon={<FaTwitter />}
                           size="sm"
                           variant="ghost"
-                          as="a"
-                          href={`https://twitter.com/${profileData.socialLinks.twitter.replace('@', '')}`}
-                          target="_blank"
+                          onClick={() => {
+                            const username = profileData.socialLinks.twitter.replace('@', '');
+                            window.open(`https://twitter.com/${username}`, '_blank', 'noopener,noreferrer');
+                          }}
                           aria-label="Twitter"
                         />
                       )}
@@ -700,9 +701,10 @@ export default function Profile() {
                           icon={<FaInstagram />}
                           size="sm"
                           variant="ghost"
-                          as="a"
-                          href={`https://instagram.com/${profileData.socialLinks.instagram.replace('@', '')}`}
-                          target="_blank"
+                          onClick={() => {
+                            const username = profileData.socialLinks.instagram.replace('@', '');
+                            window.open(`https://instagram.com/${username}`, '_blank', 'noopener,noreferrer');
+                          }}
                           aria-label="Instagram"
                         />
                       )}
