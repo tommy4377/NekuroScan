@@ -40,7 +40,6 @@ function ReaderPage() {
   const [chapter, setChapter] = useState(null);
   const [manga, setManga] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showPreloader, setShowPreloader] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -907,7 +906,7 @@ function ReaderPage() {
   // Preload immagini successive
   // ✅ PRELOAD OTTIMIZZATO: Usa image queue con priorità
   useEffect(() => {
-    if (!chapter?.pages || readingMode === 'webtoon' || showPreloader) return;
+    if (!chapter?.pages || readingMode === 'webtoon' || loading) return;
     
     const preloadWithQueue = async () => {
       try {
@@ -936,7 +935,7 @@ function ReaderPage() {
     };
     
     preloadWithQueue();
-  }, [currentPage, totalPages, chapter, readingMode, showPreloader]);
+  }, [currentPage, totalPages, chapter, readingMode, loading]);
 
   // Auto-scroll per modalità webtoon
   useEffect(() => {
@@ -990,60 +989,18 @@ function ReaderPage() {
   }, [currentPage, chapterIndex, manga, chapter]); // ✅ FIX: Rimosso saveProgress per evitare loop infinito
 
   // ========== RENDER ==========
-  
-  // ✅ PRELOAD INTELLIGENTE: Mostra loading screen UNA SOLA VOLTA quando dati pronti
-  const hasShownPreloader = useRef(false);
-  
-  useEffect(() => {
-    if (!loading && chapter && manga && chapter.pages && chapter.pages.length > 0) {
-      if (!hasShownPreloader.current) {
-        hasShownPreloader.current = true;
-        setShowPreloader(true);
-      }
-    }
-  }, [loading, chapter, manga]);
-  
-  // Reset flag quando cambia capitolo
-  useEffect(() => {
-    hasShownPreloader.current = false;
-  }, [chapterId]);
 
-  // ✅ CRITICAL: Loading screen durante fetch dati
-  if (loading || !manga || !chapter) {
-    return (
-      <Box h="100vh" bg="black" display="flex" alignItems="center" justifyContent="center">
-        <VStack spacing={6}>
-          <Spinner 
-            size="xl" 
-            color="purple.500" 
-            thickness="4px"
-            speed="0.65s"
-          />
-          <VStack spacing={2}>
-            <Text color="white" fontSize="lg" fontWeight="bold">Caricamento capitolo...</Text>
-            <Text color="gray.400" fontSize="sm">{manga?.title || 'Attendere...'}</Text>
-            {chapterIndex >= 0 && (
-              <Badge colorScheme="purple">
-                Capitolo {chapterIndex + 1}
-              </Badge>
-            )}
-          </VStack>
-        </VStack>
-      </Box>
-    );
-  }
-
-  // ✅ PRELOADER: Loading screen con preload immagini (3+ secondi)
-  if (showPreloader) {
+  // ✅ LOADING UNICO: Un solo loading screen da 5 secondi
+  if (loading) {
     return (
       <ChapterLoadingScreen
-        key={`${chapterId}-${chapterIndex}`}
-        chapterTitle={chapter.title || `Capitolo ${chapterIndex + 1}`}
-        chapterPages={chapter.pages}
+        key={`loading-${chapterId}`}
+        chapterTitle={chapter?.title || manga?.title || 'Caricamento...'}
+        chapterPages={chapter?.pages || []}
         currentPage={currentPage + 1}
-        totalPages={chapter.pages?.length || 0}
-        onLoadComplete={() => setShowPreloader(false)}
-        minDelay={3000}
+        totalPages={chapter?.pages?.length || 0}
+        onLoadComplete={() => setLoading(false)}
+        minDelay={5000}
       />
     );
   }
@@ -1168,17 +1125,17 @@ function ReaderPage() {
                   position="absolute"
                   top={4}
                   left={4}
-                  bg="blackAlpha.600"
-                  color="white"
+                  bg="blackAlpha.500"
+                  color="whiteAlpha.900"
                   px={3}
                   py={1}
                   borderRadius="full"
                   fontSize="xs"
                   fontWeight="bold"
                   zIndex={1}
-                  opacity={0.75}
+                  opacity={0.5}
                   transition="opacity 0.2s"
-                  _hover={{ opacity: 1 }}
+                  _hover={{ opacity: 0.9 }}
                   backdropFilter="blur(4px)"
                 >
                   {i + 1} / {totalPages}
