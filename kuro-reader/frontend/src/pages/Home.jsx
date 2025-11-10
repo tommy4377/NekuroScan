@@ -262,13 +262,15 @@ function Home() {
         return;
       }
       
-      // Ricarica tutto automaticamente
+      // ✅ Ricarica solo i dati, NON la pagina intera
       await loadAllContent();
       
-      // Forza refresh completo per caricare tutte le risorse
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
+      toast({
+        title: '🌐 Connesso!',
+        description: 'Contenuti aggiornati',
+        status: 'success',
+        duration: 2000
+      });
     };
     
     const handleOffline = () => {
@@ -637,18 +639,16 @@ function Home() {
                         duration: 3000
                       });
                     } else {
-                      // Siamo online! Ricarica TUTTO
+                      // Siamo online! Ricarica solo i dati
+                      setIsOffline(false);
+                      await loadAllContent();
+                      
                       toast({
                         title: '🌐 Connesso!',
-                        description: 'Ricaricamento pagina...',
+                        description: 'Contenuti ricaricati',
                         status: 'success',
-                        duration: 1500
+                        duration: 2000
                       });
-                      
-                      // Forza refresh completo della pagina
-                      setTimeout(() => {
-                        window.location.reload();
-                      }, 1000);
                     }
                   }}
                   size="md"

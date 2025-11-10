@@ -17,7 +17,8 @@ const BannedNotice = ({ isOpen, onClose, retryAfter, reason = 'rate-limit' }) =>
         if (prev <= 1) {
           clearInterval(interval);
           onClose();
-          window.location.reload(); // Ricarica per testare
+          // ❌ NON ricaricare - ritorna alla home
+          window.location.href = '/home';
           return 0;
         }
         return prev - 1;

@@ -1,8 +1,7 @@
 // ✅ ChapterLoadingScreen - Loading SMOOTH con countdown
 import React, { useEffect, useState } from 'react';
-import { Box, VStack, Text, Progress, HStack, Icon } from '@chakra-ui/react';
+import { Box, VStack, Text, Progress, Icon } from '@chakra-ui/react';
 import { FaBook } from 'react-icons/fa';
-import useChapterPreload from '../hooks/useChapterPreload';
 
 const ChapterLoadingScreen = ({ 
   chapterTitle,
@@ -14,52 +13,53 @@ const ChapterLoadingScreen = ({
 }) => {
   const [progress, setProgress] = useState(0);
   const [countdown, setCountdown] = useState(Math.ceil(minDelay / 1000));
-  
-  // Hook per preload REALE
-  const { progress: preloadProgress, loadedCount, isComplete: preloadComplete, totalToLoad } = useChapterPreload(chapterPages, true);
 
   useEffect(() => {
     let mounted = true;
     const startTime = Date.now();
     let animationFrame;
-    let countdownInterval;
 
-    // Progress bar smooth animation
+    // Preload immagini in background (non bloccante)
+    if (chapterPages && chapterPages.length > 0) {
+      const preloadCount = Math.min(5, chapterPages.length);
+      
+      chapterPages.slice(0, preloadCount).forEach((url, i) => {
+        setTimeout(() => {
+          if (!mounted) return;
+          const img = new Image();
+          const cdnPattern = atob('Y2RuLm1hbmdhd29ybGQ=');
+          const needsProxy = url.includes(cdnPattern);
+          img.src = needsProxy 
+            ? `${import.meta.env.VITE_PROXY_URL || 'https://kuro-proxy-server.onrender.com'}/api/image-proxy?url=${encodeURIComponent(url)}`
+            : url;
+        }, i * 200); // Stagger per non sovraccaricare
+      });
+    }
+
+    // Progress bar SMOOTH con requestAnimationFrame (60fps)
     const updateProgress = () => {
       if (!mounted) return;
       
       const elapsed = Date.now() - startTime;
-      const linearProgress = Math.min((elapsed / minDelay) * 100, 100);
+      const currentProgress = Math.min((elapsed / minDelay) * 100, 100);
       
-      // Mix progress lineare + preload reale
-      const mixedProgress = Math.max(linearProgress, preloadProgress);
+      setProgress(currentProgress);
       
-      setProgress(mixedProgress);
+      // Update countdown
+      const remaining = Math.max(0, Math.ceil((minDelay - elapsed) / 1000));
+      setCountdown(remaining);
 
-      if (linearProgress < 100) {
+      if (currentProgress < 100) {
         animationFrame = requestAnimationFrame(updateProgress);
-      } else if (preloadComplete) {
-        // Completa quando ENTRAMBI: tempo passato E preload completo
+      } else {
+        // Completa quando il tempo è passato
         setTimeout(() => {
           if (mounted && onLoadComplete) {
             onLoadComplete();
           }
-        }, 200);
+        }, 100);
       }
     };
-
-    // Countdown timer
-    countdownInterval = setInterval(() => {
-      if (!mounted) return;
-      
-      const elapsed = Date.now() - startTime;
-      const remaining = Math.max(0, Math.ceil((minDelay - elapsed) / 1000));
-      setCountdown(remaining);
-      
-      if (remaining === 0) {
-        clearInterval(countdownInterval);
-      }
-    }, 100);
 
     // Start animation
     animationFrame = requestAnimationFrame(updateProgress);
@@ -67,9 +67,8 @@ const ChapterLoadingScreen = ({
     return () => {
       mounted = false;
       if (animationFrame) cancelAnimationFrame(animationFrame);
-      if (countdownInterval) clearInterval(countdownInterval);
     };
-  }, [minDelay, onLoadComplete, preloadComplete, preloadProgress]);
+  }, [minDelay, onLoadComplete, chapterPages]);
 
   return (
     <Box
@@ -109,18 +108,18 @@ const ChapterLoadingScreen = ({
         </Box>
 
         {/* Titolo capitolo */}
-        <VStack spacing={4} textAlign="center">
-          <Text fontSize="xl" fontWeight="bold" color="white">
+        <VStack spacing={6} textAlign="center">
+          <Text fontSize="2xl" fontWeight="bold" color="white">
             {chapterTitle || 'Caricamento Capitolo'}
           </Text>
           
-          <Text fontSize="lg" color="purple.400" fontWeight="bold">
+          <Text fontSize="3xl" color="purple.400" fontWeight="bold">
             {countdown > 0 ? `${countdown}s` : 'Pronto!'}
           </Text>
         </VStack>
 
         {/* Progress bar SMOOTH */}
-        <Box width="100%" maxW="350px">
+        <Box width="100%" maxW="400px">
           <Progress
             value={progress}
             size="lg"
@@ -130,25 +129,10 @@ const ChapterLoadingScreen = ({
             isAnimated
             sx={{
               '& > div': {
-                transition: 'none' // Rimosso per smoothness con requestAnimationFrame
+                transition: 'none' // Smooth con requestAnimationFrame
               }
             }}
           />
-          
-          <HStack justify="space-between" mt={3}>
-            <Text fontSize="sm" color="gray.400">
-              Precaricamento: {loadedCount}/{totalToLoad}
-            </Text>
-            <Text fontSize="sm" color="purple.400" fontWeight="bold">
-              {Math.round(progress)}%
-            </Text>
-          </HStack>
-          
-          {totalPages > 0 && (
-            <Text fontSize="xs" color="gray.500" textAlign="center" mt={2}>
-              {totalPages} pagine da caricare
-            </Text>
-          )}
         </Box>
       </VStack>
 

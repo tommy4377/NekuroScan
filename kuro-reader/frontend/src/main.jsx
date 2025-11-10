@@ -22,11 +22,10 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
         
         newWorker?.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // Mostra notifica di aggiornamento (gestito in App.jsx)
-            if (confirm('Nuova versione disponibile! Ricaricare?')) {
-              newWorker.postMessage({ type: 'SKIP_WAITING' });
-              window.location.reload();
-            }
+            // ❌ NON mostrare popup - aggiorna in background
+            // L'utente vedrà la nuova versione al prossimo refresh manuale
+            console.log('🔄 Nuova versione disponibile (verrà applicata al prossimo refresh)');
+            newWorker.postMessage({ type: 'SKIP_WAITING' });
           }
         });
       });
@@ -60,13 +59,10 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     window.addEventListener('load', () => setTimeout(registerSW, 1000));
   }
   
-  // Reload quando il service worker prende controllo
-  let refreshing = false;
+  // ❌ NON ricaricare quando il service worker cambia
+  // Aggiornamento silenzioso, applicato al prossimo caricamento pagina
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) {
-      refreshing = true;
-      window.location.reload();
-    }
+    console.log('🔄 Service Worker controller cambiato');
   });
 }
 

@@ -37,10 +37,9 @@ export async function registerServiceWorker() {
     // Reload quando nuovo SW prende controllo
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!refreshing) {
-        refreshing = true;
-        window.location.reload();
-      }
+      // ❌ NON ricaricare automaticamente - può interrompere la lettura
+      // L'utente vedrà la nuova versione al prossimo refresh manuale
+      console.log('🔄 Service Worker aggiornato (verrà applicato al prossimo refresh)');
     });
     
     return registration;
