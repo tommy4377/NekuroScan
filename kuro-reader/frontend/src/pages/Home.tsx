@@ -562,6 +562,7 @@ function Home() {
                         textAlign="center"
                         fontWeight="bold"
                         opacity={0.95}
+                        zIndex={5}
                         boxShadow="lg"
                       >
                         {item.continueFrom}

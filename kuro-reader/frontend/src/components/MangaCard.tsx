@@ -202,6 +202,7 @@ const MangaCard = memo<MangaCardProps>(({
               textAlign="center"
               fontWeight="bold"
               opacity={0.95}
+              zIndex={5}
               boxShadow="lg"
             >
               Capitolo {cleanChapter}
