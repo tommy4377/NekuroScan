@@ -173,7 +173,8 @@ app.use((req, res, next) => {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'",
+    // ✅ FIX: Permetti iframe in development per mobile simulators/testing
+    isDevelopment ? "frame-ancestors 'self' chrome-extension: moz-extension:" : "frame-ancestors 'none'",
     
     // ✅ Upgrade automatico HTTP -> HTTPS
     "upgrade-insecure-requests"
@@ -189,7 +190,8 @@ app.use((req, res, next) => {
   }
   
   // Security headers
-  res.setHeader('X-Frame-Options', 'DENY');
+  // ✅ FIX: Permetti iframe in development per mobile simulators
+  res.setHeader('X-Frame-Options', isDevelopment ? 'SAMEORIGIN' : 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
