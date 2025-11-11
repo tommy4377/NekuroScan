@@ -562,12 +562,7 @@ function Home() {
                         textAlign="center"
                         fontWeight="bold"
                         opacity={0.95}
-                        zIndex={1000}
                         boxShadow="lg"
-                        pointerEvents="none"
-                        transform="translateZ(0)"
-                        willChange="auto"
-                        transition="none"
                       >
                         {item.continueFrom}
                       </Box>
