@@ -209,11 +209,16 @@ const useAuth = create<AuthStore>((set, get) => ({
         error: null  // ✅ Clear any previous errors
       });
       
+      // ✅ FIX CRITICO: Prima SCARICA dal server, POI synca eventuale locale
+      console.log('[useAuth] 📥 Loading data from server...');
+      await get().syncFromServer({ reason: 'login' });
+      
+      // POI synca eventuale dato locale che era già presente
+      console.log('[useAuth] 📤 Syncing local data to server...');
+      await get().syncToServer({ reason: 'login-merge', force: true });
+      
       // Start auto-sync after login
       get().startAutoSync();
-      
-      // Sync local data to server
-      await get().syncToServer({ reason: 'login' });
       
       console.log('[useAuth] ✅ Login complete');
       return { success: true, user };  // ✅ Return format matching old version
@@ -256,11 +261,12 @@ const useAuth = create<AuthStore>((set, get) => ({
         error: null
       });
       
+      // ✅ FIX: Al register non ci sono dati vecchi, quindi non synca
+      console.log('[useAuth] 📥 Loading data from server (should be empty for new user)...');
+      await get().syncFromServer({ reason: 'register' });
+      
       // Start auto-sync
       get().startAutoSync();
-      
-      // Sync from server
-      await get().syncFromServer({ reason: 'register' });
       
       console.log('[useAuth] ✅ Register complete');
       return { success: true, user };  // ✅ Return format matching old version
