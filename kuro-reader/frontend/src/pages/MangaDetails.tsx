@@ -44,14 +44,11 @@ function MangaDetails() {
   // Decodifica source per uso interno
   const source = decodeSource(encodedSource);
   
-  // ✅ Hook sempre in cima, con fallback sicuro
-  const authHook = useAuth();
-  const { 
-    user = null, 
-    syncFavorites = null, 
-    syncToServer = null, 
-    syncReading = null 
-  } = authHook || {};
+  // ✅ FIX: Usa selettori Zustand per reattività
+  const user = useAuth(state => state.user);
+  const syncFavorites = useAuth(state => state.syncFavorites);
+  const syncToServer = useAuth(state => state.syncToServer);
+  const syncReading = useAuth(state => state.syncReading);
   
   const { addDownload, updateChapterProgress, completeChapter, finishDownload } = useDownloadProgress();
   
@@ -246,12 +243,15 @@ function MangaDetails() {
   // Toggle favorite
   const toggleFavorite = async () => {
     try {
+      console.log('💖 [MangaDetails] toggleFavorite called for:', manga.title);
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+      console.log('💖 [MangaDetails] Current favorites:', favorites.length, 'items');
       let updated;
       
       if (isFavorite) {
         updated = favorites.filter(f => f.url !== manga.url);
         setIsFavorite(false);
+        console.log('➖ [MangaDetails] Removed from favorites. New count:', updated.length);
         
         toast({
           title: 'Rimosso dai preferiti',
@@ -272,6 +272,8 @@ function MangaDetails() {
         
         updated = [mangaToSave, ...favorites];
         setIsFavorite(true);
+        console.log('➕ [MangaDetails] Added to favorites. New count:', updated.length);
+        console.log('➕ [MangaDetails] Manga data:', mangaToSave);
         
         toast({
           title: '❤️ Aggiunto ai preferiti',
@@ -282,12 +284,17 @@ function MangaDetails() {
       }
       
       localStorage.setItem('favorites', JSON.stringify(updated));
+      console.log('✅ [MangaDetails] Saved to localStorage. Total:', updated.length);
       
-      if (user && syncFavorites && typeof syncFavorites === 'function') {
+      if (user && syncFavorites) {
         try {
+          console.log('🔄 [MangaDetails] Calling syncFavorites with', updated.length, 'items');
           await syncFavorites(updated);
         } catch (e) {
+          console.error('❌ [MangaDetails] syncFavorites error:', e);
         }
+      } else {
+        console.log('⚠️ [MangaDetails] Not syncing - user:', !!user, 'syncFavorites:', !!syncFavorites);
       }
       
       window.dispatchEvent(new CustomEvent('library-updated'));
