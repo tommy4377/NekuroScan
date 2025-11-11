@@ -29,7 +29,6 @@ CREATE INDEX IF NOT EXISTS "favorites_mangaUrl_idx" ON "favorites"("mangaUrl");
 CREATE INDEX IF NOT EXISTS "favorites_userId_addedAt_idx" ON "favorites"("userId", "addedAt" DESC);
 
 COMMENT ON TABLE "favorites" IS 'Favoriti utente - normalizzati (sostituto di user_favorites JSON)';
-COMMENT ON COLUMN "favorites"."status" IS 'Sempre NULL per compatibilità';
 
 -- ============================================================================
 -- 📦 TABELLA: library_manga
