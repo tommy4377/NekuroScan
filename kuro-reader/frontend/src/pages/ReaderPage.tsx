@@ -28,6 +28,7 @@ import ProxiedImage from '@/components/ProxiedImage';
 import ChapterLoadingScreen from '@/components/ChapterLoadingScreen';
 import ReaderControls from '@/components/ReaderControls';
 import { config } from '@/config';
+import useAuth from '@/hooks/useAuth';
 import { encodeSource, decodeSource } from '@/utils/sourceMapper';
 
 function ReaderPage() {
@@ -368,10 +369,14 @@ function ReaderPage() {
       
       // ✅ SYNC con profilo pubblico se loggato
       try {
-        const { syncReading } = await import('../hooks/useAuth');
-        if (syncReading) {
+        const syncReading = useAuth.getState().syncReading;
+        const isAuthenticated = useAuth.getState().isAuthenticated;
+        
+        if (isAuthenticated && syncReading) {
           console.log('🔄 [ReaderPage] Calling syncReading...');
-          await syncReading.getState().syncReading(updatedReading);
+          await syncReading(updatedReading);
+        } else {
+          console.log('⚠️ [ReaderPage] User not authenticated, skipping sync');
         }
       } catch (syncError) {
         console.warn('⚠️ [ReaderPage] Sync failed (non-critical):', syncError);
