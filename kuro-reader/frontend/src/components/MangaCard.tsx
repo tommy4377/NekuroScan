@@ -17,6 +17,7 @@ interface MangaCardProps {
   manga: Manga;
   showLatestChapter?: boolean;
   priority?: boolean;
+  continueFrom?: string | null;  // ✅ Badge "In lettura"
 }
 
 // ========== UTILITIES ==========
@@ -40,7 +41,8 @@ function safeEncodeUrl(url: string): string {
 const MangaCard = memo<MangaCardProps>(({ 
   manga, 
   showLatestChapter = false, 
-  priority = false 
+  priority = false,
+  continueFrom = null
 }) => {
   const navigate = useNavigate();
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -207,6 +209,29 @@ const MangaCard = memo<MangaCardProps>(({
               pointerEvents="none"
             >
               Capitolo {cleanChapter}
+            </Box>
+          )}
+          
+          {continueFrom && (
+            <Box
+              position="absolute"
+              bottom={2}
+              left={2}
+              right={2}
+              bg="green.600"
+              color="white"
+              px={2}
+              py={1}
+              borderRadius="md"
+              fontSize="xs"
+              textAlign="center"
+              fontWeight="bold"
+              opacity={0.95}
+              zIndex={1001}
+              boxShadow="lg"
+              pointerEvents="none"
+            >
+              {continueFrom}
             </Box>
           )}
         </Box>

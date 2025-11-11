@@ -542,33 +542,10 @@ function Home() {
                   >
                     <MangaCard 
                       manga={item} 
-                      
                       showLatestChapter={showLatestChapter}
                       priority={i < 3}  // ✅ PERFORMANCE: Solo prime 3 eager, resto lazy
+                      continueFrom={showProgress ? item.continueFrom : null}
                     />
-                    
-                    {showProgress && item.continueFrom && (
-                      <Box
-                        position="absolute"
-                        bottom="60px"
-                        left={2}
-                        right={2}
-                        bg="green.600"
-                        color="white"
-                        px={2}
-                        py={1}
-                        borderRadius="md"
-                        fontSize="xs"
-                        textAlign="center"
-                        fontWeight="bold"
-                        opacity={0.95}
-                        zIndex={1001}
-                        boxShadow="lg"
-                        pointerEvents="none"
-                      >
-                        {item.continueFrom}
-                      </Box>
-                    )}
                   </Box>
                 ))}
               </HStack>
