@@ -13,6 +13,7 @@ import axios from 'axios';
 import { config } from '@/config';
 import type { User } from '@/types';
 import type { Manga } from '@/types/manga';
+import { cleanupOrphanedLocalStorageData } from '@/utils/cleanupLocalStorage'; // ✅ Pulizia dati orfani
 
 // ========== TYPES ==========
 
@@ -216,6 +217,10 @@ const useAuth = create<AuthStore>((set, get) => ({
       // POI synca eventuale dato locale che era già presente
       console.log('[useAuth] 📤 Syncing local data to server...');
       await get().syncToServer({ reason: 'login-merge', force: true });
+      
+      // ✅ FIX: Pulisci dati orfani dopo sync
+      console.log('[useAuth] 🧹 Cleaning orphaned data...');
+      cleanupOrphanedLocalStorageData();
       
       // Start auto-sync after login
       get().startAutoSync();

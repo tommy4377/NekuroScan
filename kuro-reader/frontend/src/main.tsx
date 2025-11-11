@@ -10,6 +10,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import diagnostics from './utils/diagnostics';
 import './utils/debugLogger'; // ✅ Inizializza debug logger (disabilita log per utenti normali)
+import { cleanupOrphanedLocalStorageData } from './utils/cleanupLocalStorage'; // ✅ Pulizia dati orfani
 
 // ========== SERVICE WORKER REGISTRATION ==========
 
@@ -62,6 +63,13 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     });
   }
 }
+
+// ========== CLEANUP ORPHANED DATA ==========
+
+// ✅ FIX: Pulisci dati desyncati all'avvio dell'app
+requestIdleCallback(() => {
+  cleanupOrphanedLocalStorageData();
+}, { timeout: 3000 });
 
 // ========== REACT ROOT ==========
 

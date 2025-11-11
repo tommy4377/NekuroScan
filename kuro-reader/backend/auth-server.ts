@@ -631,6 +631,8 @@ app.post('/api/auth/register', advancedRateLimiter('auth'), requireDatabase, asy
       });
     });
 
+    // ✅ Crea solo user_profile - Le altre tabelle (favorite, library_manga, history) 
+    // vengono create on-demand quando l'utente aggiunge dati
     await executeWithRetry(async () => {
       await prisma.user_profile.create({
         data: {
@@ -642,27 +644,6 @@ app.post('/api/auth/register', advancedRateLimiter('auth'), requireDatabase, asy
           isPublic: false,
           viewCount: 0,
           badges: []
-        }
-      });
-    });
-
-    await executeWithRetry(async () => {
-      await prisma.user_favorites.create({
-        data: {
-          userId: newUser.id,
-          favorites: '[]'
-        }
-      });
-    });
-
-    await executeWithRetry(async () => {
-      await prisma.user_library.create({
-        data: {
-          userId: newUser.id,
-          reading: '[]',
-          completed: '[]',
-          dropped: '[]',
-          history: '[]'
         }
       });
     });
@@ -893,7 +874,7 @@ app.put('/api/user/profile', authenticateToken, requireDatabase, upload.fields([
   }
 });
 
-// SYNC DATA TO SERVER - NO TRANSACTIONS
+// ✅ SYNC DATA TO SERVER - NORMALIZED TABLES
 app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) => {
   try {
     const { favorites, reading, completed, dropped, history, readingProgress } = req.body;
@@ -908,77 +889,107 @@ app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) 
       progressKeys: readingProgress ? Object.keys(readingProgress).length : 0
     });
     
-    // SYNC FAVORITES
-    if (favorites !== undefined) {
-      console.log(`💖 [Backend] Syncing favorites for user ${userId}:`, favorites.length, 'items');
+    // ========== SYNC FAVORITES (tabella normalizzata) ==========
+    if (favorites !== undefined && Array.isArray(favorites)) {
+      console.log(`💖 [Backend] Syncing ${favorites.length} favorites for user ${userId}`);
+      
+      // Delete all existing favorites and recreate (simpler than diff)
       await executeWithRetry(async () => {
-        const existing = await prisma.user_favorites.findUnique({ where: { userId } });
-        
-        if (existing) {
-          console.log(`📝 [Backend] Updating existing favorites record`);
-          await prisma.user_favorites.update({
-            where: { userId },
-            data: { 
-              favorites: JSON.stringify(favorites),
-              updatedAt: new Date()
-            }
-          });
-        } else {
-          console.log(`📝 [Backend] Creating NEW favorites record`);
-          await prisma.user_favorites.create({
-            data: { 
-              userId, 
-              favorites: JSON.stringify(favorites) 
-            }
-          });
-        }
+        await prisma.favorite.deleteMany({ where: { userId } });
       });
+      
+      // Insert new favorites
+      if (favorites.length > 0) {
+        await executeWithRetry(async () => {
+          await prisma.favorite.createMany({
+            data: favorites.map(fav => ({
+              userId,
+              mangaUrl: fav.url,
+              mangaTitle: fav.title || '',
+              coverUrl: fav.cover || fav.coverUrl || null,
+              source: fav.source || null
+            })),
+            skipDuplicates: true
+          });
+        });
+      }
+      
       console.log(`✅ [Backend] Favorites saved for user ${userId}`);
     }
     
-    // SYNC LIBRARY
-    console.log(`📚 [Backend] Syncing library for user ${userId}:`, {
-      reading: reading?.length || 0,
-      completed: completed?.length || 0,
-      dropped: dropped?.length || 0,
-      history: history?.length || 0
-    });
+    // ========== SYNC LIBRARY (reading, completed, dropped) ==========
+    const libraryStatuses = [];
+    if (reading !== undefined && Array.isArray(reading)) {
+      reading.forEach(m => libraryStatuses.push({ ...m, status: 'reading' }));
+    }
+    if (completed !== undefined && Array.isArray(completed)) {
+      completed.forEach(m => libraryStatuses.push({ ...m, status: 'completed' }));
+    }
+    if (dropped !== undefined && Array.isArray(dropped)) {
+      dropped.forEach(m => libraryStatuses.push({ ...m, status: 'dropped' }));
+    }
     
-    await executeWithRetry(async () => {
-      const existingLibrary = await prisma.user_library.findUnique({
-        where: { userId }
+    if (libraryStatuses.length > 0) {
+      console.log(`📚 [Backend] Syncing ${libraryStatuses.length} library items for user ${userId}`);
+      
+      // Delete all existing library items and recreate
+      await executeWithRetry(async () => {
+        await prisma.library_manga.deleteMany({ where: { userId } });
       });
       
-      const updateLibraryData = {};
-      if (reading !== undefined) updateLibraryData.reading = JSON.stringify(reading);
-      if (completed !== undefined) updateLibraryData.completed = JSON.stringify(completed);
-      if (dropped !== undefined) updateLibraryData.dropped = JSON.stringify(dropped);
-      if (history !== undefined) updateLibraryData.history = JSON.stringify(history);
-      updateLibraryData.updatedAt = new Date();
-      
-      if (existingLibrary) {
-        console.log(`📝 [Backend] Updating existing library record`);
-        await prisma.user_library.update({
-          where: { userId },
-          data: updateLibraryData
-        });
-      } else {
-        console.log(`📝 [Backend] Creating NEW library record`);
-        await prisma.user_library.create({
-          data: {
+      // Insert new library items
+      await executeWithRetry(async () => {
+        await prisma.library_manga.createMany({
+          data: libraryStatuses.map(item => ({
             userId,
-            reading: JSON.stringify(reading || []),
-            completed: JSON.stringify(completed || []),
-            dropped: JSON.stringify(dropped || []),
-            history: JSON.stringify(history || [])
-          }
+            mangaUrl: item.url,
+            mangaTitle: item.title || '',
+            coverUrl: item.cover || item.coverUrl || null,
+            source: item.source || null,
+            status: item.status
+          })),
+          skipDuplicates: true
+        });
+      });
+      
+      console.log(`✅ [Backend] Library saved for user ${userId}`);
+    }
+    
+    // ========== SYNC HISTORY ==========
+    if (history !== undefined && Array.isArray(history)) {
+      console.log(`📜 [Backend] Syncing ${history.length} history entries for user ${userId}`);
+      
+      // Keep only last 100 history entries (performance)
+      const recentHistory = history.slice(0, 100);
+      
+      // Delete old history and recreate
+      await executeWithRetry(async () => {
+        await prisma.history_entry.deleteMany({ where: { userId } });
+      });
+      
+      if (recentHistory.length > 0) {
+        await executeWithRetry(async () => {
+          await prisma.history_entry.createMany({
+            data: recentHistory.map(h => ({
+              userId,
+              mangaUrl: h.url,
+              mangaTitle: h.title || '',
+              chapterUrl: h.chapterUrl || null,
+              chapterTitle: h.chapterTitle || null,
+              viewedAt: h.lastVisited ? new Date(h.lastVisited) : new Date()
+            }))
+          });
         });
       }
-    });
-    console.log(`✅ [Backend] Library saved for user ${userId}`);
+      
+      console.log(`✅ [Backend] History saved for user ${userId}`);
+    }
     
-    // SYNC READING PROGRESS - USA UPSERT
+    // ========== SYNC READING PROGRESS (già normalizzata) ==========
     if (readingProgress && typeof readingProgress === 'object') {
+      const progressKeys = Object.keys(readingProgress);
+      console.log(`📖 [Backend] Syncing ${progressKeys.length} reading progress entries`);
+      
       for (const [mangaUrl, progress] of Object.entries(readingProgress)) {
         if (progress && typeof progress === 'object') {
           await executeWithRetry(async () => {
@@ -1005,6 +1016,8 @@ app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) 
           });
         }
       }
+      
+      console.log(`✅ [Backend] Reading progress saved`);
     }
     
     console.log(`✅ [Backend] Sync completed for user ${userId}`);
@@ -1019,24 +1032,98 @@ app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) 
   }
 });
 
-// GET USER DATA
+// ✅ GET USER DATA - NORMALIZED TABLES
 app.get('/api/user/data', authenticateToken, requireDatabase, async (req, res) => {
   try {
     const userId = req.user.id;
     console.log(`📥 [Backend] Fetching data for user ${userId}...`);
     
-    const [userFavorites, readingProgress, library, profile] = await executeWithRetry(async () => {
+    // Fetch from normalized tables
+    const [favoritesRows, readingProgress, libraryRows, historyRows, profile] = await executeWithRetry(async () => {
       return await Promise.all([
-        prisma.user_favorites.findUnique({ where: { userId } }),
+        prisma.favorite.findMany({ 
+          where: { userId },
+          orderBy: { addedAt: 'desc' }
+        }),
         prisma.reading_progress.findMany({ 
           where: { userId },
           orderBy: { updatedAt: 'desc' }
         }),
-        prisma.user_library.findUnique({ where: { userId } }),
+        prisma.library_manga.findMany({ 
+          where: { userId },
+          orderBy: { updatedAt: 'desc' }
+        }),
+        prisma.history_entry.findMany({ 
+          where: { userId },
+          orderBy: { viewedAt: 'desc' },
+          take: 100 // Limit to 100 most recent
+        }),
         prisma.user_profile.findUnique({ where: { userId } })
       ]);
     });
     
+    // Convert favorites to frontend format
+    const favorites = favoritesRows.map(f => ({
+      url: f.mangaUrl,
+      title: f.mangaTitle,
+      cover: f.coverUrl,
+      coverUrl: f.coverUrl,
+      source: f.source,
+      type: 'manga',
+      addedAt: f.addedAt
+    }));
+    
+    // Convert library to frontend format (split by status)
+    const reading = libraryRows
+      .filter(l => l.status === 'reading')
+      .map(l => ({
+        url: l.mangaUrl,
+        title: l.mangaTitle,
+        cover: l.coverUrl,
+        coverUrl: l.coverUrl,
+        source: l.source,
+        type: 'manga',
+        addedAt: l.addedAt,
+        lastRead: l.updatedAt
+      }));
+      
+    const completed = libraryRows
+      .filter(l => l.status === 'completed')
+      .map(l => ({
+        url: l.mangaUrl,
+        title: l.mangaTitle,
+        cover: l.coverUrl,
+        coverUrl: l.coverUrl,
+        source: l.source,
+        type: 'manga',
+        addedAt: l.addedAt,
+        completedAt: l.updatedAt
+      }));
+      
+    const dropped = libraryRows
+      .filter(l => l.status === 'dropped')
+      .map(l => ({
+        url: l.mangaUrl,
+        title: l.mangaTitle,
+        cover: l.coverUrl,
+        coverUrl: l.coverUrl,
+        source: l.source,
+        type: 'manga',
+        addedAt: l.addedAt,
+        droppedAt: l.updatedAt
+      }));
+    
+    // Convert history to frontend format
+    const history = historyRows.map(h => ({
+      url: h.mangaUrl,
+      title: h.mangaTitle,
+      chapterUrl: h.chapterUrl,
+      chapterTitle: h.chapterTitle,
+      lastVisited: h.viewedAt,
+      type: 'manga'
+    }));
+    
+    // Convert readingProgress to frontend format (object)
     const progressObj = {};
     readingProgress.forEach(p => {
       progressObj[p.mangaUrl] = {
@@ -1062,24 +1149,24 @@ app.get('/api/user/data', authenticateToken, requireDatabase, async (req, res) =
     }
     
     const responseData = { 
-      favorites: userFavorites ? JSON.parse(userFavorites.favorites) : [],
+      favorites,
       readingProgress: progressObj,
-      reading: library ? JSON.parse(library.reading || '[]') : [],
-      completed: library ? JSON.parse(library.completed || '[]') : [],
-      dropped: library ? JSON.parse(library.dropped || '[]') : [],
-      history: library ? JSON.parse(library.history || '[]') : [],
+      reading,
+      completed,
+      dropped,
+      history,
       profile: profile || {},
       notificationSettings: notificationSettings || []
     };
     
     console.log(`✅ [Backend] Returning data for user ${userId}:`, {
-      favorites: responseData.favorites.length,
-      reading: responseData.reading.length,
-      completed: responseData.completed.length,
-      dropped: responseData.dropped.length,
-      history: responseData.history.length,
-      progressKeys: Object.keys(responseData.readingProgress).length,
-      profile: responseData.profile ? '✅' : '❌'
+      favorites: favorites.length,
+      reading: reading.length,
+      completed: completed.length,
+      dropped: dropped.length,
+      history: history.length,
+      progressKeys: Object.keys(progressObj).length,
+      profile: profile ? '✅' : '❌'
     });
     
     res.json(responseData);
@@ -1131,36 +1218,72 @@ app.get('/api/profile/:username', async (req, res) => {
       console.error('Errore incremento viewCount:', e);
     }
     
-    // ✅ Carica library separatamente (può non esistere)
+    // ✅ Carica library dalle nuove tabelle normalizzate
     let reading = [], completed = [], dropped = [];
     try {
-      const library = await executeWithRetry(async () => {
-        return await prisma.user_library.findUnique({
-          where: { userId: user.id }
+      const libraryRows = await executeWithRetry(async () => {
+        return await prisma.library_manga.findMany({
+          where: { userId: user.id },
+          orderBy: { updatedAt: 'desc' },
+          take: 12
         });
       });
       
-      if (library) {
-        reading = JSON.parse(library.reading || '[]').slice(0, 12);
-        completed = JSON.parse(library.completed || '[]').slice(0, 12);
-        dropped = JSON.parse(library.dropped || '[]').slice(0, 12);
-      }
+      reading = libraryRows
+        .filter(l => l.status === 'reading')
+        .map(l => ({
+          url: l.mangaUrl,
+          title: l.mangaTitle,
+          cover: l.coverUrl,
+          coverUrl: l.coverUrl,
+          source: l.source,
+          type: 'manga'
+        }));
+        
+      completed = libraryRows
+        .filter(l => l.status === 'completed')
+        .map(l => ({
+          url: l.mangaUrl,
+          title: l.mangaTitle,
+          cover: l.coverUrl,
+          coverUrl: l.coverUrl,
+          source: l.source,
+          type: 'manga'
+        }));
+        
+      dropped = libraryRows
+        .filter(l => l.status === 'dropped')
+        .map(l => ({
+          url: l.mangaUrl,
+          title: l.mangaTitle,
+          cover: l.coverUrl,
+          coverUrl: l.coverUrl,
+          source: l.source,
+          type: 'manga'
+        }));
     } catch (e) {
       console.error('Errore caricamento library:', e);
     }
     
-    // ✅ Carica favorites separatamente (può non esistere)
+    // ✅ Carica favorites dalle nuove tabelle normalizzate
     let favorites = [];
     try {
-      const favoritesData = await executeWithRetry(async () => {
-        return await prisma.user_favorites.findUnique({
-          where: { userId: user.id }
+      const favoritesRows = await executeWithRetry(async () => {
+        return await prisma.favorite.findMany({
+          where: { userId: user.id },
+          orderBy: { addedAt: 'desc' },
+          take: 12
         });
       });
       
-      if (favoritesData) {
-        favorites = JSON.parse(favoritesData.favorites || '[]').slice(0, 12);
-      }
+      favorites = favoritesRows.map(f => ({
+        url: f.mangaUrl,
+        title: f.mangaTitle,
+        cover: f.coverUrl,
+        coverUrl: f.coverUrl,
+        source: f.source,
+        type: 'manga'
+      }));
     } catch (e) {
       console.error('Errore caricamento favorites:', e);
     }
@@ -1211,18 +1334,28 @@ app.get('/api/profile/:username', async (req, res) => {
   }
 });
 
-// EXPORT USER DATA (GDPR COMPLIANCE) - Complete data export in JSON format
+// ✅ EXPORT USER DATA (GDPR COMPLIANCE) - NORMALIZED TABLES
 app.get('/api/user/export', authenticateToken, requireDatabase, async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Fetch all user data
-    const [user, profile, favorites, library, readingProgress, follows] = await executeWithRetry(async () => {
+    // Fetch all user data from normalized tables
+    const [user, profile, favoritesRows, libraryRows, historyRows, readingProgress, follows] = await executeWithRetry(async () => {
       return await Promise.all([
         prisma.user.findUnique({ where: { id: userId } }),
         prisma.user_profile.findUnique({ where: { userId } }),
-        prisma.user_favorites.findUnique({ where: { userId } }),
-        prisma.user_library.findUnique({ where: { userId } }),
+        prisma.favorite.findMany({ 
+          where: { userId },
+          orderBy: { addedAt: 'desc' }
+        }),
+        prisma.library_manga.findMany({ 
+          where: { userId },
+          orderBy: { updatedAt: 'desc' }
+        }),
+        prisma.history_entry.findMany({ 
+          where: { userId },
+          orderBy: { viewedAt: 'desc' }
+        }),
         prisma.reading_progress.findMany({ 
           where: { userId },
           orderBy: { updatedAt: 'desc' }
@@ -1254,6 +1387,59 @@ app.get('/api/user/export', authenticateToken, requireDatabase, async (req, res)
       console.log('No notification settings found');
     }
     
+    // Convert normalized data to export format
+    const favorites = favoritesRows.map(f => ({
+      url: f.mangaUrl,
+      title: f.mangaTitle,
+      coverUrl: f.coverUrl,
+      source: f.source,
+      addedAt: f.addedAt
+    }));
+    
+    const reading = libraryRows.filter(l => l.status === 'reading').map(l => ({
+      url: l.mangaUrl,
+      title: l.mangaTitle,
+      coverUrl: l.coverUrl,
+      source: l.source,
+      status: l.status,
+      rating: l.rating,
+      notes: l.notes,
+      addedAt: l.addedAt,
+      updatedAt: l.updatedAt
+    }));
+    
+    const completed = libraryRows.filter(l => l.status === 'completed').map(l => ({
+      url: l.mangaUrl,
+      title: l.mangaTitle,
+      coverUrl: l.coverUrl,
+      source: l.source,
+      status: l.status,
+      rating: l.rating,
+      notes: l.notes,
+      addedAt: l.addedAt,
+      updatedAt: l.updatedAt
+    }));
+    
+    const dropped = libraryRows.filter(l => l.status === 'dropped').map(l => ({
+      url: l.mangaUrl,
+      title: l.mangaTitle,
+      coverUrl: l.coverUrl,
+      source: l.source,
+      status: l.status,
+      rating: l.rating,
+      notes: l.notes,
+      addedAt: l.addedAt,
+      updatedAt: l.updatedAt
+    }));
+    
+    const history = historyRows.map(h => ({
+      url: h.mangaUrl,
+      title: h.mangaTitle,
+      chapterUrl: h.chapterUrl,
+      chapterTitle: h.chapterTitle,
+      viewedAt: h.viewedAt
+    }));
+    
     // Format complete export
     const exportData = {
       exportDate: new Date().toISOString(),
@@ -1278,12 +1464,12 @@ app.get('/api/user/export', authenticateToken, requireDatabase, async (req, res)
         updatedAt: profile.updatedAt
       } : null,
       library: {
-        favorites: favorites ? JSON.parse(favorites.favorites) : [],
-        reading: library ? JSON.parse(library.reading || '[]') : [],
-        completed: library ? JSON.parse(library.completed || '[]') : [],
-        dropped: library ? JSON.parse(library.dropped || '[]') : [],
-        history: library ? JSON.parse(library.history || '[]') : [],
-        lastSyncAt: library?.updatedAt
+        favorites,
+        reading,
+        completed,
+        dropped,
+        history,
+        totalItems: favorites.length + reading.length + completed.length + dropped.length
       },
       readingProgress: readingProgress.map(p => ({
         mangaUrl: p.mangaUrl,

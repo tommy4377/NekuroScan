@@ -186,8 +186,9 @@ function MangaDetails() {
         if (completedChaps[mangaUrl]) {
           setCompletedChapters(completedChaps[mangaUrl]);
         } else {
+          // ✅ FIX: Include anche l'ultimo capitolo letto (chapterIndex)
           const completed = [];
-          for (let i = 0; i < mangaProgress.chapterIndex; i++) {
+          for (let i = 0; i <= mangaProgress.chapterIndex; i++) {
             completed.push(i);
           }
           setCompletedChapters(completed);
@@ -217,7 +218,61 @@ function MangaDetails() {
     }
   }, [user, manga]);
 
+  // ✅ FIX: Pulizia dati "zombie" desyncati
+  const cleanupOrphanedData = useCallback(() => {
+    try {
+      // Ottieni tutte le liste
+      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+      const completed = JSON.parse(localStorage.getItem('completed') || '[]');
+      const dropped = JSON.parse(localStorage.getItem('dropped') || '[]');
+      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+      
+      // Crea set di URL validi
+      const validUrls = new Set([
+        ...reading.map(m => m.url),
+        ...completed.map(m => m.url),
+        ...dropped.map(m => m.url),
+        ...favorites.map(m => m.url)
+      ]);
+      
+      // Pulisci readingProgress
+      const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+      let progressCleaned = false;
+      for (const url of Object.keys(readingProgress)) {
+        if (!validUrls.has(url)) {
+          delete readingProgress[url];
+          progressCleaned = true;
+        }
+      }
+      if (progressCleaned) {
+        localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
+        console.log('🧹 [MangaDetails] Cleaned orphaned readingProgress entries');
+      }
+      
+      // Pulisci completedChapters
+      const completedChapters = JSON.parse(localStorage.getItem('completedChapters') || '{}');
+      let chaptersCleaned = false;
+      for (const url of Object.keys(completedChapters)) {
+        if (!validUrls.has(url)) {
+          delete completedChapters[url];
+          chaptersCleaned = true;
+        }
+      }
+      if (chaptersCleaned) {
+        localStorage.setItem('completedChapters', JSON.stringify(completedChapters));
+        console.log('🧹 [MangaDetails] Cleaned orphaned completedChapters entries');
+      }
+    } catch (error) {
+      console.error('❌ [MangaDetails] Error cleaning orphaned data:', error);
+    }
+  }, []);
+
   // ========== EFFECTS ==========
+
+  // ✅ FIX: Pulizia dati orfani all'avvio (una volta sola)
+  useEffect(() => {
+    cleanupOrphanedData();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     loadManga();
@@ -498,6 +553,23 @@ function MangaDetails() {
         const filtered = items.filter(item => item.url !== manga.url);
         localStorage.setItem(list, JSON.stringify(filtered));
       });
+      
+      // ✅ FIX: Se targetList è null (rimozione completa), resetta anche i progressi
+      if (!targetList) {
+        // Rimuovi readingProgress
+        const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+        delete readingProgress[manga.url];
+        localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
+        
+        // Rimuovi completedChapters
+        const completedChapters = JSON.parse(localStorage.getItem('completedChapters') || '{}');
+        delete completedChapters[manga.url];
+        localStorage.setItem('completedChapters', JSON.stringify(completedChapters));
+        
+        // Reset stato locale
+        setReadingProgress(null);
+        setCompletedChapters([]);
+      }
       
       if (targetList) {
         const targetItems = JSON.parse(localStorage.getItem(targetList) || '[]');
