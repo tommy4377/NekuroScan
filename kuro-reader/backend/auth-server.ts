@@ -1,6 +1,8 @@
 // @ts-nocheck - Server file, gradual TypeScript migration
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // ✅ AUTH-SERVER.JS v4.1 - WITH STANDARDIZED ERROR HANDLING
+console.log('🚀 [STARTUP] Loading imports...');
+
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
@@ -14,7 +16,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { errorHandler } from './utils/errorHandler';
 
+console.log('✅ [STARTUP] All imports loaded');
+
 dotenv.config();
+
+console.log('🔧 [STARTUP] Environment loaded, PORT:', process.env.PORT || 10000);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1872,7 +1878,8 @@ app.get('/api/notifications/settings', authenticateToken, requireDatabase, async
 app.use(errorHandler);
 
 // ========= START SERVER =========
-app.listen(PORT, () => {
+// ✅ FIX: Bind su 0.0.0.0 per permettere connessioni esterne (Render health checks)
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`
   ╔════════════════════════════════════════╗
   ║     NeKuro Scan Auth Server v4.1      ║
