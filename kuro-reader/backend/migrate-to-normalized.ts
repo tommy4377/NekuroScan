@@ -16,6 +16,30 @@ const prisma = new PrismaClient({
   log: ['error', 'warn']
 });
 
+// ========= CHECK OLD TABLES EXISTENCE =========
+
+async function checkOldTablesExist() {
+  try {
+    const result = await prisma.$queryRaw`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'user_favorites'
+      ) as favorites_exists,
+      EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'user_library'
+      ) as library_exists;
+    `;
+    
+    return result[0];
+  } catch (error) {
+    console.error('❌ Error checking tables:', error);
+    return { favorites_exists: false, library_exists: false };
+  }
+}
+
 // ========= HELPER FUNCTIONS =========
 
 function parseSafeJSON(str, fallback = []) {
@@ -306,6 +330,26 @@ async function main() {
     // Test connessione database
     await prisma.$queryRaw`SELECT 1`;
     console.log('✅ Database connection successful\n');
+    
+    // ✅ Check if old tables exist
+    console.log('🔍 Checking if old tables exist...\n');
+    const tablesExist = await checkOldTablesExist();
+    
+    if (!tablesExist.favorites_exists && !tablesExist.library_exists) {
+      console.log(`
+╔════════════════════════════════════════════════════════════╗
+║        OLD TABLES NOT FOUND - SKIPPING MIGRATION          ║
+╠════════════════════════════════════════════════════════════╣
+║  The tables user_favorites and user_library don't exist.  ║
+║  This is expected if you're using normalized tables only. ║
+║  No migration needed - exiting successfully.               ║
+╚════════════════════════════════════════════════════════════╝
+      `);
+      await prisma.$disconnect();
+      process.exit(0);
+    }
+    
+    console.log('✅ Old tables found - proceeding with migration...\n');
     
     // ✅ CREA TABELLE SE NON ESISTONO (per Render senza Shell)
     console.log('📋 Creating normalized tables if they don\'t exist...\n');
