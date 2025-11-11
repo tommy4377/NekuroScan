@@ -899,12 +899,23 @@ app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) 
     const { favorites, reading, completed, dropped, history, readingProgress } = req.body;
     const userId = req.user.id;
     
+    console.log(`📤 [Backend] Sync request from user ${userId}:`, {
+      favorites: favorites?.length || 0,
+      reading: reading?.length || 0,
+      completed: completed?.length || 0,
+      dropped: dropped?.length || 0,
+      history: history?.length || 0,
+      progressKeys: readingProgress ? Object.keys(readingProgress).length : 0
+    });
+    
     // SYNC FAVORITES
     if (favorites !== undefined) {
+      console.log(`💖 [Backend] Syncing favorites for user ${userId}:`, favorites.length, 'items');
       await executeWithRetry(async () => {
         const existing = await prisma.user_favorites.findUnique({ where: { userId } });
         
         if (existing) {
+          console.log(`📝 [Backend] Updating existing favorites record`);
           await prisma.user_favorites.update({
             where: { userId },
             data: { 
@@ -913,6 +924,7 @@ app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) 
             }
           });
         } else {
+          console.log(`📝 [Backend] Creating NEW favorites record`);
           await prisma.user_favorites.create({
             data: { 
               userId, 
@@ -921,9 +933,17 @@ app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) 
           });
         }
       });
+      console.log(`✅ [Backend] Favorites saved for user ${userId}`);
     }
     
     // SYNC LIBRARY
+    console.log(`📚 [Backend] Syncing library for user ${userId}:`, {
+      reading: reading?.length || 0,
+      completed: completed?.length || 0,
+      dropped: dropped?.length || 0,
+      history: history?.length || 0
+    });
+    
     await executeWithRetry(async () => {
       const existingLibrary = await prisma.user_library.findUnique({
         where: { userId }
@@ -937,11 +957,13 @@ app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) 
       updateLibraryData.updatedAt = new Date();
       
       if (existingLibrary) {
+        console.log(`📝 [Backend] Updating existing library record`);
         await prisma.user_library.update({
           where: { userId },
           data: updateLibraryData
         });
       } else {
+        console.log(`📝 [Backend] Creating NEW library record`);
         await prisma.user_library.create({
           data: {
             userId,
@@ -953,6 +975,7 @@ app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) 
         });
       }
     });
+    console.log(`✅ [Backend] Library saved for user ${userId}`);
     
     // SYNC READING PROGRESS - USA UPSERT
     if (readingProgress && typeof readingProgress === 'object') {
@@ -984,10 +1007,11 @@ app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) 
       }
     }
     
+    console.log(`✅ [Backend] Sync completed for user ${userId}`);
     res.json({ success: true, message: 'Dati sincronizzati' });
     
   } catch (error) {
-    console.error('Sync error:', error);
+    console.error('❌ [Backend] Sync error:', error);
     res.status(500).json({ 
       message: 'Errore sincronizzazione', 
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -999,6 +1023,7 @@ app.post('/api/user/sync', authenticateToken, requireDatabase, async (req, res) 
 app.get('/api/user/data', authenticateToken, requireDatabase, async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log(`📥 [Backend] Fetching data for user ${userId}...`);
     
     const [userFavorites, readingProgress, library, profile] = await executeWithRetry(async () => {
       return await Promise.all([
@@ -1036,7 +1061,7 @@ app.get('/api/user/data', authenticateToken, requireDatabase, async (req, res) =
       // Table might not exist yet
     }
     
-    res.json({ 
+    const responseData = { 
       favorites: userFavorites ? JSON.parse(userFavorites.favorites) : [],
       readingProgress: progressObj,
       reading: library ? JSON.parse(library.reading || '[]') : [],
@@ -1045,7 +1070,19 @@ app.get('/api/user/data', authenticateToken, requireDatabase, async (req, res) =
       history: library ? JSON.parse(library.history || '[]') : [],
       profile: profile || {},
       notificationSettings: notificationSettings || []
+    };
+    
+    console.log(`✅ [Backend] Returning data for user ${userId}:`, {
+      favorites: responseData.favorites.length,
+      reading: responseData.reading.length,
+      completed: responseData.completed.length,
+      dropped: responseData.dropped.length,
+      history: responseData.history.length,
+      progressKeys: Object.keys(responseData.readingProgress).length,
+      profile: responseData.profile ? '✅' : '❌'
     });
+    
+    res.json(responseData);
     
   } catch (error) {
     console.error('Get user data error:', error);
