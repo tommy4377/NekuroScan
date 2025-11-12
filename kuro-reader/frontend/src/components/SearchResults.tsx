@@ -22,7 +22,7 @@ interface SearchResultsProps {
 
 // ========== COMPONENT ==========
 
-function SearchResults({ results, loading, filter = 'all' }: SearchResultsProps): JSX.Element {
+function SearchResults({ results, loading, filter = 'all' }: SearchResultsProps) {
   const getFilteredResults = (): Manga[] => {
     if (!results) return [];
     

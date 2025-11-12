@@ -9,7 +9,7 @@ import Logo from '@/components/Logo';
 
 // ========== COMPONENT ==========
 
-export default function NotFound(): JSX.Element {
+export default function NotFound() {
   
   const handleNavigation = (path: string): void => {
     // Force page reload to avoid routing issues

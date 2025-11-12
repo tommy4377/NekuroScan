@@ -35,7 +35,7 @@ export const useTheme = (): ThemeContextValue => {
 
 // ========== PROVIDER ==========
 
-export const ThemeProvider = ({ children }: ThemeProviderProps): JSX.Element => {
+export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   const [currentTheme, setCurrentTheme] = useState<ThemeType>('default');
   
   const applyTheme = useCallback((theme: ThemeType) => {

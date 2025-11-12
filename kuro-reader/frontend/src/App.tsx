@@ -53,7 +53,7 @@ const NotFound = lazy(() => import('@/pages/NotFound'));
 
 // ========== COMPONENTS ==========
 
-const PageLoader = (): JSX.Element => (
+const PageLoader = () => (
   <Center h="100vh" bg="gray.900">
     <VStack spacing={4}>
       <Spinner 
@@ -73,7 +73,7 @@ interface ProtectedRouteProps {
   children: ReactNode;
 }
 
-const ProtectedRoute = ({ children }: ProtectedRouteProps): JSX.Element => {
+const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const loading = useAuthStore(state => state.loading);
   const toast = useToast();
@@ -97,7 +97,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps): JSX.Element => {
 };
 
 // Animated Routes Component
-function AnimatedRoutes(): JSX.Element {
+function AnimatedRoutes() {
   const location = useLocation();
 
   // Update status bar color based on route
@@ -166,7 +166,7 @@ function AnimatedRoutes(): JSX.Element {
 }
 
 // App Content Component
-function AppContent(): JSX.Element {
+function AppContent() {
   const initAuth = useAuthStore(state => state.initAuth);
   const startAutoSync = useAuthStore(state => state.startAutoSync);
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
@@ -397,7 +397,7 @@ function AppContent(): JSX.Element {
 }
 
 // Main App Component
-function App(): JSX.Element {
+function App() {
   return (
     <HelmetProvider>
       <ChakraProvider theme={theme}>

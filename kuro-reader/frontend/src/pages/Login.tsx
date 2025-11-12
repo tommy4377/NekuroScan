@@ -82,7 +82,7 @@ const validatePassword = (password: string): PasswordValidation => {
 
 // ========== COMPONENT ==========
 
-function Login(): JSX.Element {
+function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);

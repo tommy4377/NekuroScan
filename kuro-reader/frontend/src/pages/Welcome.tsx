@@ -47,7 +47,7 @@ const FEATURES: Feature[] = [
 
 // ========== COMPONENT ==========
 
-const Welcome = memo((): JSX.Element => {
+const Welcome = memo(() => {
   const navigate = useNavigate();
   const bgGradient = 'linear(to-br, purple.600, pink.600)';
 

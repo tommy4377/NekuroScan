@@ -22,7 +22,7 @@ import Logo from '@/components/Logo';
 
 // ========== COMPONENT ==========
 
-function Navigation(): JSX.Element | null {
+function Navigation() {
   // ALL hooks MUST be called before any conditional return
   const location = useLocation();
   const { isOpen, onOpen, onClose } = useDisclosure();

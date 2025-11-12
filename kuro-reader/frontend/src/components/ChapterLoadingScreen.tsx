@@ -25,7 +25,7 @@ const ChapterLoadingScreen = ({
   chapterPages = [],
   onLoadComplete,
   minDelay = 3000
-}: ChapterLoadingScreenProps): JSX.Element => {
+}: ChapterLoadingScreenProps) => {
   const [progress, setProgress] = useState(0);
   const [countdown, setCountdown] = useState(Math.ceil(minDelay / 1000));
 

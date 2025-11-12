@@ -23,7 +23,7 @@ interface BannedNoticeProps {
 
 // ========== COMPONENT ==========
 
-const BannedNotice = ({ isOpen, onClose, retryAfter, reason = 'rate-limit' }: BannedNoticeProps): JSX.Element => {
+const BannedNotice = ({ isOpen, onClose, retryAfter, reason = 'rate-limit' }: BannedNoticeProps) => {
   const [countdown, setCountdown] = useState(retryAfter || 60);
 
   useEffect(() => {

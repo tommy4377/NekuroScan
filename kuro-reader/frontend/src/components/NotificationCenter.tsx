@@ -25,7 +25,7 @@ interface Notification {
 
 // ========== COMPONENT ==========
 
-export function NotificationCenter(): JSX.Element {
+export function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const navigate = useNavigate();

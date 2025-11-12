@@ -45,7 +45,7 @@ interface Filters {
 
 // ========== COMPONENT ==========
 
-function Categories(): JSX.Element {
+function Categories() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const toast = useToast();
@@ -360,7 +360,7 @@ function Categories(): JSX.Element {
     setCurrentPreset(null);
   };
 
-  const GenreButton: any = ({ id, name, isSelected, onToggle, color = 'purple' }: { id: string; name: string; isSelected: boolean; onToggle: () => void; color?: string }): JSX.Element => (
+  const GenreButton: any = ({ id, name, isSelected, onToggle, color = 'purple' }: { id: string; name: string; isSelected: boolean; onToggle: () => void; color?: string }) => (
     <Button
       size="sm"
       variant={isSelected ? 'solid' : 'outline'}

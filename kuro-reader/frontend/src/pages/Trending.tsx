@@ -19,7 +19,7 @@ import { useSEO, SEOTemplates } from '@/hooks/useSEO';
 
 // ========== COMPONENT ==========
 
-const Trending = memo((): JSX.Element => {
+const Trending = memo(() => {
   const [includeAdult, setIncludeAdult] = useLocalStorage('includeAdult', false);
   const [list, setList] = useState<Manga[]>([]);
   const [loading, setLoading] = useState(false);
@@ -77,7 +77,7 @@ const Trending = memo((): JSX.Element => {
     loadData();
   }, [includeAdult]);
 
-  const renderContent = (): JSX.Element => {
+  const renderContent = () => {
     if (initialLoading) {
       return (
         <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} spacing={4} w="100%">
