@@ -289,12 +289,8 @@ const proxyRateLimiter = (limitType = 'proxy') => {
       return next();
     }
     
-    if (isBlacklisted(ip)) {
-      return res.status(403).json({ 
-        success: false,
-        error: 'IP temporaneamente bloccato per attività sospetta' 
-      });
-    }
+    // ⚠️ Rimosso controllo blacklist dal proxy - troppo aggressivo per uso normale
+    // Il proxy rate limiting restituisce solo 429, non banna
     
     const limit = PROXY_RATE_LIMITS[limitType] || PROXY_RATE_LIMITS.proxy;
     const key = `proxy_${ip}_${limitType}`;
@@ -313,12 +309,12 @@ const proxyRateLimiter = (limitType = 'proxy') => {
     
     if (data.count >= limit.max) {
       const retryAfter = Math.ceil((data.resetTime - now) / 1000);
-      console.warn(`⚠️ Proxy rate limit: IP ${ip}, type ${limitType}, ${data.count}/${limit.max}`);
+      console.warn(`⚠️ Proxy rate limit: IP ${ip}, type ${limitType}, ${data.count}/${limit.max} - retry in ${retryAfter}s`);
       
       res.setHeader('Retry-After', retryAfter.toString());
       return res.status(429).json({ 
         success: false,
-        error: 'Limite richieste raggiunto',
+        error: 'Limite richieste raggiunto. Riprova tra poco.',
         retryAfter
       });
     }
@@ -376,14 +372,14 @@ const ipFirstSeen = new Map(); // Track prima richiesta IP (grace period)
 
 // Rate limiting più permissivo - solo anti-bot aggressivi
 const RATE_LIMITS = {
-  global: { window: 60000, max: 180 }, // 180 req/min = 3 req/sec
-  auth: { window: 300000, max: 10 },   // 10 login/5min
-  api: { window: 60000, max: 120 },    // 120 API calls/min = 2 req/sec
-  strict: { window: 60000, max: 60 }   // 60 req/min
+  global: { window: 60000, max: 600 }, // 600 req/min = 10 req/sec (aumentato per uso normale)
+  auth: { window: 300000, max: 20 },   // 20 login/5min (aumentato)
+  api: { window: 60000, max: 300 },    // 300 API calls/min = 5 req/sec (aumentato)
+  strict: { window: 60000, max: 120 }   // 120 req/min (aumentato)
 };
 
 // Blacklist IP per abusi gravi
-const blacklistIP = (ip, duration = 3600000) => { // Ban per 1 ora default
+const blacklistIP = (ip, duration = 300000) => { // Ban per 5 minuti default (ridotto da 1 ora)
   const until = Date.now() + duration;
   ipBlacklist.set(ip, until);
   console.warn(`🚨 IP BLACKLISTED: ${ip} fino a ${new Date(until).toISOString()}`);
@@ -454,9 +450,9 @@ const advancedRateLimiter = (limitType = 'global') => {
       const abuseCount = (suspiciousActivity.get(abuseKey) || 0) + 1;
       suspiciousActivity.set(abuseKey, abuseCount);
       
-      // Ban automatico dopo 5 violazioni (non 3, troppo aggressivo)
-      if (abuseCount >= 5) {
-        blacklistIP(ip);
+      // Ban automatico dopo 20 violazioni (molto più permissivo - solo veri abusi)
+      if (abuseCount >= 20) {
+        blacklistIP(ip, 600000); // Ban per 10 minuti invece di 1 ora
         suspiciousActivity.delete(abuseKey);
       }
       
@@ -518,8 +514,9 @@ setInterval(() => {
   }
 }, 300000);
 
-// Applica rate limiter globale
-app.use(advancedRateLimiter('global'));
+// ⚠️ RATE LIMITER GLOBALE DISABILITATO - Troppo aggressivo per uso normale
+// Applica rate limiting solo su endpoint specifici (auth, etc.)
+// app.use(advancedRateLimiter('global'));
 
 // ========= INPUT SANITIZATION =========
 function sanitizeString(str, maxLength = 500) {
