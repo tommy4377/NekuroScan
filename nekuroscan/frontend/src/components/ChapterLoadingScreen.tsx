@@ -28,11 +28,15 @@ const ChapterLoadingScreen = ({
 }: ChapterLoadingScreenProps) => {
   const [progress, setProgress] = useState(0);
   const [countdown, setCountdown] = useState(Math.ceil(minDelay / 1000));
+  // ✅ FIX: Salva il titolo iniziale per evitare cambiamenti durante il loading
+  const [displayTitle] = useState(() => chapterTitle || 'Caricamento Capitolo');
 
   useEffect(() => {
     let mounted = true;
+    let completed = false; // ✅ FIX: Flag per evitare doppia chiamata a onLoadComplete
     const startTime = Date.now();
     let animationFrame: number;
+    let timeoutId: NodeJS.Timeout;
 
     // Preload images in background (non-blocking)
     if (chapterPages && chapterPages.length > 0) {
@@ -53,9 +57,18 @@ const ChapterLoadingScreen = ({
       });
     }
 
+    // ✅ FIX: Funzione helper per completare (chiamata una sola volta)
+    const completeLoading = (): void => {
+      if (!mounted || completed) return;
+      completed = true;
+      if (onLoadComplete) {
+        onLoadComplete();
+      }
+    };
+
     // SMOOTH progress bar with requestAnimationFrame (60fps)
     const updateProgress = (): void => {
-      if (!mounted) return;
+      if (!mounted || completed) return;
       
       const elapsed = Date.now() - startTime;
       const currentProgress = Math.min((elapsed / minDelay) * 100, 100);
@@ -66,26 +79,28 @@ const ChapterLoadingScreen = ({
       const remaining = Math.max(0, Math.ceil((minDelay - elapsed) / 1000));
       setCountdown(remaining);
 
-      if (currentProgress < 100) {
-        animationFrame = requestAnimationFrame(updateProgress);
+      if (currentProgress >= 100) {
+        completeLoading();
       } else {
-        // Complete when time has passed
-        setTimeout(() => {
-          if (mounted && onLoadComplete) {
-            onLoadComplete();
-          }
-        }, 100);
+        animationFrame = requestAnimationFrame(updateProgress);
       }
     };
 
     // Start animation
     animationFrame = requestAnimationFrame(updateProgress);
 
+    // ✅ FIX: Timeout di sicurezza per assicurarsi che finisca dopo minDelay
+    timeoutId = setTimeout(() => {
+      completeLoading();
+    }, minDelay);
+
     return () => {
       mounted = false;
+      completed = true; // Previene chiamate dopo cleanup
       if (animationFrame) cancelAnimationFrame(animationFrame);
+      if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [minDelay, onLoadComplete, chapterPages]);
+  }, [minDelay, onLoadComplete]); // ✅ FIX: Rimosso chapterPages dalle dipendenze per evitare re-render
 
   return (
     <Box
@@ -127,7 +142,7 @@ const ChapterLoadingScreen = ({
         {/* Chapter title */}
         <VStack spacing={6} textAlign="center">
           <Text fontSize="2xl" fontWeight="bold" color="white">
-            {chapterTitle || 'Caricamento Capitolo'}
+            {displayTitle}
           </Text>
           
           <Text fontSize="3xl" color="purple.400" fontWeight="bold">

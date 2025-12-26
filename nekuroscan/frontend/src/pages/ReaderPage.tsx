@@ -1028,10 +1028,13 @@ function ReaderPage() {
     // ✅ Key stabile basata su sessionId (non cambia durante i re-render)
     const loadingKey = loadingRef.current || `loading-${chapterId}`;
     
+    // ✅ FIX: Usa il titolo del manga o del capitolo, ma preferisci quello disponibile subito
+    const displayTitle = manga?.title || chapter?.title || 'Caricamento Capitolo';
+    
     return (
       <ChapterLoadingScreen
         key={loadingKey}
-        chapterTitle={chapter?.title || manga?.title || 'Caricamento...'}
+        chapterTitle={displayTitle}
         chapterPages={chapter?.pages || []}
         currentPage={currentPage + 1}
         totalPages={chapter?.pages?.length || 0}
