@@ -203,8 +203,29 @@ export class StatsAPI extends BaseAPI {
     return this.getPopular(page, includeAdult);
   }
 
-  async getTopByType(_type: string, includeAdult: boolean = false, page: number = 1): Promise<{ results: Manga[], hasMore: boolean }> {
-    return this.getPopular(page, includeAdult);
+  async getTopByType(type: string, includeAdult: boolean = false, page: number = 1): Promise<{ results: Manga[], hasMore: boolean }> {
+    try {
+      const cacheKey = `top_${type}_${page}_${includeAdult}`;
+      const cached = this.getCached<{ results: Manga[], hasMore: boolean }>(cacheKey);
+      if (cached) return cached;
+      
+      const base = BASE(includeAdult);
+      // ✅ FIX: Usa il parametro type per filtrare correttamente
+      const typeParam = type.toLowerCase();
+      const url = `${base}/archive?type=${typeParam}&sort=most_read&page=${page}`;
+      const html = await this.makeRequest<string>(url);
+      const doc = this.parseHTML(html);
+      
+      const results = this.parseLatestGrid(doc, base);
+      const hasMore = this.hasMoreFromPagination(doc, results, page);
+      
+      const response = { results, hasMore };
+      this.setCache(cacheKey, response);
+      return response;
+    } catch (error) {
+      console.error(`[StatsAPI] Error getting top ${type}:`, error);
+      return { results: [], hasMore: false };
+    }
   }
 
   async searchAdvanced(options: {
@@ -217,15 +238,51 @@ export class StatsAPI extends BaseAPI {
     includeAdult?: boolean,
     minChapters?: number
   }): Promise<{ results: Manga[], hasMore: boolean }> {
-    const { page = 1, includeAdult = false } = options;
-    // For now, use existing methods - can be enhanced later
-    if (options.genres && options.genres.length > 0) {
-      const genre = options.genres[0];
-      if (genre) {
-        return this.getByGenre(genre, page, includeAdult);
+    const { page = 1, includeAdult = false, sort = 'newest' } = options;
+    
+    try {
+      const base = BASE(includeAdult);
+      const params = new URLSearchParams();
+      
+      // Add type filter if specified
+      if (options.type) {
+        params.append('type', options.type.toLowerCase());
       }
+      
+      // Add genre filter if specified
+      if (options.genres && options.genres.length > 0) {
+        params.append('genre', options.genres[0]);
+      }
+      
+      // Add status filter if specified
+      if (options.status) {
+        params.append('status', options.status);
+      }
+      
+      // Add year filter if specified
+      if (options.year) {
+        params.append('year', options.year);
+      }
+      
+      // Add sort parameter
+      const sortParam = sort === 'newest' ? 'newest' : sort === 'most_read' ? 'most_read' : 'newest';
+      params.append('sort', sortParam);
+      
+      params.append('page', page.toString());
+      
+      const url = `${base}/archive?${params.toString()}`;
+      const html = await this.makeRequest<string>(url);
+      const doc = this.parseHTML(html);
+      
+      const results = this.parseLatestGrid(doc, base);
+      const hasMore = this.hasMoreFromPagination(doc, results, page);
+      
+      return { results, hasMore };
+    } catch (error) {
+      console.error('[StatsAPI] Error in searchAdvanced:', error);
+      // Fallback to popular if error
+      return this.getPopular(page, includeAdult);
     }
-    return this.getPopular(page, includeAdult);
   }
 
   getGenres(): readonly string[] {

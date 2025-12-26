@@ -159,15 +159,13 @@ function Login() {
       } else {
         // Login failed
         console.error('[Login] ❌ Login failed:', result?.error);
+        setIsLoading(false);
         toast({ 
           title: 'Errore di accesso',
           description: result?.error || 'Credenziali non valide',
           status: 'error',
           duration: 3000
         });
-      } else {
-        // Login failed
-        setIsLoading(false);
       }
     } catch (error) {
       console.error('[Login] ❌ Exception:', error);
