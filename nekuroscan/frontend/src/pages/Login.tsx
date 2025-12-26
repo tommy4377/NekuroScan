@@ -147,10 +147,13 @@ function Login() {
         toast({ 
           title: 'Benvenuto!',
           status: 'success',
-          duration: 2000
+          duration: 1500
         });
         
-        navigate(from, { replace: true });
+        // ✅ FIX: Navigate sempre a /home dopo login di successo
+        setTimeout(() => {
+          navigate('/home', { replace: true });
+        }, 100);
       } else {
         // Login failed
         console.error('[Login] ❌ Login failed:', result?.error);

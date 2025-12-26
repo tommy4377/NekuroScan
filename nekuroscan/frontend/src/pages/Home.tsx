@@ -53,9 +53,6 @@ function Home() {
   const navigate = useNavigate();
   const toast = useToast();
   
-  // ✅ FIX: Zustand requires selector syntax for reactivity
-  const user = useAuth(state => state.user);
-  
   const { density, setDensity, config: gridConfig, densityOptions } = useGridDensity();
   console.log('[Home] ✅ Hooks initialized');
   
@@ -245,8 +242,9 @@ function Home() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [includeAdult, toast, checkOfflineStatus, user]);
+  }, [includeAdult, toast, checkOfflineStatus]);
 
+  // ✅ FIX: useEffect solo al mount e quando includeAdult cambia
   useEffect(() => {
     console.log('[Home] 🎬 useEffect triggered - calling loadAllContent');
     loadAllContent();
@@ -321,7 +319,7 @@ function Home() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [loadAllContent, toast]);
+  }, [includeAdult]); // ✅ FIX: Solo includeAdult come dipendenza
 
   // ✅ WRAP handleRefresh in useCallback per evitare React error #300
   const handleRefresh = useCallback(async () => {
