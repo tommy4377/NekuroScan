@@ -265,8 +265,40 @@ const ALLOWED_DOMAINS = [
 function isAllowedDomain(url) {
   try {
     const urlObj = new URL(url);
-    return ALLOWED_DOMAINS.some(domain => urlObj.hostname.includes(domain));
-  } catch {
+    const hostname = urlObj.hostname.toLowerCase();
+    
+    // Extract base domain (remove www. prefix for matching)
+    const baseDomain = hostname.replace(/^www\./, '');
+    
+    // Check if hostname matches any allowed domain (more permissive)
+    const isAllowed = ALLOWED_DOMAINS.some(domain => {
+      const domainLower = domain.toLowerCase();
+      const domainBase = domainLower.replace(/^www\./, '');
+      
+      // Match exact
+      if (hostname === domainLower) {
+        return true;
+      }
+      // Match subdomain (e.g., cdn.mangaworld.cx matches mangaworld.cx)
+      if (hostname.endsWith('.' + domainBase)) {
+        return true;
+      }
+      // Match base domain (e.g., mangaworld.cx matches www.mangaworld.cx)
+      if (baseDomain === domainBase) {
+        return true;
+      }
+      return false;
+    });
+    
+    if (!isAllowed) {
+      console.warn(`⚠️ Domain check failed: ${hostname} not in whitelist`);
+      console.warn(`   Base domain: ${baseDomain}`);
+      console.warn(`   Allowed domains: ${ALLOWED_DOMAINS.join(', ')}`);
+    }
+    
+    return isAllowed;
+  } catch (error) {
+    console.error(`❌ Error parsing URL: ${url}`, error);
     return false;
   }
 }
@@ -693,9 +725,20 @@ app.post('/api/proxy', proxyRateLimiter('proxy'), async (req, res) => {
       return res.status(400).json({ success: false, error: 'URL deve iniziare con http:// o https://' });
     }
     
+    // Log URL per debug
+    console.log(`📡 Proxy request: ${url.substring(0, 100)}...`);
+    
     if (!isAllowedDomain(url)) {
-      console.warn(`⚠️ Dominio non autorizzato bloccato: ${url}`);
-      return res.status(403).json({ success: false, error: 'Dominio non autorizzato' });
+      const hostname = new URL(url).hostname;
+      console.error(`❌ Dominio non autorizzato bloccato: ${url}`);
+      console.error(`   Hostname: ${hostname}`);
+      console.error(`   Domini consentiti: ${ALLOWED_DOMAINS.join(', ')}`);
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Dominio non autorizzato',
+        hostname,
+        allowedDomains: ALLOWED_DOMAINS
+      });
     }
     
     const allowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
