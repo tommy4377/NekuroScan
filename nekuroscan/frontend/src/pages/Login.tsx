@@ -136,13 +136,17 @@ function Login() {
       console.log('[Login] 📤 Calling login API...');
       const result = await login(loginData.emailOrUsername, loginData.password);
       
+      console.log('[Login] 📥 Login result:', result);
+      
       // ✅ Check result format from old JS version
       if (result?.success) {
-        console.log('[Login] ✅ Login successful');
+        console.log('[Login] ✅ Login successful, navigating to home...');
         
         if (rememberMe) {
           localStorage.setItem('rememberMe', 'true');
         }
+        
+        setIsLoading(false); // ✅ FIX: Ferma il loading PRIMA del navigate
         
         toast({ 
           title: 'Benvenuto!',
@@ -150,10 +154,8 @@ function Login() {
           duration: 1500
         });
         
-        // ✅ FIX: Navigate sempre a /home dopo login di successo
-        setTimeout(() => {
-          navigate('/home', { replace: true });
-        }, 100);
+        // ✅ FIX: Navigate immediatamente a /home dopo login di successo
+        navigate('/home', { replace: true });
       } else {
         // Login failed
         console.error('[Login] ❌ Login failed:', result?.error);
@@ -163,17 +165,19 @@ function Login() {
           status: 'error',
           duration: 3000
         });
+      } else {
+        // Login failed
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('[Login] ❌ Exception:', error);
+      setIsLoading(false);
       toast({ 
         title: 'Errore di accesso',
         description: error instanceof Error ? error.message : 'Errore di rete',
         status: 'error',
         duration: 3000
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
