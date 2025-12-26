@@ -56,10 +56,10 @@ const Welcome = memo(() => {
       <Helmet>
         <title>Benvenuto - NeKuro Scan | Lettore Manga Online Gratuito</title>
         <meta name="description" content="Benvenuto su NeKuro Scan - Il miglior lettore di manga online gratuito. Esplora migliaia di titoli, salva i tuoi preferiti e leggi offline." />
-        <link rel="canonical" href="https://nekuroscan.onrender.com/" />
+        <link rel="canonical" href="https://nekuro-scan.vercel.app/" />
         <meta property="og:title" content="NeKuro Scan - Lettore Manga Online Gratuito" />
         <meta property="og:description" content="Leggi manga gratuitamente con il miglior lettore online" />
-        <meta property="og:url" content="https://nekuroscan.onrender.com/" />
+        <meta property="og:url" content="https://nekuro-scan.vercel.app/" />
       </Helmet>
       
       <Box 

@@ -1,40 +1,48 @@
 {
   "rewrites": [
     {
+      "source": "/health",
+      "destination": "https://nekuroscan-1r86.onrender.com/health"
+    },
+    {
+      "source": "/api/proxy",
+      "destination": "https://nekuroscan-1r86.onrender.com/api/proxy"
+    },
+    {
       "source": "/api/proxy/:path*",
-      "destination": "https://nekuroscan-backend.onrender.com/api/proxy/:path*"
+      "destination": "https://nekuroscan-1r86.onrender.com/api/proxy/:path*"
     },
     {
       "source": "/api/image-proxy",
-      "destination": "https://nekuroscan-backend.onrender.com/api/image-proxy"
+      "destination": "https://nekuroscan-1r86.onrender.com/api/image-proxy"
     },
     {
       "source": "/api/auth/:path*",
-      "destination": "https://nekuroscan-backend.onrender.com/api/auth/:path*"
+      "destination": "https://nekuroscan-1r86.onrender.com/api/auth/:path*"
     },
     {
       "source": "/api/user/:path*",
-      "destination": "https://nekuroscan-backend.onrender.com/api/user/:path*"
+      "destination": "https://nekuroscan-1r86.onrender.com/api/user/:path*"
     },
     {
       "source": "/api/profile/:path*",
-      "destination": "https://nekuroscan-backend.onrender.com/api/profile/:path*"
+      "destination": "https://nekuroscan-1r86.onrender.com/api/profile/:path*"
     },
     {
       "source": "/api/users/:path*",
-      "destination": "https://nekuroscan-backend.onrender.com/api/users/:path*"
+      "destination": "https://nekuroscan-1r86.onrender.com/api/users/:path*"
     },
     {
       "source": "/api/notifications/:path*",
-      "destination": "https://nekuroscan-backend.onrender.com/api/notifications/:path*"
+      "destination": "https://nekuroscan-1r86.onrender.com/api/notifications/:path*"
     },
     {
       "source": "/api/parse",
-      "destination": "https://nekuroscan-backend.onrender.com/api/parse"
+      "destination": "https://nekuroscan-1r86.onrender.com/api/parse"
     },
     {
       "source": "/api/image-metrics",
-      "destination": "https://nekuroscan-backend.onrender.com/api/image-metrics"
+      "destination": "https://nekuroscan-1r86.onrender.com/api/image-metrics"
     }
   ],
   "headers": [

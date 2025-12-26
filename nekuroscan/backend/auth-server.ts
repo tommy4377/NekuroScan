@@ -200,9 +200,9 @@ const upload = multer({
 // ========= CORS SETUP =========
 const corsOrigins = process.env.NODE_ENV === 'production' 
   ? [
-      'https://nekuroscan.onrender.com', 
+      'https://nekuro-scan.vercel.app',  // Frontend Vercel
       'https://nekuroscan.com',
-      // Vercel domains - aggiungere URL Vercel qui quando disponibile
+      // Vercel domains - supporta anche domini vercel.app generici
       ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
       ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])
     ]

@@ -35,7 +35,7 @@ interface MangaSEO {
 // ========== CONSTANTS ==========
 
 const SITE_NAME = 'NeKuro Scan';
-const BASE_URL = 'https://nekuroscan.onrender.com';
+const BASE_URL = 'https://nekuro-scan.vercel.app';
 const DEFAULT_IMAGE = `${BASE_URL}/web-app-manifest-512x512.webp`;
 
 // ========== HOOK ==========

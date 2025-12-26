@@ -1,5 +1,5 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://nekuroscan.onrender.com/sitemap.xml
+Sitemap: https://nekuro-scan.vercel.app/sitemap.xml
 

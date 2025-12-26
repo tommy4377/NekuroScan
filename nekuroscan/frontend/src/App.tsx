@@ -25,7 +25,18 @@ import statusBar from '@/utils/statusBar';
 import { initSentry, setUser as setSentryUser, clearUser as clearSentryUser } from '@/utils/sentry';
 import { registerServiceWorker, prefetchManager } from '@/utils/serviceWorkerManager';
 import diagnostics from '@/utils/diagnostics';
+// Speed Insights - Import with error handling
 import { SpeedInsights } from '@vercel/speed-insights/react';
+
+// Speed Insights Wrapper - Handles errors gracefully
+function SpeedInsightsWrapper() {
+  try {
+    return <SpeedInsights />;
+  } catch {
+    // Silently fail if Speed Insights has issues
+    return null;
+  }
+}
 
 // ========== EAGER LOADED PAGES ==========
 // Critical pages loaded immediately
@@ -406,7 +417,9 @@ function App() {
           <Router basename="/">
             <ErrorBoundary>
               <AppContent />
-              {import.meta.env.PROD && <SpeedInsights />}
+              {import.meta.env.PROD && (
+                <SpeedInsightsWrapper />
+              )}
             </ErrorBoundary>
           </Router>
         </ThemeProvider>

@@ -3,7 +3,7 @@
  * Gestisce URLs e impostazioni ambiente
  * 
  * UPDATED: 2025-01-XX - NeKuroScan v5.0 - Unified Backend
- * Backend: nekuroscan-backend.onrender.com (unified backend + proxy)
+ * Backend: nekuroscan-1r86.onrender.com (unified backend + proxy)
  * Frontend: Vercel (uses rewrites for API calls)
  */
 

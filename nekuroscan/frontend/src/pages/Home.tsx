@@ -565,7 +565,7 @@ function Home() {
         <Helmet>
           <title>Home - NeKuro Scan</title>
           <meta name="description" content="Scopri gli ultimi aggiornamenti manga, trending e top series su NeKuro Scan" />
-          <link rel="canonical" href="https://nekuroscan.onrender.com/home" />
+          <link rel="canonical" href="https://nekuro-scan.vercel.app/home" />
         </Helmet>
         <Container maxW="container.xl" py={8}>
           <VStack spacing={8} align="stretch">
@@ -690,10 +690,10 @@ function Home() {
       <Helmet>
         <title>Home - NeKuro Scan | Manga Online Gratuito</title>
         <meta name="description" content="Scopri gli ultimi aggiornamenti manga, serie trending e classifiche top su NeKuro Scan. Leggi gratuitamente migliaia di titoli." />
-        <link rel="canonical" href="https://nekuroscan.onrender.com/home" />
+        <link rel="canonical" href="https://nekuro-scan.vercel.app/home" />
         <meta property="og:title" content="Home - NeKuro Scan" />
         <meta property="og:description" content="Ultimi aggiornamenti, trending e top series manga" />
-        <meta property="og:url" content="https://nekuroscan.onrender.com/home" />
+        <meta property="og:url" content="https://nekuro-scan.vercel.app/home" />
       </Helmet>
       <Container maxW="container.xl" py={8}>
       <VStack spacing={8} align="stretch">
