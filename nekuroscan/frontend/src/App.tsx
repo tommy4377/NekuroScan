@@ -406,11 +406,11 @@ function App() {
           <Router basename="/">
             <ErrorBoundary>
               <AppContent />
+              {import.meta.env.PROD && <SpeedInsights />}
             </ErrorBoundary>
           </Router>
         </ThemeProvider>
       </ChakraProvider>
-      <SpeedInsights />
     </HelmetProvider>
   );
 }
