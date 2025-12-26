@@ -25,6 +25,7 @@ import statusBar from '@/utils/statusBar';
 import { initSentry, setUser as setSentryUser, clearUser as clearSentryUser } from '@/utils/sentry';
 import { registerServiceWorker, prefetchManager } from '@/utils/serviceWorkerManager';
 import diagnostics from '@/utils/diagnostics';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // ========== EAGER LOADED PAGES ==========
 // Critical pages loaded immediately
@@ -409,6 +410,7 @@ function App() {
           </Router>
         </ThemeProvider>
       </ChakraProvider>
+      <SpeedInsights />
     </HelmetProvider>
   );
 }
