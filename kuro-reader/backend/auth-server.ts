@@ -1,6 +1,6 @@
 // @ts-nocheck - Server file, gradual TypeScript migration
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// ✅ NeKuro Scan Server v5.0 - Unified Backend + Proxy
+// ✅ NeKuroScan Unified Server v5.0 - Backend + Proxy
 console.log('🚀 [STARTUP] Loading imports...');
 
 import express from 'express';
@@ -987,7 +987,7 @@ app.get('/health', async (req, res) => {
   const health = {
     status: 'checking',
     timestamp: new Date().toISOString(),
-    service: 'NeKuro Scan Server',
+    service: 'NeKuroScan Unified Server',
     version: '5.0.0',
     database: 'checking',
     storage: supabase ? 'configured' : 'disabled',
@@ -2338,7 +2338,7 @@ app.use(errorHandler);
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`
   ╔════════════════════════════════════════╗
-  ║      NeKuro Scan Server v5.0          ║
+  ║   NeKuroScan Unified Server v5.0      ║
   ╠════════════════════════════════════════╣
   ║ Port: ${PORT.toString().padEnd(33)}║
   ║ Environment: ${(process.env.NODE_ENV || 'development').padEnd(26)}║

@@ -1,5 +1,5 @@
 -- ============================================================================
--- 🆕 CREAZIONE NUOVE TABELLE NORMALIZZATE - KuroReader
+-- 🆕 CREAZIONE NUOVE TABELLE NORMALIZZATE - NeKuroScan
 -- ============================================================================
 -- Esegui questo SQL nel tuo database (Supabase SQL Editor)
 -- Per creare SOLO le tabelle normalizzate (quelle che userai ora)

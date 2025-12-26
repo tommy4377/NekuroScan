@@ -159,8 +159,8 @@ app.use((req, res, next) => {
     // Immagini: self + data URIs + blob + tutti i domini (per manga proxy)
     "img-src 'self' data: blob: https: http:",
     
-    // API Connections: backend auth + proxy + CDN manga
-    "connect-src 'self' https://kuro-auth-backend.onrender.com https://kuro-proxy-server.onrender.com https://cdn.mangaworld.cx https: http:",
+    // API Connections: unified backend + CDN manga
+    "connect-src 'self' https://nekuroscan-backend.onrender.com https://cdn.mangaworld.cx https: http:",
     
     // Media: self + blob + data
     "media-src 'self' blob: data:",
@@ -306,6 +306,6 @@ if (existsSync(distPath)) {
 }
 
 app.listen(PORT, () => {
-  console.log(`✅ NeKuro Scan frontend server avviato su porta ${PORT}`);
+  console.log(`✅ NeKuroScan frontend server avviato su porta ${PORT}`);
 });
 
