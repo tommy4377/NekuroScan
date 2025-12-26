@@ -486,18 +486,41 @@ async function main() {
    - DROP TABLE user_library;
     `);
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('\n❌ Migration failed:', error);
     // If it's a database connection error, exit gracefully (might be during build)
-    if (error.message?.includes('FATAL') || error.message?.includes('not found') || error.code === 'P1001') {
+    const errorMessage = error?.message || String(error);
+    const errorCode = error?.code || error?.errorCode;
+    
+    if (
+      errorMessage.includes('FATAL') || 
+      errorMessage.includes('not found') || 
+      errorMessage.includes('Tenant or user') ||
+      errorCode === 'P1001' ||
+      errorCode === 'P1017' ||
+      error?.name === 'PrismaClientInitializationError'
+    ) {
       console.log('⚠️  Database connection failed - skipping migration (this is OK during build)');
-      console.log('   Error:', error.message?.substring(0, 100));
-      await prisma.$disconnect();
+      console.log('   Error:', errorMessage.substring(0, 100));
+      try {
+        await prisma.$disconnect();
+      } catch {
+        // Ignore disconnect errors
+      }
       process.exit(0); // Exit with success to not fail the build
+    }
+    try {
+      await prisma.$disconnect();
+    } catch {
+      // Ignore disconnect errors
     }
     process.exit(1);
   } finally {
-    await prisma.$disconnect();
+    try {
+      await prisma.$disconnect();
+    } catch {
+      // Ignore disconnect errors in finally
+    }
   }
 }
 
