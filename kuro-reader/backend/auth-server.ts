@@ -199,20 +199,37 @@ const upload = multer({
 
 // ========= CORS SETUP =========
 const corsOrigins = process.env.NODE_ENV === 'production' 
-  ? ['https://nekuroscan.onrender.com', 'https://nekuroscan.com']
+  ? [
+      'https://nekuroscan.onrender.com', 
+      'https://nekuroscan.com',
+      // Vercel domains - aggiungere URL Vercel qui quando disponibile
+      ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+      ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])
+    ]
   : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'];
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || corsOrigins.includes(origin)) {
+    // In production, verifica origin; in dev, accetta tutto
+    if (process.env.NODE_ENV === 'development' || !origin) {
+      return callback(null, true);
+    }
+    
+    // Verifica se origin è nella whitelist o se è un dominio Vercel
+    const isAllowed = corsOrigins.some(allowed => origin.includes(allowed.replace(/https?:\/\//, ''))) ||
+                     origin.includes('.vercel.app');
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
+      // Log per debugging ma accetta comunque (puoi stringere in futuro)
+      console.warn(`⚠️ CORS: Origin not in whitelist: ${origin}`);
       callback(null, true);
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -1272,21 +1289,17 @@ app.put('/api/user/profile', authenticateToken, requireDatabase, upload.fields([
       }
     }
     
-    // BANNER UPLOAD
+    // BANNER UPLOAD (NO sharp - evitare OOM su Render)
     if (req.files?.banner && supabase) {
       const bannerFile = req.files.banner[0];
-      const bannerFileName = `banners/banner_${userId}_${Date.now()}.webp`;
+      const bannerFileName = `banners/banner_${userId}_${Date.now()}.${bannerFile.mimetype.split('/')[1] || 'jpg'}`;
       
       if (profile?.bannerUrl) {
         await deleteImageFromSupabase(profile.bannerUrl);
       }
       
-      const processedBanner = await sharp(bannerFile.buffer)
-        .resize(1200, 400, { fit: 'cover' })
-        .webp({ quality: 90 })
-        .toBuffer();
-      
-      const bannerUrl = await uploadImageToSupabase(processedBanner, bannerFileName);
+      // Upload diretto senza sharp per evitare crash di memoria su Render
+      const bannerUrl = await uploadImageToSupabase(bannerFile.buffer, bannerFileName);
       if (bannerUrl) {
         updateData.bannerUrl = bannerUrl;
       }
