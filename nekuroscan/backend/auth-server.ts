@@ -259,7 +259,9 @@ const ALLOWED_DOMAINS = [
   'www.mangaworldadult.net',
   'cdn.mangaworld.cx',
   'mangaworld.bz',
-  'www.mangaworld.bz'
+  'www.mangaworld.bz',
+  'mangaworld.mx',
+  'www.mangaworld.mx'
 ];
 
 function isAllowedDomain(url) {
