@@ -160,7 +160,7 @@ app.use((req, res, next) => {
     "img-src 'self' data: blob: https: http:",
     
     // API Connections: unified backend + CDN manga
-    "connect-src 'self' https://nekuroscan-1r86.onrender.com https://cdn.mangaworld.cx https: http:",
+    "connect-src 'self' https://nekuroscan-fssx.onrender.com https://cdn.mangaworld.cx https: http:",
     
     // Media: self + blob + data
     "media-src 'self' blob: data:",
