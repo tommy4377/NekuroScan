@@ -56,7 +56,12 @@ export abstract class BaseAPI {
         }
       };
       
-      const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
+      // Build proxy URL: use relative path in production (Vercel rewrites), absolute in dev
+      const proxyUrl = config.PROXY_URL 
+        ? `${config.PROXY_URL}/api/proxy` 
+        : '/api/proxy';
+      
+      const response = await fetch(proxyUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(proxyRequest)

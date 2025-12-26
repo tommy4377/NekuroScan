@@ -264,8 +264,8 @@ function Login() {
   };
 
   return (
-    <Box minH="100vh" bg="gray.900">
-      <Container maxW="container.sm" py={{ base: 10, md: 20 }}>
+    <Box minH="100vh" bg="gray.900" display="flex" alignItems="center" py={{ base: 8, md: 0 }}>
+      <Container maxW="container.sm" py={{ base: 6, md: 8 }}>
         <VStack spacing={8}>
           {/* Header with logo and back button */}
           <HStack w="100%" justify="space-between" mb={4}>

@@ -61,7 +61,8 @@ type AuthStore = AuthState & AuthActions;
 
 // ========== CONSTANTS ==========
 
-const API_URL = `${config.API_URL}/api`;
+// API_URL includes /api - so paths should be relative to /api (e.g., /auth/login, not /api/auth/login)
+const API_URL = config.API_URL ? `${config.API_URL}/api` : '/api';
 
 const USER_LOCAL_KEYS = [
   'user', 'token', 'userAvatar', 'userBanner', 'profilePublic',
@@ -119,7 +120,8 @@ const buildLocalPayload = () => ({
 
 // ========== AXIOS SETUP ==========
 
-axios.defaults.baseURL = API_URL;
+// baseURL should be the base (without /api) - paths in axios calls include /api
+axios.defaults.baseURL = config.API_URL || '';
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 const savedToken = localStorage.getItem('token');

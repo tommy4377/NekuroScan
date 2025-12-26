@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/((?!api|_next|_vercel|assets).*)",
+      "destination": "/index.html"
+    },
+    {
       "source": "/health",
       "destination": "https://nekuroscan-1r86.onrender.com/health"
     },

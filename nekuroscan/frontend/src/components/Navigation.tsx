@@ -289,12 +289,6 @@ function Navigation() {
             paddingLeft: 'env(safe-area-inset-left, 0px)',
           }}
         >
-          <DrawerCloseButton 
-            sx={{
-              top: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
-              left: 'calc(0.75rem + env(safe-area-inset-left, 0px))',
-            }}
-          />
           <DrawerHeader 
             borderBottomWidth="1px" 
             borderColor="gray.700"
