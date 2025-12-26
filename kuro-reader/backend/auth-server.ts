@@ -1,6 +1,6 @@
 // @ts-nocheck - Server file, gradual TypeScript migration
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// ✅ AUTH-SERVER.JS v4.1 - WITH STANDARDIZED ERROR HANDLING
+// ✅ NeKuro Scan Server v5.0 - Unified Backend + Proxy
 console.log('🚀 [STARTUP] Loading imports...');
 
 import express from 'express';
@@ -14,7 +14,13 @@ import multer from 'multer';
 import sharp from 'sharp';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
+import https from 'https';
 import { errorHandler } from './utils/errorHandler';
+import redisImageCache, { isReaderImage, getImageType } from './utils/redisImageCache';
+import { getCloudinaryUrl, CloudinaryPresets } from './utils/cloudinaryHelper';
+import { httpsAgent, httpAgent, fetchWithRetry, getPoolStats } from './utils/httpPool';
 
 console.log('✅ [STARTUP] All imports loaded');
 
@@ -211,6 +217,122 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ========= PROXY SETUP =========
+// Configure axios defaults
+axios.defaults.maxRedirects = 10;
+axios.defaults.validateStatus = (status) => status < 600;
+
+// ========= USER AGENT ROTATION (Anti-Block) =========
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15'
+];
+
+const getRandomUserAgent = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+
+// ========= DOMAIN WHITELIST =========
+const ALLOWED_DOMAINS = [
+  'mangaworld.cx',
+  'mangaworldadult.net',
+  'www.mangaworld.cx',
+  'www.mangaworldadult.net',
+  'cdn.mangaworld.cx',
+  'mangaworld.bz',
+  'www.mangaworld.bz'
+];
+
+function isAllowedDomain(url) {
+  try {
+    const urlObj = new URL(url);
+    return ALLOWED_DOMAINS.some(domain => urlObj.hostname.includes(domain));
+  } catch {
+    return false;
+  }
+}
+
+// ========= PROXY RATE LIMITING =========
+const PROXY_RATE_LIMITS = {
+  proxy: { window: 60000, max: 300 },  // 300 proxy req/min = 5 req/sec
+  image: { window: 60000, max: 600 },  // 600 immagini/min = 10 req/sec
+};
+
+const proxyRateLimiter = (limitType = 'proxy') => {
+  return (req, res, next) => {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+               req.headers['x-real-ip'] || 
+               req.ip || 
+               req.connection.remoteAddress;
+    const now = Date.now();
+    
+    if (INTERNAL_IPS.includes(ip)) {
+      return next();
+    }
+    
+    if (isBlacklisted(ip)) {
+      return res.status(403).json({ 
+        success: false,
+        error: 'IP temporaneamente bloccato per attività sospetta' 
+      });
+    }
+    
+    const limit = PROXY_RATE_LIMITS[limitType] || PROXY_RATE_LIMITS.proxy;
+    const key = `proxy_${ip}_${limitType}`;
+    
+    if (!requestCounts.has(key)) {
+      requestCounts.set(key, { count: 1, resetTime: now + limit.window });
+      return next();
+    }
+    
+    const data = requestCounts.get(key);
+    
+    if (now > data.resetTime) {
+      requestCounts.set(key, { count: 1, resetTime: now + limit.window });
+      return next();
+    }
+    
+    if (data.count >= limit.max) {
+      const retryAfter = Math.ceil((data.resetTime - now) / 1000);
+      console.warn(`⚠️ Proxy rate limit: IP ${ip}, type ${limitType}, ${data.count}/${limit.max}`);
+      
+      res.setHeader('Retry-After', retryAfter.toString());
+      return res.status(429).json({ 
+        success: false,
+        error: 'Limite richieste raggiunto',
+        retryAfter
+      });
+    }
+    
+    data.count++;
+    next();
+  };
+};
+
+// Helper per placeholder SVG
+function sendPlaceholder(res, statusCode = 500) {
+  const messages = {
+    403: 'Accesso negato',
+    404: 'Immagine non trovata',
+    500: 'Errore caricamento'
+  };
+  
+  const message = messages[statusCode] || 'Errore';
+  
+  const placeholder = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280" viewBox="0 0 200 280">
+      <rect width="200" height="280" fill="#2D3748"/>
+      <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#A0AEC0" font-family="sans-serif" font-size="14">
+        ${message}
+      </text>
+    </svg>`,
+    'utf-8'
+  );
+  
+  res.set('Content-Type', 'image/svg+xml').send(placeholder);
+}
 
 // ========= DATABASE CHECK MIDDLEWARE =========
 const requireDatabase = async (req, res, next) => {
@@ -542,25 +664,328 @@ async function deleteImageFromSupabase(url, bucket = 'profile-images') {
   }
 }
 
+// ========= PROXY ROUTES =========
+
+// Proxy per evitare CORS
+app.post('/api/proxy', proxyRateLimiter('proxy'), async (req, res) => {
+  try {
+    const { url, method = 'GET', headers = {} } = req.body;
+    
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ success: false, error: 'URL non valido' });
+    }
+    
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      return res.status(400).json({ success: false, error: 'URL deve iniziare con http:// o https://' });
+    }
+    
+    if (!isAllowedDomain(url)) {
+      console.warn(`⚠️ Dominio non autorizzato bloccato: ${url}`);
+      return res.status(403).json({ success: false, error: 'Dominio non autorizzato' });
+    }
+    
+    const allowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
+    const sanitizedMethod = method.toUpperCase();
+    if (!allowedMethods.includes(sanitizedMethod)) {
+      return res.status(400).json({ success: false, error: 'Metodo HTTP non valido' });
+    }
+    
+    const safeHeaders = {
+      'User-Agent': headers['User-Agent'] || getRandomUserAgent(),
+      'Accept': headers['Accept'] || 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': headers['Accept-Language'] || 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'DNT': '1',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Referer': headers['Referer'],
+      'Cache-Control': 'max-age=0'
+    };
+    
+    Object.keys(safeHeaders).forEach(key => {
+      if (safeHeaders[key] === undefined) delete safeHeaders[key];
+    });
+    
+    const response = await axios({
+      method: sanitizedMethod,
+      url,
+      headers: safeHeaders,
+      timeout: 30000,
+      maxRedirects: 10,
+      maxContentLength: 50 * 1024 * 1024,
+      validateStatus: (status) => status < 600,
+      decompress: true,
+      httpsAgent,
+      withCredentials: false
+    });
+    
+    if (response.status === 403) {
+      console.error(`❌ SITO SORGENTE BLOCCA IL PROXY (403): ${url}`);
+      return res.status(502).json({ 
+        success: false, 
+        error: 'Il sito sorgente sta bloccando il proxy. Questo è temporaneo, riprova tra 1-2 minuti.',
+        sourceBlocked: true
+      });
+    }
+    
+    if (response.status >= 400) {
+      console.error(`⚠️ HTTP ${response.status} da ${url}`);
+      return res.status(502).json({ 
+        success: false, 
+        error: `Il sito target ha risposto con errore ${response.status}`
+      });
+    }
+    
+    res.json({ success: true, data: response.data, headers: response.headers });
+  } catch (error) {
+    console.error('❌ Proxy error:', error.message);
+    
+    if (error.code === 'CERT_HAS_EXPIRED' || 
+        error.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
+        error.code === 'SELF_SIGNED_CERT_IN_CHAIN' ||
+        error.code === 'DEPTH_ZERO_SELF_SIGNED_CERT') {
+      console.error(`🔒 SSL/TLS Certificate Error for ${req.body.url}:`, error.code);
+      return res.status(502).json({ 
+        success: false, 
+        error: 'Certificato SSL/TLS non valido. Il sito target potrebbe avere problemi di sicurezza.',
+        sslError: true
+      });
+    }
+    
+    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+      return res.status(504).json({ 
+        success: false, 
+        error: 'Impossibile raggiungere il sito target. Server temporaneamente non disponibile.' 
+      });
+    }
+    
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Parse HTML
+app.post('/api/parse', async (req, res) => {
+  try {
+    const { html, selector } = req.body;
+    
+    if (!html || !selector) {
+      return res.status(400).json({ success: false, error: 'HTML e selector richiesti' });
+    }
+    
+    if (typeof html !== 'string' || typeof selector !== 'string') {
+      return res.status(400).json({ success: false, error: 'Dati non validi' });
+    }
+    
+    if (html.length > 5000000) {
+      return res.status(400).json({ success: false, error: 'HTML troppo grande' });
+    }
+    
+    const $ = cheerio.load(html);
+    const results = [];
+    $(selector).each((i, elem) => {
+      if (i < 1000) results.push($(elem).html());
+    });
+    res.json({ success: true, results });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Image proxy con Cloudinary + Caching
+app.get('/api/image-proxy', proxyRateLimiter('image'), async (req, res) => {
+  try {
+    const { url } = req.query;
+    
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ success: false, error: 'URL non valido' });
+    }
+    
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      return res.status(400).json({ success: false, error: 'URL deve iniziare con http:// o https://' });
+    }
+    
+    if (!isAllowedDomain(url)) {
+      console.warn(`⚠️ Dominio immagine non autorizzato bloccato: ${url}`);
+      return res.status(403).json({ success: false, error: 'Dominio non autorizzato' });
+    }
+    
+    const imageType = getImageType(url, req.path);
+    const isReader = imageType === 'reader';
+    
+    // Reader images → Sempre originali (NO ottimizzazione)
+    if (isReader) {
+      redisImageCache.incrementReaderBypass();
+      console.log(`📖 Reader image (bypass optimization): ${url.substring(0, 80)}...`);
+      
+      const response = await axios({
+        method: 'GET',
+        url,
+        responseType: 'arraybuffer',
+        headers: { 
+          'User-Agent': getRandomUserAgent(),
+          'Accept': 'image/*,*/*;q=0.8',
+          'Referer': url.includes('mangaworld') ? 'https://www.mangaworld.cx/' : '',
+        },
+        timeout: 60000,
+        maxRedirects: 10,
+        maxContentLength: 10 * 1024 * 1024,
+        validateStatus: (status) => status < 600,
+        httpsAgent,
+        httpAgent
+      });
+      
+      if (response.status >= 400) {
+        return sendPlaceholder(res, response.status);
+      }
+      
+      res.set({
+        'Content-Type': response.headers['content-type'] || 'image/jpeg',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Image-Type': 'reader-original',
+        'X-Optimization': 'bypassed'
+      });
+      return res.send(response.data);
+    }
+    
+    // Non-reader images → Check cache
+    const cached = await redisImageCache.get(url);
+    if (cached) {
+      console.log(`✅ Cache HIT: ${imageType} (${cached.format}, saved ${(cached.saved / 1024).toFixed(0)}KB)`);
+      return res.redirect(302, cached.url);
+    }
+    
+    // Cache MISS → Usa Cloudinary se abilitato
+    const useCloudinary = !!process.env.CLOUDINARY_CLOUD_NAME;
+    
+    if (useCloudinary) {
+      console.log(`🔄 Optimizing ${imageType}: ${url.substring(0, 80)}...`);
+      
+      let optimizedUrl;
+      switch (imageType) {
+        case 'cover':
+          optimizedUrl = CloudinaryPresets.mangaCover(url);
+          break;
+        case 'avatar':
+          optimizedUrl = CloudinaryPresets.avatar(url);
+          break;
+        case 'banner':
+          optimizedUrl = CloudinaryPresets.banner(url);
+          break;
+        case 'logo':
+          optimizedUrl = CloudinaryPresets.logo(url);
+          break;
+        default:
+          optimizedUrl = getCloudinaryUrl(url, {
+            width: 1200,
+            crop: 'limit',
+            quality: 'auto',
+            format: 'auto'
+          });
+      }
+      
+      const estimatedOriginalSize = 500 * 1024;
+      const estimatedOptimizedSize = 150 * 1024;
+      
+      await redisImageCache.set(url, optimizedUrl, {
+        format: 'avif/webp',
+        originalSize: estimatedOriginalSize,
+        optimizedSize: estimatedOptimizedSize,
+        imageType
+      });
+      
+      return res.redirect(302, optimizedUrl);
+    }
+    
+    // Cloudinary disabilitato → Serve originale
+    console.log(`🖼️ Proxying (no optimization): ${url.substring(0, 80)}...`);
+    
+    const response = await axios({
+      method: 'GET',
+      url,
+      responseType: 'arraybuffer',
+      headers: { 
+        'User-Agent': getRandomUserAgent(),
+        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        'Referer': url.includes('mangaworld') ? 'https://www.mangaworld.cx/' : '',
+      },
+      timeout: 60000,
+      maxRedirects: 10,
+      maxContentLength: 10 * 1024 * 1024,
+      validateStatus: (status) => status < 600,
+      httpsAgent,
+      httpAgent
+    });
+    
+    if (response.status >= 400) {
+      return sendPlaceholder(res, response.status);
+    }
+    
+    res.set({
+      'Content-Type': response.headers['content-type'] || 'image/jpeg',
+      'Cache-Control': 'public, max-age=2592000, immutable',
+      'Access-Control-Allow-Origin': '*',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Optimization': 'disabled'
+    });
+    res.send(response.data);
+    
+  } catch (error) {
+    console.error('❌ Image proxy error:', error.message);
+    
+    if (error.code?.startsWith('CERT_') || error.code?.startsWith('UNABLE_')) {
+      console.error(`🔒 SSL/TLS Error: ${error.code}`);
+    }
+    
+    return sendPlaceholder(res, 500);
+  }
+});
+
+// Image optimization metrics
+app.get('/api/image-metrics', async (req, res) => {
+  const stats = await redisImageCache.getStats();
+  const poolStats = getPoolStats();
+  
+  res.json({
+    success: true,
+    timestamp: new Date().toISOString(),
+    service: 'Image Optimization System',
+    cloudinary: {
+      enabled: !!process.env.CLOUDINARY_CLOUD_NAME,
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME || 'not-configured'
+    },
+    redis: stats.redis,
+    cache: stats.cache,
+    optimization: stats.optimization,
+    connectionPool: poolStats
+  });
+});
+
 // ========= HEALTH CHECK =========
 app.get('/health', async (req, res) => {
   const health = {
     status: 'checking',
     timestamp: new Date().toISOString(),
-    service: 'NeKuro Scan Auth Server',
-    version: '4.1.0',
+    service: 'NeKuro Scan Server',
+    version: '5.0.0',
     database: 'checking',
     storage: supabase ? 'configured' : 'disabled',
+    redis: 'checking',
+    cloudinary: 'checking',
     reconnectAttempts: reconnectAttempts
   };
   
+  // Check database
   try {
     if (prisma) {
       await executeWithRetry(async () => {
         await prisma.$queryRaw`SELECT 1`;
       });
       health.database = 'healthy';
-      health.status = 'healthy';
       dbConnected = true;
     } else {
       throw new Error('Prisma not initialized');
@@ -574,6 +999,24 @@ app.get('/health', async (req, res) => {
     if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
       connectDatabase();
     }
+  }
+  
+  // Check Redis
+  try {
+    const redisStats = await redisImageCache.getStats();
+    health.redis = redisStats.redis.connected ? 'healthy' : 'fallback';
+  } catch (error) {
+    health.redis = 'unhealthy';
+  }
+  
+  // Check Cloudinary
+  health.cloudinary = process.env.CLOUDINARY_CLOUD_NAME ? 'configured' : 'disabled';
+  
+  // Determine overall status
+  if (health.database === 'healthy') {
+    health.status = 'healthy';
+  } else {
+    health.status = 'degraded';
   }
   
   res.status(health.status === 'healthy' ? 200 : 503).json(health);
@@ -1882,12 +2325,14 @@ app.use(errorHandler);
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`
   ╔════════════════════════════════════════╗
-  ║     NeKuro Scan Auth Server v4.1      ║
+  ║      NeKuro Scan Server v5.0          ║
   ╠════════════════════════════════════════╣
   ║ Port: ${PORT.toString().padEnd(33)}║
   ║ Environment: ${(process.env.NODE_ENV || 'development').padEnd(26)}║
   ║ Database: ${dbConnected ? '✅ Connected'.padEnd(29) : '⏳ Connecting...'.padEnd(29)}║
   ║ Storage: ${supabase ? '✅ Configured'.padEnd(30) : '⚠️  Disabled'.padEnd(30)}║
+  ║ Redis: ${process.env.REDIS_URL ? '✅ Configured'.padEnd(30) : '⚠️  Fallback'.padEnd(30)}║
+  ║ Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? '✅ Configured'.padEnd(26) : '⚠️  Disabled'.padEnd(26)}║
   ╚════════════════════════════════════════╝
   `);
   
@@ -1905,6 +2350,9 @@ const gracefulShutdown = async (signal) => {
     await prisma.$disconnect();
     console.log('✅ Database disconnected');
   }
+  
+  await redisImageCache.disconnect();
+  console.log('✅ Redis disconnected');
   
   process.exit(0);
 };

@@ -91,7 +91,8 @@ function Home() {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);
       
-      const response = await fetch(`${config.PROXY_URL}/health`, {
+      const proxyHealthUrl = config.PROXY_URL ? `${config.PROXY_URL}/health` : '/api/image-metrics';
+      const response = await fetch(proxyHealthUrl, {
         signal: controller.signal,
         cache: 'no-cache',
         mode: 'cors'
@@ -110,7 +111,8 @@ function Home() {
       const testController = new AbortController();
       const testTimeout = setTimeout(() => testController.abort(), 3000);
       
-      const testResponse = await fetch(`${config.PROXY_URL}/api/proxy`, {
+      const proxyTestUrl = config.PROXY_URL ? `${config.PROXY_URL}/api/proxy` : '/api/proxy';
+      const testResponse = await fetch(proxyTestUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -262,9 +262,11 @@ class OfflineManager {
     
     // Try proxy
     try {
-      const proxyUrl = `${window.location.origin.includes('localhost') 
-        ? 'http://localhost:10001' 
-        : 'https://kuro-proxy-server.onrender.com'}/api/image-proxy?url=${encodeURIComponent(url)}`;
+      // Use relative URL in production (Vercel rewrites), localhost in dev
+      const proxyBase = window.location.origin.includes('localhost') 
+        ? 'http://localhost:10000' 
+        : '';
+      const proxyUrl = `${proxyBase}/api/image-proxy?url=${encodeURIComponent(url)}`;
       
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), PROXY_TIMEOUT);

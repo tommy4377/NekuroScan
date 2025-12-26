@@ -77,7 +77,8 @@ const ProxiedImage = memo<ProxiedImageProps>(({ src, alt, style, priority, ...pr
     
     // If from external CDN, use proxy directly (avoid useless retries)
     if (src.includes(CDN_PATTERN)) {
-      const proxyUrl = `${config.PROXY_URL}/api/image-proxy?url=${encodeURIComponent(src)}`;
+      const proxyBase = config.PROXY_URL || '';
+      const proxyUrl = `${proxyBase}/api/image-proxy?url=${encodeURIComponent(src)}`;
       console.log('[ProxiedImage] 📡 Using proxy for CDN image');
       setImageSrc(proxyUrl);
     } else {
@@ -121,9 +122,10 @@ const ProxiedImage = memo<ProxiedImageProps>(({ src, alt, style, priority, ...pr
     }
     
     // SINGLE RETRY: If not already proxy, use proxy
-    if (retryCount === 0 && config.PROXY_URL && src) {
+    if (retryCount === 0 && src) {
       console.log('[ProxiedImage] 🔄 Retrying with proxy...');
-      const proxyUrl = `${config.PROXY_URL}/api/image-proxy?url=${encodeURIComponent(src)}`;
+      const proxyBase = config.PROXY_URL || '';
+      const proxyUrl = `${proxyBase}/api/image-proxy?url=${encodeURIComponent(src)}`;
       setRetryCount(1);
       setLoading(true);
       setImageSrc(proxyUrl);

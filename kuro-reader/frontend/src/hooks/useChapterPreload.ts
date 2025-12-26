@@ -63,7 +63,7 @@ export function useChapterPreload(
           const needsProxy = url.includes(CDN_PATTERN);
           
           const imageUrl = needsProxy 
-            ? `${config.PROXY_URL || 'https://kuro-proxy-server.onrender.com'}/api/image-proxy?url=${encodeURIComponent(url)}`
+            ? `${config.PROXY_URL || ''}/api/image-proxy?url=${encodeURIComponent(url)}`
             : url;
 
           await new Promise<void>((resolve) => {

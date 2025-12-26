@@ -44,8 +44,10 @@ const ChapterLoadingScreen = ({
           const img = new Image();
           const cdnPattern = atob('Y2RuLm1hbmdhd29ybGQ=');
           const needsProxy = url.includes(cdnPattern);
+          // Use relative URL in production (Vercel rewrites)
+          const proxyBase = import.meta.env.VITE_PROXY_URL || (import.meta.env.PROD ? '' : 'http://localhost:10000');
           img.src = needsProxy 
-            ? `${import.meta.env.VITE_PROXY_URL || 'https://kuro-proxy-server.onrender.com'}/api/image-proxy?url=${encodeURIComponent(url)}`
+            ? `${proxyBase}/api/image-proxy?url=${encodeURIComponent(url)}`
             : url;
         }, i * 200); // Stagger to avoid overload
       });

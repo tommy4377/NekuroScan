@@ -111,14 +111,9 @@
   <!-- ✅ PERFORMANCE: Preconnect DNS + Early Hints per risorse esterne critiche -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://kuro-proxy-server.onrender.com" crossorigin>
   <link rel="preconnect" href="https://cdn.mangaworld.cx" crossorigin>
-  <link rel="dns-prefetch" href="https://kuro-auth-backend.onrender.com">
-  <link rel="dns-prefetch" href="https://kuro-proxy-server.onrender.com">
+  <link rel="dns-prefetch" href="https://nekuroscan-backend.onrender.com">
   <link rel="dns-prefetch" href="https://cdn.mangaworld.cx">
-  
-  <!-- ✅ Resource Hints: Prefetch per API health check (riduce cold start) -->
-  <link rel="prefetch" href="https://kuro-proxy-server.onrender.com/health" as="fetch" crossorigin>
   
   <!-- ✅ PERFORMANCE: Font con display=swap (non blocca rendering) -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="all">

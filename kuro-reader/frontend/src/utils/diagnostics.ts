@@ -42,7 +42,8 @@ export async function testProxyConnection(): Promise<ServiceStatus> {
   console.log('[Diagnostics] 🔍 Testing proxy connection...');
   
   try {
-    const response = await fetch(`${config.PROXY_URL}/health`, {
+    const proxyHealthUrl = config.PROXY_URL ? `${config.PROXY_URL}/health` : '/api/image-metrics';
+    const response = await fetch(proxyHealthUrl, {
       method: 'GET',
       cache: 'no-cache',
       signal: AbortSignal.timeout(5000)
@@ -144,7 +145,8 @@ export async function testMangaAPI(): Promise<ServiceStatus> {
   console.log('[Diagnostics] 🔍 Testing manga API...');
   
   try {
-    const response = await fetch(`${config.PROXY_URL}/api/proxy`, {
+    const proxyTestUrl = config.PROXY_URL ? `${config.PROXY_URL}/api/proxy` : '/api/proxy';
+    const response = await fetch(proxyTestUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

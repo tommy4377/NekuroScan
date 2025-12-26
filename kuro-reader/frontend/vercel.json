@@ -1,0 +1,69 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/proxy/:path*",
+      "destination": "https://nekuroscan-backend.onrender.com/api/proxy/:path*"
+    },
+    {
+      "source": "/api/image-proxy",
+      "destination": "https://nekuroscan-backend.onrender.com/api/image-proxy"
+    },
+    {
+      "source": "/api/auth/:path*",
+      "destination": "https://nekuroscan-backend.onrender.com/api/auth/:path*"
+    },
+    {
+      "source": "/api/user/:path*",
+      "destination": "https://nekuroscan-backend.onrender.com/api/user/:path*"
+    },
+    {
+      "source": "/api/profile/:path*",
+      "destination": "https://nekuroscan-backend.onrender.com/api/profile/:path*"
+    },
+    {
+      "source": "/api/users/:path*",
+      "destination": "https://nekuroscan-backend.onrender.com/api/users/:path*"
+    },
+    {
+      "source": "/api/notifications/:path*",
+      "destination": "https://nekuroscan-backend.onrender.com/api/notifications/:path*"
+    },
+    {
+      "source": "/api/parse",
+      "destination": "https://nekuroscan-backend.onrender.com/api/parse"
+    },
+    {
+      "source": "/api/image-metrics",
+      "destination": "https://nekuroscan-backend.onrender.com/api/image-metrics"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ]
+}
+

@@ -15,7 +15,8 @@ interface ProxyOptions {
 
 // ========== CONFIG ==========
 
-const PROXY_URL = import.meta.env.VITE_API_URL || 'https://kuro-proxy-server.onrender.com';
+// Use relative URL in production (Vercel rewrites), localhost in dev
+const PROXY_URL = import.meta.env.VITE_PROXY_URL || (import.meta.env.PROD ? '' : 'http://localhost:10000');
 
 // ========== CACHE ==========
 

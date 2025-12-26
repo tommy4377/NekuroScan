@@ -82,7 +82,7 @@ export const CloudinaryPresets = {
   // Copertine manga (priorità: qualità visiva)
   mangaCover: (url) => getCloudinaryUrl(url, {
     width: 400,
-    height: 600,
+    height: 560,
     crop: 'fill',
     gravity: 'auto:subject',
     quality: '85',  // Qualità alta per copertine
@@ -91,6 +91,16 @@ export const CloudinaryPresets = {
   
   // Copertine manga (thumbnail piccolo)
   mangaCoverThumb: (url) => getCloudinaryUrl(url, {
+    width: 200,
+    height: 280,
+    crop: 'fill',
+    gravity: 'auto:subject',
+    quality: 'auto:good',
+    format: 'auto'
+  }),
+  
+  // Alias per compatibilità con proxy
+  mangaCoverSmall: (url) => getCloudinaryUrl(url, {
     width: 200,
     height: 280,
     crop: 'fill',

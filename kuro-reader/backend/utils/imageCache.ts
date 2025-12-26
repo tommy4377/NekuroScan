@@ -1,67 +1,49 @@
 // @ts-nocheck - Server file, gradual TypeScript migration
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // ✅ IMAGE CACHE & DEDUPLICATION SYSTEM
-// Sistema intelligente di caching con deduplica e metrics
+// Versione semplificata per proxy server
 
 import crypto from 'crypto';
 
-/**
- * In-memory cache per immagini ottimizzate
- * In produzione: sostituire con Redis per persistenza e scaling
- */
 class ImageCache {
   constructor() {
-    // Cache principale: hash → URL Cloudinary
     this.cache = new Map();
-    
-    // Mapping URL originale → hash (per deduplica)
     this.urlToHash = new Map();
     
-    // Metrics
     this.metrics = {
       hits: 0,
       misses: 0,
       conversions: 0,
       totalSaved: 0,
       deduplicatedUrls: 0,
+      readerBypass: 0,  // Reader images NON ottimizzate
       startTime: Date.now()
     };
     
-    // Cache TTL (24 ore)
-    this.ttl = 24 * 60 * 60 * 1000;
+    this.ttl = 24 * 60 * 60 * 1000; // 24 ore
     
     // Cleanup ogni ora
     setInterval(() => this.cleanup(), 60 * 60 * 1000);
   }
 
-  /**
-   * Genera hash univoco per URL immagine
-   * Normalizza URL per deduplica (es. http vs https, query params)
-   */
   generateHash(imageUrl) {
     if (!imageUrl) return null;
     
     try {
-      // Normalizza URL
       const url = new URL(imageUrl);
-      
-      // Rimuovi query params che non impattano l'immagine
       url.search = '';
       url.hash = '';
       
-      // Normalizza protocollo
       const normalizedUrl = url.toString().toLowerCase()
-        .replace(/^https?:\/\//, ''); // Rimuovi protocollo
+        .replace(/^https?:\/\//, '');
       
-      // Genera SHA256 hash
       return crypto
         .createHash('sha256')
         .update(normalizedUrl)
         .digest('hex')
-        .substring(0, 16); // Prime 16 chars
+        .substring(0, 16);
         
     } catch (error) {
-      // Se non è URL valido, usa stringa as-is
       return crypto
         .createHash('sha256')
         .update(imageUrl.toLowerCase())
@@ -70,20 +52,13 @@ class ImageCache {
     }
   }
 
-  /**
-   * Ottieni URL ottimizzato dalla cache
-   * @returns {Object|null} { url, cached, hash }
-   */
   get(imageUrl) {
     if (!imageUrl) return null;
     
     const hash = this.generateHash(imageUrl);
-    
-    // Check se esiste in cache
     const cached = this.cache.get(hash);
     
     if (cached && Date.now() - cached.timestamp < this.ttl) {
-      // Cache HIT
       this.metrics.hits++;
       
       return {
@@ -99,21 +74,15 @@ class ImageCache {
       };
     }
     
-    // Cache MISS
     this.metrics.misses++;
-    
     return null;
   }
 
-  /**
-   * Salva URL ottimizzato in cache
-   */
   set(imageUrl, optimizedUrl, metadata = {}) {
     if (!imageUrl || !optimizedUrl) return;
     
     const hash = this.generateHash(imageUrl);
     
-    // Check se è deduplica
     const existingHash = this.urlToHash.get(imageUrl);
     if (existingHash && existingHash !== hash) {
       this.metrics.deduplicatedUrls++;
@@ -133,16 +102,16 @@ class ImageCache {
     this.cache.set(hash, cacheEntry);
     this.urlToHash.set(imageUrl, hash);
     
-    // Update metrics
     this.metrics.conversions++;
     if (metadata.originalSize && metadata.optimizedSize) {
       this.metrics.totalSaved += (metadata.originalSize - metadata.optimizedSize);
     }
   }
 
-  /**
-   * Cleanup cache entries scadute
-   */
+  incrementReaderBypass() {
+    this.metrics.readerBypass++;
+  }
+
   cleanup() {
     const now = Date.now();
     let cleaned = 0;
@@ -151,7 +120,6 @@ class ImageCache {
       if (now - entry.timestamp > this.ttl) {
         this.cache.delete(hash);
         
-        // Rimuovi anche da urlToHash
         for (const [url, urlHash] of this.urlToHash.entries()) {
           if (urlHash === hash) {
             this.urlToHash.delete(url);
@@ -167,13 +135,10 @@ class ImageCache {
     }
   }
 
-  /**
-   * Ottieni statistiche cache
-   */
   getStats() {
-    const totalRequests = this.metrics.hits + this.metrics.misses;
-    const hitRate = totalRequests > 0 
-      ? ((this.metrics.hits / totalRequests) * 100).toFixed(2) 
+    const totalRequests = this.metrics.hits + this.metrics.misses + this.metrics.readerBypass;
+    const hitRate = (this.metrics.hits + this.metrics.misses) > 0 
+      ? ((this.metrics.hits / (this.metrics.hits + this.metrics.misses)) * 100).toFixed(2) 
       : 0;
     
     const uptimeMs = Date.now() - this.metrics.startTime;
@@ -189,6 +154,7 @@ class ImageCache {
       },
       optimization: {
         conversions: this.metrics.conversions,
+        readerBypass: this.metrics.readerBypass,
         totalSavedBytes: this.metrics.totalSaved,
         totalSavedMB: (this.metrics.totalSaved / (1024 * 1024)).toFixed(2),
         avgSavingPerImage: this.metrics.conversions > 0
@@ -207,9 +173,6 @@ class ImageCache {
     };
   }
 
-  /**
-   * Clear cache (per testing o reset manuale)
-   */
   clear() {
     const size = this.cache.size;
     this.cache.clear();
@@ -217,48 +180,36 @@ class ImageCache {
     console.log(`🗑️  Image cache cleared: ${size} entries removed`);
   }
 
-  /**
-   * Check se URL è in cache
-   */
   has(imageUrl) {
     if (!imageUrl) return false;
     const hash = this.generateHash(imageUrl);
     return this.cache.has(hash);
   }
 
-  /**
-   * Get cache size in MB
-   */
   getSizeEstimate() {
-    // Stima dimensione cache in memoria (rough estimate)
-    const avgEntrySize = 1024; // ~1KB per entry (URL + metadata)
+    const avgEntrySize = 1024;
     return ((this.cache.size * avgEntrySize) / (1024 * 1024)).toFixed(2);
   }
 }
 
-// Singleton instance
 const imageCache = new ImageCache();
-
 export default imageCache;
 
 /**
- * Helper functions
- */
-
-/**
- * Determina se URL è un'immagine reader (non ottimizzare)
+ * Determina se URL è un'immagine reader (NON ottimizzare)
  */
 export function isReaderImage(imageUrl, requestPath) {
   if (!imageUrl) return false;
   
-  // Check request path (es. /api/chapter-images, /reader, ecc.)
+  // Check request path
   if (requestPath) {
     const readerPaths = [
       '/chapter-images',
       '/reader',
       '/read/',
       '/manga-page',
-      '/page-'
+      '/page-',
+      '/capitolo'
     ];
     
     if (readerPaths.some(path => requestPath.includes(path))) {
@@ -266,49 +217,43 @@ export function isReaderImage(imageUrl, requestPath) {
     }
   }
   
-  // Check URL patterns (capitoli manga)
+  // Check URL patterns
   const readerPatterns = [
     /\/pages?\//i,
     /\/capitoli?\//i,
     /\/chapters?\//i,
     /\/scans?\//i,
     /page[-_]\d+/i,
-    /ch[-_]\d+/i
+    /ch[-_]\d+/i,
+    /\/\d+\.(jpg|jpeg|png|webp)/i
   ];
   
   return readerPatterns.some(pattern => pattern.test(imageUrl));
 }
 
 /**
- * Determina tipo immagine per ottimizzazione appropriata
+ * Determina tipo immagine
  */
 export function getImageType(imageUrl, requestPath) {
   if (!imageUrl) return 'unknown';
   
-  // Reader images (NO optimization)
   if (isReaderImage(imageUrl, requestPath)) {
     return 'reader';
   }
   
-  // Copertine manga
-  if (imageUrl.includes('cover') || imageUrl.includes('copertina') || 
-      requestPath?.includes('cover')) {
+  if (imageUrl.includes('cover') || imageUrl.includes('copertina')) {
     return 'cover';
   }
   
-  // Avatar utenti
-  if (imageUrl.includes('avatar') || imageUrl.includes('profile') ||
-      requestPath?.includes('avatar')) {
+  if (imageUrl.includes('avatar') || imageUrl.includes('profile')) {
     return 'avatar';
   }
   
-  // Banner
-  if (imageUrl.includes('banner') || requestPath?.includes('banner')) {
+  if (imageUrl.includes('banner')) {
     return 'banner';
   }
   
-  // Logo
-  if (imageUrl.includes('logo') || requestPath?.includes('logo')) {
+  if (imageUrl.includes('logo')) {
     return 'logo';
   }
   
@@ -316,7 +261,7 @@ export function getImageType(imageUrl, requestPath) {
 }
 
 /**
- * Log metrics (chiamato periodicamente)
+ * Log metrics
  */
 export function logImageMetrics() {
   const stats = imageCache.getStats();
@@ -326,12 +271,13 @@ export function logImageMetrics() {
 ║  📊 IMAGE OPTIMIZATION METRICS
 ╠════════════════════════════════════════════════════════════════
 ║  Cache:
-║    • Size: ${stats.cache.size} unique images (~${imageCache.getSizeEstimate()} MB in memory)
+║    • Size: ${stats.cache.size} unique images (~${imageCache.getSizeEstimate()} MB)
 ║    • Hit rate: ${stats.cache.hitRate} (${stats.cache.hits} hits / ${stats.cache.misses} misses)
 ║    • Total requests: ${stats.cache.totalRequests}
 ║
 ║  Optimization:
 ║    • Conversions: ${stats.optimization.conversions}
+║    • Reader bypass: ${stats.optimization.readerBypass} (original images)
 ║    • Total saved: ${stats.optimization.totalSavedMB} MB
 ║    • Avg saving: ${stats.optimization.avgSavingPerImage}
 ║
@@ -344,10 +290,9 @@ export function logImageMetrics() {
   `);
 }
 
-// Log metrics ogni 30 minuti
+// Log metrics ogni 30 minuti in production
 if (process.env.NODE_ENV === 'production') {
   setInterval(() => {
     logImageMetrics();
   }, 30 * 60 * 1000);
 }
-

@@ -247,8 +247,8 @@ export function getOptimizedImageUrl(imageUrl: string, options: CloudinaryOption
     return getCloudinaryUrl(imageUrl, options);
   }
   
-  // Altrimenti, usa il proxy interno (backend)
-  const PROXY_URL = import.meta.env.VITE_PROXY_URL || 'https://kuro-proxy-server.onrender.com';
+  // Altrimenti, usa il proxy interno (backend) - usa URL relativo in production
+  const PROXY_URL = import.meta.env.VITE_PROXY_URL || (import.meta.env.PROD ? '' : 'http://localhost:10000');
   const encodedUrl = encodeURIComponent(imageUrl);
   
   // Aggiungi query params per resize se specificate
