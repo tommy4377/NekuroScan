@@ -80,14 +80,31 @@ export const LoadingGrid = ({ count = 20, columns = { base: 2, md: 3, lg: 5 } })
   return (
     <SimpleGrid columns={columns} spacing={4}>
       {[...Array(count)].map((_, i) => (
-        <Skeleton
+        <Box
           key={i}
-          height="280px"
-          borderRadius="lg"
-          startColor="gray.800"
-          endColor="gray.700"
-          // ✅ SEZIONE 1: Shimmer animation già applicata via theme
-        />
+          position="relative"
+          width="100%"
+          sx={{
+            // ✅ CLS FIX: Stesse dimensioni di MangaCard per evitare layout shift
+            aspectRatio: '200/280',
+            paddingBottom: '140%',
+            '@supports (aspect-ratio: 1)': {
+              paddingBottom: 0,
+            },
+          }}
+        >
+          <Skeleton
+            position="absolute"
+            top={0}
+            left={0}
+            width="100%"
+            height="100%"
+            borderRadius="lg"
+            startColor="gray.800"
+            endColor="gray.700"
+            // ✅ SEZIONE 1: Shimmer animation già applicata via theme
+          />
+        </Box>
       ))}
     </SimpleGrid>
   );

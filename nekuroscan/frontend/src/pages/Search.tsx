@@ -622,11 +622,32 @@ function Search() {
             </HStack>
 
             {loading && results.length === 0 ? (
-              <HStack spacing={4} wrap="wrap">
+              <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} spacing={4} w="100%">
                 {[...Array(10)].map((_, i) => (
-                  <Skeleton key={i} height="280px" borderRadius="lg" flex="1 0 160px" />
+                  <Box
+                    key={i}
+                    position="relative"
+                    width="100%"
+                    sx={{
+                      // ✅ CLS FIX: Stesse dimensioni di MangaCard
+                      aspectRatio: '200/280',
+                      paddingBottom: '140%',
+                      '@supports (aspect-ratio: 1)': {
+                        paddingBottom: 0,
+                      },
+                    }}
+                  >
+                    <Skeleton
+                      position="absolute"
+                      top={0}
+                      left={0}
+                      width="100%"
+                      height="100%"
+                      borderRadius="lg"
+                    />
+                  </Box>
                 ))}
-              </HStack>
+              </SimpleGrid>
             ) : (
               <>
                 <SimpleGrid 

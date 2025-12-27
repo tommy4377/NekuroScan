@@ -136,12 +136,19 @@ const MangaCard = memo<MangaCardProps>(({
         <Box 
           position="relative" 
           width="100%" 
-          paddingBottom="140%" 
           bg="gray.800"
           sx={{
+            // ✅ CLS FIX: aspect-ratio moderno + paddingBottom fallback per browser vecchi
+            aspectRatio: '200/280', // 5:7 ratio per manga covers
+            paddingBottom: '140%', // Fallback per browser senza supporto aspect-ratio
+            '@supports (aspect-ratio: 1)': {
+              paddingBottom: 0, // Rimuovi padding se aspect-ratio è supportato
+            },
             borderTopLeftRadius: 'xl',
             borderTopRightRadius: 'xl',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            // ✅ CLS FIX: Contenitore dimensioni fisse per prevenire layout shift
+            minHeight: 0,
           }}
         >
           {!imageLoaded && (
@@ -175,7 +182,9 @@ const MangaCard = memo<MangaCardProps>(({
             fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280' viewBox='0 0 200 280'%3E%3Crect width='200' height='280' fill='%234A5568'%3E%3C/rect%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23A0AEC0' font-family='sans-serif' font-size='16'%3ENo Image%3C/text%3E%3C/svg%3E"
             style={{ 
               transition: 'opacity 0.3s ease',
-              opacity: imageLoaded ? 1 : 0
+              opacity: imageLoaded ? 1 : 0,
+              // ✅ CLS FIX: Evita reflow durante il caricamento
+              willChange: 'opacity',
             }}
           />
 
@@ -277,7 +286,18 @@ const MangaCard = memo<MangaCardProps>(({
           )}
         </Box>
 
-        <VStack p={3} spacing={1} align="stretch" flex={1} width="100%">
+        <VStack 
+          p={3} 
+          spacing={1} 
+          align="stretch" 
+          flex={1} 
+          width="100%"
+          minH="60px"
+          sx={{
+            // ✅ CLS FIX: Altezza minima fissa per evitare layout shift quando il titolo è molto corto
+            justifyContent: 'flex-start',
+          }}
+        >
           <Text 
             fontSize="13px" 
             fontWeight="bold" 
@@ -286,6 +306,9 @@ const MangaCard = memo<MangaCardProps>(({
             lineHeight="short"
             bgGradient="linear(to-r, purple.200, pink.200)" 
             bgClip="text"
+            minH="40px"
+            display="flex"
+            alignItems="center"
           >
             {manga.title}
           </Text>

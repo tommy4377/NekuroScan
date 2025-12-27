@@ -44,6 +44,8 @@ export const theme = extendTheme({
         textRendering: 'optimizeLegibility',
         WebkitFontSmoothing: 'antialiased',
         MozOsxFontSmoothing: 'grayscale',
+        // ✅ CLS FIX: Font fallback immediato per evitare layout shift
+        fontDisplay: 'swap',
       },
       // ✅ TRANSIZIONI SMOOTH GLOBALI
       '*': {

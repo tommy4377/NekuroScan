@@ -154,7 +154,28 @@ const Latest = React.memo(() => {
           <Skeleton height="100px" borderRadius="xl" />
           <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
             {[...Array(20)].map((_, i) => (
-              <Skeleton key={i} height="320px" borderRadius="lg" />
+              <Box
+                key={i}
+                position="relative"
+                width="100%"
+                sx={{
+                  // ✅ CLS FIX: Stesse dimensioni di MangaCard
+                  aspectRatio: '200/280',
+                  paddingBottom: '140%',
+                  '@supports (aspect-ratio: 1)': {
+                    paddingBottom: 0,
+                  },
+                }}
+              >
+                <Skeleton
+                  position="absolute"
+                  top={0}
+                  left={0}
+                  width="100%"
+                  height="100%"
+                  borderRadius="lg"
+                />
+              </Box>
             ))}
           </SimpleGrid>
         </VStack>
