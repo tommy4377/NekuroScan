@@ -40,7 +40,14 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   
   const applyTheme = useCallback((theme: ThemeType) => {
     setCurrentTheme(theme);
-    localStorage.setItem('appTheme', theme);
+    // ✅ MOBILE FIX: Try-catch per localStorage
+    try {
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        localStorage.setItem('appTheme', theme);
+      }
+    } catch (e) {
+      // Silent fail - localStorage non disponibile
+    }
     
     // Apply theme colors
     const root = document.documentElement;
@@ -69,9 +76,18 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   }, []);
   
   useEffect(() => {
-    // Load saved theme
-    const savedTheme = (localStorage.getItem('appTheme') || 'default') as ThemeType;
-    applyTheme(savedTheme);
+    // ✅ MOBILE FIX: Load saved theme con gestione errori
+    try {
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        const savedTheme = (localStorage.getItem('appTheme') || 'default') as ThemeType;
+        applyTheme(savedTheme);
+      } else {
+        applyTheme('default');
+      }
+    } catch (e) {
+      // Silent fail - usa default theme
+      applyTheme('default');
+    }
   }, [applyTheme]);
   
   const value: ThemeContextValue = {

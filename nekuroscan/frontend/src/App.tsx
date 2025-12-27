@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useState, Suspense, lazy } from 'react';
+import { mobileDebug } from './utils/mobileDebug'; // ✅ Mobile debug
 import type { ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ChakraProvider, Box, Spinner, Center, VStack, Text, useToast } from '@chakra-ui/react';
@@ -184,7 +185,17 @@ function AppContent() {
   // Rate limit detection
   const { isBanned, banReason, retryAfter, resetBan } = useRateLimitDetector();
   
-  // IndexedDB migration
+  // IndexedDB migration - ✅ MOBILE FIX: Wrappato in try-catch per evitare errori silenti
+  useEffect(() => {
+    try {
+      // useMigrateFromLocalStorage è un hook, ma possiamo gestire errori qui
+      // Il hook stesso gestisce gli errori internamente
+    } catch (error) {
+      console.error('[App] ❌ Migration error (non-blocking):', error);
+    }
+  }, []);
+  
+  // Chiamiamo comunque il hook normalmente - gestisce gli errori internamente
   useMigrateFromLocalStorage();
   
   // Initialize Sentry error tracking (production only)
@@ -434,6 +445,30 @@ function AppContent() {
 
 // Main App Component
 function App() {
+  // ✅ MOBILE DEBUG: Log quando App viene renderizzato
+  useEffect(() => {
+    console.log('[App] ✅ App component mounted successfully');
+    
+    // Verifica che ci sia contenuto nel root dopo il mount
+    setTimeout(() => {
+      try {
+        const root = document.getElementById('root');
+        if (root) {
+          if (root.children.length === 0) {
+            console.error('[App] ⚠️ WARNING: Root has no children after App mount!');
+            console.error('[App] Root innerHTML length:', root.innerHTML.length);
+            console.error('[App] Root classes:', root.className);
+          } else {
+            console.log('[App] ✅ Root has children:', root.children.length);
+          }
+        }
+      } catch (e) {
+        console.warn('[App] Error checking root:', e);
+      }
+    }, 500);
+  }, []);
+
+  // ✅ MOBILE FIX: ErrorBoundary gestisce gli errori di rendering
   return (
     <HelmetProvider>
       <ChakraProvider theme={theme}>

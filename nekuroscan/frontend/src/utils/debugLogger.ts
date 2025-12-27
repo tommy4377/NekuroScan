@@ -24,14 +24,25 @@ class DebugLogger {
       info: console.info.bind(console)
     };
 
-    // Controlla se debug è già abilitato
-    const stored = localStorage.getItem(DEBUG_KEY);
-    if (stored === 'true') {
+    // ✅ MOBILE FIX: Try-catch per localStorage (modalità privata)
+    try {
+      // Controlla se debug è già abilitato
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        const stored = localStorage.getItem(DEBUG_KEY);
+        if (stored === 'true') {
+          this.enabled = true;
+          this.showWelcomeMessage();
+        } else {
+          // Disabilita console.log per utenti normali
+          this.disableLogs();
+        }
+      } else {
+        // Se localStorage non disponibile, mantieni log abilitati (per debug mobile)
+        this.enabled = true;
+      }
+    } catch (e) {
+      // Silent fail - mantieni log abilitati se localStorage fallisce
       this.enabled = true;
-      this.showWelcomeMessage();
-    } else {
-      // Disabilita console.log per utenti normali
-      this.disableLogs();
     }
   }
 
@@ -76,7 +87,14 @@ Logs: ✅ ATTIVI
     }
 
     this.enabled = true;
-    localStorage.setItem(DEBUG_KEY, 'true');
+    // ✅ MOBILE FIX: Try-catch per localStorage
+    try {
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        localStorage.setItem(DEBUG_KEY, 'true');
+      }
+    } catch (e) {
+      // Silent fail
+    }
     this.enableLogs();
     this.showWelcomeMessage();
   }
@@ -86,7 +104,14 @@ Logs: ✅ ATTIVI
    */
   hideLog(): void {
     this.enabled = false;
-    localStorage.removeItem(DEBUG_KEY);
+    // ✅ MOBILE FIX: Try-catch per localStorage
+    try {
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        localStorage.removeItem(DEBUG_KEY);
+      }
+    } catch (e) {
+      // Silent fail
+    }
     this.disableLogs();
     this.originalConsole.log('🔇 Debug logs disattivati');
   }

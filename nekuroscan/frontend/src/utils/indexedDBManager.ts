@@ -287,11 +287,16 @@ class IndexedDBManager {
 
 const dbManager = new IndexedDBManager();
 
-// Auto-init
+// ✅ MOBILE FIX: Auto-init con gestione errori migliorata
+// Non bloccare se IndexedDB non è disponibile (modalità privata mobile)
 if (typeof window !== 'undefined') {
-  dbManager.init().catch(() => {
-    // Silent fail - will fallback to localStorage
-  });
+  // Delay init per non bloccare il rendering iniziale
+  setTimeout(() => {
+    dbManager.init().catch((err) => {
+      // Silent fail - IndexedDB non disponibile è normale su alcuni browser/modalità privata
+      console.warn('[IndexedDBManager] Init failed (will use localStorage fallback):', err);
+    });
+  }, 100);
 }
 
 export default dbManager;
