@@ -16,6 +16,7 @@ import MangaCard from '@/components/MangaCard';
 import apiManager from '@/api';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSEO, SEOTemplates } from '@/hooks/useSEO';
+import InfiniteScrollLoader from '@/components/InfiniteScrollLoader';
 
 // ========== COMPONENT ==========
 
@@ -134,14 +135,10 @@ const Trending = memo(() => {
           ))}
         </SimpleGrid>
         
+        {/* ✅ SEZIONE 3.4: Infinite Scroll Migliorato - Loading indicator elegante */}
         {list.length > 0 && (
           <Center py={6} ref={loadMoreRef}>
-            {loading && (
-              <VStack spacing={2}>
-                <Spinner size="lg" color="orange.500" thickness="3px" />
-                <Text fontSize="sm" color="gray.400">Caricamento...</Text>
-              </VStack>
-            )}
+            {loading && <InfiniteScrollLoader message="Caricamento altri manga trending..." />}
           </Center>
         )}
       </>

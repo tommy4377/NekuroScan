@@ -17,6 +17,7 @@ import MangaCard from '@/components/MangaCard';
 import statsAPI from '@/api/stats';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSEO, SEOTemplates } from '@/hooks/useSEO';
+import InfiniteScrollLoader from '@/components/InfiniteScrollLoader';
 
 // ========== COMPONENT ==========
 
@@ -167,13 +168,11 @@ const Popular = memo(() => {
           ))}
         </SimpleGrid>
         
+        {/* ✅ SEZIONE 3.4: Infinite Scroll Migliorato - Loading indicator elegante */}
         {hasMore && (
           <Center py={6} ref={infiniteScrollEnabled ? loadMoreRef : null}>
             {infiniteScrollEnabled && loading ? (
-              <VStack>
-                <Spinner color="purple.500" />
-                <Text fontSize="sm" color="gray.400">Caricamento...</Text>
-              </VStack>
+              <InfiniteScrollLoader message="Caricamento altri manga popolari..." />
             ) : !infiniteScrollEnabled ? (
               <Button
                 onClick={handleLoadMore}

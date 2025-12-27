@@ -65,6 +65,8 @@ function ReaderPage() {
   const [readingMode, setReadingMode] = useState(() => localStorage.getItem('readingMode') || 'webtoon');
   const [imageScale, setImageScale] = useState(() => parseInt(localStorage.getItem('imageScale') || '100'));
   const [brightness, setBrightness] = useState(() => parseInt(localStorage.getItem('brightness') || '100'));
+  // ✅ SEZIONE 3.6: Reading Modes Avanzati - Fit mode
+  const [fitMode, setFitMode] = useState(() => localStorage.getItem('fitMode') || 'contain');
   const [showControls, setShowControls] = useState(true);
   const [autoScroll, setAutoScroll] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(() => parseInt(localStorage.getItem('scrollSpeed') || '2'));
@@ -180,6 +182,15 @@ function ReaderPage() {
       // Modalità privata
     }
   }, [brightness]);
+
+  // ✅ SEZIONE 3.6: Salva fitMode
+  useEffect(() => {
+    try {
+      localStorage.setItem('fitMode', fitMode);
+    } catch (e) {
+      // Modalità privata
+    }
+  }, [fitMode]);
   
   
   useEffect(() => {
@@ -1325,9 +1336,16 @@ function ReaderPage() {
                       : img.url
                     }
                     alt={`Pagina ${img.index + 1}`}
-                    maxH="calc(100vh - 140px)"
-                    maxW="100%"
-                    objectFit="contain"
+                    maxH={fitMode === 'fit-height' ? '100vh' : fitMode === 'fit-width' ? 'none' : 'calc(100vh - 140px)'}
+                    maxW={fitMode === 'fit-width' ? '100vw' : fitMode === 'fit-height' ? 'none' : '100%'}
+                    w={fitMode === 'fit-width' ? '100%' : 'auto'}
+                    h={fitMode === 'fit-height' ? '100vh' : 'auto'}
+                    objectFit={
+                      fitMode === 'fit-width' || fitMode === 'fit-height' ? 'contain' :
+                      fitMode === 'contain' ? 'contain' :
+                      fitMode === 'cover' ? 'cover' :
+                      fitMode === 'fill' ? 'fill' : 'contain'
+                    }
                     style={{
                       transform: `scale(${imageScale / 100})`,
                       filter: `brightness(${brightness}%)`,
@@ -1478,16 +1496,56 @@ function ReaderPage() {
 
               <Divider />
 
-              {/* Scala Immagine */}
+              {/* ✅ SEZIONE 3.6: Reading Modes Avanzati - Fit Mode */}
+              {readingMode !== 'webtoon' && (
+                <FormControl>
+                  <FormLabel fontWeight="bold">📐 Adattamento Immagine</FormLabel>
+                  <Select
+                    value={fitMode}
+                    onChange={(e) => setFitMode(e.target.value)}
+                    bg="gray.800"
+                    border="1px solid"
+                    borderColor="gray.700"
+                    _hover={{ borderColor: 'purple.500' }}
+                    _focus={{ borderColor: 'purple.400', bg: 'gray.700' }}
+                    mb={3}
+                  >
+                    <option value="contain">Contenuto (mantiene proporzioni)</option>
+                    <option value="fit-width">Adatta larghezza</option>
+                    <option value="fit-height">Adatta altezza</option>
+                    <option value="cover">Copri tutto</option>
+                    <option value="fill">Riempimento</option>
+                  </Select>
+                  <Text fontSize="xs" color="gray.400">
+                    {fitMode === 'contain' && 'Immagine completa visibile'}
+                    {fitMode === 'fit-width' && 'Immagine larga quanto lo schermo'}
+                    {fitMode === 'fit-height' && 'Immagine alta quanto lo schermo'}
+                    {fitMode === 'cover' && 'Immagine copre tutto lo spazio'}
+                    {fitMode === 'fill' && 'Immagine riempie lo spazio (può distorcere)'}
+                  </Text>
+                </FormControl>
+              )}
+
+              {/* ✅ SEZIONE 3.6: Scala Immagine con preset rapidi */}
               {readingMode !== 'webtoon' && (
                 <FormControl>
                   <FormLabel fontWeight="bold">🔍 Zoom: {imageScale}%</FormLabel>
+                  
+                  {/* Preset rapidi */}
+                  <HStack spacing={2} mb={3}>
+                    <Button size="xs" onClick={() => setImageScale(75)} variant={imageScale === 75 ? 'solid' : 'outline'} colorScheme="purple">75%</Button>
+                    <Button size="xs" onClick={() => setImageScale(100)} variant={imageScale === 100 ? 'solid' : 'outline'} colorScheme="purple">100%</Button>
+                    <Button size="xs" onClick={() => setImageScale(125)} variant={imageScale === 125 ? 'solid' : 'outline'} colorScheme="purple">125%</Button>
+                    <Button size="xs" onClick={() => setImageScale(150)} variant={imageScale === 150 ? 'solid' : 'outline'} colorScheme="purple">150%</Button>
+                    <Button size="xs" onClick={() => setImageScale(200)} variant={imageScale === 200 ? 'solid' : 'outline'} colorScheme="purple">200%</Button>
+                  </HStack>
+
                   <Slider
                     value={imageScale}
                     onChange={setImageScale}
                     min={50}
                     max={300}
-                    step={10}
+                    step={5}
                     colorScheme="purple"
                   >
                     <SliderTrack bg="gray.700">

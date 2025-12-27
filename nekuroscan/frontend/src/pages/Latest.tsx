@@ -13,6 +13,7 @@ import { useInView } from 'react-intersection-observer';
 import MangaCard from '@/components/MangaCard';
 import statsAPI from '@/api/stats';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import InfiniteScrollLoader from '@/components/InfiniteScrollLoader';
 import { useSEO, SEOTemplates } from '@/hooks/useSEO';
 
 // const Box = motion(Box); // Rimosso per evitare errori React #300
@@ -223,14 +224,10 @@ const Latest = React.memo(() => {
               ))}
             </SimpleGrid>
 
+            {/* ✅ SEZIONE 3.4: Infinite Scroll Migliorato - Loading indicator elegante */}
             {hasMore && (
               <Center py={6} ref={loadMoreRef}>
-                {loading && (
-                  <VStack spacing={2}>
-                    <Spinner size="lg" color="purple.500" thickness="3px" />
-                    <Text fontSize="sm" color="gray.400">Caricamento...</Text>
-                  </VStack>
-                )}
+                {loading && <InfiniteScrollLoader message="Caricamento altri manga..." />}
               </Center>
             )}
             
