@@ -1,6 +1,7 @@
 /**
  * SERVICE WORKER MANAGER
  * Gestione Service Worker, caching e prefetching intelligente
+ * ✅ SEZIONE 4.2: Service Worker Migliorato
  */
 
 // ========== TYPES ==========
@@ -32,7 +33,8 @@ export interface ServiceWorkerUpdateCallback {
 // ========== SERVICE WORKER ==========
 
 /**
- * Registra Service Worker con gestione update
+ * Registra Service Worker con gestione update migliorata
+ * ✅ SEZIONE 4.2: Service Worker Migliorato - Cache strategy intelligente
  */
 export async function registerServiceWorker(
   callbacks?: ServiceWorkerUpdateCallback
@@ -43,10 +45,11 @@ export async function registerServiceWorker(
   
   try {
     const registration = await navigator.serviceWorker.register('/sw.js', {
-      scope: '/'
+      scope: '/',
+      updateViaCache: 'none' // ✅ Always check for updates
     });
     
-    // Gestisci update
+    // ✅ Gestisci update con callback migliorati
     registration.addEventListener('updatefound', () => {
       callbacks?.onUpdateFound?.();
       
@@ -55,21 +58,36 @@ export async function registerServiceWorker(
       
       newWorker.addEventListener('statechange', () => {
         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          // ✅ Nuovo worker installato, notifica disponibile
           callbacks?.onUpdateAvailable?.();
-          
-          // Mostra notifica all'utente (opzionale)
-          if (window.confirm('Nuova versione disponibile! Ricaricare?')) {
-            newWorker.postMessage({ type: 'SKIP_WAITING' });
+        } else if (newWorker.state === 'activated') {
+          // ✅ Worker attivato, reload automatico opzionale
+          if (callbacks?.onUpdateAvailable) {
+            // Callback gestisce il reload
+          } else {
+            // Auto-reload solo se non c'è callback personalizzato
             window.location.reload();
           }
         }
       });
     });
     
-    // Reload quando nuovo SW prende controllo
+    // ✅ Reload quando nuovo SW prende controllo
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      // SW updated silently
+      // SW updated - può essere gestito dal callback
+      if (callbacks?.onUpdateAvailable) {
+        // Callback gestisce il reload
+      }
     });
+    
+    // ✅ Check for updates periodicamente (ogni 30 minuti)
+    setInterval(async () => {
+      try {
+        await registration.update();
+      } catch (error) {
+        // Silent fail
+      }
+    }, 30 * 60 * 1000);
     
     return registration;
   } catch (error) {

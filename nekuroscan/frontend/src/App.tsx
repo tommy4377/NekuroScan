@@ -20,6 +20,7 @@ import BannedNotice from '@/components/BannedNotice';
 import ScrollToTop from '@/components/ScrollToTop';
 import ShortcutsModal from '@/components/ShortcutsModal';
 import ReadingProgressBar from '@/components/ReadingProgressBar';
+import UpdatePrompt from '@/components/UpdatePrompt';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import useAuthStore from '@/hooks/useAuth';
@@ -177,6 +178,7 @@ function AppContent() {
   const user = useAuthStore(state => state.user);
   
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showUpdatePrompt, setShowUpdatePrompt] = useState(false); // ✅ SEZIONE 4.2: Update prompt state
   const toast = useToast();
   
   // Rate limit detection
@@ -285,11 +287,20 @@ function AppContent() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Advanced Service Worker with cache strategy
+    // ✅ SEZIONE 4.2: Advanced Service Worker with cache strategy migliorata
     if ('serviceWorker' in navigator && import.meta.env.PROD) {
       const registerSW = async (): Promise<void> => {
         try {
-          await registerServiceWorker();
+          await registerServiceWorker({
+            onUpdateAvailable: () => {
+              // ✅ Update disponibile - mostra prompt elegante
+              setShowUpdatePrompt(true);
+            },
+            onUpdateFound: () => {
+              // Update trovato - log opzionale
+              console.log('[SW] Update found, installing...');
+            }
+          });
           
           // Setup intelligent prefetching
           setTimeout(() => {
@@ -403,6 +414,20 @@ function AppContent() {
         onClose={() => setShowShortcutsModal(false)}
         isReaderPage={false}
       />
+      
+      {/* ✅ SEZIONE 4.2: Update Prompt - Service Worker update notification */}
+      {showUpdatePrompt && (
+        <UpdatePrompt
+          onUpdate={() => {
+            // Reload page to activate new service worker
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+              navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+            }
+            window.location.reload();
+          }}
+          onDismiss={() => setShowUpdatePrompt(false)}
+        />
+      )}
     </Box>
   );
 }

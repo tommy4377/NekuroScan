@@ -33,6 +33,7 @@ import useAuth from '@/hooks/useAuth';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { encodeSource, decodeSource } from '@/utils/sourceMapper';
 import { estimateTotalPages } from '@/utils/imageSplitter';
+import { hapticFeedback } from '@/utils/hapticFeedback';
 
 function ReaderPage() {
   console.log('[ReaderPage] 📖 Component mounting...');
@@ -261,6 +262,8 @@ function ReaderPage() {
   const toggleBookmark = useCallback(() => {
     if (!manga || !chapter) return;
     
+    hapticFeedback.tap(); // ✅ SEZIONE 4.4: Haptic feedback su toggle bookmark
+    
     if (isBookmarked) {
       const id = `${manga.url}-${chapter.url}-${currentPage}`;
       bookmarksManager.removeBookmark(id);
@@ -294,6 +297,8 @@ function ReaderPage() {
   // Salva/aggiorna nota
   const saveNote = useCallback(() => {
     if (!manga || !chapter || !currentNote.trim()) return;
+    
+    hapticFeedback.success(); // ✅ SEZIONE 4.4: Haptic feedback su salvataggio nota
     
     notesManager.saveNote(
       manga.url,
@@ -412,6 +417,7 @@ function ReaderPage() {
     
     try {
       if (newIndex >= 0 && newIndex < manga.chapters.length) {
+        hapticFeedback.success(); // ✅ SEZIONE 4.4: Haptic feedback su cambio capitolo
         saveProgress();
         
         const newChapter = manga.chapters[newIndex];
@@ -427,6 +433,7 @@ function ReaderPage() {
         // Navigate - il loading screen verrà mostrato automaticamente
         navigate(`/read/${encodeSource(source)}/${mangaId}/${newChapterId}?chapter=${newIndex}`);
       } else if (direction > 0) {
+        hapticFeedback.success(); // ✅ Haptic feedback su completamento manga
         saveProgress();
         toast({
           title: 'Manga completato!',
@@ -438,6 +445,7 @@ function ReaderPage() {
           navigate(`/manga/${encodeSource(source)}/${mangaId}`);
         }, 1200);
       } else if (direction < 0) {
+        hapticFeedback.warning(); // ✅ Haptic feedback su limite raggiunto
         toast({
           title: 'Primo capitolo',
           description: 'Sei già al primo capitolo',
@@ -446,6 +454,7 @@ function ReaderPage() {
         });
       }
     } catch (error) {
+      hapticFeedback.error(); // ✅ Haptic feedback su errore
       toast({
         title: 'Errore navigazione',
         status: 'error',
@@ -461,6 +470,7 @@ function ReaderPage() {
     const newPage = currentPage + delta;
     try {
       if (newPage >= 0 && newPage < totalPages) {
+        hapticFeedback.pageTurn(); // ✅ SEZIONE 4.4: Haptic feedback su cambio pagina
         setCurrentPage(newPage);
       }
     } catch (error) {
@@ -576,7 +586,7 @@ function ReaderPage() {
     }
   }, [chapter, currentPage, readingMode, totalPages, isFullscreen]);
 
-  // ✅ Touch Gestures
+  // ✅ SEZIONE 4.3: Touch Gestures migliorati con haptic feedback
   const handleTouchStart = useCallback((e) => {
     if (!chapter || readingMode === 'webtoon') return;
     
@@ -597,11 +607,13 @@ function ReaderPage() {
     const deltaX = touchEndX - touchStartX.current;
     const deltaY = touchEndY - touchStartY.current;
     const deltaTime = touchEndTime - touchStartTime.current;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
     
     // Double-tap to zoom
-    if (deltaTime < 300 && Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
+    if (deltaTime < 300 && distance < 10) {
       if (touchEndTime - lastTapTime.current < 300) {
         // Double tap detected
+        hapticFeedback.tap();
         if (imageScale === 100) {
           setImageScale(200);
         } else {
@@ -614,26 +626,45 @@ function ReaderPage() {
       return;
     }
     
-    // Swipe gestures
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+    // Swipe gestures (migliorati con threshold e velocity)
+    const minSwipeDistance = 50;
+    const velocity = distance / deltaTime;
+    const minVelocity = 0.2;
+    
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minSwipeDistance) {
       // Horizontal swipe
-      if (deltaX > 0) {
-        // Swipe right = previous page
-        const step = readingMode === 'double' ? 2 : 1;
-        const newPage = currentPage - step;
-        if (newPage >= 0) {
-          setCurrentPage(newPage);
+      if (velocity > minVelocity || Math.abs(deltaX) > minSwipeDistance * 1.5) {
+        hapticFeedback.pageTurn(); // ✅ Haptic feedback
+        
+        if (deltaX > 0) {
+          // Swipe right = previous page
+          const step = readingMode === 'double' ? 2 : 1;
+          const newPage = currentPage - step;
+          if (newPage >= 0) {
+            setCurrentPage(newPage);
+          }
+        } else {
+          // Swipe left = next page
+          const step = readingMode === 'double' ? 2 : 1;
+          const newPage = currentPage + step;
+          if (newPage < totalPages) {
+            setCurrentPage(newPage);
+          }
         }
-      } else {
-        // Swipe left = next page
-        const step = readingMode === 'double' ? 2 : 1;
-        const newPage = currentPage + step;
-        if (newPage < totalPages) {
-          setCurrentPage(newPage);
+      }
+    } else if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > minSwipeDistance) {
+      // Vertical swipe - swipe down per chiudere modals/settings
+      if (deltaY > 0 && velocity > minVelocity) {
+        if (settingsOpen) {
+          hapticFeedback.tap();
+          setSettingsOpen(false);
+        } else if (showNoteModal) {
+          hapticFeedback.tap();
+          setShowNoteModal(false);
         }
       }
     }
-  }, [chapter, readingMode, imageScale, setImageScale, currentPage, totalPages, chapterIndex, manga, navigateChapter]);
+  }, [chapter, readingMode, imageScale, setImageScale, currentPage, totalPages, settingsOpen, showNoteModal]);
 
   // ========== REFS per navigate/toast (evita loop) ==========
   const navigateRef = useRef(navigate);
@@ -1160,7 +1191,13 @@ function ReaderPage() {
         bottom={0}
       ref={containerRef}
       onMouseMove={() => !isFullscreen && setShowControls(true)}
-      onTouchStart={() => !isFullscreen && setShowControls(true)}
+      onTouchStart={(e) => {
+        if (!isFullscreen) setShowControls(true);
+        handleTouchStart(e as any);
+      }}
+      onTouchEnd={(e) => {
+        handleTouchEnd(e as any);
+      }}
       onClick={handlePageClick}
       onContextMenu={(e) => e.preventDefault()}
         cursor="pointer"

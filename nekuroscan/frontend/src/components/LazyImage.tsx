@@ -33,8 +33,14 @@ const LazyImage = ({
     ? CloudinaryPresets.placeholder(src)
     : null;
 
+  // ✅ SEZIONE 4.1: Image Lazy Loading Avanzato - Intersection Observer ottimizzato
   useEffect(() => {
     if (priority || !imgRef.current) return;
+
+    // ✅ Threshold ottimizzato basato su viewport size
+    const isMobile = window.innerWidth < 768;
+    const rootMargin = isMobile ? '150px' : '200px'; // Preload più aggressivo su mobile
+    const threshold = 0.01;
 
     observerRef.current = new IntersectionObserver(
       (entries) => {
@@ -48,8 +54,8 @@ const LazyImage = ({
         });
       },
       {
-        rootMargin: '100px',
-        threshold: 0.01
+        rootMargin, // ✅ Ottimizzato per preload "above the fold"
+        threshold
       }
     );
 
@@ -87,6 +93,7 @@ const LazyImage = ({
       overflow="hidden"
       {...props}
     >
+      {/* ✅ SEZIONE 4.1: Progressive image loading - Blur placeholder migliorato */}
       {lqipSrc && !isLoaded && (
         <Box
           position="absolute"
@@ -101,7 +108,8 @@ const LazyImage = ({
           transform="scale(1.1)"
           zIndex={1}
           sx={{
-            transition: 'opacity 0.3s ease-out'
+            transition: 'opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            opacity: isLoaded ? 0 : 1
           }}
         />
       )}
@@ -120,6 +128,7 @@ const LazyImage = ({
         />
       )}
 
+      {/* ✅ SEZIONE 4.1: Progressive image loading - Transizione smooth blur → sharp */}
       {(isInView || priority) && (
         <Image
           src={hasError ? fallbackSvg : optimizedSrc}
@@ -128,7 +137,7 @@ const LazyImage = ({
           height="100%"
           objectFit={objectFit}
           loading={priority ? "eager" : "lazy"}
-          fetchpriority={priority ? "high" : "low"}
+          fetchpriority={priority ? "high" : "auto"} // ✅ Ottimizzato: "auto" invece di "low" per migliorare priorità
           decoding="async"
           onLoad={handleLoad}
           onError={handleError}
@@ -136,9 +145,11 @@ const LazyImage = ({
           position="relative"
           zIndex={2}
           sx={{
-            transition: 'opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-            opacity: isLoaded ? 1 : 0,
-            willChange: isLoaded ? 'auto' : 'opacity'
+            transition: 'opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+            opacity: isLoaded ? 1 : (lqipSrc ? 0.3 : 0), // ✅ Mostra placeholder blur con opacità durante caricamento
+            willChange: isLoaded ? 'auto' : 'opacity',
+            transform: isLoaded ? 'scale(1)' : 'scale(1.02)', // ✅ Slight scale per effetto più fluido
+            filter: isLoaded ? 'none' : 'blur(2px)' // ✅ Blur leggero durante caricamento
           }}
         />
       )}
