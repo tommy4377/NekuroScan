@@ -154,13 +154,16 @@ function Library() {
         icon={<FaEllipsisV />}
         variant="ghost"
         size="sm"
-        position="absolute"
-        top={2}
-        right={2}
-        zIndex={10}
         bg="blackAlpha.700"
         _hover={{ bg: 'blackAlpha.800' }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+        }}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+        }}
+        aria-label="Azioni manga"
       />
       <MenuList bg="gray.800" borderColor="gray.700">
         {currentList !== 'completed' && (
@@ -219,7 +222,14 @@ function Library() {
         {items.map((item, i) => (
           <Box key={item.url || `${listName}-${i}`} position="relative">
             <MangaCard manga={item} />
-            <MangaActions manga={item} currentList={listName} />
+            <Box
+              position="absolute"
+              top={2}
+              right={2}
+              zIndex={1001}
+            >
+              <MangaActions manga={item} currentList={listName} />
+            </Box>
           </Box>
         ))}
       </SimpleGrid>
