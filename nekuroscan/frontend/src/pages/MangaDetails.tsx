@@ -940,10 +940,10 @@ function MangaDetails() {
                 fallbackSrc="https://via.placeholder.com/300x450?text=Loading..."
               />
               
-              {/* Progress Bar */}
+              {/* ✅ SEZIONE 2.3: Progress Bar Migliorato */}
               {readProgress > 0 && (
                 <Box mt={4}>
-                  <HStack justify="space-between" mb={1}>
+                  <HStack justify="space-between" mb={2}>
                     <Text fontSize="sm" color="gray.400" fontWeight="medium">
                       Progresso
                     </Text>
@@ -963,6 +963,18 @@ function MangaDetails() {
                     <Text fontSize="xs" color="green.400" mt={1} textAlign="center">
                       ✓ Completato
                     </Text>
+                  )}
+                  {readProgress > 0 && readProgress < 100 && manga?.chapters && (
+                    <HStack justify="space-between" mt={2}>
+                      <Text fontSize="xs" color="gray.500">
+                        {completedChapters?.length || 0} / {manga.chapters.length} capitoli
+                      </Text>
+                      {readingProgress && readingProgress.totalPages && readingProgress.pageIndex !== undefined && (
+                        <Text fontSize="xs" color="gray.500">
+                          ~{Math.round((readingProgress.totalPages - (readingProgress.pageIndex || 0)) * 1)} min rimanenti
+                        </Text>
+                      )}
+                    </HStack>
                   )}
                 </Box>
               )}

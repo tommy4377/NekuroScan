@@ -19,6 +19,7 @@ import DownloadProgressBar from '@/components/DownloadProgressBar';
 import BannedNotice from '@/components/BannedNotice';
 import ScrollToTop from '@/components/ScrollToTop';
 import ShortcutsModal from '@/components/ShortcutsModal';
+import ReadingProgressBar from '@/components/ReadingProgressBar';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import useAuthStore from '@/hooks/useAuth';
@@ -351,6 +352,9 @@ function AppContent() {
       </Helmet>
       
       <Navigation />
+      
+      {/* ✅ SEZIONE 2.3: Reading Progress Bar - Mini progress bar in navigation */}
+      <ReadingProgressBar />
       
       {/* Download Progress Bar - Global */}
       <DownloadProgressBar />
