@@ -3,7 +3,8 @@
 import React from 'react';
 // 🎨 LOADING STATE - Stati caricamento personalizzati
 import React from 'react';
-import { Box, VStack, Spinner, Text, Progress, keyframes } from '@chakra-ui/react';
+import { Box, VStack, Spinner, Text, Progress } from '@chakra-ui/react';
+import { keyframes } from '@emotion/react';
 
 const pulse = keyframes`
   0%, 100% { opacity: 1; }

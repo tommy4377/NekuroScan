@@ -1,4 +1,5 @@
-import { extendTheme, keyframes } from '@chakra-ui/react';
+import { extendTheme } from '@chakra-ui/react';
+import { keyframes } from '@emotion/react';
 
 // ✅ SEZIONE 1: Animazioni per skeleton shimmer
 const shimmer = keyframes`
