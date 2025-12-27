@@ -14,6 +14,8 @@ interface CustomListManga {
   type?: string;
   source?: string;
   addedAt: string;
+  tags?: string[]; // ✅ SEZIONE 2.4: Tags personalizzati per manga
+  note?: string; // ✅ SEZIONE 2.4: Note personali per manga
 }
 
 export interface CustomList {
@@ -24,6 +26,7 @@ export interface CustomList {
   manga: CustomListManga[];
   createdAt: string;
   updatedAt: string;
+  coverUrl?: string; // ✅ SEZIONE 2.4: Custom cover per lista
 }
 
 interface ListStats {
@@ -36,6 +39,12 @@ interface ListUpdates {
   name?: string;
   description?: string;
   color?: string;
+  coverUrl?: string; // ✅ SEZIONE 2.4: Custom cover per lista
+}
+
+interface MangaUpdates {
+  tags?: string[];
+  note?: string;
 }
 
 // ========== CONSTANTS ==========
@@ -54,7 +63,7 @@ export const customListsManager = {
     }
   },
 
-  create(name: string, description: string = '', color: string = 'purple'): CustomList {
+  create(name: string, description: string = '', color: string = 'purple', coverUrl: string = ''): CustomList {
     const lists = this.getAll();
     
     // Check duplicates
@@ -70,7 +79,8 @@ export const customListsManager = {
       color,
       manga: [],
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      coverUrl: coverUrl.trim() || undefined
     };
     
     lists.push(newList);
@@ -92,12 +102,35 @@ export const customListsManager = {
       color: updates.color ?? currentList.color,
       manga: currentList.manga,
       createdAt: currentList.createdAt,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      coverUrl: updates.coverUrl !== undefined ? (updates.coverUrl.trim() || undefined) : currentList.coverUrl
     };
     
     lists[index] = updatedList;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(lists));
     return updatedList;
+  },
+
+  // ✅ SEZIONE 2.4: Aggiorna tags/note di un manga in una lista
+  updateMangaInList(listId: string, mangaUrl: string, updates: MangaUpdates): CustomList {
+    const lists = this.getAll();
+    const list = lists.find(l => l.id === listId);
+    
+    if (!list) throw new Error('List not found');
+    
+    const mangaIndex = list.manga.findIndex(m => m.url === mangaUrl);
+    if (mangaIndex === -1) throw new Error('Manga not found in list');
+    
+    const currentManga = list.manga[mangaIndex]!;
+    list.manga[mangaIndex] = {
+      ...currentManga,
+      tags: updates.tags !== undefined ? (updates.tags.length > 0 ? updates.tags : undefined) : currentManga.tags,
+      note: updates.note !== undefined ? (updates.note.trim() || undefined) : currentManga.note
+    };
+    
+    list.updatedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(lists));
+    return list;
   },
 
   delete(listId: string): CustomList[] {
@@ -107,7 +140,7 @@ export const customListsManager = {
     return filtered;
   },
 
-  addManga(listId: string, manga: Manga): CustomList {
+  addManga(listId: string, manga: Manga, tags: string[] = [], note: string = ''): CustomList {
     const lists = this.getAll();
     const list = lists.find(l => l.id === listId);
     
@@ -124,7 +157,9 @@ export const customListsManager = {
       cover: manga.coverUrl,
       type: manga.type,
       source: manga.source,
-      addedAt: new Date().toISOString()
+      addedAt: new Date().toISOString(),
+      tags: tags.length > 0 ? tags : undefined,
+      note: note.trim() || undefined
     });
     
     list.updatedAt = new Date().toISOString();

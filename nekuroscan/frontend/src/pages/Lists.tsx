@@ -31,6 +31,7 @@ function Lists() {
   const [listName, setListName] = useState('');
   const [listDescription, setListDescription] = useState('');
   const [listColor, setListColor] = useState('purple');
+  const [listCoverUrl, setListCoverUrl] = useState(''); // ✅ SEZIONE 2.4: Custom cover
 
   useEffect(() => {
     loadLists();
@@ -46,6 +47,7 @@ function Lists() {
     setListName('');
     setListDescription('');
     setListColor('purple');
+    setListCoverUrl('');
     onOpen();
   };
 
@@ -55,6 +57,7 @@ function Lists() {
     setListName(list.name);
     setListDescription(list.description);
     setListColor(list.color);
+    setListCoverUrl(list.coverUrl || '');
     onOpen();
   };
 
@@ -70,10 +73,11 @@ function Lists() {
       }
 
       if (isEditing && selectedList) {
-        customListsManager.updateList(selectedList.id, {
+        customListsManager.update(selectedList.id, {
           name: listName,
           description: listDescription,
-          color: listColor
+          color: listColor,
+          coverUrl: listCoverUrl
         });
         toast({
           title: 'Lista aggiornata',
@@ -81,11 +85,7 @@ function Lists() {
           duration: 2000
         });
       } else {
-        customListsManager.createList({
-          name: listName,
-          description: listDescription,
-          color: listColor
-        });
+        customListsManager.create(listName, listDescription, listColor, listCoverUrl);
         toast({
           title: 'Lista creata',
           status: 'success',
@@ -107,7 +107,7 @@ function Lists() {
 
   const handleDelete = (listId) => {
     if (window.confirm('Sei sicuro di voler eliminare questa lista?')) {
-      customListsManager.deleteList(listId);
+      customListsManager.delete(listId);
       loadLists();
       toast({
         title: 'Lista eliminata',
@@ -126,8 +126,25 @@ function Lists() {
       transition="all 0.2s"
       cursor="pointer"
       onClick={() => navigate(`/lists/${list.id}`)}
+      position="relative"
+      overflow="hidden"
     >
-      <CardBody>
+      {/* ✅ SEZIONE 2.4: Custom cover per lista */}
+      {list.coverUrl && (
+        <Box
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          h="120px"
+          bgImage={`url(${list.coverUrl})`}
+          bgSize="cover"
+          bgPosition="center"
+          opacity={0.2}
+          zIndex={0}
+        />
+      )}
+      <CardBody position="relative" zIndex={1}>
         <VStack align="stretch" spacing={3}>
           <HStack justify="space-between">
             <HStack>
@@ -320,6 +337,20 @@ function Lists() {
                   <option value="teal">Teal</option>
                   <option value="cyan">Ciano</option>
                 </Select>
+              </Box>
+
+              {/* ✅ SEZIONE 2.4: Custom cover URL */}
+              <Box>
+                <Text fontSize="sm" mb={2} fontWeight="bold">Cover Personalizzata (opzionale)</Text>
+                <Input
+                  value={listCoverUrl}
+                  onChange={(e) => setListCoverUrl(e.target.value)}
+                  placeholder="URL immagine per la cover della lista"
+                  bg="gray.700"
+                />
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Inserisci un URL di un'immagine per personalizzare la cover
+                </Text>
               </Box>
             </VStack>
           </ModalBody>
