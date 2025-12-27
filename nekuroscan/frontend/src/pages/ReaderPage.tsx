@@ -853,33 +853,33 @@ function ReaderPage() {
         setChapter(chapterData);
         
         // ✅ FIX: Stima numero di pagine per immagini verticali (in background)
-        // Strategia multi-tipo:
-        // 1. Rileva barre nere/spazi bianchi (se presenti) - più preciso
-        // 2. Usa dimensioni standard per tipo (manga/manhwa/manhua/webtoon)
-        // 3. Rilevamento automatico del tipo basato su dimensioni
+        // Versione semplificata e più robusta
         if (chapterData.pages && chapterData.pages.length > 0) {
-          // Reset stima iniziale
+          // Reset stima iniziale - mostra prima il numero di immagini
           setEstimatedPageCount(null);
           
-          // Stima in background senza bloccare il rendering
-          // Usa 'auto' per rilevamento automatico del tipo basato su ogni immagine
-          estimateTotalPages(chapterData.pages, {
-            mangaType: 'auto', // ✅ Rilevamento automatico: manga/manhwa/manhua/webtoon
-            minAspectRatio: 1.2, // ✅ Proporzione minimale
-            enabled: true,
-            maxConcurrent: 3 // Processa 3 immagini alla volta
-          }).then(count => {
-            if (isMounted) {
-              setEstimatedPageCount(count);
-              console.log(`[ReaderPage] 📊 Estimated page count: ${count} (from ${chapterData.pages.length} images)`);
-            }
-          }).catch(err => {
-            console.warn('[ReaderPage] Error estimating page count:', err);
-            // In caso di errore, usa il numero di immagini
-            if (isMounted) {
-              setEstimatedPageCount(chapterData.pages.length);
-            }
-          });
+          // ✅ Stima iniziale: usa numero di immagini (mostrato subito)
+          // Poi aggiorna in background con stima più accurata
+          const initialCount = chapterData.pages.length;
+          setEstimatedPageCount(initialCount);
+          
+          // Stima accurata in background (non blocca UI)
+          setTimeout(() => {
+            estimateTotalPages(chapterData.pages, {
+              mangaType: 'auto', // ✅ Rilevamento automatico tipo
+              minAspectRatio: 1.2,
+              enabled: true,
+              maxConcurrent: 2 // ✅ Ridotto per performance
+            }).then(count => {
+              if (isMounted && count !== initialCount) {
+                setEstimatedPageCount(count);
+                console.log(`[ReaderPage] 📊 Updated page count: ${initialCount} → ${count} (from ${chapterData.pages.length} images)`);
+              }
+            }).catch(err => {
+              console.warn('[ReaderPage] Error estimating page count (using image count):', err);
+              // ✅ In caso di errore, mantieni il numero di immagini (già impostato)
+            });
+          }, 500); // ✅ Delay di 500ms per non interferire con il caricamento iniziale
         }
         
         // RIPRISTINA PROGRESSO

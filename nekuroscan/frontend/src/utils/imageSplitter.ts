@@ -81,22 +81,67 @@ function detectMangaType(dimensions: ImageDimensions): MangaType {
 
 /**
  * Carica un'immagine e rileva le sue dimensioni reali
+ * ✅ FIX: Gestisce CORS e proxy URLs
  */
 export async function getImageDimensions(imageUrl: string): Promise<ImageDimensions | null> {
   return new Promise((resolve) => {
     const img = new Image();
+    
+    // ✅ Prova prima senza CORS, poi con CORS se necessario
     img.crossOrigin = 'anonymous';
     
+    const timeout = setTimeout(() => {
+      resolve(null);
+    }, 5000); // Timeout di 5 secondi
+    
     img.onload = () => {
-      resolve({
-        width: img.naturalWidth,
-        height: img.naturalHeight,
-        aspectRatio: img.naturalHeight / img.naturalWidth
-      });
+      clearTimeout(timeout);
+      try {
+        const width = img.naturalWidth || img.width || 0;
+        const height = img.naturalHeight || img.height || 0;
+        
+        if (width > 0 && height > 0) {
+          resolve({
+            width,
+            height,
+            aspectRatio: height / width
+          });
+        } else {
+          resolve(null);
+        }
+      } catch (error) {
+        console.warn('[ImageSplitter] Error getting dimensions:', error);
+        resolve(null);
+      }
     };
     
-    img.onerror = () => {
-      resolve(null);
+    img.onerror = (error) => {
+      clearTimeout(timeout);
+      // ✅ Se fallisce con CORS, prova senza (per immagini da stesso dominio)
+      if (img.crossOrigin === 'anonymous') {
+        const img2 = new Image();
+        img2.onload = () => {
+          try {
+            const width = img2.naturalWidth || img2.width || 0;
+            const height = img2.naturalHeight || img2.height || 0;
+            if (width > 0 && height > 0) {
+              resolve({
+                width,
+                height,
+                aspectRatio: height / width
+              });
+            } else {
+              resolve(null);
+            }
+          } catch (e) {
+            resolve(null);
+          }
+        };
+        img2.onerror = () => resolve(null);
+        img2.src = imageUrl;
+      } else {
+        resolve(null);
+      }
     };
     
     img.src = imageUrl;
@@ -209,7 +254,7 @@ export async function detectBlackBars(
 
 /**
  * Stima il numero di pagine per un'immagine verticale basandosi sulle dimensioni
- * ✅ FIX: Usa dimensioni standard per tipo + rilevamento barre nere
+ * ✅ FIX: Versione semplificata e più robusta
  */
 export async function estimatePagesForImage(
   imageUrl: string,
@@ -231,8 +276,11 @@ export async function estimatePagesForImage(
   
   if (!enabled) return 1;
   
+  // ✅ Ottieni dimensioni (con gestione errori robusta)
   const dimensions = await getImageDimensions(imageUrl);
-  if (!dimensions) return 1;
+  if (!dimensions || dimensions.width === 0 || dimensions.height === 0) {
+    return 1; // Fallback: 1 pagina se non riusciamo a ottenere dimensioni
+  }
   
   // Determina dimensioni standard da usare
   let pageDims: PageDimensions;
@@ -250,8 +298,9 @@ export async function estimatePagesForImage(
     pageDims = STANDARD_DIMENSIONS[detectedType];
   }
   
-  // Se l'immagine è troppo piccola (< 70% dell'altezza standard), probabilmente è una singola pagina
-  if (dimensions.height < pageDims.height * 0.7) {
+  // ✅ Validazioni base
+  // Se l'immagine è troppo piccola (< 60% dell'altezza standard), probabilmente è una singola pagina
+  if (dimensions.height < pageDims.height * 0.6) {
     return 1;
   }
   
@@ -260,49 +309,30 @@ export async function estimatePagesForImage(
     return 1;
   }
   
-  // ✅ STRATEGIA 1: Rilevamento barre nere/spazi bianchi (più preciso)
-  const cutPoints = await detectBlackBars(imageUrl, 15, 30);
-  if (cutPoints.length > 0) {
-    // Se abbiamo trovato barre nere, il numero di pagine è il numero di tagli + 1
-    const pagesFromBars = cutPoints.length + 1;
-    console.log(`[ImageSplitter] Found ${cutPoints.length} black bars in image, estimated ${pagesFromBars} page(s)`);
-    return pagesFromBars;
-  }
-  
-  // ✅ STRATEGIA 2: Stima basata su dimensioni fisse
+  // ✅ STRATEGIA PRINCIPALE: Stima basata su altezza (più semplice e veloce)
   // Calcola quante "pagine standard" possono stare nell'immagine
+  // Usa un margine dell'88% per evitare sovrastime
+  const effectiveHeight = dimensions.height * 0.88;
+  let estimatedPages = Math.max(1, Math.round(effectiveHeight / pageDims.height));
   
-  // Se la larghezza corrisponde approssimativamente alla larghezza standard (±40%),
-  // possiamo stimare meglio basandoci solo sull'altezza
-  const widthMatches = dimensions.width >= pageDims.width * 0.6 && 
-                       dimensions.width <= pageDims.width * 1.6;
-  
-  let estimatedPages: number;
-  
-  if (widthMatches) {
-    // Larghezza compatibile: stima basata sull'altezza con margine del 92%
-    const effectiveHeight = dimensions.height * 0.92;
-    estimatedPages = Math.max(1, Math.round(effectiveHeight / pageDims.height));
-  } else {
-    // Larghezza non standard: stima più conservativa basata su area
-    const standardPageArea = pageDims.width * pageDims.height;
-    const imageArea = dimensions.width * dimensions.height;
-    const areaRatio = imageArea / standardPageArea;
-    
-    // Arrotonda per difetto per essere conservativi
-    estimatedPages = Math.max(1, Math.floor(areaRatio));
+  // ✅ Aggiustamento basato su larghezza se disponibile
+  // Se la larghezza è molto diversa, potrebbe essere necessario aggiustare
+  const widthRatio = dimensions.width / pageDims.width;
+  if (widthRatio < 0.7 || widthRatio > 1.5) {
+    // Larghezza molto diversa: stima più conservativa
+    const areaRatio = (dimensions.width * dimensions.height) / (pageDims.width * pageDims.height);
+    estimatedPages = Math.max(1, Math.floor(areaRatio * 0.9));
   }
   
-  // ✅ Limita la stima ragionevole (max 10 pagine per immagine)
-  estimatedPages = Math.min(estimatedPages, 10);
+  // ✅ Limita la stima ragionevole (max 8 pagine per immagine per evitare errori)
+  estimatedPages = Math.min(estimatedPages, 8);
   
-  console.log(`[ImageSplitter] Image ${dimensions.width}x${dimensions.height}px, estimated ${estimatedPages} page(s) using ${pageDims.width}x${pageDims.height}px standard`);
   return estimatedPages;
 }
 
 /**
  * Stima il numero totale di pagine per un array di immagini
- * ✅ FIX: Usa dimensioni standard per tipo + rilevamento automatico
+ * ✅ FIX: Versione semplificata e più veloce
  */
 export async function estimateTotalPages(
   pages: string[],
@@ -312,42 +342,77 @@ export async function estimateTotalPages(
     estimatedPageWidth?: number; // Override larghezza (se specificato, ignora mangaType)
     minAspectRatio?: number; // Rapporto minimo altezza/larghezza (default: 1.2)
     enabled?: boolean;
-    maxConcurrent?: number; // Numero massimo di analisi parallele (default: 3)
+    maxConcurrent?: number; // Numero massimo di analisi parallele (default: 2)
   } = {}
 ): Promise<number> {
   const {
-    mangaType = 'auto', // ✅ Rilevamento automatico per tipo
+    mangaType = 'auto',
     estimatedPageHeight,
     estimatedPageWidth,
     minAspectRatio = 1.2,
     enabled = true,
-    maxConcurrent = 3 // ✅ Ridotto per non sovraccaricare il browser
+    maxConcurrent = 2 // ✅ Ridotto a 2 per non sovraccaricare
   } = options;
   
   if (!enabled || !pages || pages.length === 0) {
     return pages.length;
   }
   
-  let totalPages = 0;
-  
-  // Processa immagini in batch per non sovraccaricare
-  for (let i = 0; i < pages.length; i += maxConcurrent) {
-    const batch = pages.slice(i, i + maxConcurrent);
-    const promises = batch.map(url => 
-      estimatePagesForImage(url, { 
-        mangaType, // ✅ Passa tipo (o 'auto' per rilevamento automatico)
-        estimatedPageHeight, 
-        estimatedPageWidth,
-        minAspectRatio, 
-        enabled 
-      })
-    );
-    
-    const results = await Promise.all(promises);
-    totalPages += results.reduce((sum, count) => sum + count, 0);
+  // ✅ Se abbiamo poche immagini, processa tutte insieme
+  if (pages.length <= 5) {
+    try {
+      const results = await Promise.all(
+        pages.map(url => 
+          estimatePagesForImage(url, { 
+            mangaType,
+            estimatedPageHeight, 
+            estimatedPageWidth,
+            minAspectRatio, 
+            enabled 
+          }).catch(() => 1) // ✅ Fallback: 1 pagina se errore
+        )
+      );
+      const total = results.reduce((sum, count) => sum + count, 0);
+      console.log(`[ImageSplitter] Estimated ${total} pages from ${pages.length} images`);
+      return total;
+    } catch (error) {
+      console.warn('[ImageSplitter] Error estimating pages, using image count:', error);
+      return pages.length;
+    }
   }
   
-  console.log(`[ImageSplitter] Total estimated pages: ${totalPages} (from ${pages.length} images, type: ${mangaType})`);
+  // ✅ Per molte immagini, processa in batch
+  let totalPages = 0;
+  let processed = 0;
+  
+  for (let i = 0; i < pages.length; i += maxConcurrent) {
+    const batch = pages.slice(i, i + maxConcurrent);
+    try {
+      const promises = batch.map(url => 
+        estimatePagesForImage(url, { 
+          mangaType,
+          estimatedPageHeight, 
+          estimatedPageWidth,
+          minAspectRatio, 
+          enabled 
+        }).catch(() => 1) // ✅ Fallback: 1 pagina se errore
+      );
+      
+      const results = await Promise.all(promises);
+      totalPages += results.reduce((sum, count) => sum + count, 0);
+      processed += batch.length;
+      
+      // ✅ Log progressivo
+      if (processed % 10 === 0 || processed === pages.length) {
+        console.log(`[ImageSplitter] Processed ${processed}/${pages.length} images, estimated ${totalPages} pages so far`);
+      }
+    } catch (error) {
+      console.warn(`[ImageSplitter] Error processing batch, adding ${batch.length} pages as fallback:`, error);
+      totalPages += batch.length; // ✅ Fallback: aggiungi numero di immagini nel batch
+    }
+  }
+  
+  console.log(`[ImageSplitter] Total estimated pages: ${totalPages} (from ${pages.length} images)`);
   return totalPages;
 }
 
