@@ -145,8 +145,12 @@ const ChapterLoadingScreen = ({
             {displayTitle}
           </Text>
           
-          <Text fontSize="3xl" color="purple.400" fontWeight="bold">
-            {countdown > 0 ? `${countdown}s` : 'Pronto!'}
+          {/* ✅ SEZIONE 3.2: Percentuale reale di caricamento */}
+          <Text fontSize="4xl" color="purple.400" fontWeight="bold">
+            {Math.round(progress)}%
+          </Text>
+          <Text fontSize="md" color="gray.400">
+            {countdown > 0 ? `${countdown}s rimanenti` : 'Pronto!'}
           </Text>
         </VStack>
 
