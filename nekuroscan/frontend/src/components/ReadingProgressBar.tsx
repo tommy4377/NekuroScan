@@ -12,7 +12,7 @@ import {
   Tooltip,
   VStack
 } from '@chakra-ui/react';
-import { FaBook, FaClock } from 'react-icons/fa';
+import { FaBook } from 'react-icons/fa';
 import { useLocation } from 'react-router-dom';
 
 interface ReadingProgress {
@@ -36,9 +36,6 @@ interface ReadingProgress {
 interface ReadingProgressBarProps {
   isVisible?: boolean;
 }
-
-// Media velocità lettura: ~1 minuto per pagina (stima conservativa)
-const AVG_READING_TIME_PER_PAGE = 60; // secondi
 
 const ReadingProgressBar = ({ isVisible = true }: ReadingProgressBarProps) => {
   const location = useLocation();
@@ -147,27 +144,6 @@ const ReadingProgressBar = ({ isVisible = true }: ReadingProgressBarProps) => {
     return () => clearInterval(interval);
   }, [location.pathname]);
 
-  // Calcola tempo rimanente stimato
-  const calculateTimeRemaining = (progress: any): string => {
-    if (!progress.totalPages || progress.totalPages === 0) return '--';
-
-    const pagesRemaining = progress.totalPages - (progress.pageIndex || 0);
-    if (pagesRemaining <= 0) return 'Completato';
-    
-    const totalSeconds = pagesRemaining * AVG_READING_TIME_PER_PAGE;
-
-    if (totalSeconds < 60) {
-      return `${Math.round(totalSeconds)}s`;
-    } else if (totalSeconds < 3600) {
-      const minutes = Math.round(totalSeconds / 60);
-      return `${minutes}min`;
-    } else {
-      const hours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.round((totalSeconds % 3600) / 60);
-      return `${hours}h ${minutes}min`;
-    }
-  };
-
   // Non mostrare se non ci sono dati o se siamo già in ReaderPage (dove c'è già un progress bar)
   if (!isVisible || location.pathname.includes('/read/')) {
     return null;
@@ -180,8 +156,6 @@ const ReadingProgressBar = ({ isVisible = true }: ReadingProgressBarProps) => {
 
   // Se c'è un manga corrente in lettura, mostra solo quello (più prominente)
   if (currentMangaProgress && currentMangaProgress.mangaTitle) {
-    const timeRemaining = calculateTimeRemaining(currentMangaProgress);
-    
     return (
       <Box
         position="sticky"
@@ -221,12 +195,9 @@ const ReadingProgressBar = ({ isVisible = true }: ReadingProgressBarProps) => {
                 <Text fontSize="xs" color="gray.300" fontWeight="medium" noOfLines={1} flex={1}>
                   {currentMangaProgress.mangaTitle || 'Manga'}
                 </Text>
-                <HStack spacing={2}>
-                  <FaClock size="10" color="var(--chakra-colors-gray-500)" />
-                  <Text fontSize="xs" color="gray.400">
-                    ~{timeRemaining}
-                  </Text>
-                </HStack>
+                <Text fontSize="xs" color="gray.400" fontWeight="semibold">
+                  {Math.round(currentMangaProgress.progress || 0)}%
+                </Text>
               </HStack>
               <Progress
                 value={currentMangaProgress.progress || 0}

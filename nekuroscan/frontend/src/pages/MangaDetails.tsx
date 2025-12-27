@@ -965,16 +965,9 @@ function MangaDetails() {
                     </Text>
                   )}
                   {readProgress > 0 && readProgress < 100 && manga?.chapters && (
-                    <HStack justify="space-between" mt={2}>
-                      <Text fontSize="xs" color="gray.500">
-                        {completedChapters?.length || 0} / {manga.chapters.length} capitoli
-                      </Text>
-                      {readingProgress && readingProgress.totalPages && readingProgress.pageIndex !== undefined && (
-                        <Text fontSize="xs" color="gray.500">
-                          ~{Math.round((readingProgress.totalPages - (readingProgress.pageIndex || 0)) * 1)} min rimanenti
-                        </Text>
-                      )}
-                    </HStack>
+                    <Text fontSize="xs" color="gray.500" mt={2}>
+                      {completedChapters?.length || 0} / {manga.chapters.length} capitoli
+                    </Text>
                   )}
                 </Box>
               )}
