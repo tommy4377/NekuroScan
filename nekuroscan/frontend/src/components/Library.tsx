@@ -156,16 +156,22 @@ function Library() {
         size="sm"
         bg="blackAlpha.700"
         _hover={{ bg: 'blackAlpha.800' }}
+        _active={{ bg: 'blackAlpha.900' }}
         onClick={(e) => {
-          e.stopPropagation();
-          e.preventDefault();
-        }}
-        onMouseDown={(e) => {
           e.stopPropagation();
         }}
         aria-label="Azioni manga"
+        className="manga-actions-button"
+        sx={{
+          transition: 'transform 0.2s ease-in-out, background-color 0.2s',
+        }}
       />
-      <MenuList bg="gray.800" borderColor="gray.700">
+      <MenuList 
+        bg="gray.800" 
+        borderColor="gray.700"
+        zIndex={1002}
+        minW="200px"
+      >
         {currentList !== 'completed' && (
           <MenuItem
             icon={<FaCheck />}
@@ -220,13 +226,26 @@ function Library() {
     items.length > 0 ? (
       <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
         {items.map((item, i) => (
-          <Box key={item.url || `${listName}-${i}`} position="relative">
+          <Box 
+            key={item.url || `${listName}-${i}`} 
+            position="relative"
+            className="library-manga-card"
+            sx={{
+              '&:hover .manga-actions-button': {
+                transform: 'scale(1.15)',
+              },
+            }}
+          >
             <MangaCard manga={item} />
             <Box
               position="absolute"
               top={2}
               right={2}
               zIndex={1001}
+              className="manga-actions-wrapper"
+              sx={{
+                transition: 'transform 0.2s ease-in-out',
+              }}
             >
               <MangaActions manga={item} currentList={listName} />
             </Box>
