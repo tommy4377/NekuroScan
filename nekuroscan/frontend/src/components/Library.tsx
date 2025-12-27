@@ -121,21 +121,25 @@ function Library() {
         const destUpdated = JSON.parse(localStorage.getItem(toList) || '[]');
         const exists = destUpdated.find(i => i.url === item.url);
     
-    if (!exists) {
-      const newItem = {
-        ...item,
-        movedAt: new Date().toISOString()
-      };
-      
-      if (toList === 'completed') {
-        newItem.completedAt = new Date().toISOString();
-        newItem.progress = 100;
-      } else if (toList === 'dropped') {
-        newItem.droppedAt = new Date().toISOString();
+        if (!exists) {
+          const newItem = {
+            ...item,
+            movedAt: new Date().toISOString()
+          };
+          
+          if (toList === 'completed') {
+            newItem.completedAt = new Date().toISOString();
+            newItem.progress = 100;
+          } else if (toList === 'dropped') {
+            newItem.droppedAt = new Date().toISOString();
+          }
+          
+          destUpdated.unshift(newItem);
+          localStorage.setItem(toList, JSON.stringify(destUpdated));
+        }
       }
-      
-      destUpdated.unshift(newItem);
-      localStorage.setItem(toList, JSON.stringify(destUpdated));
+    } catch (e) {
+      console.warn('[Library] Failed to move item:', e);
     }
     
     // Reload
