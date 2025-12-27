@@ -45,14 +45,32 @@ function Dashboard() {
 
   const loadData = () => {
     try {
-      setReading(JSON.parse(localStorage.getItem('reading') || '[]'));
-      setFavorites(JSON.parse(localStorage.getItem('favorites') || '[]'));
-      setCompleted(JSON.parse(localStorage.getItem('completed') || '[]'));
-      setDropped(JSON.parse(localStorage.getItem('dropped') || '[]'));
-      setHistory(JSON.parse(localStorage.getItem('history') || '[]'));
-      setReadingProgress(JSON.parse(localStorage.getItem('readingProgress') || '{}'));
+      // ✅ MOBILE FIX: Check localStorage availability
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        setReading(JSON.parse(localStorage.getItem('reading') || '[]'));
+        setFavorites(JSON.parse(localStorage.getItem('favorites') || '[]'));
+        setCompleted(JSON.parse(localStorage.getItem('completed') || '[]'));
+        setDropped(JSON.parse(localStorage.getItem('dropped') || '[]'));
+        setHistory(JSON.parse(localStorage.getItem('history') || '[]'));
+        setReadingProgress(JSON.parse(localStorage.getItem('readingProgress') || '{}'));
+      } else {
+        // Fallback: valori vuoti se localStorage non disponibile
+        setReading([]);
+        setFavorites([]);
+        setCompleted([]);
+        setDropped([]);
+        setHistory([]);
+        setReadingProgress({});
+      }
       setLoading(false);
     } catch (error) {
+      // Fallback su errore
+      setReading([]);
+      setFavorites([]);
+      setCompleted([]);
+      setDropped([]);
+      setHistory([]);
+      setReadingProgress({});
       setLoading(false);
     }
   };
@@ -201,12 +219,19 @@ function Dashboard() {
       try {
         const data = JSON.parse(e.target.result);
         
-        if (data.reading) localStorage.setItem('reading', JSON.stringify(data.reading));
-        if (data.favorites) localStorage.setItem('favorites', JSON.stringify(data.favorites));
-        if (data.completed) localStorage.setItem('completed', JSON.stringify(data.completed));
-        if (data.dropped) localStorage.setItem('dropped', JSON.stringify(data.dropped));
-        if (data.history) localStorage.setItem('history', JSON.stringify(data.history));
-        if (data.readingProgress) localStorage.setItem('readingProgress', JSON.stringify(data.readingProgress));
+        // ✅ MOBILE FIX: Try-catch per localStorage operations
+        try {
+          if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+            if (data.reading) localStorage.setItem('reading', JSON.stringify(data.reading));
+            if (data.favorites) localStorage.setItem('favorites', JSON.stringify(data.favorites));
+            if (data.completed) localStorage.setItem('completed', JSON.stringify(data.completed));
+            if (data.dropped) localStorage.setItem('dropped', JSON.stringify(data.dropped));
+            if (data.history) localStorage.setItem('history', JSON.stringify(data.history));
+            if (data.readingProgress) localStorage.setItem('readingProgress', JSON.stringify(data.readingProgress));
+          }
+        } catch (e) {
+          console.warn('[Dashboard] Failed to import data:', e);
+        }
 
         loadData();
         window.dispatchEvent(new CustomEvent('library-updated'));

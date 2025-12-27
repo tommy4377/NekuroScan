@@ -96,17 +96,26 @@ const hashPayload = (obj: any): string => {
 
 const readLS = <T>(key: string, fallback: T): T => {
   try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
+    if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    }
   } catch {
-    return fallback;
+    // Silent fail
   }
+  return fallback;
 };
 
 const setItemIfChanged = (key: string, value: any): void => {
-  const newStr = JSON.stringify(value);
-  const oldStr = localStorage.getItem(key);
-  if (oldStr !== newStr) localStorage.setItem(key, newStr);
+  try {
+    if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+      const newStr = JSON.stringify(value);
+      const oldStr = localStorage.getItem(key);
+      if (oldStr !== newStr) localStorage.setItem(key, newStr);
+    }
+  } catch {
+    // Silent fail
+  }
 };
 
 const buildLocalPayload = () => ({
@@ -124,33 +133,78 @@ const buildLocalPayload = () => ({
 axios.defaults.baseURL = config.API_URL || '';
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
-const savedToken = localStorage.getItem('token');
-if (savedToken) {
-  axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
+// ✅ MOBILE FIX: Try-catch per localStorage access at top level
+try {
+  if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+    const savedToken = localStorage.getItem('token');
+    if (savedToken) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
+    }
+  }
+} catch (e) {
+  // Silent fail - localStorage non disponibile (modalità privata)
 }
 
 // ========== STORE ==========
 
+// ✅ MOBILE FIX: Helper function per leggere localStorage in modo sicuro
+const safeGetItem = (key: string, fallback: any = null): any => {
+  try {
+    if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+      return localStorage.getItem(key);
+    }
+  } catch (e) {
+    // Silent fail
+  }
+  return fallback;
+};
+
+const safeParseItem = (key: string, fallback: any = null): any => {
+  try {
+    if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : fallback;
+    }
+  } catch (e) {
+    // Silent fail
+  }
+  return fallback;
+};
+
 const useAuth = create<AuthStore>((set, get) => ({
   // STATE
-  user: JSON.parse(localStorage.getItem('user') || 'null'),
-  token: localStorage.getItem('token'),
-  isAuthenticated: !!localStorage.getItem('token'),
+  // ✅ MOBILE FIX: Usa helper functions per accesso sicuro
+  user: safeParseItem('user', null),
+  token: safeGetItem('token'),
+  isAuthenticated: !!safeGetItem('token'),
   loading: false,
   error: null,
   syncStatus: 'idle',
   lastSync: null,
   
   _syncInFlight: false,
-  _lastSyncedHash: localStorage.getItem('lastSyncedHash') || null,
+  _lastSyncedHash: safeGetItem('lastSyncedHash'),
   _lastSyncAt: 0,
   _autoSyncActive: false,
   _stopAutoSync: null,
 
   // INIT AUTH
   initAuth: async () => {
-    const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    // ✅ MOBILE FIX: Try-catch per localStorage access
+    let token: string | null = null;
+    let user: any = null;
+    
+    try {
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        token = localStorage.getItem('token');
+        const userStr = localStorage.getItem('user');
+        user = userStr ? JSON.parse(userStr) : null;
+      }
+    } catch (e) {
+      // Silent fail - localStorage non disponibile
+      set({ isAuthenticated: false, user: null });
+      return;
+    }
     
     // ✅ FIX: Come JS - se abbiamo token E user, setta SUBITO lo stato
     if (token && user) {
@@ -165,7 +219,14 @@ const useAuth = create<AuthStore>((set, get) => ({
         if (response.data && response.data.username) {
           const updatedUser = response.data;
           set({ user: updatedUser });
-          localStorage.setItem('user', JSON.stringify(updatedUser));
+          // ✅ MOBILE FIX: Try-catch per localStorage.setItem
+          try {
+            if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+              localStorage.setItem('user', JSON.stringify(updatedUser));
+            }
+          } catch (e) {
+            // Silent fail
+          }
           
           // Load data from server once
           await get().syncFromServer({ reason: 'init' });
@@ -197,11 +258,26 @@ const useAuth = create<AuthStore>((set, get) => ({
 
       const { token, user } = response.data;
       
-      // ✅ PULISCI TUTTO PRIMA DI SALVARE I NUOVI DATI
-      USER_LOCAL_KEYS.forEach(key => localStorage.removeItem(key));
+      // ✅ MOBILE FIX: Try-catch per localStorage operations
+      try {
+        if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+          // ✅ PULISCI TUTTO PRIMA DI SALVARE I NUOVI DATI
+          USER_LOCAL_KEYS.forEach(key => {
+            try {
+              localStorage.removeItem(key);
+            } catch (e) {
+              // Silent fail per ogni removeItem
+            }
+          });
+          
+          localStorage.setItem('token', token);
+          localStorage.setItem('user', JSON.stringify(user));
+        }
+      } catch (e) {
+        // Silent fail - localStorage non disponibile
+        console.warn('[useAuth.login] localStorage not available, continuing without persistence');
+      }
       
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       set({ 
@@ -253,11 +329,26 @@ const useAuth = create<AuthStore>((set, get) => ({
 
       const { token, user } = response.data;
       
-      // ✅ PULISCI TUTTO PRIMA DI SALVARE I NUOVI DATI
-      USER_LOCAL_KEYS.forEach(key => localStorage.removeItem(key));
+      // ✅ MOBILE FIX: Try-catch per localStorage operations
+      try {
+        if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+          // ✅ PULISCI TUTTO PRIMA DI SALVARE I NUOVI DATI
+          USER_LOCAL_KEYS.forEach(key => {
+            try {
+              localStorage.removeItem(key);
+            } catch (e) {
+              // Silent fail per ogni removeItem
+            }
+          });
+          
+          localStorage.setItem('token', token);
+          localStorage.setItem('user', JSON.stringify(user));
+        }
+      } catch (e) {
+        // Silent fail - localStorage non disponibile
+        console.warn('[useAuth.login] localStorage not available, continuing without persistence');
+      }
       
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       set({ 
@@ -334,7 +425,17 @@ const useAuth = create<AuthStore>((set, get) => ({
 
     const dataToSync = buildLocalPayload();
     const currentHash = hashPayload(dataToSync);
-    const lastHash = get()._lastSyncedHash || localStorage.getItem('lastSyncedHash');
+    // ✅ MOBILE FIX: Try-catch per localStorage access
+    let lastHash = get()._lastSyncedHash;
+    if (!lastHash) {
+      try {
+        if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+          lastHash = localStorage.getItem('lastSyncedHash');
+        }
+      } catch (e) {
+        // Silent fail
+      }
+    }
 
     console.log(`📤 [syncToServer] Syncing (${reason}):`, {
       favorites: dataToSync.favorites?.length || 0,
@@ -360,7 +461,14 @@ const useAuth = create<AuthStore>((set, get) => ({
 
       // Update hash and timestamp
       set({ _lastSyncedHash: currentHash, _lastSyncAt: Date.now() });
-      localStorage.setItem('lastSyncedHash', currentHash);
+      // ✅ MOBILE FIX: Try-catch per localStorage.setItem
+      try {
+        if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+          localStorage.setItem('lastSyncedHash', currentHash);
+        }
+      } catch (e) {
+        // Silent fail
+      }
 
       // Optional refresh
       if (refreshAfter) {
@@ -430,38 +538,60 @@ const useAuth = create<AuthStore>((set, get) => ({
 
       // ✅ SALVA DATI PROFILO
       if (profile) {
-        // Salva stato pubblico
-        localStorage.setItem('profilePublic', profile.isPublic ? 'true' : 'false');
-        
-        // ✅ SALVA AVATAR E BANNER
-        if (profile.avatarUrl) {
-          localStorage.setItem('userAvatar', profile.avatarUrl);
-          console.log('📸 [syncFromServer] Avatar saved:', profile.avatarUrl.substring(0, 50));
-        } else {
-          localStorage.removeItem('userAvatar');
-        }
-        
-        if (profile.bannerUrl) {
-          localStorage.setItem('userBanner', profile.bannerUrl);
-          console.log('🖼️ [syncFromServer] Banner saved');
-        } else {
-          localStorage.removeItem('userBanner');
-        }
+        // ✅ MOBILE FIX: Try-catch per tutte le operazioni localStorage
+        try {
+          if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+            // Salva stato pubblico
+            localStorage.setItem('profilePublic', profile.isPublic ? 'true' : 'false');
+            
+            // ✅ SALVA AVATAR E BANNER
+            if (profile.avatarUrl) {
+              localStorage.setItem('userAvatar', profile.avatarUrl);
+              console.log('📸 [syncFromServer] Avatar saved:', profile.avatarUrl.substring(0, 50));
+            } else {
+              try {
+                localStorage.removeItem('userAvatar');
+              } catch (e) {
+                // Silent fail
+              }
+            }
+            
+            if (profile.bannerUrl) {
+              localStorage.setItem('userBanner', profile.bannerUrl);
+              console.log('🖼️ [syncFromServer] Banner saved');
+            } else {
+              try {
+                localStorage.removeItem('userBanner');
+              } catch (e) {
+                // Silent fail
+              }
+            }
 
-        // Aggiorna user con profilo completo
-        const currentUser = get().user;
-        if (currentUser) {
-          const updatedUser = { ...currentUser, profile };
-          set({ user: updatedUser });
-          localStorage.setItem('user', JSON.stringify(updatedUser));
-          console.log('👤 [syncFromServer] User profile updated');
+            // Aggiorna user con profilo completo
+            const currentUser = get().user;
+            if (currentUser) {
+              const updatedUser = { ...currentUser, profile };
+              set({ user: updatedUser });
+              localStorage.setItem('user', JSON.stringify(updatedUser));
+              console.log('👤 [syncFromServer] User profile updated');
+            }
+          }
+        } catch (e) {
+          console.warn('[syncFromServer] localStorage operations failed:', e);
         }
       }
 
       // Update hash and state
       const newHash = hashPayload({ favorites, reading, completed, dropped, history, readingProgress });
       set({ _lastSyncedHash: newHash, _lastSyncAt: Date.now() });
-      localStorage.setItem('lastSyncedHash', newHash);
+      // ✅ MOBILE FIX: Try-catch per localStorage.setItem
+      try {
+        if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+          localStorage.setItem('lastSyncedHash', newHash);
+        }
+      } catch (e) {
+        // Silent fail
+      }
 
       set({
         syncStatus: 'synced',
@@ -515,7 +645,14 @@ const useAuth = create<AuthStore>((set, get) => ({
       if (response.data.success) {
         const updatedUser = { ...state.user, ...updates };
         set({ user: updatedUser });
-        localStorage.setItem('user', JSON.stringify(updatedUser));
+        // ✅ MOBILE FIX: Try-catch per localStorage.setItem
+        try {
+          if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+          }
+        } catch (e) {
+          // Silent fail
+        }
       }
     } catch (error) {
       throw error;
@@ -526,12 +663,26 @@ const useAuth = create<AuthStore>((set, get) => ({
   syncFavorites: async (favorites: Manga[]) => {
     const token = get().token;
     if (!token) {
-      localStorage.setItem('favorites', JSON.stringify(favorites));
+      // ✅ MOBILE FIX: Try-catch per localStorage.setItem
+      try {
+        if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+          localStorage.setItem('favorites', JSON.stringify(favorites));
+        }
+      } catch (e) {
+        // Silent fail
+      }
       return false;
     }
 
     try {
-      localStorage.setItem('favorites', JSON.stringify(favorites));
+      // ✅ MOBILE FIX: Try-catch per localStorage.setItem
+      try {
+        if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+          localStorage.setItem('favorites', JSON.stringify(favorites));
+        }
+      } catch (e) {
+        // Silent fail
+      }
       await axios.post(`${API_URL}/user/sync`, {
         ...buildLocalPayload(),
         favorites
@@ -548,12 +699,26 @@ const useAuth = create<AuthStore>((set, get) => ({
   syncReading: async (reading: Manga[]) => {
     const token = get().token;
     if (!token) {
-      localStorage.setItem('reading', JSON.stringify(reading));
+      // ✅ MOBILE FIX: Try-catch per localStorage.setItem
+      try {
+        if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+          localStorage.setItem('reading', JSON.stringify(reading));
+        }
+      } catch (e) {
+        // Silent fail
+      }
       return false;
     }
 
     try {
-      localStorage.setItem('reading', JSON.stringify(reading));
+      // ✅ MOBILE FIX: Try-catch per localStorage.setItem
+      try {
+        if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+          localStorage.setItem('reading', JSON.stringify(reading));
+        }
+      } catch (e) {
+        // Silent fail
+      }
       await axios.post(`${API_URL}/user/sync`, {
         ...buildLocalPayload(),
         reading

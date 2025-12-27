@@ -64,17 +64,72 @@ function ReaderPage() {
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   
   // Impostazioni salvate
-  const [readingMode, setReadingMode] = useState(() => localStorage.getItem('readingMode') || 'webtoon');
-  const [imageScale, setImageScale] = useState(() => parseInt(localStorage.getItem('imageScale') || '100'));
-  const [brightness, setBrightness] = useState(() => parseInt(localStorage.getItem('brightness') || '100'));
+  // ✅ MOBILE FIX: Try-catch per localStorage access negli initializers
+  const [readingMode, setReadingMode] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        return localStorage.getItem('readingMode') || 'webtoon';
+      }
+    } catch (e) {
+      // Silent fail
+    }
+    return 'webtoon';
+  });
+  const [imageScale, setImageScale] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        return parseInt(localStorage.getItem('imageScale') || '100');
+      }
+    } catch (e) {
+      // Silent fail
+    }
+    return 100;
+  });
+  const [brightness, setBrightness] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        return parseInt(localStorage.getItem('brightness') || '100');
+      }
+    } catch (e) {
+      // Silent fail
+    }
+    return 100;
+  });
   // ✅ SEZIONE 3.6: Reading Modes Avanzati - Fit mode
-  const [fitMode, setFitMode] = useState(() => localStorage.getItem('fitMode') || 'contain');
+  const [fitMode, setFitMode] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        return localStorage.getItem('fitMode') || 'contain';
+      }
+    } catch (e) {
+      // Silent fail
+    }
+    return 'contain';
+  });
   const [showControls, setShowControls] = useState(true);
   const [autoScroll, setAutoScroll] = useState(false);
-  const [scrollSpeed, setScrollSpeed] = useState(() => parseInt(localStorage.getItem('scrollSpeed') || '2'));
+  const [scrollSpeed, setScrollSpeed] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        return parseInt(localStorage.getItem('scrollSpeed') || '2');
+      }
+    } catch (e) {
+      // Silent fail
+    }
+    return 2;
+  });
   const [bookmarks, setBookmarks] = useState([]);
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [rotationLock, setRotationLock] = useState(() => localStorage.getItem('rotationLock') === 'true');
+  const [rotationLock, setRotationLock] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        return localStorage.getItem('rotationLock') === 'true';
+      }
+    } catch (e) {
+      // Silent fail
+    }
+    return false;
+  });
   const [currentNote, setCurrentNote] = useState('');
   const [hasNote, setHasNote] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -348,19 +403,34 @@ function ReaderPage() {
     try {
       console.log(`💾 [ReaderPage] Saving progress for: ${manga.title} - Chapter ${chapterIndex} - Page ${currentPage}`);
       
-      const readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-      readingProgress[manga.url] = {
-        chapterId: chapter.url,
-        chapterIndex,
-        chapterTitle: manga.chapters?.[chapterIndex]?.title || '',
-        page: currentPage,
-        totalPages: chapter.pages?.length || 0,
-        timestamp: new Date().toISOString()
-      };
-      localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
-      console.log('✅ [ReaderPage] readingProgress saved');
+      // ✅ MOBILE FIX: Try-catch per localStorage operations
+      let readingProgress: any = {};
+      try {
+        if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+          readingProgress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+          readingProgress[manga.url] = {
+            chapterId: chapter.url,
+            chapterIndex,
+            chapterTitle: manga.chapters?.[chapterIndex]?.title || '',
+            page: currentPage,
+            totalPages: chapter.pages?.length || 0,
+            timestamp: new Date().toISOString()
+          };
+          localStorage.setItem('readingProgress', JSON.stringify(readingProgress));
+          console.log('✅ [ReaderPage] readingProgress saved');
+        }
+      } catch (e) {
+        console.warn('[ReaderPage] Failed to save readingProgress:', e);
+      }
       
-      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+      let reading: any[] = [];
+      try {
+        if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+          reading = JSON.parse(localStorage.getItem('reading') || '[]');
+        }
+      } catch (e) {
+        reading = [];
+      }
       const existingIndex = reading.findIndex(r => r.url === manga.url);
       
       const readingItem = {
@@ -385,8 +455,15 @@ function ReaderPage() {
       }
       
       const updatedReading = reading.slice(0, 100);
-      localStorage.setItem('reading', JSON.stringify(updatedReading));
-      console.log(`✅ [ReaderPage] reading list saved (${updatedReading.length} items):`, updatedReading.map(r => r.title));
+      // ✅ MOBILE FIX: Try-catch per localStorage.setItem
+      try {
+        if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+          localStorage.setItem('reading', JSON.stringify(updatedReading));
+          console.log(`✅ [ReaderPage] reading list saved (${updatedReading.length} items):`, updatedReading.map(r => r.title));
+        }
+      } catch (e) {
+        console.warn('[ReaderPage] Failed to save reading list:', e);
+      }
       
       window.dispatchEvent(new CustomEvent('library-updated'));
       
@@ -915,7 +992,15 @@ function ReaderPage() {
         
         // RIPRISTINA PROGRESSO
         try {
-          const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+          // ✅ MOBILE FIX: Try-catch per localStorage access
+          let progress: any = {};
+          try {
+            if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+              progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+            }
+          } catch (e) {
+            progress = {};
+          }
           const mangaProgress = progress[mangaData.url];
           if (mangaProgress && mangaProgress.chapterId === chapterUrl) {
             const savedPage = mangaProgress.page || 0;

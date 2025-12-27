@@ -30,12 +30,31 @@ function Library() {
   const syncToServer = useAuth(state => state.syncToServer);
 
   // ✅ WRAP loadLibrary in useCallback per evitare React error #300
+  // ✅ MOBILE FIX: Try-catch per localStorage access
   const loadLibrary = useCallback(() => {
-    setReading(JSON.parse(localStorage.getItem('reading') || '[]'));
-    setFavorites(JSON.parse(localStorage.getItem('favorites') || '[]'));
-    setHistory(JSON.parse(localStorage.getItem('history') || '[]'));
-    setCompleted(JSON.parse(localStorage.getItem('completed') || '[]'));
-    setDropped(JSON.parse(localStorage.getItem('dropped') || '[]'));
+    try {
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        setReading(JSON.parse(localStorage.getItem('reading') || '[]'));
+        setFavorites(JSON.parse(localStorage.getItem('favorites') || '[]'));
+        setHistory(JSON.parse(localStorage.getItem('history') || '[]'));
+        setCompleted(JSON.parse(localStorage.getItem('completed') || '[]'));
+        setDropped(JSON.parse(localStorage.getItem('dropped') || '[]'));
+      } else {
+        // Fallback: array vuoti se localStorage non disponibile
+        setReading([]);
+        setFavorites([]);
+        setHistory([]);
+        setCompleted([]);
+        setDropped([]);
+      }
+    } catch (e) {
+      // Silent fail - usa array vuoti come fallback
+      setReading([]);
+      setFavorites([]);
+      setHistory([]);
+      setCompleted([]);
+      setDropped([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -66,7 +85,14 @@ function Library() {
       case 'dropped': setDropped(updatedList); break;
     }
     
-    localStorage.setItem(listName, JSON.stringify(updatedList));
+    // ✅ MOBILE FIX: Try-catch per localStorage.setItem
+    try {
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        localStorage.setItem(listName, JSON.stringify(updatedList));
+      }
+    } catch (e) {
+      console.warn('[Library] Failed to save list:', e);
+    }
     
     // Sync if logged in
     if (user && syncToServer) {
@@ -83,14 +109,17 @@ function Library() {
 
   // ✅ WRAP moveToList in useCallback per evitare React error #300
   const moveToList = useCallback((fromList, toList, item) => {
-    // Remove from source
-    const sourceUpdated = JSON.parse(localStorage.getItem(fromList) || '[]')
-      .filter(i => i.url !== item.url);
-    localStorage.setItem(fromList, JSON.stringify(sourceUpdated));
-    
-    // Add to destination
-    const destUpdated = JSON.parse(localStorage.getItem(toList) || '[]');
-    const exists = destUpdated.find(i => i.url === item.url);
+    // ✅ MOBILE FIX: Try-catch per localStorage operations
+    try {
+      if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+        // Remove from source
+        const sourceUpdated = JSON.parse(localStorage.getItem(fromList) || '[]')
+          .filter(i => i.url !== item.url);
+        localStorage.setItem(fromList, JSON.stringify(sourceUpdated));
+        
+        // Add to destination
+        const destUpdated = JSON.parse(localStorage.getItem(toList) || '[]');
+        const exists = destUpdated.find(i => i.url === item.url);
     
     if (!exists) {
       const newItem = {

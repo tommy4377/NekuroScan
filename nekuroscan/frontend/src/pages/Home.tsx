@@ -120,7 +120,16 @@ function Home() {
       };
       
       // Continua a leggere (locale, istantaneo)
-      const reading = JSON.parse(localStorage.getItem('reading') || '[]');
+      // ✅ MOBILE FIX: Try-catch per localStorage access
+      let reading: any[] = [];
+      try {
+        if (typeof window !== 'undefined' && typeof Storage !== 'undefined') {
+          reading = JSON.parse(localStorage.getItem('reading') || '[]');
+        }
+      } catch (e) {
+        // Silent fail - usa array vuoto
+        reading = [];
+      }
       console.log(`📚 [Home] Reading list from localStorage: ${reading.length} items`, reading.map((r: any) => r.title));
       
       const readingWithProgress = reading.slice(0, 6).map((item: any) => ({ // RIDOTTO: 10 → 6
