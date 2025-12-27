@@ -32,6 +32,7 @@ import { config } from '@/config';
 import useAuth from '@/hooks/useAuth';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { encodeSource, decodeSource } from '@/utils/sourceMapper';
+import { estimateTotalPages } from '@/utils/imageSplitter';
 
 function ReaderPage() {
   console.log('[ReaderPage] 📖 Component mounting...');
@@ -90,9 +91,13 @@ function ReaderPage() {
   const touchStartTime = useRef(0);
   const lastTapTime = useRef(0);
   
+  // ✅ FIX: Page counter per manhwa verticali - stato per pagine stimate
+  const [estimatedPageCount, setEstimatedPageCount] = useState<number | null>(null);
+  
   // ========== CALCOLI ==========
   const chapterIndex = parseInt(searchParams.get('chapter') || '0');
-  const totalPages = chapter?.pages?.length || 0;
+  // Usa il conteggio stimato se disponibile, altrimenti usa il numero di immagini
+  const totalPages = estimatedPageCount !== null ? estimatedPageCount : (chapter?.pages?.length || 0);
   const progressPercentage = totalPages > 0 ? ((currentPage + 1) / totalPages) * 100 : 0;
   
   // Calcolo pagine da mostrare in base alla modalità - MEMOIZED
@@ -846,6 +851,36 @@ function ReaderPage() {
         // SALVA DATI
         setManga(mangaData);
         setChapter(chapterData);
+        
+        // ✅ FIX: Stima numero di pagine per immagini verticali (in background)
+        // Strategia multi-tipo:
+        // 1. Rileva barre nere/spazi bianchi (se presenti) - più preciso
+        // 2. Usa dimensioni standard per tipo (manga/manhwa/manhua/webtoon)
+        // 3. Rilevamento automatico del tipo basato su dimensioni
+        if (chapterData.pages && chapterData.pages.length > 0) {
+          // Reset stima iniziale
+          setEstimatedPageCount(null);
+          
+          // Stima in background senza bloccare il rendering
+          // Usa 'auto' per rilevamento automatico del tipo basato su ogni immagine
+          estimateTotalPages(chapterData.pages, {
+            mangaType: 'auto', // ✅ Rilevamento automatico: manga/manhwa/manhua/webtoon
+            minAspectRatio: 1.2, // ✅ Proporzione minimale
+            enabled: true,
+            maxConcurrent: 3 // Processa 3 immagini alla volta
+          }).then(count => {
+            if (isMounted) {
+              setEstimatedPageCount(count);
+              console.log(`[ReaderPage] 📊 Estimated page count: ${count} (from ${chapterData.pages.length} images)`);
+            }
+          }).catch(err => {
+            console.warn('[ReaderPage] Error estimating page count:', err);
+            // In caso di errore, usa il numero di immagini
+            if (isMounted) {
+              setEstimatedPageCount(chapterData.pages.length);
+            }
+          });
+        }
         
         // RIPRISTINA PROGRESSO
         try {
