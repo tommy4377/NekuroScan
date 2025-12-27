@@ -105,14 +105,32 @@ const MangaCard = memo<MangaCardProps>(({
         borderColor="transparent"
         willChange="transform"
         sx={{
-          overflow: 'visible'
+          overflow: 'visible',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0) 0%, rgba(236, 72, 153, 0) 100%)',
+            borderRadius: 'xl',
+            pointerEvents: 'none',
+            zIndex: 1,
+            opacity: 0,
+            transition: 'opacity 0.3s ease',
+          },
         }}
         _hover={{
           bg: 'gray.700',
           borderColor: 'purple.500',
-          boxShadow: '0 12px 30px -5px rgba(128, 90, 213, 0.4), 0 8px 16px -8px rgba(128, 90, 213, 0.3)',
-          transform: 'translateY(-8px) scale(1.02)',
-          zIndex: 999
+          boxShadow: '0 20px 40px -10px rgba(128, 90, 213, 0.5), 0 10px 20px -10px rgba(128, 90, 213, 0.4)',
+          transform: 'translateY(-12px) scale(1.03)',
+          zIndex: 999,
+          '&::before': {
+            opacity: 1,
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%)',
+          },
         }}
       >
         <Box 
@@ -170,6 +188,8 @@ const MangaCard = memo<MangaCardProps>(({
               fontSize="xs"
               px={2}
               py={1}
+              boxShadow="md"
+              zIndex={1002}
             >
               18+
             </Badge>
@@ -184,6 +204,21 @@ const MangaCard = memo<MangaCardProps>(({
               fontSize="xs"
               px={2}
               py={1}
+              boxShadow="md"
+              zIndex={1002}
+              sx={{
+                '@keyframes pulse-badge': {
+                  '0%, 100%': {
+                    opacity: 1,
+                    transform: 'scale(1)',
+                  },
+                  '50%': {
+                    opacity: 0.8,
+                    transform: 'scale(1.05)',
+                  },
+                },
+                animation: 'pulse-badge 2s ease-in-out infinite',
+              }}
             >
               NEW
             </Badge>
@@ -195,7 +230,7 @@ const MangaCard = memo<MangaCardProps>(({
               bottom={2}
               left={2}
               right={2}
-              bg="blue.600"
+              bgGradient="linear(to-r, blue.600, blue.500)"
               color="white"
               px={2}
               py={1}
@@ -207,6 +242,9 @@ const MangaCard = memo<MangaCardProps>(({
               zIndex={1001}
               boxShadow="lg"
               pointerEvents="none"
+              sx={{
+                transition: 'all 0.2s ease',
+              }}
             >
               Capitolo {cleanChapter}
             </Box>
@@ -218,7 +256,7 @@ const MangaCard = memo<MangaCardProps>(({
               bottom={2}
               left={2}
               right={2}
-              bg="green.600"
+              bgGradient="linear(to-r, green.600, green.500)"
               color="white"
               px={2}
               py={1}
@@ -230,6 +268,9 @@ const MangaCard = memo<MangaCardProps>(({
               zIndex={1001}
               boxShadow="lg"
               pointerEvents="none"
+              sx={{
+                transition: 'all 0.2s ease',
+              }}
             >
               {continueFrom}
             </Box>

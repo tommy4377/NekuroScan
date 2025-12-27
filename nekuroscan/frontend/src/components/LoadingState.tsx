@@ -85,6 +85,7 @@ export const LoadingGrid = ({ count = 20, columns = { base: 2, md: 3, lg: 5 } })
           borderRadius="lg"
           startColor="gray.800"
           endColor="gray.700"
+          // ✅ SEZIONE 1: Shimmer animation già applicata via theme
         />
       ))}
     </SimpleGrid>

@@ -17,6 +17,7 @@ import Breadcrumbs from '@/components/Breadcrumbs';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import DownloadProgressBar from '@/components/DownloadProgressBar';
 import BannedNotice from '@/components/BannedNotice';
+import ScrollToTop from '@/components/ScrollToTop';
 import { ThemeProvider } from './contexts/ThemeContext';
 import useAuthStore from '@/hooks/useAuth';
 import useRateLimitDetector from '@/hooks/useRateLimitDetector';
@@ -392,6 +393,9 @@ function AppContent() {
         </Box>
         <AnimatedRoutes />
       </Box>
+      
+      {/* ✅ SEZIONE 1: Scroll to Top button */}
+      <ScrollToTop />
     </Box>
   );
 }
