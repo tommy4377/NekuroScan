@@ -76,72 +76,13 @@ function Home() {
   const [downloadedCount, setDownloadedCount] = useState(0);
 
   // ========= CHECK OFFLINE =========
+  // ✅ FIX MOBILE: Check meno aggressivo - solo navigator.onLine (affidabile)
+  // Rimossi fetch aggiuntivi che causavano falsi positivi su mobile
   const checkOfflineStatus = useCallback(async () => {
-    // Prima controlla la connessione del browser
-    if (!navigator.onLine) {
-      setIsOffline(true);
-      return true;
-    }
-    
-    try {
-      // Tentativo 1: Ping al proxy con timeout
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3000);
-      
-      const proxyHealthUrl = config.PROXY_URL ? `${config.PROXY_URL}/health` : '/api/image-metrics';
-      const response = await fetch(proxyHealthUrl, {
-        signal: controller.signal,
-        cache: 'no-cache',
-        mode: 'cors'
-      });
-      
-      clearTimeout(timeout);
-      
-      if (response.ok) {
-        setIsOffline(false);
-        return false;
-      }
-      
-      // Se non ok, prova un altro endpoint
-      
-      // Tentativo 2: Prova a fare una richiesta reale
-      const testController = new AbortController();
-      const testTimeout = setTimeout(() => testController.abort(), 3000);
-      
-      const proxyTestUrl = config.PROXY_URL ? `${config.PROXY_URL}/api/proxy` : '/api/proxy';
-      const testResponse = await fetch(proxyTestUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: getBaseUrl('m'),
-          headers: {}
-        }),
-        signal: testController.signal,
-        cache: 'no-cache'
-      });
-      
-      clearTimeout(testTimeout);
-      
-      if (testResponse.ok) {
-        setIsOffline(false);
-        return false;
-      }
-      
-      setIsOffline(true);
-      return true;
-      
-    } catch (error: unknown) {
-      
-      // Se l'errore è un abort, probabilmente è solo lento, non offline
-      if (error.name === 'AbortError') {
-        // Non impostare offline immediatamente per timeout
-        setIsOffline(false);
-        return false;
-      }
-      
-      setIsOffline(true);
-      return true;
-    }
+    // Usa solo navigator.onLine - è affidabile e non causa falsi positivi
+    const offline = !navigator.onLine;
+    setIsOffline(offline);
+    return offline;
   }, []);
 
   // ========= LOAD CONTENT =========
@@ -149,19 +90,18 @@ function Home() {
     console.log('[Home] 🔄 loadAllContent started');
     setLoading(true);
     
-    // Check se offline - ma NON bloccare se stiamo ricaricando dopo "Riprova"
-    const offline = await checkOfflineStatus();
-    console.log('[Home] 📡 Offline status:', offline);
-    
-    if (offline) {
-      // Modalità OFFLINE: mostra solo download
-      setIsOffline(true);
-      setLoading(false);
-      return;
+    // ✅ FIX MOBILE: Non bloccare il caricamento se checkOfflineStatus fallisce
+    // Carica sempre il contenuto, anche se il check dice offline (potrebbe essere un falso positivo)
+    try {
+      const offline = await checkOfflineStatus();
+      console.log('[Home] 📡 Offline status:', offline);
+      setIsOffline(offline);
+      // NON fare return qui - continua a caricare il contenuto anche se sembra offline
+    } catch (error) {
+      // Se il check fallisce, assume online e continua
+      console.warn('[Home] ⚠️ Offline check failed, assuming online:', error);
+      setIsOffline(false);
     }
-    
-    // Se arriviamo qui, siamo online
-    setIsOffline(false);
     
     try {
       // Helper per processare risultati
@@ -557,7 +497,9 @@ function Home() {
   }, [loading, navigateToSection]);
 
   // ========= OFFLINE MODE =========
-  if (isOffline || !navigator.onLine) {
+  // ✅ FIX MOBILE: Mostra offline screen SOLO se navigator.onLine è false E abbiamo contenuto scaricato
+  // Non bloccare il rendering se navigator.onLine dice che siamo online
+  if (!navigator.onLine && downloadedCount > 0) {
     return (
       <PageTransition>
         <Helmet>
@@ -575,7 +517,7 @@ function Home() {
               </Badge>
               <Heading size="lg" mb={2}>Manga Scaricati</Heading>
               <Text color="gray.400">
-                Server non raggiungibile. Accedi ai tuoi manga offline
+                Connessione assente. Accedi ai tuoi manga offline
               </Text>
             </Box>
 

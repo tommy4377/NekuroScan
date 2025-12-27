@@ -34,6 +34,15 @@ const Latest = React.memo(() => {
     rootMargin: '200px'
   });
 
+  // ✅ SEZIONE 4.3: Pull to refresh
+  const { pullDistance, isRefreshing, pullProgress } = usePullToRefresh({
+    onRefresh: async () => {
+      await loadData(1, true);
+    },
+    enabled: !loading && !initialLoading,
+    disabled: false
+  });
+
   useEffect(() => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 500);
@@ -159,6 +168,11 @@ const Latest = React.memo(() => {
   return (
     <>
       {SEOHelmet}
+      {/* ✅ SEZIONE 4.3: Pull to refresh indicator */}
+      <PullToRefreshIndicator 
+        pullDistance={pullDistance} 
+        isRefreshing={isRefreshing} 
+      />
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
         <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">

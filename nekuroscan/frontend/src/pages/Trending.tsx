@@ -17,6 +17,8 @@ import apiManager from '@/api';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSEO, SEOTemplates } from '@/hooks/useSEO';
 import InfiniteScrollLoader from '@/components/InfiniteScrollLoader';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import PullToRefreshIndicator from '@/components/PullToRefreshIndicator';
 
 // ========== COMPONENT ==========
 
@@ -32,6 +34,15 @@ const Trending = memo(() => {
   const { ref: loadMoreRef } = useInView({
     threshold: 0.1,
     rootMargin: '200px'
+  });
+
+  // ✅ SEZIONE 4.3: Pull to refresh
+  const { pullDistance, isRefreshing } = usePullToRefresh({
+    onRefresh: async () => {
+      await loadData();
+    },
+    enabled: !loading && !initialLoading,
+    disabled: false
   });
 
   useEffect(() => {
@@ -150,6 +161,11 @@ const Trending = memo(() => {
   return (
     <>
       {SEOHelmet}
+      {/* ✅ SEZIONE 4.3: Pull to refresh indicator */}
+      <PullToRefreshIndicator 
+        pullDistance={pullDistance} 
+        isRefreshing={isRefreshing} 
+      />
       <Container maxW="container.xl" py={8}>
         <VStack spacing={6} align="stretch">
           <Box bg="gray.800" p={{ base: 4, md: 6 }} borderRadius="xl">
