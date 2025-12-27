@@ -285,62 +285,78 @@ export default function AdvancedSearchFilters({
         )}
 
         {/* Controlli rapidi */}
-        <HStack flexWrap="wrap" spacing={3}>
-          <Select
-            maxW="180px"
-            value={filters.sortBy}
-            onChange={(e) => onFiltersChange({ sortBy: e.target.value })}
-            bg="gray.700"
-            size="sm"
-            _focus={{
-              borderColor: 'purple.500',
-              boxShadow: '0 0 0 1px var(--chakra-colors-purple-500)'
-            }}
-          >
-            {SORT_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </Select>
+        <VStack align="stretch" spacing={3}>
+          {/* Sort Selector - Stile Button Group */}
+          <Box>
+            <Text fontSize="xs" color="gray.400" mb={2} fontWeight="semibold" textTransform="uppercase" letterSpacing="wide">
+              Ordina per
+            </Text>
+            <Wrap spacing={2}>
+              {SORT_OPTIONS.map(opt => (
+                <WrapItem key={opt.value}>
+                  <Button
+                    size="sm"
+                    variant={filters.sortBy === opt.value ? 'solid' : 'outline'}
+                    colorScheme={filters.sortBy === opt.value ? 'purple' : 'gray'}
+                    onClick={() => onFiltersChange({ sortBy: opt.value })}
+                    _hover={{
+                      transform: 'translateY(-2px)',
+                      boxShadow: 'md',
+                      borderColor: filters.sortBy === opt.value ? 'purple.500' : 'purple.400'
+                    }}
+                    transition="all 0.2s"
+                    fontSize="xs"
+                    px={4}
+                    fontWeight={filters.sortBy === opt.value ? 'semibold' : 'normal'}
+                  >
+                    {opt.label}
+                  </Button>
+                </WrapItem>
+              ))}
+            </Wrap>
+          </Box>
 
-          <Checkbox
-            isChecked={filters.includeAdult}
-            onChange={(e) => onFiltersChange({ includeAdult: e.target.checked })}
-            colorScheme="pink"
-            size="md"
-          >
-            🔞 Adult
-          </Checkbox>
+          <HStack spacing={3} flexWrap="wrap">
+            <Checkbox
+              isChecked={filters.includeAdult}
+              onChange={(e) => onFiltersChange({ includeAdult: e.target.checked })}
+              colorScheme="pink"
+              size="md"
+            >
+              🔞 Adult
+            </Checkbox>
 
-          <Button
-            size="sm"
-            colorScheme="purple"
-            onClick={onSearch}
-            isLoading={isLoading}
-            isDisabled={!hasActiveFilters && !searchQuery.trim()}
-            _hover={{
-              transform: 'translateY(-2px)',
-              boxShadow: 'lg'
-            }}
-            transition="all 0.2s"
-          >
-            🔍 Cerca
-          </Button>
-
-          {hasActiveFilters && (
             <Button
               size="sm"
-              variant="outline"
-              onClick={onReset}
+              colorScheme="purple"
+              onClick={onSearch}
+              isLoading={isLoading}
+              isDisabled={!hasActiveFilters && !searchQuery.trim()}
               _hover={{
-                bg: 'gray.700',
-                transform: 'translateY(-2px)'
+                transform: 'translateY(-2px)',
+                boxShadow: 'lg'
               }}
               transition="all 0.2s"
             >
-              🗑️ Reset
+              🔍 Cerca
             </Button>
-          )}
-        </HStack>
+
+            {hasActiveFilters && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onReset}
+                _hover={{
+                  bg: 'gray.700',
+                  transform: 'translateY(-2px)'
+                }}
+                transition="all 0.2s"
+              >
+                🗑️ Reset
+              </Button>
+            )}
+          </HStack>
+        </VStack>
 
         {/* Filtri avanzati collassabili */}
         <Collapse in={isOpen} animateOpacity>

@@ -184,7 +184,12 @@ export class StatsAPI extends BaseAPI {
     }
   }
 
-  async getAllCategories(): Promise<{ genres: { id: string, name: string }[], types: { id: string, name: string }[] }> {
+  async getAllCategories(): Promise<{ 
+    genres: { id: string, name: string }[], 
+    types: { id: string, name: string }[],
+    demographics?: { id: string, name: string }[],
+    status?: { id: string, name: string }[]
+  }> {
     const genres = GENRES.map((g) => ({ id: g, name: g }));
     const types = [
       { id: 'manga', name: 'Manga' },
@@ -192,7 +197,20 @@ export class StatsAPI extends BaseAPI {
       { id: 'manhua', name: 'Manhua' },
       { id: 'novel', name: 'Light Novel' }
     ];
-    return { genres, types };
+    const demographics = [
+      { id: 'shounen', name: 'Shounen' },
+      { id: 'shoujo', name: 'Shoujo' },
+      { id: 'seinen', name: 'Seinen' },
+      { id: 'josei', name: 'Josei' },
+      { id: 'kodomomuke', name: 'Kodomomuke' }
+    ];
+    const status = [
+      { id: 'ongoing', name: 'In corso' },
+      { id: 'completed', name: 'Completati' },
+      { id: 'hiatus', name: 'In pausa' },
+      { id: 'cancelled', name: 'Cancellati' }
+    ];
+    return { genres, types, demographics, status };
   }
 
   async getLatestUpdates(includeAdult: boolean = false, page: number = 1): Promise<{ results: Manga[], hasMore: boolean }> {

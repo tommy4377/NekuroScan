@@ -34,6 +34,8 @@ interface Category {
 interface Categories {
   genres?: Category[];
   types?: Category[];
+  demographics?: Category[];
+  status?: Category[];
 }
 
 interface Filters {
@@ -477,34 +479,51 @@ function Categories() {
 
                 <TabPanel>
                   <Wrap spacing={2}>
-                    {categories?.demographics?.map(demo => (
-                      <WrapItem key={demo.id}>
-                        <GenreButton
-                          id={demo.id}
-                          name={demo.name}
-                          isSelected={selectedGenres.includes(demo.id)}
-                          onToggle={toggleGenre}
-                          color="purple"
-                        />
-                      </WrapItem>
-                    ))}
+                    {categories?.demographics && categories.demographics.length > 0 ? (
+                      categories.demographics.map(demo => (
+                        <WrapItem key={demo.id}>
+                          <GenreButton
+                            id={demo.id}
+                            name={demo.name}
+                            isSelected={selectedGenres.includes(demo.id)}
+                            onToggle={toggleGenre}
+                            color="purple"
+                          />
+                        </WrapItem>
+                      ))
+                    ) : (
+                      <Text color="gray.400" fontSize="sm">
+                        Nessun demografico disponibile
+                      </Text>
+                    )}
                   </Wrap>
                 </TabPanel>
 
                 <TabPanel>
                   <Wrap spacing={2}>
-                    {categories?.status?.map(status => (
-                      <WrapItem key={status.id}>
-                        <Button
-                          size="sm"
-                          variant={filters.status === status.id ? 'solid' : 'outline'}
-                          colorScheme="gray"
-                          onClick={() => setFilters({...filters, status: filters.status === status.id ? '' : status.id})}
-                        >
-                          {status.name}
-                        </Button>
-                      </WrapItem>
-                    ))}
+                    {categories?.status && categories.status.length > 0 ? (
+                      categories.status.map(status => (
+                        <WrapItem key={status.id}>
+                          <Button
+                            size="sm"
+                            variant={filters.status === status.id ? 'solid' : 'outline'}
+                            colorScheme={filters.status === status.id ? 'orange' : 'gray'}
+                            onClick={() => setFilters({...filters, status: filters.status === status.id ? '' : status.id})}
+                            _hover={{
+                              transform: 'translateY(-2px)',
+                              boxShadow: 'md'
+                            }}
+                            transition="all 0.2s"
+                          >
+                            {status.name}
+                          </Button>
+                        </WrapItem>
+                      ))
+                    ) : (
+                      <Text color="gray.400" fontSize="sm">
+                        Nessuno stato disponibile
+                      </Text>
+                    )}
                   </Wrap>
                 </TabPanel>
               </TabPanels>
