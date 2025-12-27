@@ -21,6 +21,7 @@ import MangaCard from '@/components/MangaCard';
 import statsAPI from '@/api/stats';
 import apiManager from '@/api';
 import StickyHeader from '@/components/StickyHeader';
+import AdvancedSearchFilters from '@/components/AdvancedSearchFilters';
 
 // ========== TYPES ==========
 
@@ -285,21 +286,22 @@ function Categories() {
     if (selectedGenres.length <= 1) {
       return statsAPI.searchAdvanced({
         genres: selectedGenres,
-        types: selectedType ? [selectedType] : [],
-        status: filters.status,
-        year: filters.year,
+        type: selectedType || undefined,
+        status: filters.status || undefined,
+        year: filters.year || undefined,
         sort: filters.sortBy || 'most_read',
         page,
         includeAdult: filters.includeAdult
       });
     }
 
+    // Multiple genres: do intersection
     const perGenre = await Promise.all(
       selectedGenres.map((g: string) => statsAPI.searchAdvanced({
         genres: [g],
-        types: selectedType ? [selectedType] : [],
-        status: filters.status,
-        year: filters.year,
+        type: selectedType || undefined,
+        status: filters.status || undefined,
+        year: filters.year || undefined,
         sort: filters.sortBy || 'most_read',
         page,
         includeAdult: filters.includeAdult
@@ -397,111 +399,28 @@ function Categories() {
           </Button>
         </StickyHeader>
         
-        <VStack align="stretch" spacing={4}>
-
-          {selectedGenres.length > 0 && (
-            <Wrap>
-              {selectedGenres.map((genreId) => (
-                <WrapItem key={genreId}>
-                  <Tag size="lg" colorScheme="purple">
-                    <TagLabel>{genreId.replace(/-/g, ' ')}</TagLabel>
-                    <TagCloseButton onClick={() => toggleGenre(genreId)} />
-                  </Tag>
-                </WrapItem>
-              ))}
-            </Wrap>
-          )}
-
-          <HStack flexWrap="wrap" spacing={4}>
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              if (searchQuery.trim()) {
-                window.location.href = `/categories?q=${encodeURIComponent(searchQuery.trim())}`;
-              }
-            }}>
-              <InputGroup maxW="300px">
-                <InputLeftElement pointerEvents="none">
-                  <SearchIcon color="gray.400" />
-                </InputLeftElement>
-                <Input
-                  placeholder="Cerca manga..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  bg="gray.800"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && searchQuery.trim()) {
-                      e.preventDefault();
-                      window.location.href = `/categories?q=${encodeURIComponent(searchQuery.trim())}`;
-                    }
-                  }}
-                />
-              </InputGroup>
-            </form>
-
-            <Select
-              maxW="170px"
-              value={filters.sortBy}
-              onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
-              bg="gray.800"
-              aria-label="Ordina risultati per"
-            >
-              <option value="most_read">Più letti</option>
-              <option value="newest">Più recenti</option>
-              <option value="score">Valutazione</option>
-              <option value="a-z">A-Z</option>
-              <option value="z-a">Z-A</option>
-            </Select>
-
-            <Select
-              maxW="150px"
-              value={filters.year}
-              onChange={(e) => setFilters({...filters, year: e.target.value})}
-              bg="gray.800"
-              placeholder="Anno"
-              aria-label="Filtra per anno di pubblicazione"
-            >
-              {categories?.years?.map(year => (
-                <option key={year.id} value={year.id}>{year.name}</option>
-              ))}
-            </Select>
-
-            <Select
-              maxW="170px"
-              value={filters.minChapters || ''}
-              onChange={(e) => setFilters({...filters, minChapters: e.target.value})}
-              bg="gray.800"
-              placeholder="Capitoli min"
-              aria-label="Filtra per numero minimo di capitoli"
-            >
-              <option value="">Tutti</option>
-              <option value="10">10+ capitoli</option>
-              <option value="50">50+ capitoli</option>
-              <option value="100">100+ capitoli</option>
-              <option value="200">200+ capitoli</option>
-            </Select>
-
-            <Button 
-              colorScheme="purple" 
-              onClick={searchWithFilters} 
-              isLoading={loadingManga}
-              isDisabled={selectedGenres.length === 0 && !selectedType && !searchQuery.trim()}
-            >
-              Cerca
-            </Button>
-
-            <Button variant="outline" onClick={resetFilters}>
-              Pulisci filtri
-            </Button>
-
-            <Checkbox
-              isChecked={filters.includeAdult}
-              onChange={(e) => setFilters({...filters, includeAdult: e.target.checked})}
-              colorScheme="pink"
-            >
-              🔞 Adult
-            </Checkbox>
-          </HStack>
-        </VStack>
+        {/* ✅ SEZIONE 2.2: Ricerca Avanzata con Filtri */}
+        <AdvancedSearchFilters
+          genres={categories?.genres || []}
+          types={categories?.types || []}
+          selectedGenres={selectedGenres}
+          selectedType={selectedType}
+          filters={filters}
+          onGenresChange={setSelectedGenres}
+          onTypeChange={setSelectedType}
+          onFiltersChange={(newFilters) => setFilters(prev => ({ ...prev, ...newFilters }))}
+          onSearch={searchWithFilters}
+          onReset={resetFilters}
+          isLoading={loadingManga}
+          searchQuery={searchQuery}
+          onSearchQueryChange={(query) => {
+            setSearchQuery(query);
+            // Se c'è solo testo, naviga direttamente alla ricerca
+            if (query.trim() && selectedGenres.length === 0 && !selectedType) {
+              window.location.href = `/categories?q=${encodeURIComponent(query.trim())}`;
+            }
+          }}
+        />
 
         {!location.state && (
           loadingCats ? (
