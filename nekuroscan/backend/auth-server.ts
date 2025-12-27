@@ -28,9 +28,6 @@ dotenv.config();
 
 console.log('🔧 [STARTUP] Environment loaded, PORT:', process.env.PORT || 10000);
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
 
 // Trust proxy per ottenere vero IP client dietro Render

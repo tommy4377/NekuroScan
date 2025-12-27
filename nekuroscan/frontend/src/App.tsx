@@ -18,7 +18,9 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import DownloadProgressBar from '@/components/DownloadProgressBar';
 import BannedNotice from '@/components/BannedNotice';
 import ScrollToTop from '@/components/ScrollToTop';
+import ShortcutsModal from '@/components/ShortcutsModal';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import useAuthStore from '@/hooks/useAuth';
 import useRateLimitDetector from '@/hooks/useRateLimitDetector';
 import { useMigrateFromLocalStorage } from '@/hooks/useIndexedDB';
@@ -326,24 +328,18 @@ function AppContent() {
     };
   }, [initAuth, startAutoSync, isAuthenticated, toast]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent): void => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        const searchInput = document.querySelector('input[placeholder*="Cerca"]') as HTMLInputElement | null;
-        searchInput?.focus();
-      }
-      
-      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
-        e.preventDefault();
-        window.location.href = '/library';
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyPress);
-    return () => document.removeEventListener('keydown', handleKeyPress);
-  }, []);
+  // ✅ SEZIONE 2: Keyboard Shortcuts - Integrato con hook
+  const { showShortcutsModal, setShowShortcutsModal } = useKeyboardShortcuts({
+    onSearch: () => {
+      const searchInput = document.querySelector('input[placeholder*="Cerca"], input[type="search"]') as HTMLInputElement | null;
+      searchInput?.focus();
+    },
+    onLibrary: () => {
+      window.location.href = '/library';
+    },
+    enabled: true,
+    isReaderPage: false
+  });
 
   return (
     <Box minH="100vh" bg="gray.900">
@@ -396,6 +392,13 @@ function AppContent() {
       
       {/* ✅ SEZIONE 1: Scroll to Top button */}
       <ScrollToTop />
+      
+      {/* ✅ SEZIONE 2: Shortcuts Modal */}
+      <ShortcutsModal 
+        isOpen={showShortcutsModal}
+        onClose={() => setShowShortcutsModal(false)}
+        isReaderPage={false}
+      />
     </Box>
   );
 }

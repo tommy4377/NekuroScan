@@ -27,8 +27,10 @@ import chapterCache from '@/utils/chapterCache';
 import ProxiedImage from '@/components/ProxiedImage';
 import ChapterLoadingScreen from '@/components/ChapterLoadingScreen';
 import ReaderControls from '@/components/ReaderControls';
+import ShortcutsModal from '@/components/ShortcutsModal';
 import { config } from '@/config';
 import useAuth from '@/hooks/useAuth';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { encodeSource, decodeSource } from '@/utils/sourceMapper';
 
 function ReaderPage() {
@@ -896,11 +898,50 @@ function ReaderPage() {
     };
   }, [source, mangaId, chapterId]); // ✅ FIX: Rimosse dipendenze navigate/toast per evitare ricariche
 
-  // ✅ FIX dipendenze useEffect
+  // ✅ SEZIONE 2: Keyboard Shortcuts - Integrato con hook
+  const handleNextPage = useCallback(() => {
+    if (readingMode === 'webtoon') return;
+    const step = readingMode === 'double' ? 2 : 1;
+    const newPage = currentPage + step;
+    if (newPage < totalPages) {
+      setCurrentPage(newPage);
+    }
+  }, [currentPage, totalPages, readingMode]);
+
+  const handlePrevPage = useCallback(() => {
+    if (readingMode === 'webtoon') return;
+    const step = readingMode === 'double' ? 2 : 1;
+    const newPage = currentPage - step;
+    if (newPage >= 0) {
+      setCurrentPage(newPage);
+    }
+  }, [currentPage, readingMode]);
+
+  const handleCloseReader = useCallback(() => {
+    if (isFullscreen) {
+      toggleFullscreen();
+    } else {
+      saveProgress();
+      navigate(`/manga/${source}/${mangaId}`);
+    }
+  }, [isFullscreen, toggleFullscreen, saveProgress, navigate, source, mangaId]);
+
+  const { showShortcutsModal, setShowShortcutsModal } = useKeyboardShortcuts({
+    onNextPage: handleNextPage,
+    onPrevPage: handlePrevPage,
+    onToggleFullscreen: toggleFullscreen,
+    onClose: handleCloseReader,
+    enabled: !settingsOpen && !showNoteModal && readingMode !== 'webtoon',
+    isReaderPage: true
+  });
+
+  // ✅ Mantieni anche handleKeyPress per compatibilità con webtoon mode e shortcuts legacy (A/D keys)
+  // Il nuovo hook gestisce Space, Arrows, F, Esc. handleKeyPress gestisce anche A/D per compatibilità
   useEffect(() => {
+    if (readingMode === 'webtoon') return; // Webtoon non ha keyboard shortcuts
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [handleKeyPress]);
+  }, [handleKeyPress, readingMode]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -1577,6 +1618,13 @@ function ReaderPage() {
           </DrawerBody>
         </DrawerContent>
       </Drawer>
+
+      {/* ✅ SEZIONE 2: Shortcuts Modal */}
+      <ShortcutsModal 
+        isOpen={showShortcutsModal}
+        onClose={() => setShowShortcutsModal(false)}
+        isReaderPage={true}
+      />
 
       {/* Modal Note */}
       <Modal isOpen={showNoteModal} onClose={() => setShowNoteModal(false)} size="lg" isCentered>
